@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -ex
+
+PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+
+pushd $PARENT_PATH
+dep ensure
+pushd vendor/github.com/ethereum/go-ethereum
+go install ./cmd/abigen
+popd
+go run resources/installBlockchainDependencies/main.go
+go run resources/extractAgentAbi/main.go
+go generate ./...
+popd

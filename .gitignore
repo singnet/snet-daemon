@@ -1,3 +1,13 @@
+.idea/
+resources/blockchain/node_modules/
+resources/blockchain/build/
+snetd.db
+snetd.config.json
+/vendor/
+blockchain/agent.go
+resources/Agent.abi
+/build/
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -10,3 +20,4 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+

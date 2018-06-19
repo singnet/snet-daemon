@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -ex
+
+PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+
+pushd $PARENT_PATH
+go run resources/test/main.go
+popd

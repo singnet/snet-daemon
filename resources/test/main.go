@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"syscall"
 	"time"
+
+	"github.com/singnet/snet-daemon/config"
+	log "github.com/sirupsen/logrus"
 )
 
 type mnemonicFile struct {
@@ -116,7 +117,7 @@ func main() {
 	}
 	time.Sleep(time.Second * 7)
 	httpReq, err := http.NewRequest("POST", "http://127.0.0.1:5000/FakeService/FakeMethod",
-		bytes.NewBuffer([]byte("\x00\x00\x00\x00\x13{\"hello\":\"goodbye\"}")))
+		bytes.NewBuffer([]byte(`\x00\x00\x00\x00\x13{"hello":"goodbye"}`)))
 	if err != nil {
 		log.WithError(err).Error()
 		return

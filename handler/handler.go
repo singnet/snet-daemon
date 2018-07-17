@@ -50,9 +50,9 @@ func GetGrpcHandler() grpc.StreamHandler {
 			return grpcToProcess
 		}
 		return nil
-	} else {
-		return grpcLoopback
 	}
+
+	return grpcLoopback
 }
 
 func GetHttpHandler() http.HandlerFunc {

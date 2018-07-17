@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"net/http"
+	"net/url"
+
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"net/http"
-	"net/url"
 )
 
 var (
@@ -55,6 +57,6 @@ func GetGrpcHandler() grpc.StreamHandler {
 	return grpcLoopback
 }
 
-func GetHttpHandler() http.HandlerFunc {
-	return httpToHttp
+func GetHttpHandler(bp blockchain.Processor) http.Handler {
+	return httpToHttp(bp)
 }

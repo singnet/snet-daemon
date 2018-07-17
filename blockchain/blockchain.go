@@ -4,15 +4,13 @@ package blockchain
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+
 	"github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
 	log "github.com/sirupsen/logrus"
@@ -31,66 +29,15 @@ type jobInfo struct {
 	jobSignatureBytes []byte
 }
 
-var (
-	ethClient          *ethclient.Client
-	rawClient          *rpc.Client
-	agent              *Agent
-	privateKey         *ecdsa.PrivateKey
-	address            string
-	jobCompletionQueue chan *jobInfo
-)
-
-func init() {
+func (p Processor) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
 	if config.GetBool(config.BlockchainEnabledKey) {
-		// Setup ethereum client
-		if client, err := rpc.Dial(config.GetString(config.EthereumJsonRpcEndpointKey)); err != nil {
-			log.WithError(err).Panic("error creating rpc client")
-		} else {
-			rawClient = client
-			ethClient = ethclient.NewClient(rawClient)
-		}
-
-		// Setup agent
-		if a, err := NewAgent(common.HexToAddress(config.GetString(config.AgentContractAddressKey)), ethClient); err != nil {
-			log.WithError(err).Panic("error instantiating agent")
-		} else {
-			agent = a
-		}
-
-		// Setup identity
-		if privateKeyString := config.GetString(config.PrivateKeyKey); privateKeyString != "" {
-			if privKey, err := crypto.HexToECDSA(privateKeyString); err != nil {
-				log.WithError(err).Panic("error getting private key")
-			} else {
-				privateKey = privKey
-				address = crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-			}
-		} else if hdwalletMnemonic := config.GetString(config.HdwalletMnemonicKey); hdwalletMnemonic != "" {
-			if privKey, err := derivePrivateKey(hdwalletMnemonic, 44, 60, 0, 0, uint32(config.GetInt(config.HdwalletIndexKey))); err != nil {
-				log.WithError(err).Panic("error deriving private key")
-			} else {
-				privateKey = privKey
-				address = crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-			}
-		}
-
-		// Start event and job completion routines
-		jobCompletionQueue = make(chan *jobInfo, 1000)
-		go processJobCompletions()
-		go processEvents()
-		go submitOldJobsForCompletion()
-	}
-}
-
-func GetGrpcStreamInterceptor() grpc.StreamServerInterceptor {
-	if config.GetBool(config.BlockchainEnabledKey) {
-		return jobValidationInterceptor
+		return p.jobValidationInterceptor
 	} else {
 		return noOpInterceptor
 	}
 }
 
-func IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
+func (p Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 	log := log.WithFields(log.Fields{
 		"jobAddress":   common.BytesToAddress(jobAddressBytes).Hex(),
 		"jobSignature": hex.EncodeToString(jobSignatureBytes)})
@@ -136,9 +83,9 @@ func IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 	log.Debug("unable to validate job invocation locally; falling back to on-chain validation")
 
 	// Fall back to on-chain validation
-	if validated, err := agent.ValidateJobInvocation(&bind.CallOpts{
+	if validated, err := p.agent.ValidateJobInvocation(&bind.CallOpts{
 		Pending: true,
-		From:    common.HexToAddress(address)}, common.BytesToAddress(jobAddressBytes), v, r, s); err != nil {
+		From:    common.HexToAddress(p.address)}, common.BytesToAddress(jobAddressBytes), v, r, s); err != nil {
 		log.WithError(err).Error("error validating job on chain")
 		return false
 	} else if !validated {
@@ -150,7 +97,7 @@ func IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 	return true
 }
 
-func CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
+func (p Processor) CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
 	job := &db.Job{}
 
 	// Mark the job completed in the db synchronously
@@ -178,5 +125,5 @@ func CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
 	}
 
 	// Submit the job for completion
-	jobCompletionQueue <- &jobInfo{jobAddressBytes, jobSignatureBytes}
+	p.jobCompletionQueue <- &jobInfo{jobAddressBytes, jobSignatureBytes}
 }

@@ -1,4 +1,4 @@
-//go:generate abigen --abi ../resources/Agent.abi --pkg blockchain --type Agent --out agent.go
+//go:generate abigen --abi ../resources/blockchain/node_modules/singularitynet-platform-contracts/abi/Agent.json --pkg blockchain --type Agent --out agent.go
 
 package blockchain
 
@@ -7,6 +7,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+
 	"github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

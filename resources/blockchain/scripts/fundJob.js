@@ -1,10 +1,10 @@
 "use strict";
 
 let Contract = require("truffle-contract");
-let JobJson = require("singularitynet-alpha-blockchain/Job.json");
-let Job = Contract(JobJson);
-let TokenJson = require("singularitynet-token-contracts/SingularityNetToken.json");
-let Token = Contract(TokenJson);
+let JobAbi = require("singularitynet-platform-contracts/abi/Job.json");
+let Job = Contract({contractName: "Job", abi: JobAbi});
+let TokenAbi = require("singularitynet-token-contracts/abi/SingularityNetToken.json");
+let Token = Contract({contractName: "SingularityNetToken", abi: TokenAbi});
 let fse = require("fs-extra");
 
 module.exports = async (callback) => {

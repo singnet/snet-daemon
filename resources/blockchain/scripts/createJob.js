@@ -1,8 +1,8 @@
 "use strict";
 
 let Contract = require("truffle-contract");
-let AgentJson = require("singularitynet-alpha-blockchain/Agent.json");
-let Agent = Contract(AgentJson);
+let AgentAbi = require("singularitynet-platform-contracts/abi/Agent.json");
+let Agent = Contract({contractName: "Agent", abi: AgentAbi});
 let fse = require("fs-extra");
 
 module.exports = async (callback) => {

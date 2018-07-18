@@ -43,7 +43,7 @@ var testConfiguration = []string{
 	"SNET_HDWALLET_INDEX=0",
 	"SNET_LOG_LEVEL=5",
 	"SNET_PASSTHROUGH_ENABLED=false",
-	"SNET_POLL_SLEEP_SECS=5",
+	"SNET_POLL_SLEEP_SECS=1",
 	"SNET_SERVICE_TYPE=grpc",
 	"SMET_WIRE_ENCODING=json",
 }
@@ -89,7 +89,7 @@ func TestEndToEnd(t *testing.T) {
 	snetdCmd := runCommand("", testConfiguration, "../blockchain/build/snetd")
 	defer snetdCmd.Wait()
 	defer snetdCmd.Process.Signal(syscall.SIGTERM)
-	time.Sleep(time.Second * 7)
+	time.Sleep(2 * time.Second)
 
 	runCommand(blockchainPath, nil, "npm", "run", "create-job").Wait()
 	runCommand(blockchainPath, nil, "npm", "run", "fund-job").Wait()
@@ -108,7 +108,7 @@ func TestEndToEnd(t *testing.T) {
 	err = json.Unmarshal(rawJobInvocation, jIFile)
 	require.NoError(t, err)
 
-	time.Sleep(time.Second * 7)
+	time.Sleep(2 * time.Second)
 
 	httpReq, err := http.NewRequest("POST", "http://127.0.0.1:5000/FakeService/FakeMethod",
 		bytes.NewBuffer([]byte("\x00\x00\x00\x00\x13"+`{"hello":"goodbye"}`)))
@@ -131,7 +131,7 @@ func TestEndToEnd(t *testing.T) {
 	fmt.Print(string(httpRespBytes))
 	assert.NotEmpty(t, httpRespBytes, "Expected response body from daemon")
 
-	time.Sleep(time.Second * 7)
+	time.Sleep(2 * time.Second)
 }
 
 func runCommand(dir string, env []string, name string, arg ...string) *exec.Cmd {

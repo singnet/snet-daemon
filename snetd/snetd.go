@@ -2,6 +2,13 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
@@ -10,12 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 func main() {
@@ -28,6 +29,10 @@ func main() {
 		log.WithError(err).Panic("error listening")
 	}
 
+	blockProc := blockchain.NewProcessor()
+	blockProc.StartLoop()
+	// TODO(aiden) defer StopLoop
+
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		mux := cmux.New(lis)
 		grpcL := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type",
@@ -35,7 +40,7 @@ func main() {
 		httpL := mux.Match(cmux.HTTP1Fast())
 
 		grpcServer := grpc.NewServer(grpc.UnknownServiceHandler(handler.GetGrpcHandler()),
-			grpc.StreamInterceptor(blockchain.GetGrpcStreamInterceptor()))
+			grpc.StreamInterceptor(blockProc.GrpcStreamInterceptor()))
 		grpcWebServer := grpcweb.WrapServer(grpcServer)
 
 		log.Debug("starting daemon")
@@ -58,7 +63,7 @@ func main() {
 	} else {
 		log.Debug("starting daemon")
 
-		go http.Serve(lis, handler.GetHttpHandler())
+		go http.Serve(lis, handler.GetHttpHandler(blockProc))
 	}
 
 	defer db.Shutdown()

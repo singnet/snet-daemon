@@ -3,13 +3,24 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/blockchain"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/blockchain"
 )
 
-func httpToHttp(resp http.ResponseWriter, req *http.Request) {
+type httpHandler struct {
+	bp blockchain.Processor
+}
+
+func httpToHttp(blockProc blockchain.Processor) http.Handler {
+	return httpHandler{
+		bp: blockProc,
+	}
+}
+
+func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	var jobAddress, jobSignature string
 	var jobAddressBytes, jobSignatureBytes []byte
 
@@ -44,7 +55,7 @@ func httpToHttp(resp http.ResponseWriter, req *http.Request) {
 
 		jobAddressBytes, jobSignatureBytes = common.FromHex(jobAddress), common.FromHex(jobSignature)
 
-		if !blockchain.IsValidJobInvocation(jobAddressBytes, jobSignatureBytes) {
+		if !h.bp.IsValidJobInvocation(jobAddressBytes, jobSignatureBytes) {
 			http.Error(resp, "job invocation not valid", http.StatusUnauthorized)
 			return
 		}
@@ -83,6 +94,6 @@ func httpToHttp(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	if blockchainEnabled {
-		blockchain.CompleteJob(jobAddressBytes, jobSignatureBytes)
+		h.bp.CompleteJob(jobAddressBytes, jobSignatureBytes)
 	}
 }

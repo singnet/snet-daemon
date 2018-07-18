@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -49,17 +50,22 @@ var testConfiguration = []string{
 }
 
 func TestEndToEnd(t *testing.T) {
+	cwd, err := os.Getwd()
+	require.NoError(t, err, "Unable to determine working directory")
+
 	dbPath := config.GetString(config.DbPathKey)
-	buildPath := "../blockchain/build"
-	buildStatePath := "../blockchain/build/state"
-	blockchainPath := "../blockchain"
-	nodePath := "../blockchain/node_modules"
+	blockchainPath := filepath.Join(cwd, "..", "blockchain")
+	buildPath := filepath.Join(blockchainPath, "build")
+	buildStatePath := filepath.Join(buildPath, "state")
+	nodePath := filepath.Join(blockchainPath, "node_modules")
 
 	runCommand("", nil, "rm", "-rf", dbPath).Wait()
 	runCommand("", nil, "rm", "-rf", buildPath).Wait()
 
-	runCommand("", nil, "go", "build", "-o", "../blockchain/build/snetd",
-		"../../snetd/snetd.go").Wait()
+	runCommand("", nil, "go", "build", "-o",
+		filepath.Join(buildPath, "snetd"),
+		filepath.Join(cwd, "..", "..", "snetd", "snetd.go"),
+	).Wait()
 
 	runCommand(blockchainPath, nil, "npm", "run", "create-mnemonic").Wait()
 	rawMnemonic, err := ioutil.ReadFile(buildStatePath + "/Mnemonic.json")
@@ -86,7 +92,7 @@ func TestEndToEnd(t *testing.T) {
 
 	testConfiguration = append(testConfiguration, fmt.Sprintf("SNET_AGENT_CONTRACT_ADDRESS=%+v", aFile.Agent))
 	testConfiguration = append(testConfiguration, fmt.Sprintf("SNET_HDWALLET_MNEMONIC=%+v", mFile.Mnemonic))
-	snetdCmd := runCommand("", testConfiguration, "../blockchain/build/snetd")
+	snetdCmd := runCommand("", testConfiguration, filepath.Join(buildPath, "snetd"))
 	defer snetdCmd.Wait()
 	defer snetdCmd.Process.Signal(syscall.SIGTERM)
 	time.Sleep(time.Second * 7)

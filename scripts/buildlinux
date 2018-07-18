@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -ex
+
+PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+
+pushd $PARENT_PATH
+mkdir -p build
+docker build -t snetd-linux-amd64:latest resources/linuxbuild
+docker run --name linux-build snetd-linux-amd64:latest
+docker cp linux-build:/go/src/github.com/singnet/snet-daemon/build/snetd-linux-amd64 ./build
+docker rm linux-build
+docker rmi snetd-linux-amd64:latest
+popd

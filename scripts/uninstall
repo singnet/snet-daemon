@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -ex
+
+PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+
+pushd $PARENT_PATH
+rm -rf vendor
+rm -rf $GOPATH/bin/abigen
+rm -rf resources/blockchain/node_modules
+rm -rf resources/blockchain/build
+rm -rf resources/Agent.abi
+rm -rf blockchain/agent.go
+rm -rf build
+popd

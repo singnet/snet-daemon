@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"net/http"
+	"net/url"
+
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"net/http"
-	"net/url"
 )
 
 var (

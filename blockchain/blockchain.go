@@ -4,7 +4,9 @@ package blockchain
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
+	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 
@@ -36,9 +38,14 @@ var (
 	ethClient          *ethclient.Client
 	rawClient          *rpc.Client
 	agent              *Agent
+	sigHasher          func([]byte) []byte
 	privateKey         *ecdsa.PrivateKey
 	address            string
 	jobCompletionQueue chan *jobInfo
+
+	// Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
+	hashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
+	hashPrefix42Bytes = []byte("\x19Ethereum Signed Message:\n420x")
 )
 
 func init() {
@@ -51,11 +58,32 @@ func init() {
 			ethClient = ethclient.NewClient(rawClient)
 		}
 
+		agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
+
 		// Setup agent
-		if a, err := NewAgent(common.HexToAddress(config.GetString(config.AgentContractAddressKey)), ethClient); err != nil {
+		if a, err := NewAgent(agentAddress, ethClient); err != nil {
 			log.WithError(err).Panic("error instantiating agent")
 		} else {
 			agent = a
+		}
+
+		// Determine "version" of agent contract and set local signature hash creator
+		if bytecode, err := ethClient.CodeAt(context.Background(), agentAddress, nil); err != nil {
+			log.WithError(err).Panic("error retrieving agent bytecode")
+		} else {
+			bcSum := md5.Sum(bytecode)
+
+			// Compare checksum of agent with known checksum of the first version of the agent contract, which signed
+			// the raw bytes of the address rather than the hex-encoded string
+			if bytes.Equal(bcSum[:], []byte{244, 176, 168, 6, 74, 56, 171, 175, 38, 48, 245, 246, 189, 0, 67, 200}) {
+				sigHasher = func(i []byte) []byte {
+					return crypto.Keccak256(hashPrefix32Bytes, crypto.Keccak256(i))
+				}
+			} else {
+				sigHasher = func(i []byte) []byte {
+					return crypto.Keccak256(hashPrefix42Bytes, []byte(hex.EncodeToString(i)))
+				}
+			}
 		}
 
 		// Setup identity
@@ -121,8 +149,8 @@ func IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 		return false
 	}
 
-	pubKey, err := crypto.SigToPub(crypto.Keccak256([]byte{0x19}, []byte("Ethereum Signed Message:\n32"),
-		crypto.Keccak256(jobAddressBytes)), bytes.Join([][]byte{jobSignatureBytes[0:64], {v % 27}}, []byte{}))
+	pubKey, err := crypto.SigToPub(sigHasher(jobAddressBytes), bytes.Join([][]byte{jobSignatureBytes[0:64], {v % 27}},
+		[]byte{}))
 	if err != nil {
 		log.WithError(err).Error("error recovering signature")
 		return false

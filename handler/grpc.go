@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"os/exec"
+	"strings"
+
 	"github.com/gorilla/rpc/v2/json2"
 	"github.com/singnet/snet-daemon/codec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"io"
-	"net/http"
-	"os/exec"
-	"strings"
 )
 
 /*

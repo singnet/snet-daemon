@@ -1,9 +1,10 @@
 package config
 
 import (
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"time"
 )
 
 const (

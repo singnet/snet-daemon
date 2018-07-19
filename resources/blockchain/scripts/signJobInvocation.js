@@ -9,7 +9,5 @@ module.exports = async (callback) => {
 };
 
 let signAddress = (address, account) => {
-    let valueHex = "0x" + address.slice(2);
-    let h = web3.sha3(valueHex, {encoding: "hex"});
-    return web3.eth.sign(account, h);
+    return web3.eth.sign(account, web3.fromUtf8(address));
 };

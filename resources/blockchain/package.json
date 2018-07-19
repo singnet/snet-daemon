@@ -3,7 +3,8 @@
     "bip39": "2.5.0",
     "fs-extra": "5.0.0",
     "ganache-cli": "6.1.6",
-    "singularitynet-platform-contracts": "0.2.0",
+    "singularitynet-platform-contracts": "0.2.1",
+    "singularitynet-token-contracts": "2.0.0",
     "truffle": "4.1.13",
     "truffle-contract": "3.0.6",
     "truffle-hdwallet-provider": "0.0.5"

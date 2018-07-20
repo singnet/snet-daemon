@@ -22,7 +22,7 @@ Modified from https://github.com/mwitkow/grpc-proxy/blob/67591eb23c48346a480470e
 Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-PROXY for licensing terms.
 Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
 */
-func grpcToGrpc(srv interface{}, inStream grpc.ServerStream) error {
+func grpcToGRPC(srv interface{}, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -136,7 +136,7 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 	return ret
 }
 
-func grpcToJsonRpc(srv interface{}, inStream grpc.ServerStream) error {
+func grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -161,13 +161,13 @@ func grpcToJsonRpc(srv interface{}, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "error unmarshaling request; error: %+v", err)
 	}
 
-	jsonRpcReq, err := json2.EncodeClientRequest(method, params)
+	jsonRPCReq, err := json2.EncodeClientRequest(method, params)
 
 	if err != nil {
 		return status.Errorf(codes.Internal, "error encoding request; error: %+v", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", passthroughEndpoint, bytes.NewBuffer(jsonRpcReq))
+	httpReq, err := http.NewRequest("POST", passthroughEndpoint, bytes.NewBuffer(jsonRPCReq))
 
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request; error: %+v", err)

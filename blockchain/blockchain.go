@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	JobPendingState    = "PENDING"
-	JobFundedState     = "FUNDED"
+	jobPendingState    = "PENDING"
+	jobFundedState     = "FUNDED"
 	JobAddressHeader   = "snet-job-address"
 	JobSignatureHeader = "snet-job-signature"
 )
@@ -122,9 +122,9 @@ func NewProcessor() (Processor, error) {
 func (p Processor) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
 	if config.GetBool(config.BlockchainEnabledKey) {
 		return p.jobValidationInterceptor
-	} else {
-		return noOpInterceptor
 	}
+
+	return noOpInterceptor
 }
 
 func (p Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
@@ -165,7 +165,7 @@ func (p Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byt
 	}
 
 	// If job is FUNDED and signature validates, skip on-chain validation
-	if job.JobState == JobFundedState && bytes.Equal(crypto.PubkeyToAddress(*pubKey).Bytes(), job.Consumer) {
+	if job.JobState == jobFundedState && bytes.Equal(crypto.PubkeyToAddress(*pubKey).Bytes(), job.Consumer) {
 		log.Debug("validated job invocation locally")
 		return true
 	}

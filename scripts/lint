@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -e
+
+PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+
+pushd $PARENT_PATH
+go list ./... | grep -v /vendor/ | xargs -n 1 golint
+popd

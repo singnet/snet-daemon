@@ -5,5 +5,10 @@ set -ex
 PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
+# Run golint
+# NOTE: currently we are just printing lint violations, not failing the test if any errors are present
+./scripts/lint
+
+# Run integration tests
 GOCACHE=off go test -v ./resources/test/
 popd

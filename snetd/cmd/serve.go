@@ -100,7 +100,7 @@ func (d daemon) start() {
 	} else {
 		log.Debug("starting daemon")
 
-		go http.Serve(d.lis, handler.GetHttpHandler(d.blockProc))
+		go http.Serve(d.lis, handler.GetHTTPHandler(d.blockProc))
 	}
 }
 

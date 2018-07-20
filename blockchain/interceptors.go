@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func jobValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
+func (p Processor) jobValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 
 	md, ok := metadata.FromIncomingContext(ss.Context())
@@ -30,10 +30,10 @@ func jobValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.
 
 	jobSignatureBytes := common.FromHex(jobSignatureMd[0])
 
-	if IsValidJobInvocation(jobAddressBytes, jobSignatureBytes) {
+	if p.IsValidJobInvocation(jobAddressBytes, jobSignatureBytes) {
 		err := handler(srv, ss)
 		if err == nil {
-			CompleteJob(jobAddressBytes, jobSignatureBytes)
+			p.CompleteJob(jobAddressBytes, jobSignatureBytes)
 		}
 		return err
 	}

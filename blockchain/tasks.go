@@ -18,8 +18,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func processJobCompletions() {
-	for jobInfo := range jobCompletionQueue {
+// StartLoops starts background processing for event and job completion routines
+func (p Processor) StartLoop() {
+	go p.processJobCompletions()
+	go p.processEvents()
+	go p.submitOldJobsForCompletion()
+}
+
+func (p Processor) processJobCompletions() {
+	for jobInfo := range p.jobCompletionQueue {
 		log := log.WithFields(log.Fields{"jobAddress": common.BytesToAddress(jobInfo.jobAddressBytes).Hex(),
 			"jobSignature": hex.EncodeToString(jobInfo.jobSignatureBytes)})
 
@@ -29,11 +36,11 @@ func processJobCompletions() {
 			log.WithError(err).Error("error parsing job signature")
 		}
 
-		auth := bind.NewKeyedTransactor(privateKey)
+		auth := bind.NewKeyedTransactor(p.privateKey)
 
 		log.Debug("submitting transaction to complete job")
-		if txn, err := agent.CompleteJob(&bind.TransactOpts{
-			From:     common.HexToAddress(address),
+		if txn, err := p.agent.CompleteJob(&bind.TransactOpts{
+			From:     common.HexToAddress(p.address),
 			Signer:   auth.Signer,
 			GasLimit: 1000000}, common.BytesToAddress(jobInfo.jobAddressBytes), v, r, s); err != nil {
 			log.WithError(err).Error("error submitting transaction to complete job")
@@ -41,7 +48,7 @@ func processJobCompletions() {
 			isPending := true
 
 			for {
-				if _, isPending, _ = ethClient.TransactionByHash(context.Background(), txn.Hash()); !isPending {
+				if _, isPending, _ = p.ethClient.TransactionByHash(context.Background(), txn.Hash()); !isPending {
 					break
 				}
 				time.Sleep(time.Second * 1)
@@ -50,7 +57,7 @@ func processJobCompletions() {
 	}
 }
 
-func processEvents() {
+func (p Processor) processEvents() {
 	sleepSecs := config.GetDuration(config.PollSleepSecsKey)
 	agentContractAddress := config.GetString(config.AgentContractAddressKey)
 
@@ -71,7 +78,7 @@ func processEvents() {
 		// We have to do a raw call because the standard method of ethClient.HeaderByNumber(ctx, nil) errors on
 		// unmarshaling the response currently. See https://github.com/ethereum/go-ethereum/issues/3230
 		var currentBlockHex string
-		if err = rawClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
+		if err = p.rawClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
 			log.WithError(err).Error("error determining current block")
 			continue
 		}
@@ -93,8 +100,9 @@ func processEvents() {
 		fromBlock := new(big.Int).Add(lastBlock, new(big.Int).SetUint64(1))
 
 		// If fromBlock <= currentBlock
+		// TODO(aiden) invert logic and early return
 		if fromBlock.Cmp(currentBlock) <= 0 {
-			if jobCreatedLogs, err := ethClient.FilterLogs(context.Background(), ethereum.FilterQuery{
+			if jobCreatedLogs, err := p.ethClient.FilterLogs(context.Background(), ethereum.FilterQuery{
 				FromBlock: fromBlock,
 				ToBlock:   currentBlock,
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
@@ -133,7 +141,7 @@ func processEvents() {
 				log.WithError(err).Error("error getting job created logs")
 			}
 
-			if jobFundedLogs, err := ethClient.FilterLogs(context.Background(), ethereum.FilterQuery{
+			if jobFundedLogs, err := p.ethClient.FilterLogs(context.Background(), ethereum.FilterQuery{
 				FromBlock: fromBlock,
 				ToBlock:   currentBlock,
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
@@ -170,7 +178,7 @@ func processEvents() {
 				log.WithError(err).Error("error getting job funded logs")
 			}
 
-			if jobCompletedLogs, err := ethClient.FilterLogs(context.Background(), ethereum.FilterQuery{
+			if jobCompletedLogs, err := p.ethClient.FilterLogs(context.Background(), ethereum.FilterQuery{
 				FromBlock: fromBlock,
 				ToBlock:   currentBlock,
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
@@ -207,7 +215,7 @@ func processEvents() {
 	}
 }
 
-func submitOldJobsForCompletion() {
+func (p Processor) submitOldJobsForCompletion() {
 	db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(db.JobBucketName)
 		bucket.ForEach(func(k, v []byte) error {
@@ -218,7 +226,7 @@ func submitOldJobsForCompletion() {
 					"jobAddress":   common.BytesToAddress(job.JobAddress).Hex(),
 					"jobSignature": hex.EncodeToString(job.JobSignature),
 				}).Debug("completing old job found in db")
-				jobCompletionQueue <- &jobInfo{job.JobAddress, job.JobSignature}
+				p.jobCompletionQueue <- &jobInfo{job.JobAddress, job.JobSignature}
 			}
 			return nil
 		})

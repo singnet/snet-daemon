@@ -4,6 +4,10 @@ set -e
 
 PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
+if ! command golint ; then
+  go get -u golang.org/x/lint/golint
+fi
+
 pushd $PARENT_PATH
 go list ./... | grep -v /vendor/ | xargs -n 1 golint
 popd

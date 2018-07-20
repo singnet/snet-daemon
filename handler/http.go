@@ -14,7 +14,7 @@ type httpHandler struct {
 	bp blockchain.Processor
 }
 
-func httpToHttp(blockProc blockchain.Processor) http.Handler {
+func httpToHTTP(blockProc blockchain.Processor) http.Handler {
 	return httpHandler{
 		bp: blockProc,
 	}

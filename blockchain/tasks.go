@@ -72,9 +72,9 @@ func (p Processor) processEvents() {
 		return
 	}
 
-	jobCreatedId := a.Events["JobCreated"].Id()
-	jobFundedId := a.Events["JobFunded"].Id()
-	jobCompletedId := a.Events["JobCompleted"].Id()
+	jobCreatedID := a.Events["JobCreated"].Id()
+	jobFundedID := a.Events["JobFunded"].Id()
+	jobCompletedID := a.Events["JobCompleted"].Id()
 
 	for {
 		time.Sleep(time.Second * sleepSecs)
@@ -110,7 +110,7 @@ func (p Processor) processEvents() {
 				FromBlock: fromBlock,
 				ToBlock:   currentBlock,
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
-				Topics:    [][]common.Hash{{jobCreatedId}}}); err == nil {
+				Topics:    [][]common.Hash{{jobCreatedID}}}); err == nil {
 				if len(jobCreatedLogs) > 0 {
 					db.Update(func(tx *bolt.Tx) error {
 						bucket := tx.Bucket(db.JobBucketName)
@@ -129,7 +129,7 @@ func (p Processor) processEvents() {
 							}
 							job.JobAddress = jobAddressBytes
 							job.Consumer = jobConsumerBytes
-							job.JobState = JobPendingState
+							job.JobState = jobPendingState
 							if jobBytes, err := json.Marshal(job); err == nil {
 								if err = bucket.Put(jobAddressBytes, jobBytes); err != nil {
 									log.WithError(err).Error("error putting job to db")
@@ -149,7 +149,7 @@ func (p Processor) processEvents() {
 				FromBlock: fromBlock,
 				ToBlock:   currentBlock,
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
-				Topics:    [][]common.Hash{{jobFundedId}}}); err == nil {
+				Topics:    [][]common.Hash{{jobFundedID}}}); err == nil {
 				if len(jobFundedLogs) > 0 {
 					db.Update(func(tx *bolt.Tx) error {
 						bucket := tx.Bucket(db.JobBucketName)
@@ -166,7 +166,7 @@ func (p Processor) processEvents() {
 								json.Unmarshal(jobBytes, job)
 							}
 							job.JobAddress = jobAddressBytes
-							job.JobState = JobFundedState
+							job.JobState = jobFundedState
 							if jobBytes, err := json.Marshal(job); err == nil {
 								if err = bucket.Put(jobAddressBytes, jobBytes); err != nil {
 									log.WithError(err).Error("error putting job to db")
@@ -186,7 +186,7 @@ func (p Processor) processEvents() {
 				FromBlock: fromBlock,
 				ToBlock:   currentBlock,
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
-				Topics:    [][]common.Hash{{jobCompletedId}}}); err == nil {
+				Topics:    [][]common.Hash{{jobCompletedID}}}); err == nil {
 				if len(jobCompletedLogs) > 0 {
 					db.Update(func(tx *bolt.Tx) error {
 						bucket := tx.Bucket(db.JobBucketName)

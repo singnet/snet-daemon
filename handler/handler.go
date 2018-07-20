@@ -28,12 +28,12 @@ func init() {
 	blockchainEnabled = config.GetBool(config.BlockchainEnabledKey)
 
 	if config.GetString(config.ServiceTypeKey) == "grpc" && passthroughEnabled {
-		passthroughUrl, err := url.Parse(passthroughEndpoint)
+		passthroughURL, err := url.Parse(passthroughEndpoint)
 		if err != nil {
 			log.WithError(err).Panic("error parsing passthrough endpoint")
 		}
 
-		conn, err := grpc.Dial(passthroughUrl.Host, grpc.WithInsecure())
+		conn, err := grpc.Dial(passthroughURL.Host, grpc.WithInsecure())
 		if err != nil {
 			log.WithError(err).Panic("error dialing service")
 		}
@@ -45,9 +45,9 @@ func GetGrpcHandler() grpc.StreamHandler {
 	if passthroughEnabled {
 		switch config.GetString(config.ServiceTypeKey) {
 		case "grpc":
-			return grpcToGrpc
+			return grpcToGRPC
 		case "jsonrpc":
-			return grpcToJsonRpc
+			return grpcToJSONRPC
 		case "process":
 			return grpcToProcess
 		}
@@ -57,6 +57,6 @@ func GetGrpcHandler() grpc.StreamHandler {
 	return grpcLoopback
 }
 
-func GetHttpHandler(bp blockchain.Processor) http.Handler {
-	return httpToHttp(bp)
+func GetHTTPHandler(bp blockchain.Processor) http.Handler {
+	return httpToHTTP(bp)
 }

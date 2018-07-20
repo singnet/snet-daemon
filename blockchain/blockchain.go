@@ -50,15 +50,17 @@ type Processor struct {
 	privateKey         *ecdsa.PrivateKey
 	address            string
 	jobCompletionQueue chan *jobInfo
+	boltDB             *bolt.DB
 }
 
 // NewProcessor creates a new blockchain processor
-func NewProcessor() (Processor, error) {
+func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 	// TODO(aiden) accept configuration as a parameter
 
 	p := Processor{
 		jobCompletionQueue: make(chan *jobInfo, 1000),
 		enabled:            config.GetBool(config.BlockchainEnabledKey),
+		boltDB:             boltDB,
 	}
 
 	if !p.enabled {
@@ -138,7 +140,7 @@ func (p Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byt
 	log.Debug("retrieving job from database")
 	job := &db.Job{}
 
-	db.View(func(tx *bolt.Tx) error {
+	p.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(db.JobBucketName)
 		jobBytes := bucket.Get(jobAddressBytes)
 		if jobBytes != nil {
@@ -193,7 +195,7 @@ func (p Processor) CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
 	job := &db.Job{}
 
 	// Mark the job completed in the db synchronously
-	if err := db.Update(func(tx *bolt.Tx) error {
+	if err := p.boltDB.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(db.JobBucketName)
 		jobBytes := bucket.Get(jobAddressBytes)
 		if jobBytes != nil {

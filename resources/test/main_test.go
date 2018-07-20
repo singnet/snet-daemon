@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,13 +52,12 @@ func TestEndToEnd(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err, "Unable to determine working directory")
 
-	dbPath := config.GetString(config.DbPathKey)
 	blockchainPath := filepath.Join(cwd, "..", "blockchain")
 	buildPath := filepath.Join(blockchainPath, "build")
 	buildStatePath := filepath.Join(buildPath, "state")
 	nodePath := filepath.Join(blockchainPath, "node_modules")
 
-	runCommand("", nil, "rm", "-rf", dbPath).Wait()
+	runCommand("", nil, "rm", "-rf", "snetd.db").Wait()
 	runCommand("", nil, "rm", "-rf", buildPath).Wait()
 
 	require.NoError(t, runCommand("", nil, "go", "build", "-o",

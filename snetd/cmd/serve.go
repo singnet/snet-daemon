@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	bolt "github.com/coreos/bbolt"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/blockchain"
@@ -45,6 +46,7 @@ type daemon struct {
 	grpcServer *grpc.Server
 	blockProc  blockchain.Processor
 	lis        net.Listener
+	boltDB     *bolt.DB
 }
 
 func newDaemon() (daemon, error) {
@@ -54,6 +56,14 @@ func newDaemon() (daemon, error) {
 		return d, err
 	}
 
+	if config.GetBool(config.BlockchainEnabledKey) {
+		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
+			return d, errors.Wrap(err, "unable to initialize bolt DB for blockchain state")
+		} else {
+			d.boltDB = database
+		}
+	}
+
 	var err error
 	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v",
 		config.GetInt(config.DaemonListeningPortKey)))
@@ -61,7 +71,7 @@ func newDaemon() (daemon, error) {
 		return d, errors.Wrap(err, "error listening")
 	}
 
-	d.blockProc, err = blockchain.NewProcessor()
+	d.blockProc, err = blockchain.NewProcessor(d.boltDB)
 	if err != nil {
 		return d, errors.Wrap(err, "unable to initialize blockchain processor")
 	}
@@ -105,7 +115,9 @@ func (d daemon) start() {
 }
 
 func (d daemon) stop() {
-	db.Shutdown()
+	if d.boltDB != nil {
+		d.boltDB.Close()
+	}
 
 	if d.grpcServer != nil {
 		d.grpcServer.Stop()

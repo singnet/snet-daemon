@@ -91,7 +91,7 @@ func (p Processor) processEvents() {
 		currentBlock := new(big.Int).SetBytes(currentBlockBytes)
 
 		lastBlock := new(big.Int).Sub(currentBlock, new(big.Int).SetUint64(1))
-		db.View(func(tx *bolt.Tx) error {
+		p.boltDB.View(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket(db.ChainBucketName)
 			lastBlockBytes := bucket.Get([]byte("lastBlock"))
 			if lastBlockBytes != nil {
@@ -112,7 +112,7 @@ func (p Processor) processEvents() {
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
 				Topics:    [][]common.Hash{{jobCreatedID}}}); err == nil {
 				if len(jobCreatedLogs) > 0 {
-					db.Update(func(tx *bolt.Tx) error {
+					p.boltDB.Update(func(tx *bolt.Tx) error {
 						bucket := tx.Bucket(db.JobBucketName)
 						for _, jobCreatedLog := range jobCreatedLogs {
 							job := &db.Job{}
@@ -151,7 +151,7 @@ func (p Processor) processEvents() {
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
 				Topics:    [][]common.Hash{{jobFundedID}}}); err == nil {
 				if len(jobFundedLogs) > 0 {
-					db.Update(func(tx *bolt.Tx) error {
+					p.boltDB.Update(func(tx *bolt.Tx) error {
 						bucket := tx.Bucket(db.JobBucketName)
 						for _, jobFundedLog := range jobFundedLogs {
 							job := &db.Job{}
@@ -188,7 +188,7 @@ func (p Processor) processEvents() {
 				Addresses: []common.Address{common.HexToAddress(agentContractAddress)},
 				Topics:    [][]common.Hash{{jobCompletedID}}}); err == nil {
 				if len(jobCompletedLogs) > 0 {
-					db.Update(func(tx *bolt.Tx) error {
+					p.boltDB.Update(func(tx *bolt.Tx) error {
 						bucket := tx.Bucket(db.JobBucketName)
 						for _, jobCompletedLog := range jobCompletedLogs {
 							jobAddressBytes := common.BytesToAddress(jobCompletedLog.Data[0:32]).Bytes()
@@ -208,7 +208,7 @@ func (p Processor) processEvents() {
 				log.WithError(err).Error("error getting job completed logs")
 			}
 
-			db.Update(func(tx *bolt.Tx) error {
+			p.boltDB.Update(func(tx *bolt.Tx) error {
 				bucket := tx.Bucket(db.ChainBucketName)
 				if err = bucket.Put([]byte("lastBlock"), currentBlockBytes); err != nil {
 					log.WithError(err).Error("error putting current block to db")
@@ -220,7 +220,7 @@ func (p Processor) processEvents() {
 }
 
 func (p Processor) submitOldJobsForCompletion() {
-	db.View(func(tx *bolt.Tx) error {
+	p.boltDB.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(db.JobBucketName)
 		bucket.ForEach(func(k, v []byte) error {
 			job := &db.Job{}

@@ -2,8 +2,7 @@ package db
 
 import (
 	"github.com/coreos/bbolt"
-	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
+	"github.com/pkg/errors"
 )
 
 type Job struct {
@@ -17,38 +16,24 @@ type Job struct {
 var (
 	JobBucketName   = []byte("job")
 	ChainBucketName = []byte("chain")
-	database        *bolt.DB
 )
 
-func init() {
-	if config.GetBool(config.BlockchainEnabledKey) {
-		db, err := bolt.Open(config.GetString(config.DbPathKey), 0644, nil)
-		if err != nil {
-			log.Panicf("error opening db; error: %+v", err)
-		}
-		database = db
-		if err = database.Update(func(tx *bolt.Tx) error {
-			if _, err = tx.CreateBucketIfNotExists(JobBucketName); err != nil {
-				return err
-			}
-			_, err = tx.CreateBucketIfNotExists(ChainBucketName)
+// Connect initializes a connection to the given BoltDB
+func Connect(path string) (*bolt.DB, error) {
+	db, err := bolt.Open(path, 0644, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening database")
+	}
+
+	if err = db.Update(func(tx *bolt.Tx) error {
+		if _, err = tx.CreateBucketIfNotExists(JobBucketName); err != nil {
 			return err
-		}); err != nil {
-			log.Panicf("error initializing db; error: %+v")
 		}
+		_, err = tx.CreateBucketIfNotExists(ChainBucketName)
+		return err
+	}); err != nil {
+		return nil, errors.Wrap(err, "error initializing db")
 	}
-}
 
-func Shutdown() {
-	if config.GetBool(config.BlockchainEnabledKey) {
-		database.Close()
-	}
-}
-
-func Update(fn func(tx *bolt.Tx) error) error {
-	return database.Update(fn)
-}
-
-func View(fn func(tx *bolt.Tx) error) error {
-	return database.View(fn)
+	return db, nil
 }

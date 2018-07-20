@@ -283,6 +283,8 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = [
+    "acme",
+    "acme/autocert",
     "pbkdf2",
     "ripemd160",
     "scrypt",
@@ -409,6 +411,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "cbc7a4f937c23368b0c231c23fb2ca3e7fc51d17b01b4fadbdef11da4e5bba5b"
+  inputs-digest = "14792d968a10c400e5ad053f4b66fd8295162b1cc4c097ce8666965e0043a49e"
   solver-name = "gps-cdcl"
   solver-version = 1

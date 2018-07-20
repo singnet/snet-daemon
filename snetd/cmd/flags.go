@@ -8,6 +8,8 @@ import (
 
 var (
 	cfgFile            = ServeCmd.PersistentFlags().StringP("config", "c", "snetd.config.json", "config file")
+	autoSSLDomain      = ServeCmd.PersistentFlags().String("auto-ssl-domain", "", "enable SSL via LetsEncrypt for this domain (requires root)")
+	autoSSLCacheDir    = ServeCmd.PersistentFlags().String("auto-ssl-cache", ".certs", "auto-SSL certificate cache directory")
 	daemonType         = ServeCmd.PersistentFlags().StringP("type", "t", "grpc", "daemon type: one of 'grpc','http'")
 	blockchainEnabled  = ServeCmd.PersistentFlags().BoolP("blockchain", "b", true, "enable blockchain processing")
 	listenPort         = ServeCmd.PersistentFlags().IntP("port", "p", 5000, "daemon listen port")
@@ -26,6 +28,8 @@ func init() {
 	vip := config.Vip()
 
 	vip.BindPFlag(config.ConfigPathKey, rf.Lookup("config"))
+	vip.BindPFlag(config.AutoSSLDomainKey, rf.Lookup("auto-ssl-domain"))
+	vip.BindPFlag(config.AutoSSLCacheDirKey, rf.Lookup("auto-ssl-cache"))
 	vip.BindPFlag(config.DaemonTypeKey, rf.Lookup("type"))
 	vip.BindPFlag(config.BlockchainEnabledKey, rf.Lookup("blockchain"))
 	vip.BindPFlag(config.DaemonListeningPortKey, rf.Lookup("port"))

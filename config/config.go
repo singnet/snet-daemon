@@ -10,6 +10,8 @@ import (
 
 const (
 	AgentContractAddressKey    = "AGENT_CONTRACT_ADDRESS"
+	AutoSSLDomainKey           = "AUTO_SSL_DOMAIN"
+	AutoSSLCacheDirKey         = "AUTO_SSL_CACHE_DIR"
 	BlockchainEnabledKey       = "BLOCKCHAIN_ENABLED"
 	ConfigPathKey              = "CONFIG_PATH"
 	DaemonListeningPortKey     = "DAEMON_LISTENING_PORT"

@@ -44,7 +44,7 @@ var testConfiguration = []string{
 	"SNET_HDWALLET_INDEX=0",
 	"SNET_LOG_LEVEL=5",
 	"SNET_PASSTHROUGH_ENABLED=false",
-	"SNET_POLL_SLEEP_SECS=1",
+	"SNET_POLL_SLEEP=1s",
 	"SNET_SERVICE_TYPE=grpc",
 	"SMET_WIRE_ENCODING=json",
 }

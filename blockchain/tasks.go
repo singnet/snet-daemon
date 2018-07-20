@@ -62,7 +62,7 @@ func (p Processor) processJobCompletions() {
 }
 
 func (p Processor) processEvents() {
-	sleepSecs := config.GetDuration(config.PollSleepSecsKey)
+	sleepSecs := config.GetDuration(config.PollSleepKey)
 	agentContractAddress := config.GetString(config.AgentContractAddressKey)
 
 	a, err := abi.JSON(strings.NewReader(AgentABI))
@@ -77,7 +77,7 @@ func (p Processor) processEvents() {
 	jobCompletedID := a.Events["JobCompleted"].Id()
 
 	for {
-		time.Sleep(time.Second * sleepSecs)
+		time.Sleep(sleepSecs)
 
 		// We have to do a raw call because the standard method of ethClient.HeaderByNumber(ctx, nil) errors on
 		// unmarshaling the response currently. See https://github.com/ethereum/go-ethereum/issues/3230

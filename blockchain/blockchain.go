@@ -42,6 +42,7 @@ type jobInfo struct {
 }
 
 type Processor struct {
+	enabled            bool
 	ethClient          *ethclient.Client
 	rawClient          *rpc.Client
 	agent              *Agent
@@ -57,9 +58,10 @@ func NewProcessor() (Processor, error) {
 
 	p := Processor{
 		jobCompletionQueue: make(chan *jobInfo, 1000),
+		enabled:            config.GetBool(config.BlockchainEnabledKey),
 	}
 
-	if !config.GetBool(config.BlockchainEnabledKey) {
+	if !p.enabled {
 		return p, nil
 	}
 
@@ -120,7 +122,7 @@ func NewProcessor() (Processor, error) {
 }
 
 func (p Processor) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
-	if config.GetBool(config.BlockchainEnabledKey) {
+	if p.enabled {
 		return p.jobValidationInterceptor
 	} else {
 		return noOpInterceptor

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -56,7 +58,7 @@ func init() {
 	}
 }
 
-func Validate() {
+func Validate() error {
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
 		switch sType := vip.GetString(ServiceTypeKey); sType {
@@ -64,28 +66,30 @@ func Validate() {
 		case "jsonrpc":
 		case "process":
 			if vip.GetString(ExecutablePathKey) == "" {
-				log.Panic("EXECUTABLE required with SERVICE_TYPE 'process'")
+				return errors.New("EXECUTABLE required with SERVICE_TYPE 'process'")
 			}
 		default:
-			log.Panicf("unrecognized SERVICE_TYPE '%+v'", sType)
+			return fmt.Errorf("unrecognized SERVICE_TYPE '%+v'", sType)
 		}
 
 		switch enc := vip.GetString(WireEncodingKey); enc {
 		case "proto":
 		case "json":
 		default:
-			log.Panicf("unrecognized WIRE_ENCODING '%+v'", enc)
+			return fmt.Errorf("unrecognized WIRE_ENCODING '%+v'", enc)
 		}
 	case "http":
 	default:
-		log.Panicf("unrecognized DAEMON_TYPE '%+v'", dType)
+		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)
 	}
 
 	if vip.GetBool(BlockchainEnabledKey) {
 		if vip.GetString(PrivateKeyKey) == "" && vip.GetString(HdwalletMnemonicKey) == "" {
-			log.Panic("either PRIVATE_KEY or HDWALLET_MNEMONIC are required")
+			return errors.New("either PRIVATE_KEY or HDWALLET_MNEMONIC are required")
 		}
 	}
+
+	return nil
 }
 
 func GetString(key string) string {

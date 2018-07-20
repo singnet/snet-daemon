@@ -62,10 +62,10 @@ func TestEndToEnd(t *testing.T) {
 	runCommand("", nil, "rm", "-rf", dbPath).Wait()
 	runCommand("", nil, "rm", "-rf", buildPath).Wait()
 
-	runCommand("", nil, "go", "build", "-o",
+	require.NoError(t, runCommand("", nil, "go", "build", "-o",
 		filepath.Join(buildPath, "snetd"),
 		filepath.Join(cwd, "..", "..", "snetd", "snetd.go"),
-	).Wait()
+	).Wait(), "Unable to build snetd")
 
 	runCommand(blockchainPath, nil, "npm", "run", "create-mnemonic").Wait()
 	rawMnemonic, err := ioutil.ReadFile(buildStatePath + "/Mnemonic.json")

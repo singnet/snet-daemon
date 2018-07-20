@@ -29,12 +29,18 @@ const (
 	JobSignatureHeader = "snet-job-signature"
 )
 
+var (
+	// Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
+	hashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
+	hashPrefix42Bytes = []byte("\x19Ethereum Signed Message:\n420x")
+)
+
 type jobInfo struct {
 	jobAddressBytes   []byte
 	jobSignatureBytes []byte
 }
 
-var (
+type Processor struct {
 	ethClient          *ethclient.Client
 	rawClient          *rpc.Client
 	agent              *Agent
@@ -42,84 +48,89 @@ var (
 	privateKey         *ecdsa.PrivateKey
 	address            string
 	jobCompletionQueue chan *jobInfo
-
-	// Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
-	hashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
-	hashPrefix42Bytes = []byte("\x19Ethereum Signed Message:\n420x")
-)
-
-func init() {
-	if config.GetBool(config.BlockchainEnabledKey) {
-		// Setup ethereum client
-		if client, err := rpc.Dial(config.GetString(config.EthereumJsonRpcEndpointKey)); err != nil {
-			log.WithError(err).Panic("error creating rpc client")
-		} else {
-			rawClient = client
-			ethClient = ethclient.NewClient(rawClient)
-		}
-
-		agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
-
-		// Setup agent
-		if a, err := NewAgent(agentAddress, ethClient); err != nil {
-			log.WithError(err).Panic("error instantiating agent")
-		} else {
-			agent = a
-		}
-
-		// Determine "version" of agent contract and set local signature hash creator
-		if bytecode, err := ethClient.CodeAt(context.Background(), agentAddress, nil); err != nil {
-			log.WithError(err).Panic("error retrieving agent bytecode")
-		} else {
-			bcSum := md5.Sum(bytecode)
-
-			// Compare checksum of agent with known checksum of the first version of the agent contract, which signed
-			// the raw bytes of the address rather than the hex-encoded string
-			if bytes.Equal(bcSum[:], []byte{244, 176, 168, 6, 74, 56, 171, 175, 38, 48, 245, 246, 189, 0, 67, 200}) {
-				sigHasher = func(i []byte) []byte {
-					return crypto.Keccak256(hashPrefix32Bytes, crypto.Keccak256(i))
-				}
-			} else {
-				sigHasher = func(i []byte) []byte {
-					return crypto.Keccak256(hashPrefix42Bytes, []byte(hex.EncodeToString(i)))
-				}
-			}
-		}
-
-		// Setup identity
-		if privateKeyString := config.GetString(config.PrivateKeyKey); privateKeyString != "" {
-			if privKey, err := crypto.HexToECDSA(privateKeyString); err != nil {
-				log.WithError(err).Panic("error getting private key")
-			} else {
-				privateKey = privKey
-				address = crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-			}
-		} else if hdwalletMnemonic := config.GetString(config.HdwalletMnemonicKey); hdwalletMnemonic != "" {
-			if privKey, err := derivePrivateKey(hdwalletMnemonic, 44, 60, 0, 0, uint32(config.GetInt(config.HdwalletIndexKey))); err != nil {
-				log.WithError(err).Panic("error deriving private key")
-			} else {
-				privateKey = privKey
-				address = crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-			}
-		}
-
-		// Start event and job completion routines
-		jobCompletionQueue = make(chan *jobInfo, 1000)
-		go processJobCompletions()
-		go processEvents()
-		go submitOldJobsForCompletion()
-	}
 }
 
-func GetGrpcStreamInterceptor() grpc.StreamServerInterceptor {
+// NewProcessor creates a new blockchain processor
+func NewProcessor() Processor {
+	// TODO(aiden) accept configuration as a parameter
+
+	p := Processor{
+		jobCompletionQueue: make(chan *jobInfo, 1000),
+	}
+
+	if !config.GetBool(config.BlockchainEnabledKey) {
+		return p
+	}
+
+	// Setup ethereum client
+	if client, err := rpc.Dial(config.GetString(config.EthereumJsonRpcEndpointKey)); err != nil {
+		// TODO(ai): return (processor, error) instead of panic
+		log.WithError(err).Panic("error creating rpc client")
+	} else {
+		p.rawClient = client
+		p.ethClient = ethclient.NewClient(client)
+	}
+
+	// Setup agent
+	agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
+
+	// Setup agent
+	if a, err := NewAgent(agentAddress, p.ethClient); err != nil {
+		// TODO(ai): remove panic
+		log.WithError(err).Panic("error instantiating agent")
+	} else {
+		p.agent = a
+	}
+
+	// Determine "version" of agent contract and set local signature hash creator
+	if bytecode, err := p.ethClient.CodeAt(context.Background(), agentAddress, nil); err != nil {
+		log.WithError(err).Panic("error retrieving agent bytecode")
+	} else {
+		bcSum := md5.Sum(bytecode)
+
+		// Compare checksum of agent with known checksum of the first version of the agent contract, which signed
+		// the raw bytes of the address rather than the hex-encoded string
+		if bytes.Equal(bcSum[:], []byte{244, 176, 168, 6, 74, 56, 171, 175, 38, 48, 245, 246, 189, 0, 67, 200}) {
+			p.sigHasher = func(i []byte) []byte {
+				return crypto.Keccak256(hashPrefix32Bytes, crypto.Keccak256(i))
+			}
+		} else {
+			p.sigHasher = func(i []byte) []byte {
+				return crypto.Keccak256(hashPrefix42Bytes, []byte(hex.EncodeToString(i)))
+			}
+		}
+	}
+
+	// Setup identity
+	if privateKeyString := config.GetString(config.PrivateKeyKey); privateKeyString != "" {
+		if privKey, err := crypto.HexToECDSA(privateKeyString); err != nil {
+			// TODO(ai): remove panic
+			log.WithError(err).Panic("error getting private key")
+		} else {
+			p.privateKey = privKey
+			p.address = crypto.PubkeyToAddress(p.privateKey.PublicKey).Hex()
+		}
+	} else if hdwalletMnemonic := config.GetString(config.HdwalletMnemonicKey); hdwalletMnemonic != "" {
+		if privKey, err := derivePrivateKey(hdwalletMnemonic, 44, 60, 0, 0, uint32(config.GetInt(config.HdwalletIndexKey))); err != nil {
+			log.WithError(err).Panic("error deriving private key")
+		} else {
+			p.privateKey = privKey
+			p.address = crypto.PubkeyToAddress(p.privateKey.PublicKey).Hex()
+		}
+	}
+
+	return p
+}
+
+func (p Processor) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
 	if config.GetBool(config.BlockchainEnabledKey) {
-		return jobValidationInterceptor
+		return p.jobValidationInterceptor
 	} else {
 		return noOpInterceptor
 	}
 }
 
-func IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
+func (p Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 	log := log.WithFields(log.Fields{
 		"jobAddress":   common.BytesToAddress(jobAddressBytes).Hex(),
 		"jobSignature": hex.EncodeToString(jobSignatureBytes)})
@@ -149,7 +160,7 @@ func IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 		return false
 	}
 
-	pubKey, err := crypto.SigToPub(sigHasher(jobAddressBytes), bytes.Join([][]byte{jobSignatureBytes[0:64], {v % 27}},
+	pubKey, err := crypto.SigToPub(p.sigHasher(jobAddressBytes), bytes.Join([][]byte{jobSignatureBytes[0:64], {v % 27}},
 		[]byte{}))
 	if err != nil {
 		log.WithError(err).Error("error recovering signature")
@@ -165,9 +176,9 @@ func IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 	log.Debug("unable to validate job invocation locally; falling back to on-chain validation")
 
 	// Fall back to on-chain validation
-	if validated, err := agent.ValidateJobInvocation(&bind.CallOpts{
+	if validated, err := p.agent.ValidateJobInvocation(&bind.CallOpts{
 		Pending: true,
-		From:    common.HexToAddress(address)}, common.BytesToAddress(jobAddressBytes), v, r, s); err != nil {
+		From:    common.HexToAddress(p.address)}, common.BytesToAddress(jobAddressBytes), v, r, s); err != nil {
 		log.WithError(err).Error("error validating job on chain")
 		return false
 	} else if !validated {
@@ -179,7 +190,7 @@ func IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 	return true
 }
 
-func CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
+func (p Processor) CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
 	job := &db.Job{}
 
 	// Mark the job completed in the db synchronously
@@ -207,5 +218,5 @@ func CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
 	}
 
 	// Submit the job for completion
-	jobCompletionQueue <- &jobInfo{jobAddressBytes, jobSignatureBytes}
+	p.jobCompletionQueue <- &jobInfo{jobAddressBytes, jobSignatureBytes}
 }

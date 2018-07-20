@@ -64,7 +64,7 @@ func TestEndToEnd(t *testing.T) {
 
 	require.NoError(t, runCommand("", nil, "go", "build", "-o",
 		filepath.Join(buildPath, "snetd"),
-		filepath.Join(cwd, "..", "..", "snetd", "snetd.go"),
+		filepath.Join(cwd, "..", "..", "snetd", "main.go"),
 	).Wait(), "Unable to build snetd")
 
 	runCommand(blockchainPath, nil, "npm", "run", "create-mnemonic").Wait()

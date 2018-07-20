@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
 	log "github.com/sirupsen/logrus"
@@ -51,7 +52,7 @@ type Processor struct {
 }
 
 // NewProcessor creates a new blockchain processor
-func NewProcessor() Processor {
+func NewProcessor() (Processor, error) {
 	// TODO(aiden) accept configuration as a parameter
 
 	p := Processor{
@@ -59,32 +60,29 @@ func NewProcessor() Processor {
 	}
 
 	if !config.GetBool(config.BlockchainEnabledKey) {
-		return p
+		return p, nil
 	}
 
 	// Setup ethereum client
 	if client, err := rpc.Dial(config.GetString(config.EthereumJsonRpcEndpointKey)); err != nil {
-		// TODO(ai): return (processor, error) instead of panic
-		log.WithError(err).Panic("error creating rpc client")
+		return p, errors.Wrap(err, "error creating RPC client")
 	} else {
 		p.rawClient = client
 		p.ethClient = ethclient.NewClient(client)
 	}
 
-	// Setup agent
 	agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
 
 	// Setup agent
 	if a, err := NewAgent(agentAddress, p.ethClient); err != nil {
-		// TODO(ai): remove panic
-		log.WithError(err).Panic("error instantiating agent")
+		return p, errors.Wrap(err, "error instantiating agent")
 	} else {
 		p.agent = a
 	}
 
 	// Determine "version" of agent contract and set local signature hash creator
 	if bytecode, err := p.ethClient.CodeAt(context.Background(), agentAddress, nil); err != nil {
-		log.WithError(err).Panic("error retrieving agent bytecode")
+		return p, errors.Wrap(err, "error retrieving agent bytecode")
 	} else {
 		bcSum := md5.Sum(bytecode)
 
@@ -104,8 +102,7 @@ func NewProcessor() Processor {
 	// Setup identity
 	if privateKeyString := config.GetString(config.PrivateKeyKey); privateKeyString != "" {
 		if privKey, err := crypto.HexToECDSA(privateKeyString); err != nil {
-			// TODO(ai): remove panic
-			log.WithError(err).Panic("error getting private key")
+			return p, errors.Wrap(err, "error getting private key")
 		} else {
 			p.privateKey = privKey
 			p.address = crypto.PubkeyToAddress(p.privateKey.PublicKey).Hex()
@@ -119,7 +116,7 @@ func NewProcessor() Processor {
 		}
 	}
 
-	return p
+	return p, nil
 }
 
 func (p Processor) GrpcStreamInterceptor() grpc.StreamServerInterceptor {

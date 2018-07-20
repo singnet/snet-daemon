@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	cfgFile            = ServeCmd.PersistentFlags().StringP("config", "c", "snetd.config", "config file")
+	cfgFile            = ServeCmd.PersistentFlags().StringP("config", "c", "snetd.config.json", "config file")
 	daemonType         = ServeCmd.PersistentFlags().StringP("type", "t", "grpc", "daemon type: one of 'grpc','http'")
 	blockchainEnabled  = ServeCmd.PersistentFlags().BoolP("blockchain", "b", true, "enable blockchain processing")
 	listenPort         = ServeCmd.PersistentFlags().IntP("port", "p", 5000, "daemon listen port")
@@ -36,12 +36,12 @@ func init() {
 	vip.BindPFlag(config.PassthroughEnabledKey, rf.Lookup("passthrough"))
 	vip.BindPFlag(config.ServiceTypeKey, rf.Lookup("service-type"))
 	vip.BindPFlag(config.WireEncodingKey, rf.Lookup("wire-encoding"))
-	vip.BindPFlag(config.PollSleepSecsKey, rf.Lookup("poll-sleep"))
+	vip.BindPFlag(config.PollSleepKey, rf.Lookup("poll-sleep"))
 
 	cobra.OnInitialize(func() {
-		vip.SetConfigName(*cfgFile)
+		vip.SetConfigFile(*cfgFile)
 
-		if err := config.Read(); err != nil {
+		if err := vip.ReadInConfig(); err != nil {
 			log.WithError(err).Debug("error reading config")
 		}
 	})

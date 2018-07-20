@@ -22,7 +22,7 @@ const (
 	LogLevelKey                = "LOG_LEVEL"
 	PassthroughEnabledKey      = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey     = "PASSTHROUGH_ENDPOINT"
-	PollSleepSecsKey           = "POLL_SLEEP_SECS"
+	PollSleepKey               = "POLL_SLEEP"
 	PrivateKeyKey              = "PRIVATE_KEY"
 	ServiceTypeKey             = "SERVICE_TYPE"
 	WireEncodingKey            = "WIRE_ENCODING"
@@ -37,17 +37,11 @@ func init() {
 
 	vip.SetDefault(LogLevelKey, 5)
 
-	vip.SetConfigName(vip.GetString(ConfigPathKey))
-
 	vip.AddConfigPath(".")
 }
 
 func Vip() *viper.Viper {
 	return vip
-}
-
-func Read() error {
-	return vip.ReadInConfig()
 }
 
 func Validate() error {

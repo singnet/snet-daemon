@@ -2,6 +2,13 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
@@ -10,12 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 func main() {

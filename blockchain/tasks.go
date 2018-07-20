@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
+	"strings"
+	"time"
+
 	"github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -12,9 +16,6 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
 	log "github.com/sirupsen/logrus"
-	"math/big"
-	"strings"
-	"time"
 )
 
 func processJobCompletions() {

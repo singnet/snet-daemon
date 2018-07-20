@@ -3,10 +3,11 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/blockchain"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/blockchain"
 )
 
 func httpToHttp(resp http.ResponseWriter, req *http.Request) {

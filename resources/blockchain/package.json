@@ -3,7 +3,8 @@
     "bip39": "2.5.0",
     "fs-extra": "5.0.0",
     "ganache-cli": "6.1.6",
-    "singularitynet-alpha-blockchain": "1.1.0",
+    "singularitynet-platform-contracts": "0.2.1",
+    "singularitynet-token-contracts": "2.0.0",
     "truffle": "4.1.13",
     "truffle-contract": "3.0.6",
     "truffle-hdwallet-provider": "0.0.5"
@@ -11,7 +12,7 @@
   "scripts": {
     "create-mnemonic": "node scripts/createMnemonic.js --network local",
     "migrate": "node_modules/.bin/truffle migrate --network local",
-    "create-agent": "node_modules/.bin/truffle exec scripts/createAndRegisterAgent.js --network local",
+    "create-agent": "node_modules/.bin/truffle exec scripts/createAgent.js --network local",
     "create-job": "node_modules/.bin/truffle exec scripts/createJob.js --network local",
     "sign-job": "node_modules/.bin/truffle exec scripts/signJobInvocation.js --network local",
     "fund-job": "node_modules/.bin/truffle exec scripts/fundJob.js --network local"

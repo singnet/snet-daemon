@@ -3,6 +3,7 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"fmt"
+
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil/hdkeychain"
 	"github.com/tyler-smith/go-bip39"

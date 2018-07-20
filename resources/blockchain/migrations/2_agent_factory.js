@@ -1,8 +1,14 @@
 let Contract = require("truffle-contract");
-let TokenJson = require("singularitynet-token-contracts/SingularityNetToken.json");
-let Token = Contract(TokenJson);
-let AgentFactoryJson = require("singularitynet-alpha-blockchain/AgentFactory.json");
-let AgentFactory = Contract(AgentFactoryJson);
+let TokenAbi = require("singularitynet-token-contracts/abi/SingularityNetToken.json");
+let TokenNetworks = require("singularitynet-token-contracts/networks/SingularityNetToken.json");
+let TokenBytecode = require("singularitynet-token-contracts/bytecode/SingularityNetToken.json");
+let Token = Contract({contractName: "SingularityNetToken", abi: TokenAbi, networks: TokenNetworks,
+    bytecode: TokenBytecode});
+let AgentFactoryAbi = require("singularitynet-platform-contracts/abi/AgentFactory.json");
+let AgentFactoryNetworks = require("singularitynet-platform-contracts/networks/AgentFactory.json");
+let AgentFactoryBytecode = require("singularitynet-platform-contracts/bytecode/AgentFactory.json");
+let AgentFactory = Contract({contractName: "AgentFactory", abi: AgentFactoryAbi, networks: AgentFactoryNetworks,
+    bytecode: AgentFactoryBytecode});
 let fse = require("fs-extra");
 
 module.exports = function(deployer, network, accounts) {

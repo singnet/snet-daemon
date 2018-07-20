@@ -5,7 +5,6 @@ snetd.db
 snetd.config.json
 /vendor/
 blockchain/agent.go
-resources/Agent.abi
 /build/
 
 # Binaries for programs and plugins

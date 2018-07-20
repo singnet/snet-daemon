@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -36,26 +35,19 @@ func init() {
 	vip.SetEnvPrefix("SNET")
 	vip.AutomaticEnv()
 
-	vip.SetDefault(BlockchainEnabledKey, true)
-	vip.SetDefault(ConfigPathKey, "snetd.config")
-	vip.SetDefault(DaemonListeningPortKey, 5000)
-	vip.SetDefault(DaemonTypeKey, "grpc")
-	vip.SetDefault(DbPathKey, "snetd.db")
-	vip.SetDefault(EthereumJsonRpcEndpointKey, "http://127.0.0.1:8545")
-	vip.SetDefault(HdwalletIndexKey, 0)
 	vip.SetDefault(LogLevelKey, 5)
-	vip.SetDefault(PassthroughEnabledKey, false)
-	vip.SetDefault(PollSleepSecsKey, time.Duration(5))
-	vip.SetDefault(ServiceTypeKey, "grpc")
-	vip.SetDefault(WireEncodingKey, "proto")
 
 	vip.SetConfigName(vip.GetString(ConfigPathKey))
 
 	vip.AddConfigPath(".")
-	err := vip.ReadInConfig()
-	if err != nil {
-		log.WithError(err).Debug("error reading config")
-	}
+}
+
+func Vip() *viper.Viper {
+	return vip
+}
+
+func Read() error {
+	return vip.ReadInConfig()
 }
 
 func Validate() error {

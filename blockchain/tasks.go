@@ -20,6 +20,10 @@ import (
 
 // StartLoops starts background processing for event and job completion routines
 func (p Processor) StartLoop() {
+	if !p.enabled {
+		return
+	}
+
 	go p.processJobCompletions()
 	go p.processEvents()
 	go p.submitOldJobsForCompletion()

@@ -91,7 +91,10 @@ func TestEndToEnd(t *testing.T) {
 	testConfiguration = append(testConfiguration, fmt.Sprintf("SNET_AGENT_CONTRACT_ADDRESS=%+v", aFile.Agent))
 	testConfiguration = append(testConfiguration, fmt.Sprintf("SNET_HDWALLET_MNEMONIC=%+v", mFile.Mnemonic))
 	snetdCmd := runCommand("", testConfiguration, filepath.Join(buildPath, "snetd"))
-	defer snetdCmd.Wait()
+	defer func() {
+		assert.NoError(t, snetdCmd.Wait(), "daemon exited non-zero")
+	}()
+
 	defer snetdCmd.Process.Signal(syscall.SIGTERM)
 	time.Sleep(2 * time.Second)
 

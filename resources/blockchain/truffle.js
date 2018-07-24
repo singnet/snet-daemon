@@ -9,15 +9,17 @@ let provider = (endpoint) => {
     }
 };
 
+const ganachePort = parseInt(process.env.DAEMON_GANACHE_PORT || 8545);
+
 module.exports = {
     networks: {
         local: {
             host: "127.0.0.1",
-            port: 8545,
+            port: ganachePort,
             network_id: "*" // Any network ID
         },
         localhd: {
-            provider: () => provider("http://127.0.0.1:8545"),
+            provider: () => provider("http://127.0.0.1:" + ganachePort),
             network_id: "*" // Any network ID
         },
         kovan: {

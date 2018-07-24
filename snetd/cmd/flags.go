@@ -19,6 +19,8 @@ var (
 	dbPath             = ServeCmd.PersistentFlags().String("db-path", "snetd.db", "database file path")
 	passthroughEnabled = ServeCmd.PersistentFlags().Bool("passthrough", false, "passthrough mode")
 	serviceType        = ServeCmd.PersistentFlags().String("service-type", "grpc", "service type: one of 'grpc','jsonrpc','process'")
+	sslCertPath        = ServeCmd.PersistentFlags().String("ssl-cert", "", "SSL certificate (.crt)")
+	sslKeyPath         = ServeCmd.PersistentFlags().String("ssl-key", "", "SSL key file (.key)")
 	wireEncoding       = ServeCmd.PersistentFlags().String("wire-encoding", "proto", "message encoding: one of 'proto','json'")
 	pollSleep          = ServeCmd.PersistentFlags().String("poll-sleep", "5s", "blockchain poll sleep time")
 )
@@ -39,6 +41,8 @@ func init() {
 	vip.BindPFlag(config.DbPathKey, rf.Lookup("db-path"))
 	vip.BindPFlag(config.PassthroughEnabledKey, rf.Lookup("passthrough"))
 	vip.BindPFlag(config.ServiceTypeKey, rf.Lookup("service-type"))
+	vip.BindPFlag(config.SSLCertPathKey, rf.Lookup("ssl-cert"))
+	vip.BindPFlag(config.SSLKeyPathKey, rf.Lookup("ssl-key"))
 	vip.BindPFlag(config.WireEncodingKey, rf.Lookup("wire-encoding"))
 	vip.BindPFlag(config.PollSleepKey, rf.Lookup("poll-sleep"))
 

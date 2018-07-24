@@ -27,6 +27,8 @@ const (
 	PollSleepKey               = "POLL_SLEEP"
 	PrivateKeyKey              = "PRIVATE_KEY"
 	ServiceTypeKey             = "SERVICE_TYPE"
+	SSLCertPathKey             = "SSL_CERT"
+	SSLKeyPathKey              = "SSL_KEY"
 	WireEncodingKey            = "WIRE_ENCODING"
 )
 
@@ -75,6 +77,11 @@ func Validate() error {
 		if vip.GetString(PrivateKeyKey) == "" && vip.GetString(HdwalletMnemonicKey) == "" {
 			return errors.New("either PRIVATE_KEY or HDWALLET_MNEMONIC are required")
 		}
+	}
+
+	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)
+	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
+		return errors.New("SSL requires both key and certificate when enabled")
 	}
 
 	return nil

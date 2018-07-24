@@ -52,6 +52,7 @@ type daemon struct {
 	blockProc     blockchain.Processor
 	lis           net.Listener
 	boltDB        *bolt.DB
+	sslCert       *tls.Certificate
 }
 
 func newDaemon() (daemon, error) {
@@ -91,14 +92,24 @@ func newDaemon() (daemon, error) {
 		return d, errors.Wrap(err, "unable to initialize blockchain processor")
 	}
 
+	if sslKey := config.GetString(config.SSLKeyPathKey); sslKey != "" {
+		cert, err := tls.LoadX509KeyPair(config.GetString(config.SSLCertPathKey), sslKey)
+		if err != nil {
+			return d, errors.Wrap(err, "unable to load specifiec SSL X509 keypair")
+		}
+		d.sslCert = &cert
+	}
+
 	return d, nil
 }
 
 func (d daemon) start() {
 	d.blockProc.StartLoop()
 
+	var tlsConfig *tls.Config
+
 	if d.autoSSLDomain != "" {
-		log.Debug("enabling SSL support")
+		log.Debug("enabling automatic SSL support")
 		certMgr := autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
 			HostPolicy: autocert.HostWhitelist(d.autoSSLDomain),
@@ -111,9 +122,7 @@ func (d daemon) start() {
 		}
 		go acmeSrv.Serve(d.acmeListener)
 
-		tlsConfig := &tls.Config{
-			// See: https://gist.github.com/soheilhy/bb272c000f1987f17063
-			NextProtos: []string{"http/1.1", http2.NextProtoTLS, "h2-14"},
+		tlsConfig = &tls.Config{
 			GetCertificate: func(c *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				crt, err := certMgr.GetCertificate(c)
 				if err != nil {
@@ -122,7 +131,18 @@ func (d daemon) start() {
 				return crt, err
 			},
 		}
+	} else if d.sslCert != nil {
+		log.Debug("enabling SSL support via X509 keypair")
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{*d.sslCert},
+		}
+	}
 
+	if tlsConfig != nil {
+		// See: https://gist.github.com/soheilhy/bb272c000f1987f17063
+		tlsConfig.NextProtos = []string{"http/1.1", http2.NextProtoTLS, "h2-14"}
+
+		// Wrap underlying listener with a TLS listener
 		d.lis = tls.NewListener(d.lis, tlsConfig)
 	}
 

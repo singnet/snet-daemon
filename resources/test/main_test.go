@@ -39,7 +39,7 @@ type jobInvocationFile struct {
 var testConfiguration = []string{
 	"SNET_LOG_LEVEL=5",
 	"SNET_POLL_SLEEP=1s",
-	"SMET_WIRE_ENCODING=json",
+	"SNET_WIRE_ENCODING=json",
 }
 
 func TestEndToEnd(t *testing.T) {

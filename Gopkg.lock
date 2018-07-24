@@ -103,6 +103,12 @@
   revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
+  name = "github.com/gorilla/handlers"
+  packages = ["."]
+  revision = "90663712d74cb411cbef281bc1e08c19d1a76145"
+  version = "v1.3.0"
+
+[[projects]]
   name = "github.com/gorilla/rpc"
   packages = [
     "v2",
@@ -411,6 +417,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "14792d968a10c400e5ad053f4b66fd8295162b1cc4c097ce8666965e0043a49e"
+  inputs-digest = "9d79439f3d579608a83e6370d582bd66e0f442322a7ee89da2279c2066adf751"
   solver-name = "gps-cdcl"
   solver-version = 1

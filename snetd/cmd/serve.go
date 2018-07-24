@@ -10,7 +10,8 @@ import (
 	"strings"
 	"syscall"
 
-	bolt "github.com/coreos/bbolt"
+	"github.com/coreos/bbolt"
+	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/blockchain"
@@ -24,6 +25,10 @@ import (
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 )
+
+var corsOptions = []handlers.CORSOption{
+	handlers.AllowedHeaders([]string{"Content-Type", "Snet-Job-Address", "Snet-Job-Signature"}),
+}
 
 var ServeCmd = &cobra.Command{
 	Use: "snetd",
@@ -174,13 +179,14 @@ func (d daemon) start() {
 		})
 
 		log.Debug("starting daemon")
+
 		go d.grpcServer.Serve(grpcL)
-		go http.Serve(httpL, httpHandler)
+		go http.Serve(httpL, handlers.CORS(corsOptions...)(httpHandler))
 		go mux.Serve()
 	} else {
 		log.Debug("starting simple HTTP daemon")
 
-		go http.Serve(d.lis, handler.GetHTTPHandler(d.blockProc))
+		go http.Serve(d.lis, handlers.CORS(corsOptions...)(handler.GetHTTPHandler(d.blockProc)))
 	}
 }
 

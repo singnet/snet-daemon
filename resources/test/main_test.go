@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -35,16 +37,8 @@ type jobInvocationFile struct {
 }
 
 var testConfiguration = []string{
-	"SNET_BLOCKCHAIN_ENABLED=true",
-	"SNET_DAEMON_LISTENING_PORT=5000",
-	"SNET_DAEMON_TYPE=grpc",
-	"SNET_DB_PATH=snetd.db",
-	"SNET_ETHEREUM_JSON_RPC_ENDPOINT=http://127.0.0.1:8545",
-	"SNET_HDWALLET_INDEX=0",
 	"SNET_LOG_LEVEL=5",
-	"SNET_PASSTHROUGH_ENABLED=false",
 	"SNET_POLL_SLEEP=1s",
-	"SNET_SERVICE_TYPE=grpc",
 	"SMET_WIRE_ENCODING=json",
 }
 
@@ -74,12 +68,25 @@ func TestEndToEnd(t *testing.T) {
 	err = json.Unmarshal(rawMnemonic, mFile)
 	require.NoError(t, err)
 
-	ganacheCmd := runCommand(nodePath, nil, "./.bin/ganache-cli", "-m", mFile.Mnemonic)
+	ganachePort := pickAvailablePort()
+	truffleEnv := []string{
+		"DAEMON_GANACHE_PORT=" + ganachePort,
+	}
+
+	daemonPort := pickAvailablePort()
+
+	testConfiguration = append(
+		testConfiguration,
+		"SNET_ETHEREUM_JSON_RPC_ENDPOINT=http://127.0.0.1:"+ganachePort,
+		"SNET_DAEMON_LISTENING_PORT="+daemonPort,
+	)
+
+	ganacheCmd := runCommand(nodePath, nil, "./.bin/ganache-cli", "-m", mFile.Mnemonic, "--port", ganachePort)
 	defer ganacheCmd.Process.Wait()
 	defer ganacheCmd.Process.Signal(syscall.SIGTERM)
 
-	runCommand(blockchainPath, nil, "npm", "run", "migrate").Wait()
-	runCommand(blockchainPath, nil, "npm", "run", "create-agent").Wait()
+	runCommand(blockchainPath, truffleEnv, "npm", "run", "migrate").Wait()
+	runCommand(blockchainPath, truffleEnv, "npm", "run", "create-agent").Wait()
 
 	rawAgent, err := ioutil.ReadFile(buildStatePath + "/AgentAddress.json")
 	require.NoError(t, err)
@@ -98,9 +105,9 @@ func TestEndToEnd(t *testing.T) {
 	defer snetdCmd.Process.Signal(syscall.SIGTERM)
 	time.Sleep(2 * time.Second)
 
-	runCommand(blockchainPath, nil, "npm", "run", "create-job").Wait()
-	runCommand(blockchainPath, nil, "npm", "run", "fund-job").Wait()
-	runCommand(blockchainPath, nil, "npm", "run", "sign-job").Wait()
+	runCommand(blockchainPath, truffleEnv, "npm", "run", "create-job").Wait()
+	runCommand(blockchainPath, truffleEnv, "npm", "run", "fund-job").Wait()
+	runCommand(blockchainPath, truffleEnv, "npm", "run", "sign-job").Wait()
 	rawJob, err := ioutil.ReadFile(buildStatePath + "/JobAddress.json")
 	require.NoError(t, err)
 
@@ -117,7 +124,8 @@ func TestEndToEnd(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	httpReq, err := http.NewRequest("POST", "http://127.0.0.1:5000/FakeService/FakeMethod",
+	daemonHTTPAddr := "http://127.0.0.1:" + daemonPort
+	httpReq, err := http.NewRequest("POST", daemonHTTPAddr+"/FakeService/FakeMethod",
 		bytes.NewBuffer([]byte("\x00\x00\x00\x00\x13"+`{"hello":"goodbye"}`)))
 	require.NoError(t, err)
 
@@ -135,6 +143,7 @@ func TestEndToEnd(t *testing.T) {
 	assert.Empty(t, grpcStatus, "Got non-empty Grpc-Status code on response")
 
 	httpRespBytes, err := ioutil.ReadAll(httpResp.Body)
+	assert.NoError(t, err, "Unable to read HTP response body from daemon")
 	fmt.Print(string(httpRespBytes))
 	assert.NotEmpty(t, httpRespBytes, "Expected response body from daemon")
 
@@ -153,4 +162,19 @@ func runCommand(dir string, env []string, name string, arg ...string) *exec.Cmd 
 	cmd.Stdout = os.Stdout
 	cmd.Start()
 	return cmd
+}
+
+func pickAvailablePort() string {
+	p, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err)
+	}
+	addr := p.Addr().String()
+	parts := strings.Split(addr, ":")
+	if len(parts) < 2 {
+		panic("Can't parse address: " + addr)
+	}
+	p.Close()
+
+	return parts[len(parts)-1]
 }

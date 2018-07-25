@@ -30,15 +30,16 @@ func (p Processor) jobValidationInterceptor(srv interface{}, ss grpc.ServerStrea
 
 	jobSignatureBytes := common.FromHex(jobSignatureMd[0])
 
-	if p.IsValidJobInvocation(jobAddressBytes, jobSignatureBytes) {
-		err := handler(srv, ss)
-		if err == nil {
-			p.CompleteJob(jobAddressBytes, jobSignatureBytes)
-		}
+	if !p.IsValidJobInvocation(jobAddressBytes, jobSignatureBytes) {
+		return status.Errorf(codes.Unauthenticated, "job invocation not valid")
+	}
+
+	if err := handler(srv, ss); err != nil {
 		return err
 	}
 
-	return status.Errorf(codes.Unauthenticated, "job invocation not valid")
+	p.CompleteJob(jobAddressBytes, jobSignatureBytes)
+	return nil
 }
 
 func noOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,

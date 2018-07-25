@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -103,51 +101,28 @@ func TestEndToEnd(t *testing.T) {
 	}()
 
 	defer snetdCmd.Process.Signal(syscall.SIGTERM)
-	time.Sleep(2 * time.Second)
 
-	runCommand(blockchainPath, truffleEnv, "npm", "run", "create-job").Wait()
-	runCommand(blockchainPath, truffleEnv, "npm", "run", "fund-job").Wait()
-	runCommand(blockchainPath, truffleEnv, "npm", "run", "sign-job").Wait()
-	rawJob, err := ioutil.ReadFile(buildStatePath + "/JobAddress.json")
-	require.NoError(t, err)
+	h := harness{
+		t:              t,
+		blockchainPath: blockchainPath,
+		truffleEnv:     truffleEnv,
+		buildStatePath: buildStatePath,
+	}
+	time.Sleep(time.Second)
 
-	jFile := &jobFile{}
-	err = json.Unmarshal(rawJob, jFile)
-	require.NoError(t, err)
+	header := func(msg string) {
+		fmt.Println()
+		fmt.Println("== " + msg + " ==")
+		fmt.Println()
+	}
 
-	rawJobInvocation, err := ioutil.ReadFile(buildStatePath + "/JobInvocation.json")
-	require.NoError(t, err)
+	header("Testing native gRPC client")
+	testGRPC(t, h, daemonPort)
+	time.Sleep(time.Second)
 
-	jIFile := &jobInvocationFile{}
-	err = json.Unmarshal(rawJobInvocation, jIFile)
-	require.NoError(t, err)
-
-	time.Sleep(2 * time.Second)
-
-	daemonHTTPAddr := "http://127.0.0.1:" + daemonPort
-	httpReq, err := http.NewRequest("POST", daemonHTTPAddr+"/FakeService/FakeMethod",
-		bytes.NewBuffer([]byte("\x00\x00\x00\x00\x13"+`{"hello":"goodbye"}`)))
-	require.NoError(t, err)
-
-	httpReq.Header.Set("content-type", "application/grpc-web+json")
-	httpReq.Header.Set("snet-job-address", jFile.Job)
-	httpReq.Header.Set("snet-job-signature", jIFile.Signature)
-
-	httpResp, err := http.DefaultClient.Do(httpReq)
-	require.NoError(t, err)
-
-	grpcMessage := httpResp.Header.Get("Grpc-Message")
-	assert.Empty(t, grpcMessage, "Got non-empty Grpc-Message on response")
-
-	grpcStatus := httpResp.Header.Get("Grpc-Status")
-	assert.Empty(t, grpcStatus, "Got non-empty Grpc-Status code on response")
-
-	httpRespBytes, err := ioutil.ReadAll(httpResp.Body)
-	assert.NoError(t, err, "Unable to read HTP response body from daemon")
-	fmt.Print(string(httpRespBytes))
-	assert.NotEmpty(t, httpRespBytes, "Expected response body from daemon")
-
-	time.Sleep(2 * time.Second)
+	header("Testing gRPC-web client")
+	testGRPCWeb(t, h, daemonPort)
+	time.Sleep(time.Second)
 }
 
 func runCommand(dir string, env []string, name string, arg ...string) *exec.Cmd {

@@ -8,15 +8,22 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 )
 
 type httpHandler struct {
-	bp blockchain.Processor
+	bp                  blockchain.Processor
+	blockchainEnabled   bool
+	passthroughEnabled  bool
+	passthroughEndpoint string
 }
 
-func httpToHTTP(blockProc blockchain.Processor) http.Handler {
+func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
 	return httpHandler{
-		bp: blockProc,
+		bp:                  blockProc,
+		blockchainEnabled:   config.GetBool(config.BlockchainEnabledKey),
+		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),
+		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 	}
 }
 
@@ -24,7 +31,7 @@ func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	var jobAddress, jobSignature string
 	var jobAddressBytes, jobSignatureBytes []byte
 
-	if blockchainEnabled {
+	if h.blockchainEnabled {
 		jobAddress, jobSignature = req.Header.Get(blockchain.JobAddressHeader),
 			req.Header.Get(blockchain.JobSignatureHeader)
 
@@ -61,8 +68,8 @@ func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	if passthroughEnabled {
-		req2, err := http.NewRequest(req.Method, passthroughEndpoint, req.Body)
+	if h.passthroughEnabled {
+		req2, err := http.NewRequest(req.Method, h.passthroughEndpoint, req.Body)
 		if err != nil {
 			http.Error(resp, err.Error(), http.StatusInternalServerError)
 			return
@@ -93,7 +100,7 @@ func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	if blockchainEnabled {
+	if h.blockchainEnabled {
 		h.bp.CompleteJob(jobAddressBytes, jobSignatureBytes)
 	}
 }

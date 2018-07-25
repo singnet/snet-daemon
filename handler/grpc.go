@@ -6,23 +6,69 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strings"
 
 	"github.com/gorilla/rpc/v2/json2"
 	"github.com/singnet/snet-daemon/codec"
+	"github.com/singnet/snet-daemon/config"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
+var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
+
+type grpcHandler struct {
+	grpcConn            *grpc.ClientConn
+	enc                 string
+	passthroughEndpoint string
+	executable          string
+}
+
+func NewGrpcHandler() grpc.StreamHandler {
+	passthroughEnabled := config.GetBool(config.PassthroughEnabledKey)
+
+	if !passthroughEnabled {
+		return grpcLoopback
+	}
+
+	h := grpcHandler{
+		enc:                 config.GetString(config.WireEncodingKey),
+		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
+		executable:          config.GetString(config.ExecutablePathKey),
+	}
+
+	switch config.GetString(config.ServiceTypeKey) {
+	case "grpc":
+		passthroughURL, err := url.Parse(h.passthroughEndpoint)
+		if err != nil {
+			log.WithError(err).Panic("error parsing passthrough endpoint")
+		}
+
+		conn, err := grpc.Dial(passthroughURL.Host, grpc.WithInsecure())
+		if err != nil {
+			log.WithError(err).Panic("error dialing service")
+		}
+		h.grpcConn = conn
+		return h.grpcToGRPC
+	case "jsonrpc":
+		return h.grpcToJSONRPC
+	case "process":
+		return h.grpcToProcess
+	}
+	return nil
+}
+
 /*
 Modified from https://github.com/mwitkow/grpc-proxy/blob/67591eb23c48346a480470e462289835d96f70da/proxy/handler.go#L61
 Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-PROXY for licensing terms.
 Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
 */
-func grpcToGRPC(srv interface{}, inStream grpc.ServerStream) error {
+func (g grpcHandler) grpcToGRPC(srv interface{}, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -38,7 +84,7 @@ func grpcToGRPC(srv interface{}, inStream grpc.ServerStream) error {
 
 	outCtx, outCancel := context.WithCancel(inCtx)
 	outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
-	outStream, err := grpcConn.NewStream(outCtx, grpcDesc, method, grpc.CallContentSubtype(enc))
+	outStream, err := g.grpcConn.NewStream(outCtx, grpcDesc, method, grpc.CallContentSubtype(g.enc))
 	if err != nil {
 		return err
 	}
@@ -136,7 +182,7 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 	return ret
 }
 
-func grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) error {
+func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -167,7 +213,7 @@ func grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "error encoding request; error: %+v", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", passthroughEndpoint, bytes.NewBuffer(jsonRPCReq))
+	httpReq, err := http.NewRequest("POST", g.passthroughEndpoint, bytes.NewBuffer(jsonRPCReq))
 
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request; error: %+v", err)
@@ -201,7 +247,7 @@ func grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) error {
 	return nil
 }
 
-func grpcToProcess(srv interface{}, inStream grpc.ServerStream) error {
+func (g grpcHandler) grpcToProcess(srv interface{}, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -216,7 +262,7 @@ func grpcToProcess(srv interface{}, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "error receiving request; error: %+v", err)
 	}
 
-	cmd := exec.Command(executable, method)
+	cmd := exec.Command(g.executable, method)
 	stdin, err := cmd.StdinPipe()
 
 	if err != nil {

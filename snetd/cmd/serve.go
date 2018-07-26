@@ -153,7 +153,7 @@ func (d daemon) start() {
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
-			grpc.UnknownServiceHandler(handler.GetGrpcHandler()),
+			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
 			grpc.StreamInterceptor(d.blockProc.GrpcStreamInterceptor()),
 		)
 
@@ -186,7 +186,7 @@ func (d daemon) start() {
 	} else {
 		log.Debug("starting simple HTTP daemon")
 
-		go http.Serve(d.lis, handlers.CORS(corsOptions...)(handler.GetHTTPHandler(d.blockProc)))
+		go http.Serve(d.lis, handlers.CORS(corsOptions...)(handler.NewHTTPHandler(d.blockProc)))
 	}
 }
 

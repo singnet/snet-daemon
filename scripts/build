@@ -6,5 +6,5 @@ PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
 mkdir -p build
-GOOS=$1 GOARCH=$2 go build -o build/snetd-$1-$2 snetd/snetd.go
+GOOS=$1 GOARCH=$2 go build -o build/snetd-$1-$2 snetd/main.go
 popd

@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"os/exec"
+	"fmt"
+	"log"
 )
 
 func main() {
@@ -19,6 +21,11 @@ func runCommand(dir string, env []string, name string, arg ...string) *exec.Cmd 
 	}
 	cmd.Stderr = os.Stdout
 	cmd.Stdout = os.Stdout
-	cmd.Start()
+	err := cmd.Start()
+	if err != nil {
+		fmt.Errorf("command execution '%s' execution in dir '%s' fails.\n", name, dir)
+		log.Fatal(err)
+	}
+
 	return cmd
 }

@@ -23,7 +23,6 @@ jobs:
       - run:
           name: Run build script
           command: ./scripts/build
-      - run: find . -name agent.go
       - run:
           name: Run test script
           command: ./scripts/test

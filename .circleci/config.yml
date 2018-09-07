@@ -18,23 +18,12 @@ jobs:
             # install golint
             sudo apt-get install golint
       - run:
-          name: Run npm install without rewriting package-lock.json
-          command: |
-            # This is a workaround of the problem that 'npm install'
-            # version 5.6.0 does not find some depenedencies
-            cd resources/blockchain
-            npm --no-save install
-      - run:
           name: Run install script
           command: ./scripts/install
       - run:
-          name: Verify npm dependencies
-          command: |
-            cd resources/blockchain/node_modules
-            npm ls
-      - run:
           name: Run build script
           command: ./scripts/build
+      - run: find . -name agent.go
       - run:
           name: Run test script
           command: ./scripts/test

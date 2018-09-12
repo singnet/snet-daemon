@@ -1,0 +1,28 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.9-node
+    working_directory: /go/src/github.com/singnet/snet-daemon
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            # install protobuf
+            sudo apt-get install protobuf-compiler
+            # install protoc-gen-go
+            go get -u github.com/golang/protobuf/protoc-gen-go
+            # install grpc
+            go get -u google.golang.org/grpc
+            # install golint
+            sudo apt-get install golint
+      - run:
+          name: Run install script
+          command: ./scripts/install
+      - run:
+          name: Run build script
+          command: ./scripts/build
+      - run:
+          name: Run test script
+          command: ./scripts/test

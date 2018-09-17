@@ -9,6 +9,13 @@ import (
 
 var RootCmd = &cobra.Command{
 	Use: "snetd",
+	Run: func(cmd *cobra.Command, args []string) {
+		if command, _, err := cmd.Find(args); err != nil && command != nil {
+			command.Execute()
+		} else {
+			ServeCmd.Run(cmd, args)
+		}
+	},
 }
 
 var (

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -50,7 +51,9 @@ func init() {
 		vip.SetConfigFile(*cfgFile)
 
 		if err := vip.ReadInConfig(); err != nil {
-			log.WithError(err).Debug("error reading config")
+			fmt.Println("Error reading config", err)
 		}
+
+		log.SetLevel(log.Level(config.GetInt(config.LogLevelKey)))
 	})
 }

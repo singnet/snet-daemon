@@ -9,8 +9,8 @@ import (
 )
 
 func main() {
-	if err := cmd.ServeCmd.Execute(); err != nil {
-		log.WithError(err).Error("Unable to serve")
+	if err := cmd.RootCmd.Execute(); err != nil {
+		log.WithError(err).Error("Unable to run application")
 		os.Exit(1)
 	}
 }

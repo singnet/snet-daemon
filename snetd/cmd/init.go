@@ -4,6 +4,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 var InitCmd = &cobra.Command{
@@ -14,6 +15,7 @@ var InitCmd = &cobra.Command{
 		log.Info("Writing default configuration")
 		if err := config.WriteConfig(); err != nil {
 			log.WithError(err).Error("Cannot write default configuration")
+			os.Exit(1)
 		}
 	},
 }

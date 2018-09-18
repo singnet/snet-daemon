@@ -5,6 +5,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 var RootCmd = &cobra.Command{
@@ -63,12 +64,16 @@ func init() {
 	cobra.OnInitialize(func() {
 		vip.SetConfigFile(*cfgFile)
 
-		if err := vip.ReadInConfig(); err != nil {
-			fmt.Println("Error reading config", err)
+		if RootCmd.PersistentFlags().Lookup("config").Changed {
+			if err := vip.ReadInConfig(); err != nil {
+				fmt.Println("Error reading config:", *cfgFile, err)
+				os.Exit(1)
+			}
+		} else {
+			fmt.Println("Configuration file is not set, using default configuration")
 		}
 
 		log.SetLevel(log.Level(config.GetInt(config.LogLevelKey)))
-
 		log.Info("Cobra initialized")
 	})
 }

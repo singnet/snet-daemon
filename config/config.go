@@ -87,6 +87,10 @@ func Validate() error {
 	return nil
 }
 
+func WriteConfig() error {
+	return vip.WriteConfig()
+}
+
 func GetString(key string) string {
 	return vip.GetString(key)
 }

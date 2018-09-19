@@ -1,13 +1,26 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"os"
 )
 
+var RootCmd = &cobra.Command{
+	Use: "snetd",
+	Run: func(cmd *cobra.Command, args []string) {
+		if command, _, err := cmd.Find(args); err != nil && command != nil {
+			command.Execute()
+		} else {
+			ServeCmd.Run(cmd, args)
+		}
+	},
+}
+
 var (
-	cfgFile            = ServeCmd.PersistentFlags().StringP("config", "c", "snetd.config.json", "config file")
+	cfgFile            = RootCmd.PersistentFlags().StringP("config", "c", "snetd.config.json", "config file")
 	autoSSLDomain      = ServeCmd.PersistentFlags().String("auto-ssl-domain", "", "enable SSL via LetsEncrypt for this domain (requires root)")
 	autoSSLCacheDir    = ServeCmd.PersistentFlags().String("auto-ssl-cache", ".certs", "auto-SSL certificate cache directory")
 	daemonType         = ServeCmd.PersistentFlags().StringP("type", "t", "grpc", "daemon type: one of 'grpc','http'")
@@ -26,31 +39,41 @@ var (
 )
 
 func init() {
-	rf := ServeCmd.PersistentFlags()
+	serveCmdFlags := ServeCmd.PersistentFlags()
 	vip := config.Vip()
 
-	vip.BindPFlag(config.ConfigPathKey, rf.Lookup("config"))
-	vip.BindPFlag(config.AutoSSLDomainKey, rf.Lookup("auto-ssl-domain"))
-	vip.BindPFlag(config.AutoSSLCacheDirKey, rf.Lookup("auto-ssl-cache"))
-	vip.BindPFlag(config.DaemonTypeKey, rf.Lookup("type"))
-	vip.BindPFlag(config.BlockchainEnabledKey, rf.Lookup("blockchain"))
-	vip.BindPFlag(config.DaemonListeningPortKey, rf.Lookup("port"))
-	vip.BindPFlag(config.EthereumJsonRpcEndpointKey, rf.Lookup("ethereum-endpoint"))
-	vip.BindPFlag(config.HdwalletMnemonicKey, rf.Lookup("mnemonic"))
-	vip.BindPFlag(config.HdwalletIndexKey, rf.Lookup("wallet-index"))
-	vip.BindPFlag(config.DbPathKey, rf.Lookup("db-path"))
-	vip.BindPFlag(config.PassthroughEnabledKey, rf.Lookup("passthrough"))
-	vip.BindPFlag(config.ServiceTypeKey, rf.Lookup("service-type"))
-	vip.BindPFlag(config.SSLCertPathKey, rf.Lookup("ssl-cert"))
-	vip.BindPFlag(config.SSLKeyPathKey, rf.Lookup("ssl-key"))
-	vip.BindPFlag(config.WireEncodingKey, rf.Lookup("wire-encoding"))
-	vip.BindPFlag(config.PollSleepKey, rf.Lookup("poll-sleep"))
+	RootCmd.AddCommand(InitCmd)
+	RootCmd.AddCommand(ServeCmd)
+
+	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
+	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))
+	vip.BindPFlag(config.DaemonTypeKey, serveCmdFlags.Lookup("type"))
+	vip.BindPFlag(config.BlockchainEnabledKey, serveCmdFlags.Lookup("blockchain"))
+	vip.BindPFlag(config.DaemonListeningPortKey, serveCmdFlags.Lookup("port"))
+	vip.BindPFlag(config.EthereumJsonRpcEndpointKey, serveCmdFlags.Lookup("ethereum-endpoint"))
+	vip.BindPFlag(config.HdwalletMnemonicKey, serveCmdFlags.Lookup("mnemonic"))
+	vip.BindPFlag(config.HdwalletIndexKey, serveCmdFlags.Lookup("wallet-index"))
+	vip.BindPFlag(config.DbPathKey, serveCmdFlags.Lookup("db-path"))
+	vip.BindPFlag(config.PassthroughEnabledKey, serveCmdFlags.Lookup("passthrough"))
+	vip.BindPFlag(config.ServiceTypeKey, serveCmdFlags.Lookup("service-type"))
+	vip.BindPFlag(config.SSLCertPathKey, serveCmdFlags.Lookup("ssl-cert"))
+	vip.BindPFlag(config.SSLKeyPathKey, serveCmdFlags.Lookup("ssl-key"))
+	vip.BindPFlag(config.WireEncodingKey, serveCmdFlags.Lookup("wire-encoding"))
+	vip.BindPFlag(config.PollSleepKey, serveCmdFlags.Lookup("poll-sleep"))
 
 	cobra.OnInitialize(func() {
 		vip.SetConfigFile(*cfgFile)
 
-		if err := vip.ReadInConfig(); err != nil {
-			log.WithError(err).Debug("error reading config")
+		if RootCmd.PersistentFlags().Lookup("config").Changed {
+			if err := vip.ReadInConfig(); err != nil {
+				fmt.Println("Error reading config:", *cfgFile, err)
+				os.Exit(1)
+			}
+		} else {
+			fmt.Println("Configuration file is not set, using default configuration")
 		}
+
+		log.SetLevel(log.Level(config.GetInt(config.LogLevelKey)))
+		log.Info("Cobra initialized")
 	})
 }

@@ -31,7 +31,7 @@ var corsOptions = []handlers.CORSOption{
 }
 
 var ServeCmd = &cobra.Command{
-	Use: "snetd",
+	Use: "serve",
 	Run: func(cmd *cobra.Command, args []string) {
 		d, err := newDaemon()
 		if err != nil {

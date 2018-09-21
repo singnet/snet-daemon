@@ -18,6 +18,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
 	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/logger"
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
@@ -37,7 +38,7 @@ var ServeCmd = &cobra.Command{
 		var err error
 
 		loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
-		initLogger()
+		logger.InitLogger()
 
 		var d daemon
 		d, err = newDaemon()
@@ -75,19 +76,6 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
 func isFileExist(fileName string) bool {
 	_, err := os.Stat(fileName)
 	return !os.IsNotExist(err)
-}
-
-func initLogger() {
-	var err error
-	var logLevel log.Level
-	var settings = config.GetString(config.LogLevelKey)
-
-	logLevel, err = log.ParseLevel(settings)
-	if err != nil {
-		log.WithError(err).WithField("settings", settings).Fatal("Cannot parse log level value from settings")
-	}
-
-	log.SetLevel(logLevel)
 }
 
 type daemon struct {

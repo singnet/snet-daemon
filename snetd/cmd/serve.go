@@ -38,7 +38,10 @@ var ServeCmd = &cobra.Command{
 		var err error
 
 		loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
-		logger.InitLogger()
+		err = logger.InitLogger()
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize logger")
+		}
 
 		var d daemon
 		d, err = newDaemon()

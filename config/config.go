@@ -23,6 +23,7 @@ const (
 	HdwalletIndexKey           = "HDWALLET_INDEX"
 	HdwalletMnemonicKey        = "HDWALLET_MNEMONIC"
 	LogLevelKey                = "LOG.LEVEL"
+	LogFormatterKey            = "LOG.FORMATTER"
 	PassthroughEnabledKey      = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey     = "PASSTHROUGH_ENDPOINT"
 	PollSleepKey               = "POLL_SLEEP"
@@ -53,7 +54,7 @@ const (
 		"level": "info",
 		"formatter": {
 			"type": "json",
-			"timestamp_timezone": "UTC"
+			"timezone": "UTC"
 		},
 		"output": {
 			"type": "file",

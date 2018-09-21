@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -21,7 +22,7 @@ const (
 	ExecutablePathKey          = "EXECUTABLE_PATH"
 	HdwalletIndexKey           = "HDWALLET_INDEX"
 	HdwalletMnemonicKey        = "HDWALLET_MNEMONIC"
-	LogLevelKey                = "LOG_LEVEL"
+	LogLevelKey                = "LOG.LEVEL"
 	PassthroughEnabledKey      = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey     = "PASSTHROUGH_ENDPOINT"
 	PollSleepKey               = "POLL_SLEEP"
@@ -30,6 +31,42 @@ const (
 	SSLCertPathKey             = "SSL_CERT"
 	SSLKeyPathKey              = "SSL_KEY"
 	WireEncodingKey            = "WIRE_ENCODING"
+
+	defaultConfigJson string = `
+{
+	"auto_ssl_cache_dir": ".certs",
+	"auto_ssl_domain": "",
+	"blockchain_enabled": true,
+	"daemon_listening_port": 5000,
+	"daemon_type": "grpc",
+	"db_path": "snetd.db",
+	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
+	"hdwallet_index": 0,
+	"hdwallet_mnemonic": "",
+	"passthrough_enabled": false,
+	"poll_sleep": "5s",
+	"service_type": "grpc",
+	"ssl_cert": "",
+	"ssl_key": "",
+	"wire_encoding": "proto",
+	"log":  {
+		"level": "info",
+		"formatter": {
+			"type": "json",
+			"timestamp_timezone": "UTC"
+		},
+		"output": {
+			"type": "file",
+			"file_pattern": "./snet-daemon.%Y%m%d.log",
+			"current_link": "./snet-daemon.log",
+			"clock_timezone": "UTC",
+			"rotation_time_in_sec": 86400,
+			"max_age_in_sec": 604800,
+			"rotation_count": 0
+		}
+	}
+}
+`
 )
 
 var vip *viper.Viper
@@ -39,9 +76,25 @@ func init() {
 	vip.SetEnvPrefix("SNET")
 	vip.AutomaticEnv()
 
-	vip.SetDefault(LogLevelKey, 5)
+	setDefaultsFromJsonString(defaultConfigJson)
 
 	vip.AddConfigPath(".")
+}
+
+func setDefaultsFromJsonString(data string) {
+	var err error
+	var temporaryConfig *viper.Viper = viper.New()
+
+	temporaryConfig.SetConfigType("json")
+
+	err = temporaryConfig.ReadConfig(strings.NewReader(data))
+	if err != nil {
+		panic(fmt.Sprintf("Cannot load default config: %v", err))
+	}
+
+	for key, value := range temporaryConfig.AllSettings() {
+		vip.SetDefault(key, value)
+	}
 }
 
 func Vip() *viper.Viper {

@@ -78,7 +78,16 @@ func isFileExist(fileName string) bool {
 }
 
 func initLogger() {
-	log.SetLevel(log.Level(config.GetInt(config.LogLevelKey)))
+	var err error
+	var logLevel log.Level
+	var settings = config.GetString(config.LogLevelKey)
+
+	logLevel, err = log.ParseLevel(settings)
+	if err != nil {
+		log.WithError(err).WithField("settings", settings).Fatal("Cannot parse log level value from settings")
+	}
+
+	log.SetLevel(logLevel)
 }
 
 type daemon struct {

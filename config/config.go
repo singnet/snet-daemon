@@ -87,7 +87,13 @@ func Validate() error {
 	return nil
 }
 
-func WriteConfig() error {
+func LoadConfig(configFile string) error {
+	vip.SetConfigFile(configFile)
+	return vip.ReadInConfig()
+}
+
+func WriteConfig(configFile string) error {
+	vip.SetConfigFile(configFile)
 	return vip.WriteConfig()
 }
 

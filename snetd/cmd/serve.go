@@ -21,6 +21,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
@@ -33,10 +34,15 @@ var corsOptions = []handlers.CORSOption{
 var ServeCmd = &cobra.Command{
 	Use: "serve",
 	Run: func(cmd *cobra.Command, args []string) {
-		d, err := newDaemon()
+		var err error
+
+		loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
+		initLogger()
+
+		var d daemon
+		d, err = newDaemon()
 		if err != nil {
-			log.WithError(err).Error("Unable to initialize daemon")
-			os.Exit(2)
+			log.WithError(err).Fatal("Unable to initialize daemon")
 		}
 
 		d.start()
@@ -48,6 +54,31 @@ var ServeCmd = &cobra.Command{
 
 		log.Debug("exiting")
 	},
+}
+
+func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
+	var err error
+	var configFile = configFlag.Value.String()
+
+	// if file is not specified by user then configFile contains default name
+	if configFlag.Changed || isFileExist(configFile) {
+		err = config.LoadConfig(configFile)
+		if err != nil {
+			log.WithError(err).WithField("configFile", configFile).Fatal("Error reading configuration file")
+		}
+		log.WithField("configFile", configFile).Info("Using configuration file")
+	} else {
+		log.Info("Configuration file is not set, using default configuration")
+	}
+}
+
+func isFileExist(fileName string) bool {
+	_, err := os.Stat(fileName)
+	return !os.IsNotExist(err)
+}
+
+func initLogger() {
+	log.SetLevel(log.Level(config.GetInt(config.LogLevelKey)))
 }
 
 type daemon struct {

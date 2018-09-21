@@ -69,6 +69,7 @@ func init() {
 				fmt.Println("Error reading config:", *cfgFile, err)
 				os.Exit(1)
 			}
+			fmt.Printf("Using configuration from \"%v\" file\n", *cfgFile)
 		} else {
 			fmt.Println("Configuration file is not set, using default configuration")
 		}

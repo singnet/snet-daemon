@@ -79,10 +79,7 @@ func init() {
 	})
 }
 
-func isFileExist(file string) bool {
-	if _, err := os.Stat(file); os.IsNotExist(err) {
-		return false
-	} else {
-		return true
-	}
+func isFileExist(fileName string) bool {
+	_, err := os.Stat(fileName)
+	return !os.IsNotExist(err)
 }

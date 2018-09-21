@@ -21,6 +21,14 @@ type harness struct {
 	buildStatePath string
 }
 
+type jobFile struct {
+	Job string
+}
+
+type jobInvocationFile struct {
+	Signature string
+}
+
 func (h harness) createSignedJob() signedJob {
 	runCommand(h.blockchainPath, h.truffleEnv, "npm", "run", "create-job").Wait()
 	runCommand(h.blockchainPath, h.truffleEnv, "npm", "run", "fund-job").Wait()

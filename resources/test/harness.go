@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"encoding/json"
@@ -19,6 +19,14 @@ type harness struct {
 	blockchainPath string
 	truffleEnv     []string
 	buildStatePath string
+}
+
+type jobFile struct {
+	Job string
+}
+
+type jobInvocationFile struct {
+	Signature string
 }
 
 func (h harness) createSignedJob() signedJob {

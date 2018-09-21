@@ -24,6 +24,7 @@ const (
 	HdwalletMnemonicKey        = "HDWALLET_MNEMONIC"
 	LogLevelKey                = "LOG.LEVEL"
 	LogFormatterKey            = "LOG.FORMATTER"
+	LogOutputKey               = "LOG.OUTPUT"
 	PassthroughEnabledKey      = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey     = "PASSTHROUGH_ENDPOINT"
 	PollSleepKey               = "POLL_SLEEP"

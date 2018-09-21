@@ -64,11 +64,12 @@ func init() {
 	cobra.OnInitialize(func() {
 		vip.SetConfigFile(*cfgFile)
 
-		if RootCmd.PersistentFlags().Lookup("config").Changed {
+		if RootCmd.PersistentFlags().Lookup("config").Changed || isFileExist(*cfgFile) {
 			if err := vip.ReadInConfig(); err != nil {
 				fmt.Println("Error reading config:", *cfgFile, err)
 				os.Exit(1)
 			}
+			fmt.Printf("Using configuration from \"%v\" file\n", *cfgFile)
 		} else {
 			fmt.Println("Configuration file is not set, using default configuration")
 		}
@@ -76,4 +77,9 @@ func init() {
 		log.SetLevel(log.Level(config.GetInt(config.LogLevelKey)))
 		log.Info("Cobra initialized")
 	})
+}
+
+func isFileExist(fileName string) bool {
+	_, err := os.Stat(fileName)
+	return !os.IsNotExist(err)
 }

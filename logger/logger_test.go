@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/jonboulle/clockwork"
 	"github.com/lestrrat-go/file-rotatelogs"
 	"github.com/singnet/snet-daemon/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -35,8 +37,8 @@ const (
 
     "file-output": {
         "type": "file",
-        "file_pattern": "./snet-daemon.%Y%m%d.log",
-        "current_link": "./snet-daemon.log",
+        "file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
+        "current_link": "/tmp/snet-daemon.log",
         "clock_timezone": "UTC",
         "rotation_time_in_sec": 86400,
         "max_age_in_sec": 604800,
@@ -65,8 +67,8 @@ const (
 		},
 		"output": {
 			"type": "file",
-			"file_pattern": "./snet-daemon.%Y%m%d.log",
-			"current_link": "./snet-daemon.log",
+			"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
+			"current_link": "/tmp/snet-daemon.log",
 			"clock_timezone": "UTC",
 			"rotation_time_in_sec": 86400,
 			"max_age_in_sec": 604800,
@@ -92,20 +94,43 @@ const (
 
 var testConfig *viper.Viper
 
-func TestMain(t *testing.T) {
-	testConfig = readConfig(t, testConfigJSON)
+func TestMain(m *testing.M) {
+	testConfig = readConfig(testConfigJSON)
+
+	result := m.Run()
+
+	removeLogFiles()
+
+	os.Exit(result)
 }
 
-func readConfig(t *testing.T, configJSON string) *viper.Viper {
+func readConfig(configJSON string) *viper.Viper {
 	var err error
 
 	var vip *viper.Viper = viper.New()
 	err = config.ReadConfigFromJsonString(vip, configJSON)
 	if err != nil {
-		t.Fatal("Cannot not read test config", err)
+		panic(fmt.Sprintf("Cannot read test config: %v", err))
 	}
 
 	return vip
+}
+
+func removeLogFiles() {
+	var err error
+	var files []string
+
+	files, err = filepath.Glob("/tmp/snet-daemon*.log")
+	if err != nil {
+		panic(fmt.Sprintf("Cannot find files using pattern: %v", err))
+	}
+
+	for _, file := range files {
+		err = os.Remove(file)
+		if err != nil {
+			panic(fmt.Sprintf("Cannot remove file: %v, error: %v", file, err))
+		}
+	}
 }
 
 func TestNewFormatterTextType(t *testing.T) {

@@ -91,7 +91,7 @@ func initLogger(config *configWithDefaults) error {
 	var output io.Writer
 	output, err = newOutputByConfig(config.sub(LogOutputKey))
 	if err != nil {
-		return fmt.Errorf("Unable initialize log output, error: %v, err")
+		return fmt.Errorf("Unable initialize log output, error: %v", err)
 	}
 	log.SetOutput(output)
 

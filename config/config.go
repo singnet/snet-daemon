@@ -80,7 +80,7 @@ func init() {
 	vip.AutomaticEnv()
 
 	defaults = viper.New()
-	err = readConfigurationFromJsonString(defaults, defaultConfigJson)
+	err = ReadConfigFromJsonString(defaults, defaultConfigJson)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot load default config: %v", err))
 	}
@@ -89,7 +89,7 @@ func init() {
 	vip.AddConfigPath(".")
 }
 
-func readConfigurationFromJsonString(config *viper.Viper, json string) error {
+func ReadConfigFromJsonString(config *viper.Viper, json string) error {
 	config.SetConfigType("json")
 	return config.ReadConfig(strings.NewReader(json))
 }

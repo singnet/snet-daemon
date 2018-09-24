@@ -22,9 +22,7 @@ const (
 	ExecutablePathKey          = "EXECUTABLE_PATH"
 	HdwalletIndexKey           = "HDWALLET_INDEX"
 	HdwalletMnemonicKey        = "HDWALLET_MNEMONIC"
-	LogLevelKey                = "LOG.LEVEL"
-	LogFormatterKey            = "LOG.FORMATTER"
-	LogOutputKey               = "LOG.OUTPUT"
+	LogKey                     = "LOG"
 	PassthroughEnabledKey      = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey     = "PASSTHROUGH_ENDPOINT"
 	PollSleepKey               = "POLL_SLEEP"
@@ -72,35 +70,42 @@ const (
 )
 
 var vip *viper.Viper
+var defaults *viper.Viper
 
 func init() {
+	var err error
+
 	vip = viper.New()
 	vip.SetEnvPrefix("SNET")
 	vip.AutomaticEnv()
 
-	setDefaultsFromJsonString(defaultConfigJson)
+	defaults = viper.New()
+	err = readConfigurationFromJsonString(defaults, defaultConfigJson)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot load default config: %v", err))
+	}
+	setDefaultsFromConfig(vip, defaults)
 
 	vip.AddConfigPath(".")
 }
 
-func setDefaultsFromJsonString(data string) {
-	var err error
-	var temporaryConfig *viper.Viper = viper.New()
+func readConfigurationFromJsonString(config *viper.Viper, json string) error {
+	config.SetConfigType("json")
+	return config.ReadConfig(strings.NewReader(json))
+}
 
-	temporaryConfig.SetConfigType("json")
-
-	err = temporaryConfig.ReadConfig(strings.NewReader(data))
-	if err != nil {
-		panic(fmt.Sprintf("Cannot load default config: %v", err))
-	}
-
-	for key, value := range temporaryConfig.AllSettings() {
+func setDefaultsFromConfig(config *viper.Viper, defaults *viper.Viper) {
+	for key, value := range defaults.AllSettings() {
 		vip.SetDefault(key, value)
 	}
 }
 
 func Vip() *viper.Viper {
 	return vip
+}
+
+func Defaults() *viper.Viper {
+	return defaults
 }
 
 func Validate() error {

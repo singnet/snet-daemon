@@ -3,8 +3,8 @@ package logger
 import (
 	"fmt"
 	"github.com/lestrrat-go/file-rotatelogs"
-	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"io"
 	"os"
@@ -12,22 +12,69 @@ import (
 )
 
 const (
-	LogFormatterTypeKey            = "type"
-	LogFormatterTimezoneKey        = "timezone"
-	LogOutputTypeKey               = "type"
-	LogOutputFileFilePattern       = "file_pattern"
-	LogOutputFileCurrentLink       = "current_link"
-	LogOutputFileClockTimezone     = "clock_timezone"
-	LogOutputFileRotationTimeInSec = "rotation_time_in_sec"
-	LogOutputFileMaxAgeInSec       = "max_age_in_sec"
-	LogOutputFileRotationCount     = "rotation_count"
+	LogLevelKey     = "level"
+	LogFormatterKey = "formatter"
+	LogOutputKey    = "output"
+
+	LogFormatterTypeKey     = "type"
+	LogFormatterTimezoneKey = "timezone"
+
+	LogOutputTypeKey                  = "type"
+	LogOutputFileFilePatternKey       = "file_pattern"
+	LogOutputFileCurrentLinkKey       = "current_link"
+	LogOutputFileClockTimezoneKey     = "clock_timezone"
+	LogOutputFileRotationTimeInSecKey = "rotation_time_in_sec"
+	LogOutputFileMaxAgeInSecKey       = "max_age_in_sec"
+	LogOutputFileRotationCountKey     = "rotation_count"
 )
 
-func InitLogger() error {
+// InitLogger initializes logger using configuration provided by viper
+// instance.
+//
+// Function designed to configure few different loggers with different
+// formatter and output settings. To achieve this viper configuration
+// contains separate sections for each logger, each output and
+// each formatter. As viper doesn't support defaults for sub-configurations
+// there is a workaround for this. Two different viper configurations should be
+// provided: one for main configuration and one for configuration defaults.
+func InitLogger(config *viper.Viper, defaults *viper.Viper) error {
+	return initLogger(&configWithDefaults{config, defaults})
+}
+
+type configWithDefaults struct {
+	config   *viper.Viper
+	defaults *viper.Viper
+}
+
+func (config *configWithDefaults) get(key string) interface{} {
+	if config.config != nil && config.config.InConfig(key) {
+		return config.config.Get(key)
+	} else {
+		return config.defaults.Get(key)
+	}
+}
+
+func (config *configWithDefaults) getString(key string) string {
+	return cast.ToString(config.get(key))
+}
+
+func (config *configWithDefaults) getInt(key string) int {
+	return cast.ToInt(config.get(key))
+}
+
+func (config *configWithDefaults) getDuration(key string) time.Duration {
+	return cast.ToDuration(config.get(key))
+}
+
+func (config *configWithDefaults) sub(key string) *configWithDefaults {
+	return &configWithDefaults{config.config.Sub(key), config.defaults.Sub(key)}
+}
+
+func initLogger(config *configWithDefaults) error {
 	var err error
 
 	var level log.Level
-	var levelString = config.GetString(config.LogLevelKey)
+	var levelString = config.getString(LogLevelKey)
 	level, err = log.ParseLevel(levelString)
 	if err != nil {
 		return fmt.Errorf("Unable parse log level string: %v, err: %v", levelString, err)
@@ -35,30 +82,29 @@ func InitLogger() error {
 	log.SetLevel(level)
 
 	var formatter log.Formatter
-	formatter, err = newFormatterByConfig(config.Vip().Sub(config.LogFormatterKey))
+	formatter, err = newFormatterByConfig(config.sub(LogFormatterKey))
 	if err != nil {
 		return fmt.Errorf("Unable initialize log formatter, error: %v", err)
 	}
 	log.SetFormatter(formatter)
 
 	var output io.Writer
-	output, err = newOutputByConfig(config.Vip().Sub(config.LogOutputKey))
+	output, err = newOutputByConfig(config.sub(LogOutputKey))
 	if err != nil {
 		return fmt.Errorf("Unable initialize log output, error: %v, err")
 	}
 	log.SetOutput(output)
 
+	log.Info("Logger initialized")
+
 	return nil
 }
 
-func newFormatterByConfig(config *viper.Viper) (*timezoneFormatter, error) {
+func newFormatterByConfig(config *configWithDefaults) (*timezoneFormatter, error) {
 	var err error
 	var formatter *timezoneFormatter = &timezoneFormatter{}
 
-	config.SetDefault(LogFormatterTypeKey, "json")
-	config.SetDefault(LogFormatterTimezoneKey, time.Local.String())
-
-	switch formatterType := config.GetString(LogFormatterTypeKey); formatterType {
+	switch formatterType := config.getString(LogFormatterTypeKey); formatterType {
 	case "text":
 		formatter.delegate = &log.TextFormatter{}
 	case "json":
@@ -68,7 +114,7 @@ func newFormatterByConfig(config *viper.Viper) (*timezoneFormatter, error) {
 	}
 
 	var location *time.Location
-	location, err = time.LoadLocation(config.GetString(LogFormatterTimezoneKey))
+	location, err = time.LoadLocation(config.getString(LogFormatterTimezoneKey))
 	if err != nil {
 		return nil, err
 	}
@@ -87,33 +133,24 @@ func (formatter *timezoneFormatter) Format(entry *log.Entry) ([]byte, error) {
 	return formatter.delegate.Format(entry)
 }
 
-func newOutputByConfig(config *viper.Viper) (io.Writer, error) {
+func newOutputByConfig(config *configWithDefaults) (io.Writer, error) {
 	var err error
 
-	config.SetDefault(LogOutputTypeKey, "file")
-
-	switch outputType := config.GetString(LogOutputTypeKey); outputType {
+	switch outputType := config.getString(LogOutputTypeKey); outputType {
 	case "file":
 
-		config.SetDefault(LogOutputFileFilePattern, "./snet-daemon.%Y%m%d.metrics.log")
-		config.SetDefault(LogOutputFileClockTimezone, time.Local.String())
-		config.SetDefault(LogOutputFileCurrentLink, "")
-		config.SetDefault(LogOutputFileRotationTimeInSec, 86400)
-		config.SetDefault(LogOutputFileMaxAgeInSec, 604800)
-		config.SetDefault(LogOutputFileRotationCount, 0)
-
 		var location *time.Location
-		if location, err = time.LoadLocation(config.GetString(LogOutputFileClockTimezone)); err != nil {
+		if location, err = time.LoadLocation(config.getString(LogOutputFileClockTimezoneKey)); err != nil {
 			return nil, err
 		}
 
 		var fileWriter io.Writer
-		fileWriter, err = rotatelogs.New(config.GetString(LogOutputFileFilePattern),
+		fileWriter, err = rotatelogs.New(config.getString(LogOutputFileFilePatternKey),
 			rotatelogs.WithLocation(location),
-			rotatelogs.WithLinkName(config.GetString(LogOutputFileCurrentLink)),
-			rotatelogs.WithRotationTime(config.GetDuration(LogOutputFileRotationTimeInSec)),
-			rotatelogs.WithMaxAge(config.GetDuration(LogOutputFileMaxAgeInSec)),
-			rotatelogs.WithRotationCount(uint(config.GetInt(LogOutputFileRotationCount))),
+			rotatelogs.WithLinkName(config.getString(LogOutputFileCurrentLinkKey)),
+			rotatelogs.WithRotationTime(config.getDuration(LogOutputFileRotationTimeInSecKey)),
+			rotatelogs.WithMaxAge(config.getDuration(LogOutputFileMaxAgeInSecKey)),
+			rotatelogs.WithRotationCount(uint(config.getInt(LogOutputFileRotationCountKey))),
 		)
 		if err != nil {
 			return nil, err

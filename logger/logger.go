@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// Logger configuration keys
 const (
 	LogLevelKey     = "level"
 	LogFormatterKey = "formatter"
@@ -49,9 +50,8 @@ type configWithDefaults struct {
 func (config *configWithDefaults) get(key string) interface{} {
 	if config.config != nil && config.config.InConfig(key) {
 		return config.config.Get(key)
-	} else {
-		return config.defaults.Get(key)
 	}
+	return config.defaults.Get(key)
 }
 
 func (config *configWithDefaults) getString(key string) string {
@@ -102,7 +102,7 @@ func initLogger(config *configWithDefaults) error {
 
 func newFormatterByConfig(config *configWithDefaults) (*timezoneFormatter, error) {
 	var err error
-	var formatter *timezoneFormatter = &timezoneFormatter{}
+	var formatter = &timezoneFormatter{}
 
 	switch formatterType := config.getString(LogFormatterTypeKey); formatterType {
 	case "text":

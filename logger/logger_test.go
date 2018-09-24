@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	testConfigJson string = `
+	testConfigJSON string = `
 {
     "json-formatter": {
         "type": "json",
@@ -93,14 +93,14 @@ const (
 var testConfig *viper.Viper
 
 func TestMain(t *testing.T) {
-	testConfig = readConfig(t, testConfigJson)
+	testConfig = readConfig(t, testConfigJSON)
 }
 
-func readConfig(t *testing.T, configJson string) *viper.Viper {
+func readConfig(t *testing.T, configJSON string) *viper.Viper {
 	var err error
 
 	var vip *viper.Viper = viper.New()
-	err = config.ReadConfigFromJsonString(vip, configJson)
+	err = config.ReadConfigFromJsonString(vip, configJSON)
 	if err != nil {
 		t.Fatal("Cannot not read test config", err)
 	}

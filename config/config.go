@@ -89,6 +89,8 @@ func init() {
 	vip.AddConfigPath(".")
 }
 
+// ReadConfigFromJsonString function reads settigs from json string to the
+// config instance. String should contain valid JSON config.
 func ReadConfigFromJsonString(config *viper.Viper, json string) error {
 	config.SetConfigType("json")
 	return config.ReadConfig(strings.NewReader(json))

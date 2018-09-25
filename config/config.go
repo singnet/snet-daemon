@@ -71,7 +71,6 @@ const (
 )
 
 var vip *viper.Viper
-var defaults *viper.Viper
 
 func init() {
 	var err error
@@ -80,12 +79,12 @@ func init() {
 	vip.SetEnvPrefix("SNET")
 	vip.AutomaticEnv()
 
-	defaults = viper.New()
+	var defaults = viper.New()
 	err = ReadConfigFromJsonString(defaults, defaultConfigJson)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot load default config: %v", err))
 	}
-	setDefaultsFromConfig(vip, defaults)
+	SetDefaultFromConfig(vip, defaults)
 
 	vip.AddConfigPath(".")
 }
@@ -97,18 +96,16 @@ func ReadConfigFromJsonString(config *viper.Viper, json string) error {
 	return config.ReadConfig(strings.NewReader(json))
 }
 
-func setDefaultsFromConfig(config *viper.Viper, defaults *viper.Viper) {
+// SetDefaultFromConfig sets all settings from defaults as default values to
+// the config.
+func SetDefaultFromConfig(config *viper.Viper, defaults *viper.Viper) {
 	for key, value := range defaults.AllSettings() {
-		vip.SetDefault(key, value)
+		config.SetDefault(key, value)
 	}
 }
 
 func Vip() *viper.Viper {
 	return vip
-}
-
-func Defaults() *viper.Viper {
-	return defaults
 }
 
 func Validate() error {

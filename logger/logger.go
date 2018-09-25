@@ -88,12 +88,15 @@ func initLogger(config *configWithDefaults) error {
 	}
 	log.SetFormatter(formatter)
 
-	var output io.Writer
+	var output *closableWriter
 	output, err = newOutputByConfig(config.sub(LogOutputKey))
 	if err != nil {
 		return fmt.Errorf("Unable initialize log output, error: %v", err)
 	}
 	log.SetOutput(output)
+	log.RegisterExitHandler(func() {
+		output.Close()
+	})
 
 	log.Info("Logger initialized")
 
@@ -133,7 +136,7 @@ func (formatter *timezoneFormatter) Format(entry *log.Entry) ([]byte, error) {
 	return formatter.delegate.Format(entry)
 }
 
-func newOutputByConfig(config *configWithDefaults) (io.Writer, error) {
+func newOutputByConfig(config *configWithDefaults) (*closableWriter, error) {
 	var err error
 
 	switch outputType := config.getString(LogOutputTypeKey); outputType {
@@ -156,11 +159,30 @@ func newOutputByConfig(config *configWithDefaults) (io.Writer, error) {
 			return nil, err
 		}
 
-		return fileWriter, nil
+		return &closableWriter{
+			fileWriter,
+			func(writer interface{}) error { return writer.(*rotatelogs.RotateLogs).Close() },
+		}, nil
 	case "stdout":
-		return os.Stdout, nil
+		return &closableWriter{
+			os.Stdout,
+			func(writer interface{}) error { return nil },
+		}, nil
 	default:
 		return nil, fmt.Errorf("Unexpected output type: %v", outputType)
 	}
 
+}
+
+type closableWriter struct {
+	delegate io.Writer
+	close    func(interface{}) error
+}
+
+func (writer *closableWriter) Write(p []byte) (n int, err error) {
+	return writer.delegate.Write(p)
+}
+
+func (writer *closableWriter) Close() error {
+	return writer.close(writer.delegate)
 }

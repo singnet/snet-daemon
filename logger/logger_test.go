@@ -220,7 +220,7 @@ func TestNewOutputFile(t *testing.T) {
 	var writer, err = newOutputByConfig(&configWithDefaults{outputConfig, viper.New()})
 
 	assert.Nil(t, err)
-	_, isFileWriter := writer.(*rotatelogs.RotateLogs)
+	_, isFileWriter := writer.delegate.(*rotatelogs.RotateLogs)
 	assert.True(t, isFileWriter, "Unexpected writer type, actual: %T, expected: %T", writer, &rotatelogs.RotateLogs{})
 }
 
@@ -230,7 +230,7 @@ func TestNewOutputStdout(t *testing.T) {
 	var writer, err = newOutputByConfig(&configWithDefaults{outputConfig, viper.New()})
 
 	assert.Nil(t, err)
-	assert.Equal(t, os.Stdout, writer, "Unexpected writer type")
+	assert.Equal(t, os.Stdout, writer.delegate, "Unexpected writer type")
 }
 
 func TestNewOutputIncorrectType(t *testing.T) {
@@ -267,7 +267,7 @@ func TestNewOutputDefault(t *testing.T) {
 	var writer, err = newOutputByConfig(&configWithDefaults{nil, defaultConfig})
 
 	assert.Nil(t, err)
-	_, isFileWriter := writer.(*rotatelogs.RotateLogs)
+	_, isFileWriter := writer.delegate.(*rotatelogs.RotateLogs)
 	assert.True(t, isFileWriter, "Unexpected writer type, actual: %T, expected: %T", writer, &rotatelogs.RotateLogs{})
 }
 

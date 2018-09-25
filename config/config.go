@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
 
@@ -173,4 +174,23 @@ func GetDuration(key string) time.Duration {
 
 func GetBool(key string) bool {
 	return vip.GetBool(key)
+}
+
+// SubWithDefault returns sub-config by keys including configuration defaults
+// values. It returns nil if no such key. It is analog of the viper.Sub()
+// function. This is workaround for the issue
+// https://github.com/spf13/viper/issues/559
+func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
+	var allSettingsByKey, ok = config.AllSettings()[key]
+	if !ok {
+		return nil
+	}
+
+	var subMap = cast.ToStringMap(allSettingsByKey)
+	var sub = viper.New()
+	for subKey, value := range subMap {
+		sub.Set(subKey, value)
+	}
+
+	return sub
 }

@@ -151,8 +151,8 @@ func newOutputByConfig(config *configWithDefaults) (*closableWriter, error) {
 		fileWriter, err = rotatelogs.New(config.getString(LogOutputFileFilePatternKey),
 			rotatelogs.WithLocation(location),
 			rotatelogs.WithLinkName(config.getString(LogOutputFileCurrentLinkKey)),
-			rotatelogs.WithRotationTime(config.getDuration(LogOutputFileRotationTimeInSecKey)),
-			rotatelogs.WithMaxAge(config.getDuration(LogOutputFileMaxAgeInSecKey)),
+			rotatelogs.WithRotationTime(config.getDuration(LogOutputFileRotationTimeInSecKey)*time.Second),
+			rotatelogs.WithMaxAge(config.getDuration(LogOutputFileMaxAgeInSecKey)*time.Second),
 			rotatelogs.WithRotationCount(uint(config.getInt(LogOutputFileRotationCountKey))),
 		)
 		if err != nil {

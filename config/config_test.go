@@ -43,3 +43,24 @@ func TestCustomSubNoKey(t *testing.T) {
 
 	assert.Nil(t, sub)
 }
+
+func TestReadConfigFromJsonString(t *testing.T) {
+	var config = viper.New()
+	var jsonConfig = `
+{
+  "object": {
+  	  "field": "value"
+  },
+  "array": [ "item-1", "item-2" ],
+  "string-key": "string-value",
+  "int-key": 42
+}`
+
+	ReadConfigFromJsonString(config, jsonConfig)
+
+	assert.Equal(t, map[string]interface{}{"field": "value"}, config.Get("object"))
+	assert.Equal(t, "value", config.Get("object.field"))
+	assert.Equal(t, []interface{}{"item-1", "item-2"}, config.Get("array"))
+	assert.Equal(t, "string-value", config.Get("string-key"))
+	assert.Equal(t, 42, config.GetInt("int-key"))
+}

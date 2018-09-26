@@ -44,6 +44,17 @@ func TestCustomSubNoKey(t *testing.T) {
 	assert.Nil(t, sub)
 }
 
+func TestCustomSubMapWithKeyInOtherCase(t *testing.T) {
+	var config = viper.New()
+	config.Set("outer.INNER", "inner-value")
+	config.SetDefault("OUTER.inner-DEFAULT", "inner-default-value")
+
+	var sub = SubWithDefault(config, "OuTeR")
+
+	assert.Equal(t, "inner-value", sub.Get("iNnEr"))
+	assert.Equal(t, "inner-default-value", sub.Get("iNnEr-DeFaUlT"))
+}
+
 const jsonConfigString = `
 {
   "object": {

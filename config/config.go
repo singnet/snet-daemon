@@ -178,7 +178,7 @@ func GetBool(key string) bool {
 // function. This is workaround for the issue
 // https://github.com/spf13/viper/issues/559
 func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
-	var allSettingsByKey, ok = config.AllSettings()[key]
+	var allSettingsByKey, ok = config.AllSettings()[strings.ToLower(key)]
 	if !ok {
 		return nil
 	}

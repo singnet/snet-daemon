@@ -39,7 +39,7 @@ const (
 	LogHookMailFromKey            = "from"
 	LogHookMailToKey              = "to"
 	LogHookMailUsernameKey        = "username"
-	LogHookMailPasswordKey        = "secret"
+	LogHookMailPasswordKey        = "password"
 )
 
 // InitLogger initializes logger using configuration provided by viper
@@ -157,6 +157,19 @@ var hookFactoryMethodsByType = map[string]func(*viper.Viper) (log.Hook, error){
 	"mail_auth": newMailAuthHook,
 }
 
+type hookWithCustomLevels struct {
+	delegate log.Hook
+	levels   []log.Level
+}
+
+func (hook *hookWithCustomLevels) Fire(entry *log.Entry) error {
+	return hook.delegate.Fire(entry)
+}
+
+func (hook *hookWithCustomLevels) Levels() []log.Level {
+	return hook.levels
+}
+
 func newHookByConfig(config *viper.Viper) (log.Hook, error) {
 	var err error
 	var ok bool
@@ -174,7 +187,17 @@ func newHookByConfig(config *viper.Viper) (log.Hook, error) {
 		return nil, fmt.Errorf("Cannot create hook instance: %v", err)
 	}
 
-	return hook, nil
+	var levels []log.Level
+	for _, levelString := range config.GetStringSlice(LogHookLevelsKey) {
+		var level log.Level
+		level, err = log.ParseLevel(levelString)
+		if err != nil {
+			return nil, fmt.Errorf("Unable parse log level string: %v, err: %v", levelString, err)
+		}
+		levels = append(levels, level)
+	}
+
+	return &hookWithCustomLevels{hook, levels}, nil
 }
 
 func newMailAuthHook(config *viper.Viper) (log.Hook, error) {

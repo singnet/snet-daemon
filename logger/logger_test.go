@@ -93,6 +93,24 @@ const (
 `
 )
 
+const defaultLogConfig = `
+	{
+		"level": "info",
+		"formatter": {
+			"type": "json",
+			"timezone": "UTC"
+		},
+		"output": {
+			"type": "file",
+			"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
+			"current_link": "/tmp/snet-daemon.log",
+			"clock_timezone": "UTC",
+			"rotation_time_in_sec": 86400,
+			"max_age_in_sec": 604800,
+			"rotation_count": 0
+		}
+	}`
+
 var testConfig *viper.Viper
 
 func TestMain(m *testing.M) {
@@ -132,6 +150,26 @@ func removeLogFiles() {
 			panic(fmt.Sprintf("Cannot remove file: %v, error: %v", file, err))
 		}
 	}
+}
+
+func newLoggerConfigFromStrings(configString, defaultString string) *viper.Viper {
+	var err error
+
+	var configVip = viper.New()
+	err = config.ReadConfigFromJsonString(configVip, configString)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot read test config: %v", configString))
+	}
+
+	var defaultVip = viper.New()
+	err = config.ReadConfigFromJsonString(defaultVip, defaultString)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot read test config: %v", defaultString))
+	}
+
+	config.SetDefaultFromConfig(configVip, defaultVip)
+
+	return configVip
 }
 
 func TestNewFormatterTextType(t *testing.T) {
@@ -307,44 +345,6 @@ func TestInitLoggerIncorrectOutput(t *testing.T) {
 	var err = InitLogger(loggerConfig)
 
 	assert.Equal(t, errors.New("Unable initialize log output, error: Unexpected output type: UNKNOWN"), err, "Unexpected error message")
-}
-
-const defaultLogConfig = `
-	{
-		"level": "info",
-		"formatter": {
-			"type": "json",
-			"timezone": "UTC"
-		},
-		"output": {
-			"type": "file",
-			"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
-			"current_link": "/tmp/snet-daemon.log",
-			"clock_timezone": "UTC",
-			"rotation_time_in_sec": 86400,
-			"max_age_in_sec": 604800,
-			"rotation_count": 0
-		}
-	}`
-
-func newLoggerConfigFromStrings(configString, defaultString string) *viper.Viper {
-	var err error
-
-	var configVip = viper.New()
-	err = config.ReadConfigFromJsonString(configVip, configString)
-	if err != nil {
-		panic(fmt.Sprintf("Cannot read test config: %v", configString))
-	}
-
-	var defaultVip = viper.New()
-	err = config.ReadConfigFromJsonString(defaultVip, defaultString)
-	if err != nil {
-		panic(fmt.Sprintf("Cannot read test config: %v", defaultString))
-	}
-
-	config.SetDefaultFromConfig(configVip, defaultVip)
-
-	return configVip
 }
 
 func TestInitLoggerLoadHooks(t *testing.T) {

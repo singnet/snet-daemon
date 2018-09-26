@@ -137,7 +137,7 @@ func removeLogFiles(pattern string) {
 func TestNewFormatterTextType(t *testing.T) {
 	var formatterConfig = testConfig.Sub("text-formatter")
 
-	var formatter, err = newFormatterByConfig(&configWithDefaults{formatterConfig, viper.New()})
+	var formatter, err = newFormatterByConfig(formatterConfig)
 
 	assert.Nil(t, err)
 	_, isFormatterDelegate := formatter.delegate.(*log.TextFormatter)
@@ -148,7 +148,7 @@ func TestNewFormatterTextType(t *testing.T) {
 func TestNewFormatterJsonType(t *testing.T) {
 	var formatterConfig = testConfig.Sub("json-formatter")
 
-	var formatter, err = newFormatterByConfig(&configWithDefaults{formatterConfig, viper.New()})
+	var formatter, err = newFormatterByConfig(formatterConfig)
 
 	assert.Nil(t, err)
 	_, isFormatterDelegate := formatter.delegate.(*log.JSONFormatter)
@@ -158,20 +158,20 @@ func TestNewFormatterJsonType(t *testing.T) {
 }
 
 func TestNewFormatterIncorrectType(t *testing.T) {
-	var defaultConfig = testConfig.Sub("json-formatter")
 	var formatterConfig = testConfig.Sub("incorrect-type-formatter")
+	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
 
-	var _, err = newFormatterByConfig(&configWithDefaults{formatterConfig, defaultConfig})
+	var _, err = newFormatterByConfig(formatterConfig)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, errors.New("Unexpected formatter type: UNKNOWN"), err, "Unexpected error message")
 }
 
 func TestNewFormatterIncorrectTimestampTimezone(t *testing.T) {
-	var defaultConfig = testConfig.Sub("json-formatter")
 	var formatterConfig = testConfig.Sub("incorrect-timezone-formatter")
+	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
 
-	var _, err = newFormatterByConfig(&configWithDefaults{formatterConfig, defaultConfig})
+	var _, err = newFormatterByConfig(formatterConfig)
 
 	assert.NotNil(t, err)
 }
@@ -204,9 +204,10 @@ func TestTimezoneFormatter(t *testing.T) {
 }
 
 func TestNewFormatterDefault(t *testing.T) {
-	var defaultConfig = testConfig.Sub("json-formatter")
+	var formatterConfig = viper.New()
+	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
 
-	var formatter, err = newFormatterByConfig(&configWithDefaults{nil, defaultConfig})
+	var formatter, err = newFormatterByConfig(formatterConfig)
 
 	assert.Nil(t, err)
 	_, isFormatterDelegate := formatter.delegate.(*log.JSONFormatter)
@@ -218,7 +219,7 @@ func TestNewFormatterDefault(t *testing.T) {
 func TestNewOutputFile(t *testing.T) {
 	var outputConfig = testConfig.Sub("file-output")
 
-	var writer, err = newOutputByConfig(&configWithDefaults{outputConfig, viper.New()})
+	var writer, err = newOutputByConfig(outputConfig)
 
 	assert.Nil(t, err)
 	_, isFileWriter := writer.(*rotatelogs.RotateLogs)
@@ -228,44 +229,45 @@ func TestNewOutputFile(t *testing.T) {
 func TestNewOutputStdout(t *testing.T) {
 	var outputConfig = testConfig.Sub("stdout-output")
 
-	var writer, err = newOutputByConfig(&configWithDefaults{outputConfig, viper.New()})
+	var writer, err = newOutputByConfig(outputConfig)
 
 	assert.Nil(t, err)
 	assert.Equal(t, os.Stdout, writer, "Unexpected writer type")
 }
 
 func TestNewOutputIncorrectType(t *testing.T) {
-	var defaultConfig = testConfig.Sub("file-output")
 	var outputConfig = testConfig.Sub("incorrect-type-output")
+	config.SetDefaultFromConfig(outputConfig, testConfig.Sub("file-output"))
 
-	var _, err = newOutputByConfig(&configWithDefaults{outputConfig, defaultConfig})
+	var _, err = newOutputByConfig(outputConfig)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, errors.New("Unexpected output type: UNKNOWN"), err, "Unexpected error message")
 }
 
 func TestNewOutputIncorrectClockTimezone(t *testing.T) {
-	var defaultConfig = testConfig.Sub("file-output")
 	var outputConfig = testConfig.Sub("incorrect-timezone-output")
+	config.SetDefaultFromConfig(outputConfig, testConfig.Sub("file-output"))
 
-	var _, err = newOutputByConfig(&configWithDefaults{outputConfig, defaultConfig})
+	var _, err = newOutputByConfig(outputConfig)
 
 	assert.NotNil(t, err)
 }
 
 func TestNewIncorrectFileOutputFilePattern(t *testing.T) {
-	var defaultConfig = testConfig.Sub("file-output")
 	var outputConfig = testConfig.Sub("incorrect-file-pattern-output")
+	config.SetDefaultFromConfig(outputConfig, testConfig.Sub("file-output"))
 
-	var _, err = newOutputByConfig(&configWithDefaults{outputConfig, defaultConfig})
+	var _, err = newOutputByConfig(outputConfig)
 
 	assert.NotNil(t, err)
 }
 
 func TestNewOutputDefault(t *testing.T) {
-	var defaultConfig = testConfig.Sub("file-output")
+	var outputConfig = viper.New()
+	config.SetDefaultFromConfig(outputConfig, testConfig.Sub("file-output"))
 
-	var writer, err = newOutputByConfig(&configWithDefaults{nil, defaultConfig})
+	var writer, err = newOutputByConfig(outputConfig)
 
 	assert.Nil(t, err)
 	_, isFileWriter := writer.(*rotatelogs.RotateLogs)
@@ -275,34 +277,34 @@ func TestNewOutputDefault(t *testing.T) {
 func TestInitLogger(t *testing.T) {
 	var loggerConfig = testConfig.Sub("log")
 
-	var err = InitLogger(loggerConfig, viper.New())
+	var err = InitLogger(loggerConfig)
 
 	assert.Nil(t, err)
 }
 
 func TestInitLoggerIncorrectLevel(t *testing.T) {
-	var defaultConfig = testConfig.Sub("log")
 	var loggerConfig = testConfig.Sub("incorrect-level-log")
+	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
 
-	var err = InitLogger(loggerConfig, defaultConfig)
+	var err = InitLogger(loggerConfig)
 
 	assert.Equal(t, errors.New("Unable parse log level string: UNKNOWN, err: not a valid logrus Level: \"UNKNOWN\""), err, "Unexpected error message message")
 }
 
 func TestInitLoggerIncorrectFormatter(t *testing.T) {
-	var defaultConfig = testConfig.Sub("log")
 	var loggerConfig = testConfig.Sub("incorrect-formatter-log")
+	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
 
-	var err = InitLogger(loggerConfig, defaultConfig)
+	var err = InitLogger(loggerConfig)
 
 	assert.Equal(t, errors.New("Unable initialize log formatter, error: Unexpected formatter type: UNKNOWN"), err, "Unexpected error message")
 }
 
 func TestInitLoggerIncorrectOutput(t *testing.T) {
-	var defaultConfig = testConfig.Sub("log")
 	var loggerConfig = testConfig.Sub("incorrect-output-log")
+	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
 
-	var err = InitLogger(loggerConfig, defaultConfig)
+	var err = InitLogger(loggerConfig)
 
 	assert.Equal(t, errors.New("Unable initialize log output, error: Unexpected output type: UNKNOWN"), err, "Unexpected error message")
 }

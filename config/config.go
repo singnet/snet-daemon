@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
 
@@ -70,7 +71,6 @@ const (
 )
 
 var vip *viper.Viper
-var defaults *viper.Viper
 
 func init() {
 	var err error
@@ -79,12 +79,12 @@ func init() {
 	vip.SetEnvPrefix("SNET")
 	vip.AutomaticEnv()
 
-	defaults = viper.New()
+	var defaults = viper.New()
 	err = ReadConfigFromJsonString(defaults, defaultConfigJson)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot load default config: %v", err))
 	}
-	setDefaultsFromConfig(vip, defaults)
+	SetDefaultFromConfig(vip, defaults)
 
 	vip.AddConfigPath(".")
 }
@@ -96,18 +96,16 @@ func ReadConfigFromJsonString(config *viper.Viper, json string) error {
 	return config.ReadConfig(strings.NewReader(json))
 }
 
-func setDefaultsFromConfig(config *viper.Viper, defaults *viper.Viper) {
+// SetDefaultFromConfig sets all settings from defaults as default values to
+// the config.
+func SetDefaultFromConfig(config *viper.Viper, defaults *viper.Viper) {
 	for key, value := range defaults.AllSettings() {
-		vip.SetDefault(key, value)
+		config.SetDefault(key, value)
 	}
 }
 
 func Vip() *viper.Viper {
 	return vip
-}
-
-func Defaults() *viper.Viper {
-	return defaults
 }
 
 func Validate() error {
@@ -173,4 +171,23 @@ func GetDuration(key string) time.Duration {
 
 func GetBool(key string) bool {
 	return vip.GetBool(key)
+}
+
+// SubWithDefault returns sub-config by keys including configuration defaults
+// values. It returns nil if no such key. It is analog of the viper.Sub()
+// function. This is workaround for the issue
+// https://github.com/spf13/viper/issues/559
+func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
+	var allSettingsByKey, ok = config.AllSettings()[strings.ToLower(key)]
+	if !ok {
+		return nil
+	}
+
+	var subMap = cast.ToStringMap(allSettingsByKey)
+	var sub = viper.New()
+	for subKey, value := range subMap {
+		sub.Set(subKey, value)
+	}
+
+	return sub
 }

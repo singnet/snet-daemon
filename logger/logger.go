@@ -5,6 +5,7 @@ import (
 	"github.com/lestrrat-go/file-rotatelogs"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/zbindenren/logrus_mail"
 	"io"
 	"os"
 	"time"
@@ -15,6 +16,7 @@ const (
 	LogLevelKey     = "level"
 	LogFormatterKey = "formatter"
 	LogOutputKey    = "output"
+	LogHooksKey     = "hooks"
 
 	LogFormatterTypeKey     = "type"
 	LogFormatterTimezoneKey = "timezone"
@@ -26,6 +28,18 @@ const (
 	LogOutputFileRotationTimeInSecKey = "rotation_time_in_sec"
 	LogOutputFileMaxAgeInSecKey       = "max_age_in_sec"
 	LogOutputFileRotationCountKey     = "rotation_count"
+
+	LogHookTypeKey   = "type"
+	LogHookLevelsKey = "levels"
+	LogHookConfigKey = "config"
+
+	LogHookMailApplicationNameKey = "application_name"
+	LogHookMailHostKey            = "host"
+	LogHookMailPortKey            = "port"
+	LogHookMailFromKey            = "from"
+	LogHookMailToKey              = "to"
+	LogHookMailUsernameKey        = "username"
+	LogHookMailPasswordKey        = "secret"
 )
 
 // InitLogger initializes logger using configuration provided by viper
@@ -59,6 +73,15 @@ func InitLogger(config *viper.Viper) error {
 		return fmt.Errorf("Unable initialize log output, error: %v", err)
 	}
 	log.SetOutput(output)
+
+	for _, hookConfigName := range config.GetStringSlice(LogHooksKey) {
+		var hookInstance log.Hook
+		hookInstance, err = newHookByConfig(config.Sub(hookConfigName))
+		if err != nil {
+			return fmt.Errorf("Unable to initialize log hook, error: %v", err)
+		}
+		log.AddHook(hookInstance)
+	}
 
 	log.Info("Logger initialized")
 
@@ -128,4 +151,40 @@ func newOutputByConfig(config *viper.Viper) (io.Writer, error) {
 		return nil, fmt.Errorf("Unexpected output type: %v", outputType)
 	}
 
+}
+
+var hookFactoryMethodsByType = map[string]func(*viper.Viper) (log.Hook, error){
+	"mail_auth": newMailAuthHook,
+}
+
+func newHookByConfig(config *viper.Viper) (log.Hook, error) {
+	var err error
+	var ok bool
+
+	var hookType = config.GetString(LogHookTypeKey)
+	var hookFactoryMethod func(*viper.Viper) (log.Hook, error)
+	hookFactoryMethod, ok = hookFactoryMethodsByType[hookType]
+	if !ok {
+		return nil, fmt.Errorf("Unexpected hook type: %v", hookType)
+	}
+
+	var hook log.Hook
+	hook, err = hookFactoryMethod(config.Sub(LogHookConfigKey))
+	if err != nil {
+		return nil, fmt.Errorf("Cannot create hook instance: %v", err)
+	}
+
+	return hook, nil
+}
+
+func newMailAuthHook(config *viper.Viper) (log.Hook, error) {
+	return logrus_mail.NewMailAuthHook(
+		config.GetString(LogHookMailApplicationNameKey),
+		config.GetString(LogHookMailHostKey),
+		config.GetInt(LogHookMailPortKey),
+		config.GetString(LogHookMailFromKey),
+		config.GetString(LogHookMailToKey),
+		config.GetString(LogHookMailUsernameKey),
+		config.GetString(LogHookMailPasswordKey),
+	)
 }

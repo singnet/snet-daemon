@@ -347,11 +347,8 @@ func TestInitLoggerIncorrectOutput(t *testing.T) {
 	assert.Equal(t, errors.New("Unable initialize log output, error: Unexpected output type: UNKNOWN"), err, "Unexpected error message")
 }
 
-func TestInitLoggerLoadHooks(t *testing.T) {
+func TestInitLoggerWithMailAuthHook(t *testing.T) {
 	var err error
-	var expectedHook *logrus_mail.MailAuthHook
-	expectedHook, err = logrus_mail.NewMailAuthHook("test-application-name", "smtp.gmail.com", 587, "from-user@gmail.com", "to-user@gmail.com", "smtp-username", "secret")
-	assert.Nil(t, err)
 	const logWithHooks = `
 	{
 		"hooks": [ "mail-hook" ],
@@ -370,6 +367,16 @@ func TestInitLoggerLoadHooks(t *testing.T) {
 		}
 	}`
 	var loggerConfig = newLoggerConfigFromStrings(logWithHooks, defaultLogConfig)
+	var expectedHook *logrus_mail.MailAuthHook
+	expectedHook, err = logrus_mail.NewMailAuthHook(
+		"test-application-name",
+		"smtp.gmail.com",
+		587,
+		"from-user@gmail.com",
+		"to-user@gmail.com",
+		"smtp-username",
+		"secret")
+	assert.Nil(t, err)
 
 	err = InitLogger(loggerConfig)
 

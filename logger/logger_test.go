@@ -382,8 +382,8 @@ func TestInitLoggerWithMailAuthHook(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Nil(t, log.StandardLogger().Hooks[log.PanicLevel])
-	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.ErrorLevel][0].(*hookWithCustomLevels).delegate)
+	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.ErrorLevel][0].(*internalHook).delegate)
 	assert.Equal(t, 1, len(log.StandardLogger().Hooks[log.ErrorLevel]))
-	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.FatalLevel][0].(*hookWithCustomLevels).delegate)
+	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.FatalLevel][0].(*internalHook).delegate)
 	assert.Equal(t, 1, len(log.StandardLogger().Hooks[log.FatalLevel]))
 }

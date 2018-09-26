@@ -44,9 +44,7 @@ func TestCustomSubNoKey(t *testing.T) {
 	assert.Nil(t, sub)
 }
 
-func TestReadConfigFromJsonString(t *testing.T) {
-	var config = viper.New()
-	var jsonConfig = `
+const jsonConfigString = `
 {
   "object": {
   	  "field": "value"
@@ -56,11 +54,28 @@ func TestReadConfigFromJsonString(t *testing.T) {
   "int-key": 42
 }`
 
-	ReadConfigFromJsonString(config, jsonConfig)
-
+func assertConfigIsEqualToJsonConfigString(t *testing.T, config *viper.Viper) {
 	assert.Equal(t, map[string]interface{}{"field": "value"}, config.Get("object"))
 	assert.Equal(t, "value", config.Get("object.field"))
 	assert.Equal(t, []interface{}{"item-1", "item-2"}, config.Get("array"))
 	assert.Equal(t, "string-value", config.Get("string-key"))
 	assert.Equal(t, 42, config.GetInt("int-key"))
+}
+
+func TestReadConfigFromJsonString(t *testing.T) {
+	var config = viper.New()
+
+	ReadConfigFromJsonString(config, jsonConfigString)
+
+	assertConfigIsEqualToJsonConfigString(t, config)
+}
+
+func TestSetDefaultFromConfig(t *testing.T) {
+	var config = viper.New()
+	var defaults = viper.New()
+	ReadConfigFromJsonString(defaults, jsonConfigString)
+
+	SetDefaultFromConfig(config, defaults)
+
+	assertConfigIsEqualToJsonConfigString(t, config)
 }

@@ -1,5 +1,7 @@
 # snet-daemon
 
+[![CircleCI](https://circleci.com/gh/singnet/snet-daemon.svg?style=svg)](https://circleci.com/gh/singnet/snet-daemon)
+
 SingularityNET Daemon
 
 ## Getting Started

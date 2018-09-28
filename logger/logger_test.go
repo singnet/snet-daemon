@@ -118,7 +118,8 @@ func TestMain(m *testing.M) {
 
 	result := m.Run()
 
-	removeLogFiles()
+	removeLogFiles("/tmp/snet-daemon*.log")
+	removeLogFiles("/tmp/file-rotatelogs-test.*.log")
 
 	os.Exit(result)
 }
@@ -135,11 +136,11 @@ func readConfig(configJSON string) *viper.Viper {
 	return vip
 }
 
-func removeLogFiles() {
+func removeLogFiles(pattern string) {
 	var err error
 	var files []string
 
-	files, err = filepath.Glob("/tmp/snet-daemon*.log")
+	files, err = filepath.Glob(pattern)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot find files using pattern: %v", err))
 	}
@@ -386,4 +387,42 @@ func TestInitLoggerWithMailAuthHook(t *testing.T) {
 	assert.Equal(t, 1, len(log.StandardLogger().Hooks[log.ErrorLevel]))
 	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.FatalLevel][0].(*internalHook).delegate)
 	assert.Equal(t, 1, len(log.StandardLogger().Hooks[log.FatalLevel]))
+}
+
+func TestLogRotation(t *testing.T) {
+	var err error
+	var logFileInfo os.FileInfo
+	var startTime time.Time
+
+	var clockMock = clockwork.NewFakeClockAt(
+		time.Date(2018, time.September, 26, 13, 0, 0, 0, time.UTC))
+	var logWriter, _ = rotatelogs.New(
+		"/tmp/file-rotatelogs-test.%Y%m%d.log",
+		rotatelogs.WithClock(clockMock),
+		rotatelogs.WithRotationTime(24*time.Hour),
+		rotatelogs.WithMaxAge(7*24*time.Hour),
+	)
+	var logger = log.New()
+	logger.SetOutput(logWriter)
+
+	// without Add(-time.Second) testStart time is surprisingly after log file
+	// modification date. Difference is about few milliseconds
+	startTime = time.Now().Add(-time.Second)
+	logger.Info("mockedTime: ", clockMock.Now(), " realTime: ", time.Now())
+	logFileInfo, err = os.Stat("/tmp/file-rotatelogs-test.20180926.log")
+	assert.Nil(t, err, "Cannot read log file info")
+	assert.Truef(t, logFileInfo.ModTime().After(startTime), "Log was not updated, test started at: %v, file updated at: %v", startTime, logFileInfo.ModTime())
+
+	startTime = time.Now().Add(-time.Second)
+	clockMock.Advance(10 * time.Hour)
+	logger.Info("mockedTime: ", clockMock.Now(), " realTime: ", time.Now())
+	logFileInfo, err = os.Stat("/tmp/file-rotatelogs-test.20180927.log")
+	assert.NotNil(t, err, "Log was rotated before correct time")
+
+	startTime = time.Now().Add(-time.Second)
+	clockMock.Advance(1*time.Hour + 1*time.Second)
+	logger.Info("mockedTime: ", clockMock.Now(), " realTime: ", time.Now())
+	logFileInfo, err = os.Stat("/tmp/file-rotatelogs-test.20180927.log")
+	assert.Nil(t, err, "Cannot read log file info")
+	assert.Truef(t, logFileInfo.ModTime().After(startTime), "Log was not updated, test started at: %v, file updated at: %v", startTime, logFileInfo.ModTime())
 }

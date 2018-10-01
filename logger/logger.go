@@ -27,18 +27,6 @@ const (
 	LogOutputFileRotationTimeInSecKey = "rotation_time_in_sec"
 	LogOutputFileMaxAgeInSecKey       = "max_age_in_sec"
 	LogOutputFileRotationCountKey     = "rotation_count"
-
-	LogHookTypeKey   = "type"
-	LogHookLevelsKey = "levels"
-	LogHookConfigKey = "config"
-
-	LogHookMailApplicationNameKey = "application_name"
-	LogHookMailHostKey            = "host"
-	LogHookMailPortKey            = "port"
-	LogHookMailFromKey            = "from"
-	LogHookMailToKey              = "to"
-	LogHookMailUsernameKey        = "username"
-	LogHookMailPasswordKey        = "password"
 )
 
 func InitLogger(config *viper.Viper) error {

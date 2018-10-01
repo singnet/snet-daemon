@@ -8,6 +8,20 @@ import (
 	"github.com/zbindenren/logrus_mail"
 )
 
+const (
+	LogHookTypeKey   = "type"
+	LogHookLevelsKey = "levels"
+	LogHookConfigKey = "config"
+
+	LogHookMailApplicationNameKey = "application_name"
+	LogHookMailHostKey            = "host"
+	LogHookMailPortKey            = "port"
+	LogHookMailFromKey            = "from"
+	LogHookMailToKey              = "to"
+	LogHookMailUsernameKey        = "username"
+	LogHookMailPasswordKey        = "password"
+)
+
 type internalHook struct {
 	delegate    log.Hook
 	exitHandler func()

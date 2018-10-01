@@ -10,8 +10,8 @@ import (
 )
 
 func init() {
-	hookFactoryMethodsByType["test-hook"] = testHookFactoryMethod
-	hookFactoryMethodsByType["test-hook-error"] = testHookFactoryMethodReturnError
+	RegisterHookType("test-hook", testHookFactoryMethod)
+	RegisterHookType("test-hook-error", testHookFactoryMethodReturnError)
 }
 
 type testHook struct {
@@ -28,12 +28,12 @@ func (hook *testHook) Levels() []log.Level {
 	return nil
 }
 
-func testHookFactoryMethod(config *viper.Viper) (*internalHook, error) {
+func testHookFactoryMethod(config *viper.Viper) (*Hook, error) {
 	var hook = testHook{config: config}
-	return &internalHook{delegate: &hook, exitHandler: func() {}}, nil
+	return &Hook{Delegate: &hook, ExitHandler: func() {}}, nil
 }
 
-func testHookFactoryMethodReturnError(config *viper.Viper) (*internalHook, error) {
+func testHookFactoryMethodReturnError(config *viper.Viper) (*Hook, error) {
 	return nil, errors.New("as expected")
 }
 
@@ -215,7 +215,7 @@ func TestNewMailAuthHook(t *testing.T) {
 	}`
 	var mailAuthHookConfig = newLoggerConfigFromString(mailAuthHookConfigJson, nil)
 
-	var hook *internalHook
+	var hook *Hook
 	hook, err = newMailAuthHook(mailAuthHookConfig)
 	assert.Nil(t, err)
 
@@ -229,7 +229,7 @@ func TestNewMailAuthHook(t *testing.T) {
 		"smtp-username",
 		"secret")
 	assert.Nil(t, err)
-	assert.Equal(t, hook.delegate, expectedHook)
+	assert.Equal(t, hook.Delegate, expectedHook)
 }
 
 func TestNewMailAuthHookError(t *testing.T) {

@@ -29,10 +29,6 @@ const (
 	LogOutputFileRotationCountKey     = "rotation_count"
 )
 
-func InitLogger(config *viper.Viper) error {
-	return initLogger(log.StandardLogger(), config)
-}
-
 // InitLogger initializes logger using configuration provided by viper
 // instance.
 //
@@ -40,6 +36,10 @@ func InitLogger(config *viper.Viper) error {
 // formatter and output settings. To achieve this viper configuration
 // contains separate sections for each logger, each output and
 // each formatter.
+func InitLogger(config *viper.Viper) error {
+	return initLogger(log.StandardLogger(), config)
+}
+
 func initLogger(logger *log.Logger, config *viper.Viper) error {
 	var err error
 

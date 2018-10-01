@@ -22,6 +22,27 @@ const (
 	LogHookMailPasswordKey        = "password"
 )
 
+// Hook is a structure to return new log message hooks instances from factory
+// method.
+type Hook struct {
+	// Delegate keeps logrus hook pointer to call on message.
+	Delegate log.Hook
+	// ExitHandler is a function to be called before terminating application
+	// when logrus.Fatal() method was called.
+	ExitHandler func()
+}
+
+// RegisterHookType registers new hook type in the system.
+func RegisterHookType(hookType string, hookFactoryMethod func(*viper.Viper) (*Hook, error)) {
+	hookFactoryMethodsByType[hookType] = hookFactoryMethod
+}
+
+var hookFactoryMethodsByType = map[string]func(*viper.Viper) (*Hook, error){}
+
+func init() {
+	RegisterHookType("mail_auth", newMailAuthHook)
+}
+
 type internalHook struct {
 	delegate    log.Hook
 	exitHandler func()
@@ -34,10 +55,6 @@ func (hook *internalHook) Fire(entry *log.Entry) error {
 
 func (hook *internalHook) Levels() []log.Level {
 	return hook.levels
-}
-
-var hookFactoryMethodsByType = map[string]func(*viper.Viper) (*internalHook, error){
-	"mail_auth": newMailAuthHook,
 }
 
 func addHookByConfig(logger *log.Logger, config *viper.Viper) error {
@@ -53,17 +70,18 @@ func addHookByConfig(logger *log.Logger, config *viper.Viper) error {
 		return errors.New("No hook type in hook config")
 	}
 
-	var hookFactoryMethod func(*viper.Viper) (*internalHook, error)
+	var hookFactoryMethod func(*viper.Viper) (*Hook, error)
 	hookFactoryMethod, ok = hookFactoryMethodsByType[hookType]
 	if !ok {
 		return fmt.Errorf("Unexpected hook type: \"%v\"", hookType)
 	}
 
-	var hook *internalHook
+	var hook *Hook
 	hook, err = hookFactoryMethod(config.Sub(LogHookConfigKey))
 	if err != nil {
 		return fmt.Errorf("Cannot create hook instance: %v", err)
 	}
+	var internalHook = internalHook{delegate: hook.Delegate, exitHandler: hook.ExitHandler}
 
 	if config.Get(LogHookLevelsKey) == nil {
 		return errors.New("No levels in hook config")
@@ -77,15 +95,15 @@ func addHookByConfig(logger *log.Logger, config *viper.Viper) error {
 		}
 		levels = append(levels, level)
 	}
-	hook.levels = levels
+	internalHook.levels = levels
 
-	logger.AddHook(hook)
-	log.RegisterExitHandler(hook.exitHandler)
+	logger.AddHook(&internalHook)
+	log.RegisterExitHandler(internalHook.exitHandler)
 
 	return nil
 }
 
-func newMailAuthHook(config *viper.Viper) (*internalHook, error) {
+func newMailAuthHook(config *viper.Viper) (*Hook, error) {
 	if config == nil {
 		return nil, errors.New("Unable to create instance of mail auth hook: no config provided")
 	}
@@ -101,5 +119,5 @@ func newMailAuthHook(config *viper.Viper) (*internalHook, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create instance of mail auth hook: %v", err)
 	}
-	return &internalHook{delegate: mailAuthHook, exitHandler: func() {}}, nil
+	return &Hook{Delegate: mailAuthHook, ExitHandler: func() {}}, nil
 }

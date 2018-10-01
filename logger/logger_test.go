@@ -16,42 +16,6 @@ import (
 	"time"
 )
 
-const (
-	testConfigJSON string = `
-{
-	"log":  {
-		"level": "info",
-		"formatter": {
-			"type": "json",
-			"timezone": "UTC"
-		},
-		"output": {
-			"type": "file",
-			"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
-			"current_link": "/tmp/snet-daemon.log",
-			"clock_timezone": "UTC",
-			"rotation_time_in_sec": 86400,
-			"max_age_in_sec": 604800,
-			"rotation_count": 0
-		}
-	},
-	"incorrect-level-log":  {
-		"level": "UNKNOWN"
-	},
-	"incorrect-formatter-log":  {
-		"formatter": {
-			"type": "UNKNOWN"
-		}
-	},
-	"incorrect-output-log":  {
-		"output": {
-			"type": "UNKNOWN"
-		}
-	}
-}
-`
-)
-
 const defaultFormatterConfigJSON = `
 	{
 		"type": "json",
@@ -85,8 +49,6 @@ const defaultLogConfigJSON = `
 			"rotation_count": 0
 		}
 	}`
-
-var testConfig = readConfig(testConfigJSON)
 
 var defaultFormatterConfig = readConfig(defaultFormatterConfigJSON)
 var defaultOutputConfig = readConfig(defaultOutputConfigJSON)
@@ -319,7 +281,7 @@ func TestNewOutputDefault(t *testing.T) {
 }
 
 func TestInitLogger(t *testing.T) {
-	var loggerConfig = testConfig.Sub("log")
+	var loggerConfig = defaultLogConfig
 
 	var err = InitLogger(loggerConfig)
 
@@ -327,8 +289,10 @@ func TestInitLogger(t *testing.T) {
 }
 
 func TestInitLoggerIncorrectLevel(t *testing.T) {
-	var loggerConfig = testConfig.Sub("incorrect-level-log")
-	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
+	var loggerConfigJSON = `{
+		"level": "UNKNOWN"
+    }`
+	var loggerConfig = newConfigFromString(loggerConfigJSON, defaultLogConfig)
 
 	var err = InitLogger(loggerConfig)
 
@@ -336,8 +300,12 @@ func TestInitLoggerIncorrectLevel(t *testing.T) {
 }
 
 func TestInitLoggerIncorrectFormatter(t *testing.T) {
-	var loggerConfig = testConfig.Sub("incorrect-formatter-log")
-	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
+	var loggerConfigJSON = `{
+		"formatter": {
+			"type": "UNKNOWN"
+		}
+    }`
+	var loggerConfig = newConfigFromString(loggerConfigJSON, defaultLogConfig)
 
 	var err = InitLogger(loggerConfig)
 
@@ -345,8 +313,12 @@ func TestInitLoggerIncorrectFormatter(t *testing.T) {
 }
 
 func TestInitLoggerIncorrectOutput(t *testing.T) {
-	var loggerConfig = testConfig.Sub("incorrect-output-log")
-	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
+	var loggerConfigJSON = `{
+		"output": {
+			"type": "UNKNOWN"
+		}
+    }`
+	var loggerConfig = newConfigFromString(loggerConfigJSON, defaultLogConfig)
 
 	var err = InitLogger(loggerConfig)
 

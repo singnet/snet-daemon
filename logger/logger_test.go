@@ -19,22 +19,6 @@ import (
 const (
 	testConfigJSON string = `
 {
-    "json-formatter": {
-        "type": "json",
-        "timezone": "UTC"
-    },
-    "text-formatter": {
-        "type": "text",
-        "timezone": "UTC"
-    },
-    "incorrect-type-formatter": {
-        "type": "UNKNOWN"
-    },
-    "incorrect-timezone-formatter": {
-        "type": "text",
-        "timezone": "UNKNOWN"
-    },
-
     "file-output": {
         "type": "file",
         "file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
@@ -92,6 +76,12 @@ const (
 `
 )
 
+const defaultFormatterConfigJSON = `
+	{
+		"type": "json",
+		"timezone": "UTC"
+	}`
+
 const defaultLogConfigJSON = `
 	{
 		"level": "info",
@@ -111,6 +101,7 @@ const defaultLogConfigJSON = `
 	}`
 
 var testConfig = readConfig(testConfigJSON)
+var defaultFormatterConfig = readConfig(defaultFormatterConfigJSON)
 var defaultLogConfig = readConfig(defaultLogConfigJSON)
 
 func TestMain(m *testing.M) {
@@ -168,7 +159,11 @@ func newConfigFromString(configString string, defaultVip *viper.Viper) *viper.Vi
 }
 
 func TestNewFormatterTextType(t *testing.T) {
-	var formatterConfig = testConfig.Sub("text-formatter")
+	var formatterJSON = `{
+        "type": "text",
+        "timezone": "UTC"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, nil)
 
 	var formatter, err = newFormatterByConfig(formatterConfig)
 
@@ -179,7 +174,11 @@ func TestNewFormatterTextType(t *testing.T) {
 }
 
 func TestNewFormatterJsonType(t *testing.T) {
-	var formatterConfig = testConfig.Sub("json-formatter")
+	var formatterJSON = `{
+        "type": "json",
+        "timezone": "UTC"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, nil)
 
 	var formatter, err = newFormatterByConfig(formatterConfig)
 
@@ -191,8 +190,10 @@ func TestNewFormatterJsonType(t *testing.T) {
 }
 
 func TestNewFormatterIncorrectType(t *testing.T) {
-	var formatterConfig = testConfig.Sub("incorrect-type-formatter")
-	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
+	var formatterJSON = `{
+        "type": "UNKNOWN"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, defaultFormatterConfig)
 
 	var _, err = newFormatterByConfig(formatterConfig)
 
@@ -201,8 +202,10 @@ func TestNewFormatterIncorrectType(t *testing.T) {
 }
 
 func TestNewFormatterIncorrectTimestampTimezone(t *testing.T) {
-	var formatterConfig = testConfig.Sub("incorrect-timezone-formatter")
-	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
+	var formatterJSON = `{
+        "timezone": "UNKNOWN"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, defaultFormatterConfig)
 
 	var _, err = newFormatterByConfig(formatterConfig)
 
@@ -238,7 +241,7 @@ func TestTimezoneFormatter(t *testing.T) {
 
 func TestNewFormatterDefault(t *testing.T) {
 	var formatterConfig = viper.New()
-	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
+	config.SetDefaultFromConfig(formatterConfig, defaultFormatterConfig)
 
 	var formatter, err = newFormatterByConfig(formatterConfig)
 

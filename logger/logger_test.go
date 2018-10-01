@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/zbindenren/logrus_mail"
 	"os"
 	"path/filepath"
 	"testing"
@@ -92,6 +93,24 @@ const (
 `
 )
 
+const defaultLogConfig = `
+	{
+		"level": "info",
+		"formatter": {
+			"type": "json",
+			"timezone": "UTC"
+		},
+		"output": {
+			"type": "file",
+			"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
+			"current_link": "/tmp/snet-daemon.log",
+			"clock_timezone": "UTC",
+			"rotation_time_in_sec": 86400,
+			"max_age_in_sec": 604800,
+			"rotation_count": 0
+		}
+	}`
+
 var testConfig *viper.Viper
 
 func TestMain(m *testing.M) {
@@ -132,6 +151,26 @@ func removeLogFiles(pattern string) {
 			panic(fmt.Sprintf("Cannot remove file: %v, error: %v", file, err))
 		}
 	}
+}
+
+func newLoggerConfigFromStrings(configString, defaultString string) *viper.Viper {
+	var err error
+
+	var configVip = viper.New()
+	err = config.ReadConfigFromJsonString(configVip, configString)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot read test config: %v", configString))
+	}
+
+	var defaultVip = viper.New()
+	err = config.ReadConfigFromJsonString(defaultVip, defaultString)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot read test config: %v", defaultString))
+	}
+
+	config.SetDefaultFromConfig(configVip, defaultVip)
+
+	return configVip
 }
 
 func TestNewFormatterTextType(t *testing.T) {
@@ -307,6 +346,47 @@ func TestInitLoggerIncorrectOutput(t *testing.T) {
 	var err = InitLogger(loggerConfig)
 
 	assert.Equal(t, errors.New("Unable initialize log output, error: Unexpected output type: UNKNOWN"), err, "Unexpected error message")
+}
+
+func TestInitLoggerWithMailAuthHook(t *testing.T) {
+	var err error
+	const logWithHooks = `
+	{
+		"hooks": [ "mail-hook" ],
+		"mail-hook": {
+			"type": "mail_auth",
+			"levels": ["Error", "Fatal"],
+			"config": {
+				"application_name": "test-application-name",
+				"host": "smtp.gmail.com",
+				"port": 587,
+				"from": "from-user@gmail.com",
+				"to": "to-user@gmail.com",
+				"username": "smtp-username",
+				"password": "secret"
+			}
+		}
+	}`
+	var loggerConfig = newLoggerConfigFromStrings(logWithHooks, defaultLogConfig)
+	var expectedHook *logrus_mail.MailAuthHook
+	expectedHook, err = logrus_mail.NewMailAuthHook(
+		"test-application-name",
+		"smtp.gmail.com",
+		587,
+		"from-user@gmail.com",
+		"to-user@gmail.com",
+		"smtp-username",
+		"secret")
+	assert.Nil(t, err)
+
+	err = InitLogger(loggerConfig)
+
+	assert.Nil(t, err)
+	assert.Nil(t, log.StandardLogger().Hooks[log.PanicLevel])
+	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.ErrorLevel][0].(*internalHook).delegate)
+	assert.Equal(t, 1, len(log.StandardLogger().Hooks[log.ErrorLevel]))
+	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.FatalLevel][0].(*internalHook).delegate)
+	assert.Equal(t, 1, len(log.StandardLogger().Hooks[log.FatalLevel]))
 }
 
 func TestLogRotation(t *testing.T) {

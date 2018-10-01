@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"github.com/lestrrat-go/file-rotatelogs"
 	log "github.com/sirupsen/logrus"
@@ -42,6 +43,10 @@ const (
 	LogHookMailPasswordKey        = "password"
 )
 
+func InitLogger(config *viper.Viper) error {
+	return initLogger(log.StandardLogger(), config)
+}
+
 // InitLogger initializes logger using configuration provided by viper
 // instance.
 //
@@ -49,7 +54,7 @@ const (
 // formatter and output settings. To achieve this viper configuration
 // contains separate sections for each logger, each output and
 // each formatter.
-func InitLogger(config *viper.Viper) error {
+func initLogger(logger *log.Logger, config *viper.Viper) error {
 	var err error
 
 	var level log.Level
@@ -58,30 +63,30 @@ func InitLogger(config *viper.Viper) error {
 	if err != nil {
 		return fmt.Errorf("Unable parse log level string: %v, err: %v", levelString, err)
 	}
-	log.SetLevel(level)
+	logger.SetLevel(level)
 
 	var formatter log.Formatter
 	formatter, err = newFormatterByConfig(config.Sub(LogFormatterKey))
 	if err != nil {
 		return fmt.Errorf("Unable initialize log formatter, error: %v", err)
 	}
-	log.SetFormatter(formatter)
+	logger.SetFormatter(formatter)
 
 	var output io.Writer
 	output, err = newOutputByConfig(config.Sub(LogOutputKey))
 	if err != nil {
 		return fmt.Errorf("Unable initialize log output, error: %v", err)
 	}
-	log.SetOutput(output)
+	logger.SetOutput(output)
 
 	for _, hookConfigName := range config.GetStringSlice(LogHooksKey) {
-		err = addHookByConfig(log.StandardLogger(), config.Sub(hookConfigName))
+		err = addHookByConfig(logger, config.Sub(hookConfigName))
 		if err != nil {
-			return fmt.Errorf("Unable to add log hook, error: %v", err)
+			return fmt.Errorf("Unable to add log hook \"%v\", error: %v", hookConfigName, err)
 		}
 	}
 
-	log.Info("Logger initialized")
+	logger.Info("Logger initialized")
 
 	return nil
 }
@@ -173,11 +178,19 @@ func addHookByConfig(logger *log.Logger, config *viper.Viper) error {
 	var err error
 	var ok bool
 
+	if config == nil {
+		return errors.New("No hook definition")
+	}
+
 	var hookType = config.GetString(LogHookTypeKey)
+	if hookType == "" {
+		return errors.New("No hook type in hook config")
+	}
+
 	var hookFactoryMethod func(*viper.Viper) (*internalHook, error)
 	hookFactoryMethod, ok = hookFactoryMethodsByType[hookType]
 	if !ok {
-		return fmt.Errorf("Unexpected hook type: %v", hookType)
+		return fmt.Errorf("Unexpected hook type: \"%v\"", hookType)
 	}
 
 	var hook *internalHook
@@ -186,12 +199,15 @@ func addHookByConfig(logger *log.Logger, config *viper.Viper) error {
 		return fmt.Errorf("Cannot create hook instance: %v", err)
 	}
 
+	if config.Get(LogHookLevelsKey) == nil {
+		return errors.New("No levels in hook config")
+	}
 	var levels []log.Level
 	for _, levelString := range config.GetStringSlice(LogHookLevelsKey) {
 		var level log.Level
 		level, err = log.ParseLevel(levelString)
 		if err != nil {
-			return fmt.Errorf("Unable parse log level string: %v, err: %v", levelString, err)
+			return fmt.Errorf("Unable parse log level string: \"%v\", err: %v", levelString, err)
 		}
 		levels = append(levels, level)
 	}
@@ -204,6 +220,9 @@ func addHookByConfig(logger *log.Logger, config *viper.Viper) error {
 }
 
 func newMailAuthHook(config *viper.Viper) (*internalHook, error) {
+	if config == nil {
+		return nil, errors.New("Unable to create instance of mail auth hook: no config provided")
+	}
 	var mailAuthHook, err = logrus_mail.NewMailAuthHook(
 		config.GetString(LogHookMailApplicationNameKey),
 		config.GetString(LogHookMailHostKey),

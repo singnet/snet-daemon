@@ -113,8 +113,33 @@ const defaultLogConfig = `
 
 var testConfig *viper.Viper
 
+type testHook struct {
+	config *viper.Viper
+	log    []*log.Entry
+}
+
+func (hook *testHook) Fire(entry *log.Entry) error {
+	hook.log = append(hook.log, entry)
+	return nil
+}
+
+func (hook *testHook) Levels() []log.Level {
+	return nil
+}
+
+func testHookFactoryMethod(config *viper.Viper) (*internalHook, error) {
+	var hook = testHook{config: config}
+	return &internalHook{delegate: &hook, exitHandler: func() {}}, nil
+}
+
+func testHookFactoryMethodReturnError(config *viper.Viper) (*internalHook, error) {
+	return nil, errors.New("as expected")
+}
+
 func TestMain(m *testing.M) {
 	testConfig = readConfig(testConfigJSON)
+	hookFactoryMethodsByType["test-hook"] = testHookFactoryMethod
+	hookFactoryMethodsByType["test-hook-error"] = testHookFactoryMethodReturnError
 
 	result := m.Run()
 
@@ -155,20 +180,23 @@ func removeLogFiles(pattern string) {
 
 func newLoggerConfigFromStrings(configString, defaultString string) *viper.Viper {
 	var err error
-
 	var configVip = viper.New()
+
 	err = config.ReadConfigFromJsonString(configVip, configString)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot read test config: %v", configString))
 	}
 
-	var defaultVip = viper.New()
-	err = config.ReadConfigFromJsonString(defaultVip, defaultString)
-	if err != nil {
-		panic(fmt.Sprintf("Cannot read test config: %v", defaultString))
-	}
+	if defaultString != "" {
+		var defaultVip = viper.New()
 
-	config.SetDefaultFromConfig(configVip, defaultVip)
+		err = config.ReadConfigFromJsonString(defaultVip, defaultString)
+		if err != nil {
+			panic(fmt.Sprintf("Cannot read test config: %v", defaultString))
+		}
+
+		config.SetDefaultFromConfig(configVip, defaultVip)
+	}
 
 	return configVip
 }
@@ -348,26 +376,188 @@ func TestInitLoggerIncorrectOutput(t *testing.T) {
 	assert.Equal(t, errors.New("Unable initialize log output, error: Unexpected output type: UNKNOWN"), err, "Unexpected error message")
 }
 
-func TestInitLoggerWithMailAuthHook(t *testing.T) {
-	var err error
-	const logWithHooks = `
+func TestHookFireOnError(t *testing.T) {
+	const loggerConfigJson = `
 	{
-		"hooks": [ "mail-hook" ],
-		"mail-hook": {
-			"type": "mail_auth",
-			"levels": ["Error", "Fatal"],
-			"config": {
-				"application_name": "test-application-name",
-				"host": "smtp.gmail.com",
-				"port": 587,
-				"from": "from-user@gmail.com",
-				"to": "to-user@gmail.com",
-				"username": "smtp-username",
-				"password": "secret"
+		"hooks": [ "some-hook" ],
+		"some-hook": {
+			"type": "test-hook",
+			"levels": ["Error"],
+			"config": { 
+				"test_config_field": "test config value"
 			}
 		}
 	}`
-	var loggerConfig = newLoggerConfigFromStrings(logWithHooks, defaultLogConfig)
+	var loggerConfig = newLoggerConfigFromStrings(loggerConfigJson, defaultLogConfig)
+	var logger = log.New()
+	var err = initLogger(logger, loggerConfig)
+	assert.Nil(t, err)
+
+	logger.Error("error test")
+
+	assert.Equal(t, 1, len(logger.Hooks[log.ErrorLevel]))
+	var hook = logger.Hooks[log.ErrorLevel][0].(*internalHook).delegate.(*testHook)
+	assert.Equal(t, "error test", hook.log[0].Message)
+	assert.Equal(t, "test config value", hook.config.GetString("test_config_field"))
+}
+
+func TestHookNoFireOnInfo(t *testing.T) {
+	const loggerConfigJson = `
+	{
+		"hooks": [ "some-hook" ],
+		"some-hook": {
+			"type": "test-hook",
+			"levels": ["Error"],
+			"config": { }
+		}
+	}`
+	var loggerConfig = newLoggerConfigFromStrings(loggerConfigJson, defaultLogConfig)
+	var logger = log.New()
+	var err = initLogger(logger, loggerConfig)
+	assert.Nil(t, err)
+
+	logger.Info("info test")
+
+	assert.Equal(t, 1, len(logger.Hooks[log.ErrorLevel]))
+	var hook = logger.Hooks[log.ErrorLevel][0].(*internalHook).delegate.(*testHook)
+	assert.Equal(t, 0, len(hook.log))
+}
+
+func TestInitLoggerUnknownHook(t *testing.T) {
+	const loggerConfigJson = `
+	{
+		"hooks": [ "some-hook" ]
+	}`
+	var loggerConfig = newLoggerConfigFromStrings(loggerConfigJson, defaultLogConfig)
+	var logger = log.New()
+
+	var err = initLogger(logger, loggerConfig)
+
+	assert.Equal(t, errors.New("Unable to add log hook \"some-hook\", error: No hook definition"), err)
+}
+
+func TestInitLoggerUnknownHookType(t *testing.T) {
+	const loggerConfigJson = `
+	{
+		"hooks": [ "some-hook" ],
+		"some-hook": {
+			"type": "UNKNOWN"
+		}
+	}`
+	var loggerConfig = newLoggerConfigFromStrings(loggerConfigJson, defaultLogConfig)
+	var logger = log.New()
+
+	var err = initLogger(logger, loggerConfig)
+
+	assert.Equal(t, errors.New("Unable to add log hook \"some-hook\", error: Unexpected hook type: \"UNKNOWN\""), err)
+}
+
+func TestAddHookNoFactoryMethod(t *testing.T) {
+	const hookConfigJson = `
+	{
+		"type": "UNKNOWN",
+		"levels": ["Error"],
+		"config": { }
+	}`
+	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var logger = log.New()
+
+	var err = addHookByConfig(logger, hookConfig)
+
+	assert.Equal(t, errors.New("Unexpected hook type: \"UNKNOWN\""), err)
+}
+
+func TestAddHookFactoryMethodReturnsError(t *testing.T) {
+	const hookConfigJson = `
+	{
+		"type": "test-hook-error",
+		"levels": ["Error"],
+		"config": { }
+	}`
+	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var logger = log.New()
+
+	var err = addHookByConfig(logger, hookConfig)
+
+	assert.Equal(t, errors.New("Cannot create hook instance: as expected"), err)
+}
+
+func TestAddHookCannotParseLevels(t *testing.T) {
+	const hookConfigJson = `
+	{
+		"type": "test-hook",
+		"levels": ["Error", "UNKNOWN"],
+		"config": { }
+	}`
+	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var logger = log.New()
+
+	var err = addHookByConfig(logger, hookConfig)
+
+	assert.Equal(t, errors.New("Unable parse log level string: \"UNKNOWN\", err: not a valid logrus Level: \"UNKNOWN\""), err)
+}
+
+func TestAddHookNoType(t *testing.T) {
+	const hookConfigJson = `
+	{
+		"levels": ["Error", "UNKNOWN"],
+		"config": { }
+	}`
+	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var logger = log.New()
+
+	var err = addHookByConfig(logger, hookConfig)
+
+	assert.Equal(t, errors.New("No hook type in hook config"), err)
+}
+
+func TestAddHookNoLevels(t *testing.T) {
+	const hookConfigJson = `
+	{
+		"type": "test-hook",
+		"config": { }
+	}`
+	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var logger = log.New()
+
+	var err = addHookByConfig(logger, hookConfig)
+
+	assert.Equal(t, errors.New("No levels in hook config"), err)
+}
+
+func TestAddHookEmptyLevels(t *testing.T) {
+	const hookConfigJson = `
+	{
+		"type": "test-hook",
+		"levels": [],
+		"config": { }
+	}`
+	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var logger = log.New()
+
+	var err = addHookByConfig(logger, hookConfig)
+
+	assert.Nil(t, err)
+}
+
+func TestNewMailAuthHook(t *testing.T) {
+	var err error
+	const mailAuthHookConfigJson = `
+	{
+		"application_name": "test-application-name",
+		"host": "smtp.gmail.com",
+		"port": 587,
+		"from": "from-user@gmail.com",
+		"to": "to-user@gmail.com",
+		"username": "smtp-username",
+		"password": "secret"
+	}`
+	var mailAuthHookConfig = newLoggerConfigFromStrings(mailAuthHookConfigJson, "")
+
+	var hook *internalHook
+	hook, err = newMailAuthHook(mailAuthHookConfig)
+	assert.Nil(t, err)
+
 	var expectedHook *logrus_mail.MailAuthHook
 	expectedHook, err = logrus_mail.NewMailAuthHook(
 		"test-application-name",
@@ -378,15 +568,29 @@ func TestInitLoggerWithMailAuthHook(t *testing.T) {
 		"smtp-username",
 		"secret")
 	assert.Nil(t, err)
+	assert.Equal(t, hook.delegate, expectedHook)
+}
 
-	err = InitLogger(loggerConfig)
+func TestNewMailAuthHookError(t *testing.T) {
+	const mailAuthHookConfigJson = `
+	{
+		"application_name": "test-application-name",
+		"host": "smtp.gmail.com",
+		"port": 587
+	}`
+	var mailAuthHookConfig = newLoggerConfigFromStrings(mailAuthHookConfigJson, "")
 
-	assert.Nil(t, err)
-	assert.Nil(t, log.StandardLogger().Hooks[log.PanicLevel])
-	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.ErrorLevel][0].(*internalHook).delegate)
-	assert.Equal(t, 1, len(log.StandardLogger().Hooks[log.ErrorLevel]))
-	assert.Equal(t, expectedHook, log.StandardLogger().Hooks[log.FatalLevel][0].(*internalHook).delegate)
-	assert.Equal(t, 1, len(log.StandardLogger().Hooks[log.FatalLevel]))
+	var hook, err = newMailAuthHook(mailAuthHookConfig)
+
+	assert.Equal(t, errors.New("Unable to create instance of mail auth hook: mail: no address"), err)
+	assert.Nil(t, hook)
+}
+
+func TestNewMailAuthHookNoConfig(t *testing.T) {
+	var hook, err = newMailAuthHook(nil)
+
+	assert.Equal(t, errors.New("Unable to create instance of mail auth hook: no config provided"), err)
+	assert.Nil(t, hook)
 }
 
 func TestLogRotation(t *testing.T) {

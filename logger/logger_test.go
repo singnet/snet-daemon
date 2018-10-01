@@ -151,7 +151,7 @@ func removeLogFiles(pattern string) {
 	}
 }
 
-func newLoggerConfigFromString(configString string, defaultVip *viper.Viper) *viper.Viper {
+func newConfigFromString(configString string, defaultVip *viper.Viper) *viper.Viper {
 	var err error
 	var configVip = viper.New()
 

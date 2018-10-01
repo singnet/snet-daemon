@@ -49,7 +49,7 @@ func TestHookFireOnError(t *testing.T) {
 			}
 		}
 	}`
-	var loggerConfig = newLoggerConfigFromStrings(loggerConfigJson, defaultLogConfig)
+	var loggerConfig = newLoggerConfigFromString(loggerConfigJson, defaultLogConfig)
 	var logger = log.New()
 	var err = initLogger(logger, loggerConfig)
 	assert.Nil(t, err)
@@ -72,7 +72,7 @@ func TestHookNoFireOnInfo(t *testing.T) {
 			"config": { }
 		}
 	}`
-	var loggerConfig = newLoggerConfigFromStrings(loggerConfigJson, defaultLogConfig)
+	var loggerConfig = newLoggerConfigFromString(loggerConfigJson, defaultLogConfig)
 	var logger = log.New()
 	var err = initLogger(logger, loggerConfig)
 	assert.Nil(t, err)
@@ -89,7 +89,7 @@ func TestInitLoggerUnknownHook(t *testing.T) {
 	{
 		"hooks": [ "some-hook" ]
 	}`
-	var loggerConfig = newLoggerConfigFromStrings(loggerConfigJson, defaultLogConfig)
+	var loggerConfig = newLoggerConfigFromString(loggerConfigJson, defaultLogConfig)
 	var logger = log.New()
 
 	var err = initLogger(logger, loggerConfig)
@@ -105,7 +105,7 @@ func TestInitLoggerUnknownHookType(t *testing.T) {
 			"type": "UNKNOWN"
 		}
 	}`
-	var loggerConfig = newLoggerConfigFromStrings(loggerConfigJson, defaultLogConfig)
+	var loggerConfig = newLoggerConfigFromString(loggerConfigJson, defaultLogConfig)
 	var logger = log.New()
 
 	var err = initLogger(logger, loggerConfig)
@@ -120,7 +120,7 @@ func TestAddHookNoFactoryMethod(t *testing.T) {
 		"levels": ["Error"],
 		"config": { }
 	}`
-	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var hookConfig = newLoggerConfigFromString(hookConfigJson, nil)
 	var logger = log.New()
 
 	var err = addHookByConfig(logger, hookConfig)
@@ -135,7 +135,7 @@ func TestAddHookFactoryMethodReturnsError(t *testing.T) {
 		"levels": ["Error"],
 		"config": { }
 	}`
-	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var hookConfig = newLoggerConfigFromString(hookConfigJson, nil)
 	var logger = log.New()
 
 	var err = addHookByConfig(logger, hookConfig)
@@ -150,7 +150,7 @@ func TestAddHookCannotParseLevels(t *testing.T) {
 		"levels": ["Error", "UNKNOWN"],
 		"config": { }
 	}`
-	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var hookConfig = newLoggerConfigFromString(hookConfigJson, nil)
 	var logger = log.New()
 
 	var err = addHookByConfig(logger, hookConfig)
@@ -164,7 +164,7 @@ func TestAddHookNoType(t *testing.T) {
 		"levels": ["Error", "UNKNOWN"],
 		"config": { }
 	}`
-	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var hookConfig = newLoggerConfigFromString(hookConfigJson, nil)
 	var logger = log.New()
 
 	var err = addHookByConfig(logger, hookConfig)
@@ -178,7 +178,7 @@ func TestAddHookNoLevels(t *testing.T) {
 		"type": "test-hook",
 		"config": { }
 	}`
-	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var hookConfig = newLoggerConfigFromString(hookConfigJson, nil)
 	var logger = log.New()
 
 	var err = addHookByConfig(logger, hookConfig)
@@ -193,7 +193,7 @@ func TestAddHookEmptyLevels(t *testing.T) {
 		"levels": [],
 		"config": { }
 	}`
-	var hookConfig = newLoggerConfigFromStrings(hookConfigJson, "")
+	var hookConfig = newLoggerConfigFromString(hookConfigJson, nil)
 	var logger = log.New()
 
 	var err = addHookByConfig(logger, hookConfig)
@@ -213,7 +213,7 @@ func TestNewMailAuthHook(t *testing.T) {
 		"username": "smtp-username",
 		"password": "secret"
 	}`
-	var mailAuthHookConfig = newLoggerConfigFromStrings(mailAuthHookConfigJson, "")
+	var mailAuthHookConfig = newLoggerConfigFromString(mailAuthHookConfigJson, nil)
 
 	var hook *internalHook
 	hook, err = newMailAuthHook(mailAuthHookConfig)
@@ -239,7 +239,7 @@ func TestNewMailAuthHookError(t *testing.T) {
 		"host": "smtp.gmail.com",
 		"port": 587
 	}`
-	var mailAuthHookConfig = newLoggerConfigFromStrings(mailAuthHookConfigJson, "")
+	var mailAuthHookConfig = newLoggerConfigFromString(mailAuthHookConfigJson, nil)
 
 	var hook, err = newMailAuthHook(mailAuthHookConfig)
 

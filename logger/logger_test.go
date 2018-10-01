@@ -92,7 +92,7 @@ const (
 `
 )
 
-const defaultLogConfig = `
+const defaultLogConfigJSON = `
 	{
 		"level": "info",
 		"formatter": {
@@ -111,6 +111,7 @@ const defaultLogConfig = `
 	}`
 
 var testConfig = readConfig(testConfigJSON)
+var defaultLogConfig = readConfig(defaultLogConfigJSON)
 
 func TestMain(m *testing.M) {
 	result := m.Run()
@@ -150,7 +151,7 @@ func removeLogFiles(pattern string) {
 	}
 }
 
-func newLoggerConfigFromStrings(configString, defaultString string) *viper.Viper {
+func newLoggerConfigFromString(configString string, defaultVip *viper.Viper) *viper.Viper {
 	var err error
 	var configVip = viper.New()
 
@@ -159,14 +160,7 @@ func newLoggerConfigFromStrings(configString, defaultString string) *viper.Viper
 		panic(fmt.Sprintf("Cannot read test config: %v", configString))
 	}
 
-	if defaultString != "" {
-		var defaultVip = viper.New()
-
-		err = config.ReadConfigFromJsonString(defaultVip, defaultString)
-		if err != nil {
-			panic(fmt.Sprintf("Cannot read test config: %v", defaultString))
-		}
-
+	if defaultVip != nil {
 		config.SetDefaultFromConfig(configVip, defaultVip)
 	}
 

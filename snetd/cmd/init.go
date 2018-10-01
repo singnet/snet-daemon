@@ -16,6 +16,10 @@ var InitCmd = &cobra.Command{
 
 		log.WithField("configFile", configFile).Info("Writing default configuration to the file")
 
+		if isFileExist(configFile) {
+			log.WithField("configFile", configFile).Fatal("configFile already exists, please remove file first")
+		}
+
 		err = config.WriteConfig(configFile)
 		if err != nil {
 			log.WithError(err).WithField("configFile", configFile).Fatal("Cannot write default configuration")

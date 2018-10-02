@@ -27,14 +27,28 @@ const (
 	jobPendingState = "PENDING"
 	jobFundedState  = "FUNDED"
 
-	// PaymentTypeHeader is a name of the field which specifies type of payment
-	// used to pay for a RPC call. Types supported "job", "escrow".
-	PaymentTypeHeader  = "snet-payment-type"
+	// PaymentTypeHeader is a type of payment used to pay for a RPC call.
+	// Supported types are: "job", "escrow".
+	PaymentTypeHeader = "snet-payment-type"
+	// JobPaymentType each call should be payed using unique instance of funded Job
+	JobPaymentType = "job"
+	// EscrowPaymentType each call should have id and nonce of payment channel
+	// in metadata.
+	EscrowPaymentType = "escrow"
+
 	JobAddressHeader   = "snet-job-address"
 	JobSignatureHeader = "snet-job-signature"
 
-	JobPaymentType    = "job"
-	EscrowPaymentType = "escrow"
+	// PaymentChannelIdHeader is a MultiPartyEscrow contract payment channel id
+	PaymentChannelIdHeader = "snet-payment-channel-id"
+	// PaymentChannelNonceHeader is a payment channel nonce value
+	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
+	// PaymentChannelAmountHeader is an amount of payment channel value
+	// which server is authorized withdraw after handling the RPC call.
+	PaymentChannelAmountHeader = "snet-payment-channel-amount"
+	// PaymentChannelSignatureHeader is a signature of the client to confirm
+	// authorized amount
+	PaymentChannelSignatureHeader = "snet-payment-channel-signature"
 )
 
 var (

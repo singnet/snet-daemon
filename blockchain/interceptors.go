@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"math/big"
 )
 
 func (p Processor) jobValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
@@ -54,21 +55,6 @@ type paymentHandlerType interface {
 	completePayment(error) error
 }
 
-type escrowPaymentHandler struct {
-}
-
-func newEscrowPaymentHandler() *escrowPaymentHandler {
-	return &escrowPaymentHandler{}
-}
-
-func (h *escrowPaymentHandler) validatePayment() error {
-	return status.Errorf(codes.Unimplemented, "not implemented yet")
-}
-
-func (h *escrowPaymentHandler) completePayment(err error) error {
-	return err
-}
-
 type jobPaymentHandler struct {
 	p                 Processor
 	md                metadata.MD
@@ -112,4 +98,27 @@ func (h *jobPaymentHandler) completePayment(err error) error {
 func noOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 	return handler(srv, ss)
+}
+
+func getBigInt(md metadata.MD, key string) (*big.Int, error) {
+	array := md.Get(key)
+	if len(array) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "missing \"%v\"", key)
+	}
+
+	value := big.NewInt(0)
+	err := value.UnmarshalText([]byte(array[0]))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "incorrect format \"%v\": \"%v\"", key, array[0])
+	}
+
+	return value, nil
+}
+
+func getBytes(md metadata.MD, key string) ([]byte, error) {
+	value := md.Get(key)
+	if len(value) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "missing \"%v\"", key)
+	}
+	return common.FromHex(value[0]), nil
 }

@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -19,19 +18,18 @@ func newJobPaymentHandler(p Processor, md metadata.MD) *jobPaymentHandler {
 }
 
 func (h *jobPaymentHandler) validatePayment() error {
-	jobAddressMd, ok := h.md[JobAddressHeader]
-	if !ok {
-		return status.Errorf(codes.InvalidArgument, "missing snet-job-address")
+	var err error
+
+	h.jobAddressBytes, err = getBytes(h.md, JobAddressHeader)
+	if err != nil {
+		return err
 	}
 
-	h.jobAddressBytes = common.FromHex(jobAddressMd[0])
-
-	jobSignatureMd, ok := h.md[JobSignatureHeader]
-	if !ok {
-		return status.Errorf(codes.InvalidArgument, "missing snet-job-signature")
+	h.jobSignatureBytes, err = getBytes(h.md, JobSignatureHeader)
+	if err != nil {
+		return err
 	}
 
-	h.jobSignatureBytes = common.FromHex(jobSignatureMd[0])
 	valid := h.p.IsValidJobInvocation(h.jobAddressBytes, h.jobSignatureBytes)
 	if !valid {
 		return status.Errorf(codes.Unauthenticated, "job invocation not valid")

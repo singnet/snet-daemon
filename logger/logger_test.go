@@ -16,82 +16,22 @@ import (
 	"time"
 )
 
-const (
-	testConfigJSON string = `
-{
-    "json-formatter": {
-        "type": "json",
-        "timezone": "UTC"
-    },
-    "text-formatter": {
-        "type": "text",
-        "timezone": "UTC"
-    },
-    "incorrect-type-formatter": {
-        "type": "UNKNOWN"
-    },
-    "incorrect-timezone-formatter": {
-        "type": "text",
-        "timezone": "UNKNOWN"
-    },
+const defaultFormatterConfigJSON = `
+	{
+		"type": "json",
+		"timezone": "UTC"
+	}`
 
-    "file-output": {
-        "type": "file",
-        "file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
-        "current_link": "/tmp/snet-daemon.log",
-        "clock_timezone": "UTC",
-        "rotation_time_in_sec": 86400,
-        "max_age_in_sec": 604800,
-        "rotation_count": 0
-    },
-    "stdout-output": {
-        "type": "stdout"
-    },
-    "incorrect-type-output": {
-        "type": "UNKNOWN"
-    },
-    "incorrect-timezone-output": {
-        "type": "file",
-        "clock_timezone": "UNKNOWN"
-    },
-    "incorrect-file-pattern-output": {
-        "type": "file",
-        "file_pattern": "%5"
-    },
-
-	"log":  {
-		"level": "info",
-		"formatter": {
-			"type": "json",
-			"timezone": "UTC"
-		},
-		"output": {
-			"type": "file",
-			"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
-			"current_link": "/tmp/snet-daemon.log",
-			"clock_timezone": "UTC",
-			"rotation_time_in_sec": 86400,
-			"max_age_in_sec": 604800,
-			"rotation_count": 0
-		}
-	},
-	"incorrect-level-log":  {
-		"level": "UNKNOWN"
-	},
-	"incorrect-formatter-log":  {
-		"formatter": {
-			"type": "UNKNOWN"
-		}
-	},
-	"incorrect-output-log":  {
-		"output": {
-			"type": "UNKNOWN"
-		}
-	}
-}
-`
-)
-
+const defaultOutputConfigJSON = `
+	{
+		"type": "file",
+		"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
+		"current_link": "/tmp/snet-daemon.log",
+		"clock_timezone": "UTC",
+		"rotation_time_in_sec": 86400,
+		"max_age_in_sec": 604800,
+		"rotation_count": 0
+	}`
 const defaultLogConfigJSON = `
 	{
 		"level": "info",
@@ -110,7 +50,8 @@ const defaultLogConfigJSON = `
 		}
 	}`
 
-var testConfig = readConfig(testConfigJSON)
+var defaultFormatterConfig = readConfig(defaultFormatterConfigJSON)
+var defaultOutputConfig = readConfig(defaultOutputConfigJSON)
 var defaultLogConfig = readConfig(defaultLogConfigJSON)
 
 func TestMain(m *testing.M) {
@@ -151,7 +92,7 @@ func removeLogFiles(pattern string) {
 	}
 }
 
-func newLoggerConfigFromString(configString string, defaultVip *viper.Viper) *viper.Viper {
+func newConfigFromString(configString string, defaultVip *viper.Viper) *viper.Viper {
 	var err error
 	var configVip = viper.New()
 
@@ -168,7 +109,11 @@ func newLoggerConfigFromString(configString string, defaultVip *viper.Viper) *vi
 }
 
 func TestNewFormatterTextType(t *testing.T) {
-	var formatterConfig = testConfig.Sub("text-formatter")
+	var formatterJSON = `{
+        "type": "text",
+        "timezone": "UTC"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, nil)
 
 	var formatter, err = newFormatterByConfig(formatterConfig)
 
@@ -179,7 +124,11 @@ func TestNewFormatterTextType(t *testing.T) {
 }
 
 func TestNewFormatterJsonType(t *testing.T) {
-	var formatterConfig = testConfig.Sub("json-formatter")
+	var formatterJSON = `{
+        "type": "json",
+        "timezone": "UTC"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, nil)
 
 	var formatter, err = newFormatterByConfig(formatterConfig)
 
@@ -191,8 +140,10 @@ func TestNewFormatterJsonType(t *testing.T) {
 }
 
 func TestNewFormatterIncorrectType(t *testing.T) {
-	var formatterConfig = testConfig.Sub("incorrect-type-formatter")
-	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
+	var formatterJSON = `{
+        "type": "UNKNOWN"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, defaultFormatterConfig)
 
 	var _, err = newFormatterByConfig(formatterConfig)
 
@@ -201,8 +152,10 @@ func TestNewFormatterIncorrectType(t *testing.T) {
 }
 
 func TestNewFormatterIncorrectTimestampTimezone(t *testing.T) {
-	var formatterConfig = testConfig.Sub("incorrect-timezone-formatter")
-	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
+	var formatterJSON = `{
+        "timezone": "UNKNOWN"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, defaultFormatterConfig)
 
 	var _, err = newFormatterByConfig(formatterConfig)
 
@@ -238,7 +191,7 @@ func TestTimezoneFormatter(t *testing.T) {
 
 func TestNewFormatterDefault(t *testing.T) {
 	var formatterConfig = viper.New()
-	config.SetDefaultFromConfig(formatterConfig, testConfig.Sub("json-formatter"))
+	config.SetDefaultFromConfig(formatterConfig, defaultFormatterConfig)
 
 	var formatter, err = newFormatterByConfig(formatterConfig)
 
@@ -250,7 +203,16 @@ func TestNewFormatterDefault(t *testing.T) {
 }
 
 func TestNewOutputFile(t *testing.T) {
-	var outputConfig = testConfig.Sub("file-output")
+	var outputConfigJSON = `{
+        "type": "file",
+        "file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
+        "current_link": "/tmp/snet-daemon.log",
+        "clock_timezone": "UTC",
+        "rotation_time_in_sec": 86400,
+        "max_age_in_sec": 604800,
+        "rotation_count": 0
+    }`
+	var outputConfig = newConfigFromString(outputConfigJSON, nil)
 
 	var writer, err = newOutputByConfig(outputConfig)
 
@@ -260,7 +222,10 @@ func TestNewOutputFile(t *testing.T) {
 }
 
 func TestNewOutputStdout(t *testing.T) {
-	var outputConfig = testConfig.Sub("stdout-output")
+	var outputConfigJSON = `{
+        "type": "stdout"
+    }`
+	var outputConfig = newConfigFromString(outputConfigJSON, nil)
 
 	var writer, err = newOutputByConfig(outputConfig)
 
@@ -269,8 +234,10 @@ func TestNewOutputStdout(t *testing.T) {
 }
 
 func TestNewOutputIncorrectType(t *testing.T) {
-	var outputConfig = testConfig.Sub("incorrect-type-output")
-	config.SetDefaultFromConfig(outputConfig, testConfig.Sub("file-output"))
+	var outputConfigJSON = `{
+        "type": "UNKNOWN"
+    }`
+	var outputConfig = newConfigFromString(outputConfigJSON, defaultOutputConfig)
 
 	var _, err = newOutputByConfig(outputConfig)
 
@@ -279,8 +246,11 @@ func TestNewOutputIncorrectType(t *testing.T) {
 }
 
 func TestNewOutputIncorrectClockTimezone(t *testing.T) {
-	var outputConfig = testConfig.Sub("incorrect-timezone-output")
-	config.SetDefaultFromConfig(outputConfig, testConfig.Sub("file-output"))
+	var outputConfigJSON = `{
+        "type": "file",
+        "clock_timezone": "UNKNOWN"
+    }`
+	var outputConfig = newConfigFromString(outputConfigJSON, defaultOutputConfig)
 
 	var _, err = newOutputByConfig(outputConfig)
 
@@ -288,8 +258,11 @@ func TestNewOutputIncorrectClockTimezone(t *testing.T) {
 }
 
 func TestNewIncorrectFileOutputFilePattern(t *testing.T) {
-	var outputConfig = testConfig.Sub("incorrect-file-pattern-output")
-	config.SetDefaultFromConfig(outputConfig, testConfig.Sub("file-output"))
+	var outputConfigJSON = `{
+        "type": "file",
+        "file_pattern": "%5"
+    }`
+	var outputConfig = newConfigFromString(outputConfigJSON, defaultOutputConfig)
 
 	var _, err = newOutputByConfig(outputConfig)
 
@@ -298,7 +271,7 @@ func TestNewIncorrectFileOutputFilePattern(t *testing.T) {
 
 func TestNewOutputDefault(t *testing.T) {
 	var outputConfig = viper.New()
-	config.SetDefaultFromConfig(outputConfig, testConfig.Sub("file-output"))
+	config.SetDefaultFromConfig(outputConfig, defaultOutputConfig)
 
 	var writer, err = newOutputByConfig(outputConfig)
 
@@ -308,7 +281,7 @@ func TestNewOutputDefault(t *testing.T) {
 }
 
 func TestInitLogger(t *testing.T) {
-	var loggerConfig = testConfig.Sub("log")
+	var loggerConfig = defaultLogConfig
 
 	var err = InitLogger(loggerConfig)
 
@@ -316,8 +289,10 @@ func TestInitLogger(t *testing.T) {
 }
 
 func TestInitLoggerIncorrectLevel(t *testing.T) {
-	var loggerConfig = testConfig.Sub("incorrect-level-log")
-	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
+	var loggerConfigJSON = `{
+		"level": "UNKNOWN"
+    }`
+	var loggerConfig = newConfigFromString(loggerConfigJSON, defaultLogConfig)
 
 	var err = InitLogger(loggerConfig)
 
@@ -325,8 +300,12 @@ func TestInitLoggerIncorrectLevel(t *testing.T) {
 }
 
 func TestInitLoggerIncorrectFormatter(t *testing.T) {
-	var loggerConfig = testConfig.Sub("incorrect-formatter-log")
-	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
+	var loggerConfigJSON = `{
+		"formatter": {
+			"type": "UNKNOWN"
+		}
+    }`
+	var loggerConfig = newConfigFromString(loggerConfigJSON, defaultLogConfig)
 
 	var err = InitLogger(loggerConfig)
 
@@ -334,8 +313,12 @@ func TestInitLoggerIncorrectFormatter(t *testing.T) {
 }
 
 func TestInitLoggerIncorrectOutput(t *testing.T) {
-	var loggerConfig = testConfig.Sub("incorrect-output-log")
-	config.SetDefaultFromConfig(loggerConfig, testConfig.Sub("log"))
+	var loggerConfigJSON = `{
+		"output": {
+			"type": "UNKNOWN"
+		}
+    }`
+	var loggerConfig = newConfigFromString(loggerConfigJSON, defaultLogConfig)
 
 	var err = InitLogger(loggerConfig)
 

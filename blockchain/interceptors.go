@@ -16,22 +16,13 @@ func (p Processor) jobValidationInterceptor(srv interface{}, ss grpc.ServerStrea
 		return status.Errorf(codes.InvalidArgument, "missing metadata")
 	}
 
-	paymentTypeMd, ok := md[PaymentTypeHeader]
-	paymentType := ""
-	if ok && len(paymentTypeMd) > 0 {
-		paymentType = paymentTypeMd[0]
+	paymentHandler, err := p.newPaymentHandlerByType(md)
+	if err != nil {
+		return err
 	}
 
-	var paymentHandler paymentHandlerType
-	switch {
-	case !ok || paymentType == JobPaymentType:
-		paymentHandler = newJobPaymentHandler(p, md)
-	default:
-		return status.Errorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentTypeMd)
-	}
-
-	valid, err := paymentHandler.validatePayment()
-	if !valid {
+	err = paymentHandler.validatePayment()
+	if err != nil {
 		return err
 	}
 
@@ -40,9 +31,42 @@ func (p Processor) jobValidationInterceptor(srv interface{}, ss grpc.ServerStrea
 	return paymentHandler.completePayment(err)
 }
 
+func (p Processor) newPaymentHandlerByType(md metadata.MD) (paymentHandlerType, error) {
+	paymentTypeMd, ok := md[PaymentTypeHeader]
+
+	paymentType := JobPaymentType
+	if ok && len(paymentTypeMd) > 0 {
+		paymentType = paymentTypeMd[0]
+	}
+
+	switch {
+	case paymentType == JobPaymentType:
+		return newJobPaymentHandler(p, md), nil
+	case paymentType == EscrowPaymentType:
+		return newEscrowPaymentHandler(), nil
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
+	}
+}
+
 type paymentHandlerType interface {
-	validatePayment() (bool, error)
+	validatePayment() error
 	completePayment(error) error
+}
+
+type escrowPaymentHandler struct {
+}
+
+func newEscrowPaymentHandler() *escrowPaymentHandler {
+	return &escrowPaymentHandler{}
+}
+
+func (h *escrowPaymentHandler) validatePayment() error {
+	return status.Errorf(codes.Unimplemented, "not implemented yet")
+}
+
+func (h *escrowPaymentHandler) completePayment(err error) error {
+	return err
 }
 
 type jobPaymentHandler struct {
@@ -52,30 +76,30 @@ type jobPaymentHandler struct {
 	jobSignatureBytes []byte
 }
 
-func newJobPaymentHandler(p Processor, md metadata.MD) paymentHandlerType {
+func newJobPaymentHandler(p Processor, md metadata.MD) *jobPaymentHandler {
 	return &jobPaymentHandler{p: p, md: md}
 }
 
-func (h *jobPaymentHandler) validatePayment() (bool, error) {
+func (h *jobPaymentHandler) validatePayment() error {
 	jobAddressMd, ok := h.md[JobAddressHeader]
 	if !ok {
-		return false, status.Errorf(codes.InvalidArgument, "missing snet-job-address")
+		return status.Errorf(codes.InvalidArgument, "missing snet-job-address")
 	}
 
 	h.jobAddressBytes = common.FromHex(jobAddressMd[0])
 
 	jobSignatureMd, ok := h.md[JobSignatureHeader]
 	if !ok {
-		return false, status.Errorf(codes.InvalidArgument, "missing snet-job-signature")
+		return status.Errorf(codes.InvalidArgument, "missing snet-job-signature")
 	}
 
 	h.jobSignatureBytes = common.FromHex(jobSignatureMd[0])
 	valid := h.p.IsValidJobInvocation(h.jobAddressBytes, h.jobSignatureBytes)
 	if !valid {
-		return false, status.Errorf(codes.Unauthenticated, "job invocation not valid")
+		return status.Errorf(codes.Unauthenticated, "job invocation not valid")
 	}
 
-	return true, nil
+	return nil
 }
 
 func (h *jobPaymentHandler) completePayment(err error) error {

@@ -24,10 +24,17 @@ import (
 )
 
 const (
-	jobPendingState    = "PENDING"
-	jobFundedState     = "FUNDED"
+	jobPendingState = "PENDING"
+	jobFundedState  = "FUNDED"
+
+	// PaymentTypeHeader is a name of the field which specifies type of payment
+	// used to pay for a RPC call. Types supported "job", "escrow".
+	PaymentTypeHeader  = "snet-payment-type"
 	JobAddressHeader   = "snet-job-address"
 	JobSignatureHeader = "snet-job-signature"
+
+	JobPaymentType    = "job"
+	EscrowPaymentType = "escrow"
 )
 
 var (

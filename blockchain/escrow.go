@@ -8,6 +8,19 @@ import (
 	"time"
 )
 
+const (
+	// PaymentChannelIdHeader is a MultiPartyEscrow contract payment channel id
+	PaymentChannelIdHeader = "snet-payment-channel-id"
+	// PaymentChannelNonceHeader is a payment channel nonce value
+	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
+	// PaymentChannelAmountHeader is an amount of payment channel value
+	// which server is authorized withdraw after handling the RPC call.
+	PaymentChannelAmountHeader = "snet-payment-channel-amount"
+	// PaymentChannelSignatureHeader is a signature of the client to confirm
+	// authorized amount
+	PaymentChannelSignatureHeader = "snet-payment-channel-signature"
+)
+
 type PaymentChannelKey struct {
 	Id    *big.Int
 	Nonce *big.Int

@@ -9,6 +9,17 @@ import (
 	"math/big"
 )
 
+const (
+	// PaymentTypeHeader is a type of payment used to pay for a RPC call.
+	// Supported types are: "job", "escrow".
+	PaymentTypeHeader = "snet-payment-type"
+	// JobPaymentType each call should be payed using unique instance of funded Job
+	JobPaymentType = "job"
+	// EscrowPaymentType each call should have id and nonce of payment channel
+	// in metadata.
+	EscrowPaymentType = "escrow"
+)
+
 func (p Processor) jobValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 

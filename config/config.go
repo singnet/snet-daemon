@@ -63,7 +63,8 @@ const (
 			"rotation_time_in_sec": 86400,
 			"max_age_in_sec": 604800,
 			"rotation_count": 0
-		}
+		},
+		"hooks": []
 	}
 }
 `

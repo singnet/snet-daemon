@@ -24,13 +24,13 @@ const (
 )
 
 type jobPaymentHandler struct {
-	p                 Processor
+	p                 *Processor
 	md                metadata.MD
 	jobAddressBytes   []byte
 	jobSignatureBytes []byte
 }
 
-func newJobPaymentHandler(p Processor, md metadata.MD) *jobPaymentHandler {
+func newJobPaymentHandler(p *Processor, md metadata.MD) *jobPaymentHandler {
 	return &jobPaymentHandler{p: p, md: md}
 }
 
@@ -62,7 +62,7 @@ func (h *jobPaymentHandler) completePayment(err error) error {
 	return err
 }
 
-func (p Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
+func (p *Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
 	log := log.WithFields(log.Fields{
 		"jobAddress":   common.BytesToAddress(jobAddressBytes).Hex(),
 		"jobSignature": hex.EncodeToString(jobSignatureBytes)})
@@ -122,7 +122,7 @@ func (p Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byt
 	return true
 }
 
-func (p Processor) CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
+func (p *Processor) CompleteJob(jobAddressBytes, jobSignatureBytes []byte) {
 	job := &db.Job{}
 
 	// Mark the job completed in the db synchronously

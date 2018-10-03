@@ -53,7 +53,7 @@ func (p Processor) newPaymentHandlerByType(md metadata.MD) (paymentHandlerType, 
 
 	switch {
 	case paymentType == JobPaymentType:
-		return newJobPaymentHandler(p, md), nil
+		return newJobPaymentHandler(&p, md), nil
 	case paymentType == EscrowPaymentType:
 		return newEscrowPaymentHandler(), nil
 	default:

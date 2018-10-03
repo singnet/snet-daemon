@@ -5,6 +5,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"math/big"
+	"time"
 )
 
 type PaymentChannelKey struct {
@@ -13,9 +14,10 @@ type PaymentChannelKey struct {
 }
 
 type PaymentChannelState struct {
-	FullAmount       *big.Int
-	AuthorizedAmount *big.Int
-	PaymentSignature []byte
+	FullAmount         *big.Int
+	ExpirationDateTime time.Time
+	AuthorizedAmount   *big.Int
+	PaymentSignature   []byte
 }
 
 type PaymentChannelStorage interface {

@@ -77,17 +77,17 @@ hooks](https://github.com/sirupsen/logrus#hooks). List contains names of the
 hooks and hook configuration can be found by name prefix.  Thus for hook named
 ```<hook-name>``` properties will start from ```log.<hook-name>.``` prefix.
 
-### log.<hook-name>.type (required)
+### log.\<hook-name\>.type (required)
 
 Type of the hook. This type is used to find actual hook implementation. Hook
 types supported:
 * mail_auth - [logrus_mail](https://github.com/zbindenren/logrus_mail)
 
-### log.<hook-name>.levels (required)
+### log.\<hook-name\>.levels (required)
 
 List of log levels to trigger the hook. 
 
-### log.<hook-name>.config (depends on hook implementation)
+### log.\<hook-name\>.config (depends on hook implementation)
 
 Set of properties with ```log.<hook-name>.config``` prefix are passed to the
 hook implementation when it is initialized. This list of properties is hook
@@ -128,8 +128,11 @@ call [NewMailAuthHook method](https://godoc.org/github.com/zbindenren/logrus_mai
 
 # Adding new hooks implementations
 
-Adding new hook implementation is trivial. One should implement factory method
-which returns new instance of the Hook structure.  And then register new hook
-type using RegisterHookType function from init() method. One can look at
-"mail_auth" hook implementation from
-[hook.go](https://github.com/singnet/snet-daemon/commit/f49ea4f6259d14947bb4e285ee81327ca156fcf2)
+Adding new hook implementation is trivial. You should implement factory method
+which inputs hook configuration as [Viper](https://godoc.org/github.com/spf13/viper#Viper)
+config and returns new instance of the Hook structure. Then register new hook
+type by calling RegisterHookType() function from init() method. 
+
+Please see "mail_auth" hook implementation as example:
+* [factory method implementation](https://github.com/singnet/snet-daemon/blob/7b897738b17a21fd105a8a69d4d6841fa5f88dbd/logger/hook.go#L106)
+* [registering new hook type](https://github.com/singnet/snet-daemon/blob/7b897738b17a21fd105a8a69d4d6841fa5f88dbd/logger/hook.go#L43)

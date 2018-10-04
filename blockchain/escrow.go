@@ -48,7 +48,18 @@ func newEscrowPaymentHandler() *escrowPaymentHandler {
 	return &escrowPaymentHandler{}
 }
 
+type paymentAuthorizationType struct {
+}
+
 func (h *escrowPaymentHandler) validatePayment() error {
+	paymentAuthorization, err := h.getPaymentAuthorizationFromMetadata()
+	if err != nil {
+		return err
+	}
+	return h.validatePaymentAuthorization(paymentAuthorization)
+}
+
+func (h *escrowPaymentHandler) getPaymentAuthorizationFromMetadata() (*paymentAuthorizationType, error) {
 	/*
 		id, err := getBigInt(h.md, PaymentChannelIdHeader)
 		if err != nil {
@@ -64,7 +75,10 @@ func (h *escrowPaymentHandler) validatePayment() error {
 
 		signature, err := getBytes(h.md, PaymentChannelSignatureHeader)
 	*/
+	return nil, status.Errorf(codes.Unimplemented, "not implemented yet")
+}
 
+func (h *escrowPaymentHandler) validatePaymentAuthorization(paymentAuthorization *paymentAuthorizationType) error {
 	return status.Errorf(codes.Unimplemented, "not implemented yet")
 }
 

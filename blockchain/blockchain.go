@@ -41,6 +41,8 @@ type Processor struct {
 	address            string
 	jobCompletionQueue chan *jobInfo
 	boltDB             *bolt.DB
+	// TODO: load escrowContractAddress
+	escrowContractAddress common.Address
 }
 
 // NewProcessor creates a new blockchain processor

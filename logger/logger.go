@@ -13,6 +13,7 @@ import (
 // Logger configuration keys
 const (
 	LogLevelKey     = "level"
+	LogTimezoneKey  = "timezone"
 	LogFormatterKey = "formatter"
 	LogOutputKey    = "output"
 	LogHooksKey     = "hooks"
@@ -51,15 +52,21 @@ func initLogger(logger *log.Logger, config *viper.Viper) error {
 	}
 	logger.SetLevel(level)
 
+	var timezone = config.GetString(LogTimezoneKey)
+
 	var formatter log.Formatter
-	formatter, err = newFormatterByConfig(config.Sub(LogFormatterKey))
+	var formatterConfig = config.Sub(LogFormatterKey)
+	formatterConfig.SetDefault(LogFormatterTimezoneKey, timezone)
+	formatter, err = newFormatterByConfig(formatterConfig)
 	if err != nil {
 		return fmt.Errorf("Unable initialize log formatter, error: %v", err)
 	}
 	logger.SetFormatter(formatter)
 
 	var output io.Writer
-	output, err = newOutputByConfig(config.Sub(LogOutputKey))
+	var outputConfig = config.Sub(LogOutputKey)
+	outputConfig.SetDefault(LogOutputFileClockTimezoneKey, timezone)
+	output, err = newOutputByConfig(outputConfig)
 	if err != nil {
 		return fmt.Errorf("Unable initialize log output, error: %v", err)
 	}

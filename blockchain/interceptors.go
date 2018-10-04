@@ -39,8 +39,13 @@ func (p Processor) jobValidationInterceptor(srv interface{}, ss grpc.ServerStrea
 	}
 
 	err = handler(srv, ss)
+	if err != nil {
+		paymentHandler.completePaymentAfterError(err)
+		return err
+	}
 
-	return paymentHandler.completePayment(err)
+	paymentHandler.completePayment()
+	return nil
 }
 
 func (p Processor) newPaymentHandlerByType(md metadata.MD) (paymentHandlerType, error) {
@@ -63,7 +68,8 @@ func (p Processor) newPaymentHandlerByType(md metadata.MD) (paymentHandlerType, 
 
 type paymentHandlerType interface {
 	validatePayment() error
-	completePayment(error) error
+	completePayment()
+	completePaymentAfterError(error)
 }
 
 func getBigInt(md metadata.MD, key string) (*big.Int, error) {

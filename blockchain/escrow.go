@@ -68,6 +68,8 @@ func (h *escrowPaymentHandler) validatePayment() error {
 	return status.Errorf(codes.Unimplemented, "not implemented yet")
 }
 
-func (h *escrowPaymentHandler) completePayment(err error) error {
-	return err
+func (h *escrowPaymentHandler) completePayment() {
+}
+
+func (h *escrowPaymentHandler) completePaymentAfterError(err error) {
 }

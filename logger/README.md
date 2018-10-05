@@ -15,7 +15,9 @@ levels
 * info
 * warn
 * error
-* fatal * panic 
+* fatal
+* panic
+
 ## log.timezone (default: UTC)
 
 Timezone to format timestamps and log file names. It should be name of the

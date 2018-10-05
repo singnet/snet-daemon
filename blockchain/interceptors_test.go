@@ -5,32 +5,90 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"math/big"
 	"testing"
 )
 
-func TestGetBytes(t *testing.T) {
+func TestGetBytesFromHexString(t *testing.T) {
 	md := metadata.Pairs("test-key", "0xfFfE0100")
 
-	bytes, err := getBytes(md, "test-key")
+	bytes, err := getBytesFromHexString(md, "test-key")
 
 	assert.Nil(t, err)
 	assert.Equal(t, []byte{255, 254, 1, 0}, bytes)
 }
 
-func TestGetBytesNoPrefix(t *testing.T) {
+func TestGetBytesFromHexStringNoPrefix(t *testing.T) {
 	md := metadata.Pairs("test-key", "fFfE0100")
 
-	bytes, err := getBytes(md, "test-key")
+	bytes, err := getBytesFromHexString(md, "test-key")
 
 	assert.Nil(t, err)
 	assert.Equal(t, []byte{255, 254, 1, 0}, bytes)
 }
 
-func TestGetBytesNoValue(t *testing.T) {
+func TestGetBytesFromHexStringNoValue(t *testing.T) {
 	md := metadata.Pairs("unknown-key", "fFfE0100")
 
-	bytes, err := getBytes(md, "test-key")
+	_, err := getBytesFromHexString(md, "test-key")
 
 	assert.Equal(t, status.Errorf(codes.InvalidArgument, "missing \"test-key\""), err)
-	assert.Nil(t, bytes)
+}
+
+func TestGetBytesFromHexStringTooManyValues(t *testing.T) {
+	md := metadata.Pairs("test-key", "0x123", "test-key", "FED")
+
+	_, err := getBytesFromHexString(md, "test-key")
+
+	assert.Equal(t, status.Errorf(codes.InvalidArgument, "too many values for key \"test-key\": [0x123 FED]"), err)
+}
+
+func TestGetBigInt(t *testing.T) {
+	md := metadata.Pairs("big-int-key", "12345")
+
+	value, err := getBigInt(md, "big-int-key")
+
+	assert.Nil(t, err)
+	assert.Equal(t, big.NewInt(12345), value)
+}
+
+func TestGetBigIntIncorrectValue(t *testing.T) {
+	md := metadata.Pairs("big-int-key", "12345abc")
+
+	_, err := getBigInt(md, "big-int-key")
+
+	assert.Equal(t, status.Errorf(codes.InvalidArgument, "incorrect format \"big-int-key\": \"12345abc\""), err)
+}
+
+func TestGetBigIntNoValue(t *testing.T) {
+	md := metadata.Pairs()
+
+	_, err := getBigInt(md, "big-int-key")
+
+	assert.Equal(t, status.Errorf(codes.InvalidArgument, "missing \"big-int-key\""), err)
+}
+
+func TestGetBigIntTooManyValues(t *testing.T) {
+	md := metadata.Pairs("big-int-key", "12345", "big-int-key", "54321")
+
+	_, err := getBigInt(md, "big-int-key")
+
+	assert.Equal(t, status.Errorf(codes.InvalidArgument, "too many values for key \"big-int-key\": [12345 54321]"), err)
+}
+
+func TestGetBytes(t *testing.T) {
+	md := metadata.Pairs("binary-key-bin", string([]byte{0x00, 0x01, 0xFE, 0xFF}))
+
+	value, err := getBytes(md, "binary-key-bin")
+
+	assert.Nil(t, err)
+	assert.Equal(t, []byte{0, 1, 254, 255}, value)
+}
+
+func TestGetBytesIncorrectBinaryKey(t *testing.T) {
+	md := metadata.Pairs("binary-key", string([]byte{0x00, 0x01, 0xFE, 0xFF}))
+
+	_, err := getBytes(md, "binary-key")
+
+	assert.Equal(t, status.Errorf(codes.InvalidArgument, "incorrect binary key name \"binary-key\""), err)
 }

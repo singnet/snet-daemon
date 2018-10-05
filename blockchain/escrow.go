@@ -13,15 +13,18 @@ import (
 )
 
 const (
-	// PaymentChannelIdHeader is a MultiPartyEscrow contract payment channel id
+	// PaymentChannelIdHeader is a MultiPartyEscrow contract payment channel
+	// id. Value is a string containing a decimal number.
 	PaymentChannelIdHeader = "snet-payment-channel-id"
-	// PaymentChannelNonceHeader is a payment channel nonce value
+	// PaymentChannelNonceHeader is a payment channel nonce value. Value is a
+	// string containing a decimal number.
 	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
 	// PaymentChannelAmountHeader is an amount of payment channel value
-	// which server is authorized withdraw after handling the RPC call.
+	// which server is authorized to withdraw after handling the RPC call.
+	// Value is a string containing a decimal number.
 	PaymentChannelAmountHeader = "snet-payment-channel-amount"
 	// PaymentChannelSignatureHeader is a signature of the client to confirm
-	// authorized amount
+	// amount withdrawing authorization. Value is an array of bytes.
 	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 )
 
@@ -135,6 +138,7 @@ func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) err
 		return status.Errorf(codes.FailedPrecondition, "Next authorized amount is not equal to previous amount plus price, previous amount: \"%v\", price: \"%v\", new amount: \"%v\"", paymentChannel.AuthorizedAmount, price, payment.amount)
 	}
 
+	// TODO: current job code comletes payment iff service returned no error
 	err = h.storage.CompareAndSwap(
 		payment.channelKey,
 		paymentChannel,

@@ -37,12 +37,12 @@ func newJobPaymentHandler(p *Processor, md metadata.MD) *jobPaymentHandler {
 func (h *jobPaymentHandler) validatePayment() error {
 	var err error
 
-	h.jobAddressBytes, err = getBytes(h.md, JobAddressHeader)
+	h.jobAddressBytes, err = getBytesFromHexString(h.md, JobAddressHeader)
 	if err != nil {
 		return err
 	}
 
-	h.jobSignatureBytes, err = getBytes(h.md, JobSignatureHeader)
+	h.jobSignatureBytes, err = getBytesFromHexString(h.md, JobSignatureHeader)
 	if err != nil {
 		return err
 	}

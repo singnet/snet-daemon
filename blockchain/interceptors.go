@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"math/big"
+	"strings"
 )
 
 const (
@@ -66,27 +67,54 @@ type paymentHandlerType interface {
 	completePayment(error) error
 }
 
-func getBigInt(md metadata.MD, key string) (*big.Int, error) {
-	array := md.Get(key)
-	if len(array) == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "missing \"%v\"", key)
-	}
-
-	value := big.NewInt(0)
-	err := value.UnmarshalText([]byte(array[0]))
+func getBigInt(md metadata.MD, key string) (value *big.Int, err error) {
+	str, err := getSingleValue(md, key)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "incorrect format \"%v\": \"%v\"", key, array[0])
+		return
 	}
 
-	return value, nil
+	value = big.NewInt(0)
+	err = value.UnmarshalText([]byte(str))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "incorrect format \"%v\": \"%v\"", key, str)
+	}
+
+	return
 }
 
-func getBytes(md metadata.MD, key string) ([]byte, error) {
-	value := md.Get(key)
-	if len(value) == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "missing \"%v\"", key)
+func getBytes(md metadata.MD, key string) (result []byte, err error) {
+	if !strings.HasSuffix(key, "-bin") {
+		return nil, status.Errorf(codes.InvalidArgument, "incorrect binary key name \"%v\"", key)
 	}
-	return common.FromHex(value[0]), nil
+
+	str, err := getSingleValue(md, key)
+	if err != nil {
+		return
+	}
+
+	return []byte(str), nil
+}
+
+func getBytesFromHexString(md metadata.MD, key string) (value []byte, err error) {
+	str, err := getSingleValue(md, key)
+	if err != nil {
+		return
+	}
+	return common.FromHex(str), nil
+}
+
+func getSingleValue(md metadata.MD, key string) (value string, err error) {
+	array := md.Get(key)
+
+	if len(array) == 0 {
+		return "", status.Errorf(codes.InvalidArgument, "missing \"%v\"", key)
+	}
+
+	if len(array) > 1 {
+		return "", status.Errorf(codes.InvalidArgument, "too many values for key \"%v\": %v", key, array)
+	}
+
+	return array[0], nil
 }
 
 func noOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,

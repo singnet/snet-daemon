@@ -93,7 +93,7 @@ func (p *Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []by
 	}
 
 	pubKey, err := crypto.SigToPub(p.sigHasher(jobAddressBytes), bytes.Join([][]byte{jobSignatureBytes[0:64], {v % 27}},
-		[]byte{}))
+		nil))
 	if err != nil {
 		log.WithError(err).Error("error recovering signature")
 		return false

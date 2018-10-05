@@ -106,7 +106,7 @@ func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) err
 	}
 
 	if *signerAddress != paymentChannel.SenderAddress {
-		log.WithField("signerAddress", signerAddress).Warn("Channel sender is not equal to payment singer")
+		log.WithField("signerAddress", signerAddress).Warn("Channel sender is not equal to payment signer")
 		return status.Errorf(codes.Unauthenticated, "payment is not signed by channel sender")
 	}
 
@@ -158,7 +158,7 @@ func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) err
 	return nil
 }
 
-func (h *escrowPaymentHandler) getPublicKeyFromPayment(payment *paymentData) (*common.Address, error) {
+func (h *escrowPaymentHandler) getPublicKeyFromPayment(payment *paymentData) (signer *common.Address, err error) {
 	paymentHash := crypto.Keccak256(
 		hashPrefix32Bytes,
 		crypto.Keccak256(
@@ -171,7 +171,7 @@ func (h *escrowPaymentHandler) getPublicKeyFromPayment(payment *paymentData) (*c
 
 	publicKey, err := crypto.SigToPub(paymentHash, payment.signature)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	keyOwnerAddress := crypto.PubkeyToAddress(*publicKey)
@@ -183,14 +183,12 @@ func bigIntToBytes(value *big.Int) []byte {
 }
 
 func (h *escrowPaymentHandler) getPaymentFromMetadata() (payment *paymentData, err error) {
-	var paymentChannelKey = &PaymentChannelKey{}
-
-	paymentChannelKey.Id, err = getBigInt(h.md, PaymentChannelIdHeader)
+	channelId, err := getBigInt(h.md, PaymentChannelIdHeader)
 	if err != nil {
 		return
 	}
 
-	paymentChannelKey.Nonce, err = getBigInt(h.md, PaymentChannelNonceHeader)
+	channelNonce, err := getBigInt(h.md, PaymentChannelNonceHeader)
 	if err != nil {
 		return
 	}
@@ -205,7 +203,7 @@ func (h *escrowPaymentHandler) getPaymentFromMetadata() (payment *paymentData, e
 		return
 	}
 
-	return &paymentData{paymentChannelKey, amount, signature}, nil
+	return &paymentData{&PaymentChannelKey{channelId, channelNonce}, amount, signature}, nil
 }
 
 func (h *escrowPaymentHandler) completePayment(err error) error {

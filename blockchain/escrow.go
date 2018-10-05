@@ -22,7 +22,7 @@ const (
 	PaymentChannelAmountHeader = "snet-payment-channel-amount"
 	// PaymentChannelSignatureHeader is a signature of the client to confirm
 	// authorized amount
-	PaymentChannelSignatureHeader = "snet-payment-channel-signature"
+	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 )
 
 // TODO: add formatters for PaymentChannelKey, PaymentChannelData
@@ -178,23 +178,30 @@ func bigIntToBytes(value *big.Int) []byte {
 	return common.BigToHash(value).Bytes()
 }
 
-func (h *escrowPaymentHandler) getPaymentFromMetadata() (*paymentData, error) {
-	/*
-		id, err := getBigInt(h.md, PaymentChannelIdHeader)
-		if err != nil {
-			return err
-		}
+func (h *escrowPaymentHandler) getPaymentFromMetadata() (payment *paymentData, err error) {
+	var paymentChannelKey = &PaymentChannelKey{}
 
-		nonce, err := getBigInt(h.md, PaymentChannelNonceHeader)
-		if err != nil {
-			return err
-		}
+	paymentChannelKey.Id, err = getBigInt(h.md, PaymentChannelIdHeader)
+	if err != nil {
+		return
+	}
 
-		PaymentChannelData := h.storage.Get(&PaymentChannelKey{id, nonce})
+	paymentChannelKey.Nonce, err = getBigInt(h.md, PaymentChannelNonceHeader)
+	if err != nil {
+		return
+	}
 
-		signature, err := getBytes(h.md, PaymentChannelSignatureHeader)
-	*/
-	return nil, status.Errorf(codes.Unimplemented, "not implemented yet")
+	amount, err := getBigInt(h.md, PaymentChannelAmountHeader)
+	if err != nil {
+		return
+	}
+
+	signature, err := getBytes(h.md, PaymentChannelSignatureHeader)
+	if err != nil {
+		return
+	}
+
+	return &paymentData{paymentChannelKey, amount, signature}, nil
 }
 
 func (h *escrowPaymentHandler) completePayment(err error) error {

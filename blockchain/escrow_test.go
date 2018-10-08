@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"math/big"
 	"os"
 	"strconv"
@@ -63,6 +64,15 @@ func (storage *storageMockType) CompareAndSwap(key *PaymentChannelKey, prevState
 
 var processorMock = Processor{}
 
+type amountValidatorMockType struct {
+}
+
+var amountValidatorMock = amountValidatorMockType{}
+
+func (amountValidator *amountValidatorMockType) Validate(paymentData *PaymentData) (err *status.Status) {
+	return nil
+}
+
 func getEscrowMetadata(channelId, channelNonce, amount int) metadata.MD {
 	hash := crypto.Keccak256(
 		hashPrefix32Bytes,
@@ -116,8 +126,6 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 }
 
 func TestValidatePayment(t *testing.T) {
-	t.Skip("Not implemented yet")
-
 	storageMock.Put(
 		&PaymentChannelKey{Id: big.NewInt(42), Nonce: big.NewInt(3)},
 		&PaymentChannelData{
@@ -130,7 +138,12 @@ func TestValidatePayment(t *testing.T) {
 		},
 	)
 	md := getEscrowMetadata(42, 3, 12345)
-	handler := escrowPaymentHandler{md, &storageMock, &processorMock}
+	handler := escrowPaymentHandler{
+		md:              md,
+		storage:         &storageMock,
+		processor:       &processorMock,
+		amountValidator: &amountValidatorMock,
+	}
 
 	err := handler.validatePayment()
 

@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
@@ -53,15 +52,24 @@ type PaymentChannelData struct {
 }
 
 type PaymentChannelStorage interface {
-	Get(key *PaymentChannelKey) (*PaymentChannelData, error)
-	CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) error
+	Get(key *PaymentChannelKey) (paymentChannel *PaymentChannelData, err error)
+	CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (err error)
+}
+
+type PaymentData struct {
+	Income *big.Int
+}
+
+type AmountValidator interface {
+	Validate(*PaymentData) (err *status.Status)
 }
 
 // escrowPaymentHandler implements paymentHandlerType interface
 type escrowPaymentHandler struct {
-	md        metadata.MD
-	storage   PaymentChannelStorage
-	processor *Processor
+	md              metadata.MD
+	storage         PaymentChannelStorage
+	processor       *Processor
+	amountValidator AmountValidator
 }
 
 func newEscrowPaymentHandler() *escrowPaymentHandler {
@@ -82,8 +90,7 @@ func (h *escrowPaymentHandler) validatePayment() error {
 	return h.validatePaymentInternal(payment)
 }
 
-func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) error {
-	var err error
+func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) (err error) {
 	var log = log.WithField("payment", payment)
 
 	paymentChannel, err := h.storage.Get(payment.channelKey)
@@ -122,21 +129,11 @@ func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) err
 		return status.Errorf(codes.FailedPrecondition, "not enough tokens on payment channel, channel amount: %v, payment amount: %v ", paymentChannel.FullAmount, payment.amount)
 	}
 
-	price, err := h.processor.agent.CurrentPrice(
-		&bind.CallOpts{
-			Pending: true,
-			From:    common.HexToAddress(h.processor.address),
-		})
-	if err != nil {
-		log.WithError(err).Error("Cannot get current price from Agent")
-		return status.Errorf(codes.Internal, "cannot get current price from Agent")
-	}
-
-	nextAuthorizedAmount := big.NewInt(0)
-	nextAuthorizedAmount.Add(paymentChannel.AuthorizedAmount, price)
-	if nextAuthorizedAmount.Cmp(payment.amount) != 0 {
-		log.Warn("Next authorized amount is not equal to previous amount plus price")
-		return status.Errorf(codes.FailedPrecondition, "Next authorized amount is not equal to previous amount plus price, previous amount: \"%v\", price: \"%v\", new amount: \"%v\"", paymentChannel.AuthorizedAmount, price, payment.amount)
+	income := big.NewInt(0)
+	income.Sub(payment.amount, paymentChannel.AuthorizedAmount)
+	s := h.amountValidator.Validate(&PaymentData{Income: income})
+	if s != nil {
+		return s.Err()
 	}
 
 	// TODO: current job code comletes payment iff service returned no error

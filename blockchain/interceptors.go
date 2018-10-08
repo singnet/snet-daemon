@@ -21,31 +21,48 @@ const (
 	EscrowPaymentType = "escrow"
 )
 
-func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
-	handler grpc.StreamHandler) error {
-
-	md, ok := metadata.FromIncomingContext(ss.Context())
-	if !ok {
-		return status.Errorf(codes.InvalidArgument, "missing metadata")
-	}
-
-	paymentHandler, err := p.newPaymentHandlerByType(md)
-	if err != nil {
-		return err
-	}
-
-	err = paymentHandler.validatePayment()
-	if err != nil {
-		return err
-	}
-
-	err = handler(srv, ss)
-
-	return paymentHandler.completePayment(err)
+type callContextType struct {
+	md   metadata.MD
+	info *grpc.StreamServerInfo
 }
 
-func (p Processor) newPaymentHandlerByType(md metadata.MD) (paymentHandlerType, error) {
-	paymentTypeMd, ok := md[PaymentTypeHeader]
+func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	var err *status.Status
+
+	callContext, err := getCallContext(ss, info)
+	if err != nil {
+		return err.Err()
+	}
+
+	paymentHandler, err := p.getPaymentHandler(callContext)
+	if err != nil {
+		return err.Err()
+	}
+
+	err = paymentHandler.validate()
+	if err != nil {
+		return err.Err()
+	}
+
+	e := handler(srv, ss)
+
+	return paymentHandler.complete(e)
+}
+
+func getCallContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *callContextType, err *status.Status) {
+	md, ok := metadata.FromIncomingContext(serverStream.Context())
+	if !ok {
+		return nil, status.New(codes.InvalidArgument, "missing metadata")
+	}
+
+	return &callContextType{
+		md:   md,
+		info: info,
+	}, nil
+}
+
+func (p Processor) getPaymentHandler(callContext *callContextType) (handler paymentHandlerType, err *status.Status) {
+	paymentTypeMd, ok := callContext.md[PaymentTypeHeader]
 
 	paymentType := JobPaymentType
 	if ok && len(paymentTypeMd) > 0 {
@@ -54,37 +71,37 @@ func (p Processor) newPaymentHandlerByType(md metadata.MD) (paymentHandlerType, 
 
 	switch {
 	case paymentType == JobPaymentType:
-		return newJobPaymentHandler(&p, md), nil
+		return newJobPaymentHandler(&p, callContext), nil
 	case paymentType == EscrowPaymentType:
-		return newEscrowPaymentHandler(), nil
+		return newEscrowPaymentHandler(&p, nil, nil, callContext), nil
 	default:
-		return nil, status.Errorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
+		return nil, status.Newf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
 	}
 }
 
 type paymentHandlerType interface {
-	validatePayment() error
-	completePayment(error) error
+	validate() *status.Status
+	complete(error) error
 }
 
-func getBigInt(md metadata.MD, key string) (value *big.Int, err error) {
+func getBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) {
 	str, err := getSingleValue(md, key)
 	if err != nil {
 		return
 	}
 
 	value = big.NewInt(0)
-	err = value.UnmarshalText([]byte(str))
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "incorrect format \"%v\": \"%v\"", key, str)
+	e := value.UnmarshalText([]byte(str))
+	if e != nil {
+		return nil, status.Newf(codes.InvalidArgument, "incorrect format \"%v\": \"%v\"", key, str)
 	}
 
 	return
 }
 
-func getBytes(md metadata.MD, key string) (result []byte, err error) {
+func getBytes(md metadata.MD, key string) (result []byte, err *status.Status) {
 	if !strings.HasSuffix(key, "-bin") {
-		return nil, status.Errorf(codes.InvalidArgument, "incorrect binary key name \"%v\"", key)
+		return nil, status.Newf(codes.InvalidArgument, "incorrect binary key name \"%v\"", key)
 	}
 
 	str, err := getSingleValue(md, key)
@@ -95,7 +112,7 @@ func getBytes(md metadata.MD, key string) (result []byte, err error) {
 	return []byte(str), nil
 }
 
-func getBytesFromHexString(md metadata.MD, key string) (value []byte, err error) {
+func getBytesFromHexString(md metadata.MD, key string) (value []byte, err *status.Status) {
 	str, err := getSingleValue(md, key)
 	if err != nil {
 		return
@@ -103,15 +120,15 @@ func getBytesFromHexString(md metadata.MD, key string) (value []byte, err error)
 	return common.FromHex(str), nil
 }
 
-func getSingleValue(md metadata.MD, key string) (value string, err error) {
+func getSingleValue(md metadata.MD, key string) (value string, err *status.Status) {
 	array := md.Get(key)
 
 	if len(array) == 0 {
-		return "", status.Errorf(codes.InvalidArgument, "missing \"%v\"", key)
+		return "", status.Newf(codes.InvalidArgument, "missing \"%v\"", key)
 	}
 
 	if len(array) > 1 {
-		return "", status.Errorf(codes.InvalidArgument, "too many values for key \"%v\": %v", key, array)
+		return "", status.Newf(codes.InvalidArgument, "too many values for key \"%v\": %v", key, array)
 	}
 
 	return array[0], nil

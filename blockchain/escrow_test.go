@@ -64,12 +64,12 @@ func (storage *storageMockType) CompareAndSwap(key *PaymentChannelKey, prevState
 
 var processorMock = Processor{}
 
-type amountValidatorMockType struct {
+type incomeValidatorMockType struct {
 }
 
-var amountValidatorMock = amountValidatorMockType{}
+var incomeValidatorMock = incomeValidatorMockType{}
 
-func (amountValidator *amountValidatorMockType) Validate(paymentData *PaymentData) (err *status.Status) {
+func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (err *status.Status) {
 	return nil
 }
 
@@ -113,10 +113,11 @@ func hexToAddress(str string) common.Address {
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	escrowContractAddress := hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	handler := escrowPaymentHandler{processor: &Processor{escrowContractAddress: escrowContractAddress}}
-	payment := paymentData{
+	payment := paymentType{
 		channelKey: &PaymentChannelKey{Id: big.NewInt(1789), Nonce: big.NewInt(1917)},
 		amount:     big.NewInt(31415),
-		signature:  hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
+		signature: hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
 
 	address, err := handler.getSignerAddressFromPayment(&payment)
@@ -139,13 +140,13 @@ func TestValidatePayment(t *testing.T) {
 	)
 	md := getEscrowMetadata(42, 3, 12345)
 	handler := escrowPaymentHandler{
-		md:              md,
 		storage:         &storageMock,
 		processor:       &processorMock,
-		amountValidator: &amountValidatorMock,
+		incomeValidator: &incomeValidatorMock,
+		callContext:     &callContextType{md: md},
 	}
 
-	err := handler.validatePayment()
+	err := handler.validate()
 
 	assert.Nil(t, err)
 }

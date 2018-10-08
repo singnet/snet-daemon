@@ -11,7 +11,6 @@ import (
 	"github.com/singnet/snet-daemon/db"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -25,37 +24,35 @@ const (
 
 type jobPaymentHandler struct {
 	p                 *Processor
-	md                metadata.MD
+	callContext       *callContextType
 	jobAddressBytes   []byte
 	jobSignatureBytes []byte
 }
 
-func newJobPaymentHandler(p *Processor, md metadata.MD) *jobPaymentHandler {
-	return &jobPaymentHandler{p: p, md: md}
+func newJobPaymentHandler(p *Processor, callContext *callContextType) *jobPaymentHandler {
+	return &jobPaymentHandler{p: p, callContext: callContext}
 }
 
-func (h *jobPaymentHandler) validatePayment() error {
-	var err error
-
-	h.jobAddressBytes, err = getBytesFromHexString(h.md, JobAddressHeader)
+func (h *jobPaymentHandler) validate() (err *status.Status) {
+	h.jobAddressBytes, err = getBytesFromHexString(h.callContext.md, JobAddressHeader)
 	if err != nil {
-		return err
+		return
 	}
 
-	h.jobSignatureBytes, err = getBytesFromHexString(h.md, JobSignatureHeader)
+	h.jobSignatureBytes, err = getBytesFromHexString(h.callContext.md, JobSignatureHeader)
 	if err != nil {
-		return err
+		return
 	}
 
 	valid := h.p.IsValidJobInvocation(h.jobAddressBytes, h.jobSignatureBytes)
 	if !valid {
-		return status.Errorf(codes.Unauthenticated, "job invocation not valid")
+		return status.Newf(codes.Unauthenticated, "job invocation not valid")
 	}
 
 	return nil
 }
 
-func (h *jobPaymentHandler) completePayment(err error) error {
+func (h *jobPaymentHandler) complete(err error) error {
 	if err == nil {
 		h.p.CompleteJob(h.jobAddressBytes, h.jobSignatureBytes)
 	}

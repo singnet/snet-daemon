@@ -99,7 +99,7 @@ func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) err
 		return status.Errorf(codes.FailedPrecondition, "payment channel \"%v\" is not opened", payment.channelKey)
 	}
 
-	signerAddress, err := h.getPublicKeyFromPayment(payment)
+	signerAddress, err := h.getSignerAddressFromPayment(payment)
 	if err != nil {
 		log.WithError(err).Warn("Unable to get public key from payment")
 		return status.Errorf(codes.Unauthenticated, "payment signature is not valid")
@@ -158,7 +158,7 @@ func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) err
 	return nil
 }
 
-func (h *escrowPaymentHandler) getPublicKeyFromPayment(payment *paymentData) (signer *common.Address, err error) {
+func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *paymentData) (signer *common.Address, err error) {
 	paymentHash := crypto.Keccak256(
 		hashPrefix32Bytes,
 		crypto.Keccak256(

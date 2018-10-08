@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -113,12 +112,4 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 	}
 
 	return p, nil
-}
-
-func (p Processor) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
-	if p.enabled {
-		return p.paymentValidationInterceptor
-	}
-
-	return noOpInterceptor
 }

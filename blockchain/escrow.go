@@ -236,7 +236,7 @@ func bigIntToBytes(value *big.Int) []byte {
 }
 
 func (h *escrowPaymentHandler) Complete(_payment Payment) (err *status.Status) {
-	var payment = _payment.(escrowPaymentType)
+	var payment = _payment.(*escrowPaymentType)
 	e := h.storage.CompareAndSwap(
 		payment.channelKey,
 		payment.channel,

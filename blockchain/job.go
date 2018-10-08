@@ -55,7 +55,7 @@ func (h *jobPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment
 }
 
 func (h *jobPaymentHandler) Validate(_payment Payment) (err *status.Status) {
-	var payment = _payment.(jobPaymentType)
+	var payment = _payment.(*jobPaymentType)
 
 	valid := h.p.IsValidJobInvocation(payment.jobAddressBytes, payment.jobSignatureBytes)
 	if !valid {
@@ -66,7 +66,7 @@ func (h *jobPaymentHandler) Validate(_payment Payment) (err *status.Status) {
 }
 
 func (h *jobPaymentHandler) Complete(_payment Payment) (err *status.Status) {
-	var payment = _payment.(jobPaymentType)
+	var payment = _payment.(*jobPaymentType)
 	h.p.CompleteJob(payment.jobAddressBytes, payment.jobSignatureBytes)
 	return nil
 }

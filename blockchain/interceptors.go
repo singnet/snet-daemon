@@ -35,7 +35,26 @@ type PaymentHandler interface {
 	CompleteAfterError(payment Payment, result error) (err *status.Status)
 }
 
-func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func GrpcStreamInterceptor(processor *Processor) grpc.StreamServerInterceptor {
+	if processor.enabled {
+		interceptor := &paymentValidationInterceptor{
+			processor:            processor,
+			jobPaymentHandler:    newJobPaymentHandler(processor),
+			escrowPaymentHandler: newEscrowPaymentHandler(processor, nil, nil),
+		}
+		return interceptor.intercept
+	}
+
+	return noOpInterceptor
+}
+
+type paymentValidationInterceptor struct {
+	processor            *Processor
+	jobPaymentHandler    *jobPaymentHandler
+	escrowPaymentHandler *escrowPaymentHandler
+}
+
+func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	var err *status.Status
 
 	context, err := getGrpcContext(ss, info)
@@ -43,7 +62,7 @@ func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerS
 		return err.Err()
 	}
 
-	paymentHandler, err := p.getPaymentHandler(context)
+	paymentHandler, err := interceptor.getPaymentHandler(context)
 	if err != nil {
 		return err.Err()
 	}
@@ -87,7 +106,7 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 	}, nil
 }
 
-func (p Processor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *status.Status) {
+func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *status.Status) {
 	paymentTypeMd, ok := context.MD[PaymentTypeHeader]
 
 	paymentType := JobPaymentType
@@ -97,9 +116,9 @@ func (p Processor) getPaymentHandler(context *GrpcStreamContext) (handler Paymen
 
 	switch {
 	case paymentType == JobPaymentType:
-		return newJobPaymentHandler(&p), nil
+		return interceptor.jobPaymentHandler, nil
 	case paymentType == EscrowPaymentType:
-		return newEscrowPaymentHandler(&p, nil, nil), nil
+		return interceptor.escrowPaymentHandler, nil
 	default:
 		return nil, status.Newf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
 	}

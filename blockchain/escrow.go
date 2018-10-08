@@ -107,15 +107,15 @@ type escrowPaymentHandler struct {
 	storage         PaymentChannelStorage
 	processor       *Processor
 	incomeValidator IncomeValidator
-	callContext     *callContextType
+	grpcContext     *GrpcStreamContext
 }
 
-func newEscrowPaymentHandler(processor *Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator, callContext *callContextType) *escrowPaymentHandler {
+func newEscrowPaymentHandler(processor *Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator, grpcContext *GrpcStreamContext) *escrowPaymentHandler {
 	return &escrowPaymentHandler{
 		processor:       processor,
 		storage:         storage,
 		incomeValidator: incomeValidator,
-		callContext:     callContext,
+		grpcContext:     grpcContext,
 	}
 }
 
@@ -228,22 +228,22 @@ func bigIntToBytes(value *big.Int) []byte {
 }
 
 func (h *escrowPaymentHandler) getPaymentFromMetadata() (payment *paymentType, err *status.Status) {
-	channelID, err := getBigInt(h.callContext.md, PaymentChannelIDHeader)
+	channelID, err := getBigInt(h.grpcContext.MD, PaymentChannelIDHeader)
 	if err != nil {
 		return
 	}
 
-	channelNonce, err := getBigInt(h.callContext.md, PaymentChannelNonceHeader)
+	channelNonce, err := getBigInt(h.grpcContext.MD, PaymentChannelNonceHeader)
 	if err != nil {
 		return
 	}
 
-	amount, err := getBigInt(h.callContext.md, PaymentChannelAmountHeader)
+	amount, err := getBigInt(h.grpcContext.MD, PaymentChannelAmountHeader)
 	if err != nil {
 		return
 	}
 
-	signature, err := getBytes(h.callContext.md, PaymentChannelSignatureHeader)
+	signature, err := getBytes(h.grpcContext.MD, PaymentChannelSignatureHeader)
 	if err != nil {
 		return
 	}

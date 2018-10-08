@@ -24,22 +24,22 @@ const (
 
 type jobPaymentHandler struct {
 	p                 *Processor
-	callContext       *callContextType
+	grpcContext       *GrpcStreamContext
 	jobAddressBytes   []byte
 	jobSignatureBytes []byte
 }
 
-func newJobPaymentHandler(p *Processor, callContext *callContextType) *jobPaymentHandler {
-	return &jobPaymentHandler{p: p, callContext: callContext}
+func newJobPaymentHandler(p *Processor, grpcContext *GrpcStreamContext) *jobPaymentHandler {
+	return &jobPaymentHandler{p: p, grpcContext: grpcContext}
 }
 
 func (h *jobPaymentHandler) validate() (err *status.Status) {
-	h.jobAddressBytes, err = getBytesFromHexString(h.callContext.md, JobAddressHeader)
+	h.jobAddressBytes, err = getBytesFromHexString(h.grpcContext.MD, JobAddressHeader)
 	if err != nil {
 		return
 	}
 
-	h.jobSignatureBytes, err = getBytesFromHexString(h.callContext.md, JobSignatureHeader)
+	h.jobSignatureBytes, err = getBytesFromHexString(h.grpcContext.MD, JobSignatureHeader)
 	if err != nil {
 		return
 	}

@@ -21,20 +21,20 @@ const (
 	EscrowPaymentType = "escrow"
 )
 
-type callContextType struct {
-	md   metadata.MD
-	info *grpc.StreamServerInfo
+type GrpcStreamContext struct {
+	MD   metadata.MD
+	Info *grpc.StreamServerInfo
 }
 
 func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	var err *status.Status
 
-	callContext, err := getCallContext(ss, info)
+	context, err := getGrpcContext(ss, info)
 	if err != nil {
 		return err.Err()
 	}
 
-	paymentHandler, err := p.getPaymentHandler(callContext)
+	paymentHandler, err := p.getPaymentHandler(context)
 	if err != nil {
 		return err.Err()
 	}
@@ -54,20 +54,20 @@ func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerS
 	return nil
 }
 
-func getCallContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *callContextType, err *status.Status) {
+func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *GrpcStreamContext, err *status.Status) {
 	md, ok := metadata.FromIncomingContext(serverStream.Context())
 	if !ok {
 		return nil, status.New(codes.InvalidArgument, "missing metadata")
 	}
 
-	return &callContextType{
-		md:   md,
-		info: info,
+	return &GrpcStreamContext{
+		MD:   md,
+		Info: info,
 	}, nil
 }
 
-func (p Processor) getPaymentHandler(callContext *callContextType) (handler paymentHandlerType, err *status.Status) {
-	paymentTypeMd, ok := callContext.md[PaymentTypeHeader]
+func (p Processor) getPaymentHandler(callContext *GrpcStreamContext) (handler paymentHandlerType, err *status.Status) {
+	paymentTypeMd, ok := callContext.MD[PaymentTypeHeader]
 
 	paymentType := JobPaymentType
 	if ok && len(paymentTypeMd) > 0 {

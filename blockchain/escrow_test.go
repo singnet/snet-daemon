@@ -144,7 +144,7 @@ func TestValidatePayment(t *testing.T) {
 		storage:         &storageMock,
 		processor:       &processorMock,
 		incomeValidator: &incomeValidatorMock,
-		callContext:     &callContextType{md: md},
+		grpcContext:     &GrpcStreamContext{MD: md},
 	}
 
 	err := handler.validate()

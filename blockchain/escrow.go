@@ -171,6 +171,11 @@ func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *paymentData)
 
 	publicKey, err := crypto.SigToPub(paymentHash, payment.signature)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"paymentHash": common.ToHex(paymentHash),
+			"publicKey":   publicKey,
+			"err":         err,
+		}).Warn("Incorrect signature")
 		return
 	}
 

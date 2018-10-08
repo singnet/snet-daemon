@@ -29,6 +29,7 @@ const (
 )
 
 // TODO: add formatters for PaymentChannelKey, PaymentChannelData
+// TODO: document public API
 
 type PaymentChannelKey struct {
 	Id    *big.Int
@@ -43,12 +44,12 @@ const (
 )
 
 type PaymentChannelData struct {
-	State              PaymentChannelState
-	SenderAddress      common.Address
-	FullAmount         *big.Int
-	ExpirationDateTime time.Time
-	AuthorizedAmount   *big.Int
-	ClientSignature    []byte
+	State            PaymentChannelState
+	Sender           common.Address
+	FullAmount       *big.Int
+	Expiration       time.Time
+	AuthorizedAmount *big.Int
+	Signature        []byte
 }
 
 type PaymentChannelStorage interface {
@@ -105,15 +106,15 @@ func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) err
 		return status.Errorf(codes.Unauthenticated, "payment signature is not valid")
 	}
 
-	if *signerAddress != paymentChannel.SenderAddress {
+	if *signerAddress != paymentChannel.Sender {
 		log.WithField("signerAddress", signerAddress).Warn("Channel sender is not equal to payment signer")
 		return status.Errorf(codes.Unauthenticated, "payment is not signed by channel sender")
 	}
 
 	now := time.Now()
-	if paymentChannel.ExpirationDateTime.Before(now) {
+	if paymentChannel.Expiration.Before(now) {
 		log.WithField("now", now).Warn("Channel is expired")
-		return status.Errorf(codes.FailedPrecondition, "payment channel is expired since \"%v\"", paymentChannel.ExpirationDateTime)
+		return status.Errorf(codes.FailedPrecondition, "payment channel is expired since \"%v\"", paymentChannel.Expiration)
 	}
 
 	if paymentChannel.FullAmount.Cmp(payment.amount) < 0 {
@@ -143,11 +144,11 @@ func (h *escrowPaymentHandler) validatePaymentInternal(payment *paymentData) err
 		payment.channelKey,
 		paymentChannel,
 		&PaymentChannelData{
-			State:              paymentChannel.State,
-			FullAmount:         paymentChannel.FullAmount,
-			ExpirationDateTime: paymentChannel.ExpirationDateTime,
-			AuthorizedAmount:   payment.amount,
-			ClientSignature:    payment.signature,
+			State:            paymentChannel.State,
+			FullAmount:       paymentChannel.FullAmount,
+			Expiration:       paymentChannel.Expiration,
+			AuthorizedAmount: payment.amount,
+			Signature:        payment.signature,
 		},
 	)
 	if err != nil {

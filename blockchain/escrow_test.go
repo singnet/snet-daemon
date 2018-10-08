@@ -121,12 +121,12 @@ func TestValidatePayment(t *testing.T) {
 	storageMock.Put(
 		&PaymentChannelKey{Id: big.NewInt(42), Nonce: big.NewInt(3)},
 		&PaymentChannelData{
-			State:              Open,
-			SenderAddress:      crypto.PubkeyToAddress(testPrivateKey.PublicKey),
-			FullAmount:         big.NewInt(12345),
-			ExpirationDateTime: time.Now().Add(time.Hour),
-			AuthorizedAmount:   big.NewInt(12300),
-			ClientSignature:    nil,
+			State:            Open,
+			Sender:           crypto.PubkeyToAddress(testPrivateKey.PublicKey),
+			FullAmount:       big.NewInt(12345),
+			Expiration:       time.Now().Add(time.Hour),
+			AuthorizedAmount: big.NewInt(12300),
+			Signature:        nil,
 		},
 	)
 	md := getEscrowMetadata(42, 3, 12345)

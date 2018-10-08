@@ -23,28 +23,41 @@ const (
 )
 
 type jobPaymentHandler struct {
-	p                 *Processor
+	p *Processor
+}
+
+type jobPaymentType struct {
 	grpcContext       *GrpcStreamContext
 	jobAddressBytes   []byte
 	jobSignatureBytes []byte
 }
 
-func newJobPaymentHandler(p *Processor, grpcContext *GrpcStreamContext) *jobPaymentHandler {
-	return &jobPaymentHandler{p: p, grpcContext: grpcContext}
+func newJobPaymentHandler(p *Processor) *jobPaymentHandler {
+	return &jobPaymentHandler{p: p}
 }
 
-func (h *jobPaymentHandler) validate() (err *status.Status) {
-	h.jobAddressBytes, err = getBytesFromHexString(h.grpcContext.MD, JobAddressHeader)
+func (h *jobPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {
+	jobAddressBytes, err := getBytesFromHexString(context.MD, JobAddressHeader)
 	if err != nil {
 		return
 	}
 
-	h.jobSignatureBytes, err = getBytesFromHexString(h.grpcContext.MD, JobSignatureHeader)
+	jobSignatureBytes, err := getBytesFromHexString(context.MD, JobSignatureHeader)
 	if err != nil {
 		return
 	}
 
-	valid := h.p.IsValidJobInvocation(h.jobAddressBytes, h.jobSignatureBytes)
+	return &jobPaymentType{
+		grpcContext:       context,
+		jobAddressBytes:   jobAddressBytes,
+		jobSignatureBytes: jobSignatureBytes,
+	}, nil
+}
+
+func (h *jobPaymentHandler) Validate(_payment Payment) (err *status.Status) {
+	var payment = _payment.(jobPaymentType)
+
+	valid := h.p.IsValidJobInvocation(payment.jobAddressBytes, payment.jobSignatureBytes)
 	if !valid {
 		return status.Newf(codes.Unauthenticated, "job invocation not valid")
 	}
@@ -52,11 +65,14 @@ func (h *jobPaymentHandler) validate() (err *status.Status) {
 	return nil
 }
 
-func (h *jobPaymentHandler) complete() {
-	h.p.CompleteJob(h.jobAddressBytes, h.jobSignatureBytes)
+func (h *jobPaymentHandler) Complete(_payment Payment) (err *status.Status) {
+	var payment = _payment.(jobPaymentType)
+	h.p.CompleteJob(payment.jobAddressBytes, payment.jobSignatureBytes)
+	return nil
 }
 
-func (h *jobPaymentHandler) completeAfterError(err error) {
+func (h *jobPaymentHandler) CompleteAfterError(_payment Payment, result error) (err *status.Status) {
+	return nil
 }
 
 func (p *Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {

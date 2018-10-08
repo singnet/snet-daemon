@@ -114,7 +114,7 @@ func hexToAddress(str string) common.Address {
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	escrowContractAddress := hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	handler := escrowPaymentHandler{processor: &Processor{escrowContractAddress: escrowContractAddress}}
-	payment := paymentType{
+	payment := escrowPaymentType{
 		channelKey: &PaymentChannelKey{ID: big.NewInt(1789), Nonce: big.NewInt(1917)},
 		amount:     big.NewInt(31415),
 		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
@@ -144,10 +144,10 @@ func TestValidatePayment(t *testing.T) {
 		storage:         &storageMock,
 		processor:       &processorMock,
 		incomeValidator: &incomeValidatorMock,
-		grpcContext:     &GrpcStreamContext{MD: md},
 	}
 
-	err := handler.validate()
-
+	payment, err := handler.Payment(&GrpcStreamContext{MD: md})
+	assert.Nil(t, err)
+	err = handler.Validate(payment)
 	assert.Nil(t, err)
 }

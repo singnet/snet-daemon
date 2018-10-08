@@ -26,6 +26,15 @@ type GrpcStreamContext struct {
 	Info *grpc.StreamServerInfo
 }
 
+type Payment interface{}
+
+type PaymentHandler interface {
+	Payment(context *GrpcStreamContext) (payment Payment, err *status.Status)
+	Validate(payment Payment) (err *status.Status)
+	Complete(payment Payment) (err *status.Status)
+	CompleteAfterError(payment Payment, result error) (err *status.Status)
+}
+
 func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	var err *status.Status
 
@@ -39,18 +48,30 @@ func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerS
 		return err.Err()
 	}
 
-	err = paymentHandler.validate()
+	payment, err := paymentHandler.Payment(context)
+	if err != nil {
+		return err.Err()
+	}
+
+	err = paymentHandler.Validate(payment)
 	if err != nil {
 		return err.Err()
 	}
 
 	e := handler(srv, ss)
 	if e != nil {
-		paymentHandler.completeAfterError(e)
+		err = paymentHandler.CompleteAfterError(payment, e)
+		if err != nil {
+			return err.Err()
+		}
 		return e
 	}
 
-	paymentHandler.complete()
+	err = paymentHandler.Complete(payment)
+	if err != nil {
+		return err.Err()
+	}
+
 	return nil
 }
 
@@ -66,8 +87,8 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 	}, nil
 }
 
-func (p Processor) getPaymentHandler(callContext *GrpcStreamContext) (handler paymentHandlerType, err *status.Status) {
-	paymentTypeMd, ok := callContext.MD[PaymentTypeHeader]
+func (p Processor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *status.Status) {
+	paymentTypeMd, ok := context.MD[PaymentTypeHeader]
 
 	paymentType := JobPaymentType
 	if ok && len(paymentTypeMd) > 0 {
@@ -76,18 +97,12 @@ func (p Processor) getPaymentHandler(callContext *GrpcStreamContext) (handler pa
 
 	switch {
 	case paymentType == JobPaymentType:
-		return newJobPaymentHandler(&p, callContext), nil
+		return newJobPaymentHandler(&p), nil
 	case paymentType == EscrowPaymentType:
-		return newEscrowPaymentHandler(&p, nil, nil, callContext), nil
+		return newEscrowPaymentHandler(&p, nil, nil), nil
 	default:
 		return nil, status.Newf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
 	}
-}
-
-type paymentHandlerType interface {
-	validate() *status.Status
-	complete()
-	completeAfterError(error)
 }
 
 func getBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) {

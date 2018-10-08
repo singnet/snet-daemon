@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	// PaymentChannelIdHeader is a MultiPartyEscrow contract payment channel
+	// PaymentChannelIDHeader is a MultiPartyEscrow contract payment channel
 	// id. Value is a string containing a decimal number.
-	PaymentChannelIdHeader = "snet-payment-channel-id"
+	PaymentChannelIDHeader = "snet-payment-channel-id"
 	// PaymentChannelNonceHeader is a payment channel nonce value. Value is a
 	// string containing a decimal number.
 	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
@@ -27,39 +27,78 @@ const (
 )
 
 // TODO: add formatters for PaymentChannelKey, PaymentChannelData
-// TODO: document public API
 
+// PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
+// consists of two parts: channel id and channel nonce. Channel nonce is
+// incremented each time when amount of tokens in channel descreases. Nonce
+// allows reusing channel id without risk of overexpenditure.
 type PaymentChannelKey struct {
-	Id    *big.Int
+	ID    *big.Int
 	Nonce *big.Int
 }
 
+// PaymentChannelState is a current state of a payment channel. Payment
+// channel may be in Open or Closed state.
 type PaymentChannelState int
 
 const (
-	Open   PaymentChannelState = 0
+	// Open means that channel is open and can be used to pay for calls.
+	Open PaymentChannelState = 0
+	// Closed means that channel is closed cannot be used to pay for calls.
 	Closed PaymentChannelState = 1
 )
 
+// PaymentChannelData is to keep all channel related information.
 type PaymentChannelData struct {
-	State            PaymentChannelState
-	Sender           common.Address
-	FullAmount       *big.Int
-	Expiration       time.Time
+	// State is a payment channel state: Open or Closed.
+	State PaymentChannelState
+	// Sender is an Ethereum address of the client which created the channel.
+	// It is and address to be charged for RPC call.
+	Sender common.Address
+	// FullAmount is an amount which is deposited in channel by Sender.
+	FullAmount *big.Int
+	// Expiration is an date and time at which channel will be expired. Since
+	// this moment Sender can withdraw tokens from channel.
+	Expiration time.Time
+	// AuthorizedAmount is current amount which Sender authorized to withdraw by
+	// service provider. This amount increments on price after each successful
+	// RPC call.
 	AuthorizedAmount *big.Int
-	Signature        []byte
+	// Signature is a signature of last message containing Authorized amount.
+	// It is required to claim tokens from channel.
+	Signature []byte
 }
 
+// PaymentChannelStorage is an interface to get channel information by channel
+// id.
 type PaymentChannelStorage interface {
+	// Get returns channel information by channel id.
 	Get(key *PaymentChannelKey) (paymentChannel *PaymentChannelData, err error)
+	// Put writes channel information by channel id.
+	Put(key *PaymentChannelKey, state *PaymentChannelData) (err error)
+	// CompareAndSwap atomically replaces old payment channel state by new
+	// state.
 	CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (err error)
 }
 
+// IncomeData is used to pass information to the pricing validation system.
+// This system can use information about call to calculate price and verify
+// income received.
 type IncomeData struct {
+	// Income is a difference between previous authorized amount and amount
+	// which was received with current call.
 	Income *big.Int
 }
 
+// IncomeValidator uses pricing information to check that call was payed
+// correctly by channel sender. This interface can be implemented differently
+// depending on pricing policy. For instance one can verify that call is payed
+// according to invoice. Each RPC method can have different price and so on. To
+// implement this strategies additional information from gRPC context can be
+// required. In such case it should be added into IncomeData.
 type IncomeValidator interface {
+	// Validate returns nil if validation is successful or correct gRPC status
+	// to be sent to client in case of validation error.
 	Validate(*IncomeData) (err *status.Status)
 }
 
@@ -164,7 +203,7 @@ func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *paymentType)
 		hashPrefix32Bytes,
 		crypto.Keccak256(
 			h.processor.escrowContractAddress.Bytes(),
-			bigIntToBytes(payment.channelKey.Id),
+			bigIntToBytes(payment.channelKey.ID),
 			bigIntToBytes(payment.channelKey.Nonce),
 			bigIntToBytes(payment.amount),
 		),
@@ -189,7 +228,7 @@ func bigIntToBytes(value *big.Int) []byte {
 }
 
 func (h *escrowPaymentHandler) getPaymentFromMetadata() (payment *paymentType, err *status.Status) {
-	channelId, err := getBigInt(h.callContext.md, PaymentChannelIdHeader)
+	channelID, err := getBigInt(h.callContext.md, PaymentChannelIDHeader)
 	if err != nil {
 		return
 	}
@@ -209,7 +248,7 @@ func (h *escrowPaymentHandler) getPaymentFromMetadata() (payment *paymentType, e
 		return
 	}
 
-	return &paymentType{&PaymentChannelKey{channelId, channelNonce}, amount, signature}, nil
+	return &paymentType{&PaymentChannelKey{channelID, channelNonce}, amount, signature}, nil
 }
 
 func (h *escrowPaymentHandler) complete(err error) error {

@@ -46,8 +46,9 @@ func getChannelStorageKey(key *PaymentChannelKey) channelStorageKey {
 	return channelStorageKey(fmt.Sprintf("%v", key))
 }
 
-func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChannelData) {
+func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
 	storage.data[getChannelStorageKey(key)] = channel
+	return nil
 }
 
 func (storage *storageMockType) Get(key *PaymentChannelKey) (channel *PaymentChannelData, err error) {
@@ -73,12 +74,12 @@ func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (er
 	return nil
 }
 
-func getEscrowMetadata(channelId, channelNonce, amount int) metadata.MD {
+func getEscrowMetadata(channelID, channelNonce, amount int) metadata.MD {
 	hash := crypto.Keccak256(
 		hashPrefix32Bytes,
 		crypto.Keccak256(
 			processorMock.escrowContractAddress.Bytes(),
-			intToUint256(channelId),
+			intToUint256(channelID),
 			intToUint256(channelNonce),
 			intToUint256(amount),
 		),
@@ -90,7 +91,7 @@ func getEscrowMetadata(channelId, channelNonce, amount int) metadata.MD {
 	}
 
 	return metadata.Pairs(
-		PaymentChannelIdHeader, strconv.Itoa(channelId),
+		PaymentChannelIDHeader, strconv.Itoa(channelID),
 		PaymentChannelNonceHeader, strconv.Itoa(channelNonce),
 		PaymentChannelAmountHeader, strconv.Itoa(amount),
 		PaymentChannelSignatureHeader, string(signature))
@@ -114,7 +115,7 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 	escrowContractAddress := hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	handler := escrowPaymentHandler{processor: &Processor{escrowContractAddress: escrowContractAddress}}
 	payment := paymentType{
-		channelKey: &PaymentChannelKey{Id: big.NewInt(1789), Nonce: big.NewInt(1917)},
+		channelKey: &PaymentChannelKey{ID: big.NewInt(1789), Nonce: big.NewInt(1917)},
 		amount:     big.NewInt(31415),
 		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
 		signature: hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
@@ -128,7 +129,7 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 
 func TestValidatePayment(t *testing.T) {
 	storageMock.Put(
-		&PaymentChannelKey{Id: big.NewInt(42), Nonce: big.NewInt(3)},
+		&PaymentChannelKey{ID: big.NewInt(42), Nonce: big.NewInt(3)},
 		&PaymentChannelData{
 			State:            Open,
 			Sender:           crypto.PubkeyToAddress(testPrivateKey.PublicKey),

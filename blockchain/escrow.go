@@ -88,6 +88,9 @@ type IncomeData struct {
 	// Income is a difference between previous authorized amount and amount
 	// which was received with current call.
 	Income *big.Int
+	// GrpcContext contains gRPC stream context information. For instance
+	// metadata could be used to pass invoice id to check pricing.
+	GrpcContext *GrpcStreamContext
 }
 
 // IncomeValidator uses pricing information to check that call was payed
@@ -95,7 +98,7 @@ type IncomeData struct {
 // depending on pricing policy. For instance one can verify that call is payed
 // according to invoice. Each RPC method can have different price and so on. To
 // implement this strategies additional information from gRPC context can be
-// required. In such case it should be added into IncomeData.
+// required. In such case it should be added into GrpcStreamContext.
 type IncomeValidator interface {
 	// Validate returns nil if validation is successful or correct gRPC status
 	// to be sent to client in case of validation error.
@@ -194,7 +197,7 @@ func (h *escrowPaymentHandler) Validate(_payment Payment) (err *status.Status) {
 
 	income := big.NewInt(0)
 	income.Sub(payment.amount, payment.channel.AuthorizedAmount)
-	err = h.incomeValidator.Validate(&IncomeData{Income: income})
+	err = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: payment.grpcContext})
 	if err != nil {
 		return
 	}

@@ -117,7 +117,7 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 
 func (p Processor) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
 	if p.enabled {
-		return p.jobValidationInterceptor
+		return p.paymentValidationInterceptor
 	}
 
 	return noOpInterceptor

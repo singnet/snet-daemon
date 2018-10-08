@@ -21,7 +21,7 @@ const (
 	EscrowPaymentType = "escrow"
 )
 
-func (p Processor) jobValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
+func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 
 	md, ok := metadata.FromIncomingContext(ss.Context())

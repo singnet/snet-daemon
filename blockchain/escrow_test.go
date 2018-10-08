@@ -92,18 +92,41 @@ func intToUint256(value int) []byte {
 	return common.BytesToHash(bytes).Bytes()
 }
 
+func hexToBytes(str string) []byte {
+	return common.FromHex(str)
+}
+
+func hexToAddress(str string) common.Address {
+	return common.Address(common.BytesToAddress(hexToBytes(str)))
+}
+
+func TestGetPublicKeyFromPayment(t *testing.T) {
+	escrowContractAddress := hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
+	handler := escrowPaymentHandler{processor: &Processor{escrowContractAddress: escrowContractAddress}}
+	payment := paymentData{
+		channelKey: &PaymentChannelKey{Id: big.NewInt(1789), Nonce: big.NewInt(1917)},
+		amount:     big.NewInt(31415),
+		signature:  hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+	}
+
+	address, err := handler.getSignerAddressFromPayment(&payment)
+
+	assert.Nil(t, err)
+	assert.Equal(t, hexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
+}
+
 func TestValidatePayment(t *testing.T) {
 	t.Skip("Not implemented yet")
 
 	storageMock.Put(
-		&PaymentChannelKey{big.NewInt(42), big.NewInt(3)},
+		&PaymentChannelKey{Id: big.NewInt(42), Nonce: big.NewInt(3)},
 		&PaymentChannelData{
-			Open,
-			crypto.PubkeyToAddress(testPrivateKey.PublicKey),
-			big.NewInt(12345),
-			time.Now().Add(time.Hour),
-			big.NewInt(12300),
-			nil,
+			State:              Open,
+			SenderAddress:      crypto.PubkeyToAddress(testPrivateKey.PublicKey),
+			FullAmount:         big.NewInt(12345),
+			ExpirationDateTime: time.Now().Add(time.Hour),
+			AuthorizedAmount:   big.NewInt(12300),
+			ClientSignature:    nil,
 		},
 	)
 	md := getEscrowMetadata(42, 3, 12345)

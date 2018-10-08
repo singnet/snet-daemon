@@ -52,11 +52,11 @@ func (h *jobPaymentHandler) validate() (err *status.Status) {
 	return nil
 }
 
-func (h *jobPaymentHandler) complete(err error) error {
-	if err == nil {
-		h.p.CompleteJob(h.jobAddressBytes, h.jobSignatureBytes)
-	}
-	return err
+func (h *jobPaymentHandler) complete() {
+	h.p.CompleteJob(h.jobAddressBytes, h.jobSignatureBytes)
+}
+
+func (h *jobPaymentHandler) completeAfterError(err error) {
 }
 
 func (p *Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {

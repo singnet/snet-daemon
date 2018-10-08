@@ -4,7 +4,7 @@
 
 SingularityNET Daemon
 
-## Getting Started
+## Development
 
 These instructions are intended to facilitate the development and testing of SingularityNET Daemon. Users interested in
 deploying SingularityNET services using SingularityNET Daemon should install the appropriate binary as
@@ -29,6 +29,11 @@ $ cd snet-daemon
 $ ./scripts/install
 ```
 
+* Build snet-daemon (on Linux amd64 platform)
+```bash
+$ ./scripts/build linux amd64
+```
+
 ### Testing
 
 A simple test script has been setup that does the following
@@ -43,10 +48,28 @@ creates an Agent contract instance
 8. Calls the daemon using the predetermined job address and job signature
 9. Cleans up
 
-* Invoke the test script
+* Invoke all of the unit tests and the test script
 ```bash
 $ ./scripts/test
 ```
+
+## Usage
+
+### Main commands
+
+* Save default configuration to ```snetd.config.json``` file
+```bash
+$ ./snetd-linux-amd64 init --config snetd.config.json
+```
+
+* Start ```snet-daemon```
+```bash
+$ ./snetd-linux-amd64 serve
+```
+
+### Configuration
+
+* [logger configuration](./logger/README.md)
 
 ## Release
 

@@ -45,8 +45,13 @@ func (p Processor) paymentValidationInterceptor(srv interface{}, ss grpc.ServerS
 	}
 
 	e := handler(srv, ss)
+	if e != nil {
+		paymentHandler.completeAfterError(e)
+		return e
+	}
 
-	return paymentHandler.complete(e)
+	paymentHandler.complete()
+	return nil
 }
 
 func getCallContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *callContextType, err *status.Status) {
@@ -81,7 +86,8 @@ func (p Processor) getPaymentHandler(callContext *callContextType) (handler paym
 
 type paymentHandlerType interface {
 	validate() *status.Status
-	complete(error) error
+	complete()
+	completeAfterError(error)
 }
 
 func getBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) {

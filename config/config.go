@@ -52,19 +52,19 @@ const (
 	"wire_encoding": "proto",
 	"log":  {
 		"level": "info",
+		"timezone": "UTC",
 		"formatter": {
-			"type": "json",
-			"timezone": "UTC"
+			"type": "json"
 		},
 		"output": {
 			"type": "file",
 			"file_pattern": "./snet-daemon.%Y%m%d.log",
 			"current_link": "./snet-daemon.log",
-			"clock_timezone": "UTC",
 			"rotation_time_in_sec": 86400,
 			"max_age_in_sec": 604800,
 			"rotation_count": 0
-		}
+		},
+		"hooks": []
 	}
 }
 `

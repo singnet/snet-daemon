@@ -251,6 +251,8 @@ func (h *escrowPaymentHandler) getPaymentFromMetadata() (payment *paymentType, e
 	return &paymentType{&PaymentChannelKey{channelID, channelNonce}, amount, signature}, nil
 }
 
-func (h *escrowPaymentHandler) complete(err error) error {
-	return err
+func (h *escrowPaymentHandler) complete() {
+}
+
+func (h *escrowPaymentHandler) completeAfterError(err error) {
 }

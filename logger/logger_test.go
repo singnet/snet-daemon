@@ -35,15 +35,14 @@ const defaultOutputConfigJSON = `
 const defaultLogConfigJSON = `
 	{
 		"level": "info",
+		"timezone": "UTC",
 		"formatter": {
-			"type": "json",
-			"timezone": "UTC"
+			"type": "json"
 		},
 		"output": {
 			"type": "file",
 			"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
 			"current_link": "/tmp/snet-daemon.log",
-			"clock_timezone": "UTC",
 			"rotation_time_in_sec": 86400,
 			"max_age_in_sec": 604800,
 			"rotation_count": 0
@@ -111,7 +110,7 @@ func newConfigFromString(configString string, defaultVip *viper.Viper) *viper.Vi
 func TestNewFormatterTextType(t *testing.T) {
 	var formatterJSON = `{
         "type": "text",
-        "timezone": "UTC"
+        "timezone": "Local"
     }`
 	var formatterConfig = newConfigFromString(formatterJSON, nil)
 
@@ -120,13 +119,13 @@ func TestNewFormatterTextType(t *testing.T) {
 	assert.Nil(t, err)
 	_, isFormatterDelegate := formatter.delegate.(*log.TextFormatter)
 	assert.True(t, isFormatterDelegate, "Unexpected underlying formatter type, actual: %T, expected: %T", formatter.delegate, &log.TextFormatter{})
-	assert.Equal(t, time.UTC, formatter.timestampLocation, "Incorrect timestampLocation")
+	assert.Equal(t, time.Local, formatter.timestampLocation)
 }
 
 func TestNewFormatterJsonType(t *testing.T) {
 	var formatterJSON = `{
         "type": "json",
-        "timezone": "UTC"
+        "timezone": "Local"
     }`
 	var formatterConfig = newConfigFromString(formatterJSON, nil)
 
@@ -135,8 +134,7 @@ func TestNewFormatterJsonType(t *testing.T) {
 	assert.Nil(t, err)
 	_, isFormatterDelegate := formatter.delegate.(*log.JSONFormatter)
 	assert.True(t, isFormatterDelegate, "Unexpected underlying formatter type, actual: %T, expected: %T", formatter.delegate, &log.JSONFormatter{})
-
-	assert.Equal(t, time.UTC, formatter.timestampLocation, "Incorrect timestampLocation")
+	assert.Equal(t, time.Local, formatter.timestampLocation)
 }
 
 func TestNewFormatterIncorrectType(t *testing.T) {
@@ -148,18 +146,18 @@ func TestNewFormatterIncorrectType(t *testing.T) {
 	var _, err = newFormatterByConfig(formatterConfig)
 
 	assert.NotNil(t, err)
-	assert.Equal(t, errors.New("Unexpected formatter type: UNKNOWN"), err, "Unexpected error message")
+	assert.Equal(t, errors.New("Unexpected formatter type: UNKNOWN"), err)
 }
 
 func TestNewFormatterIncorrectTimestampTimezone(t *testing.T) {
 	var formatterJSON = `{
-        "timezone": "UNKNOWN"
+        "timezone": "UNKNOWN..."
     }`
 	var formatterConfig = newConfigFromString(formatterJSON, defaultFormatterConfig)
 
 	var _, err = newFormatterByConfig(formatterConfig)
 
-	assert.NotNil(t, err)
+	assert.Equal(t, errors.New("time: invalid location name"), err)
 }
 
 type underlyingFormatterMock struct {
@@ -198,8 +196,7 @@ func TestNewFormatterDefault(t *testing.T) {
 	assert.Nil(t, err)
 	_, isFormatterDelegate := formatter.delegate.(*log.JSONFormatter)
 	assert.True(t, isFormatterDelegate, "Unexpected underlying formatter type, actual: %T, expected: %T", formatter.delegate, &log.JSONFormatter{})
-
-	assert.Equal(t, time.UTC, formatter.timestampLocation, "Incorrect timestampLocation")
+	assert.Equal(t, time.UTC, formatter.timestampLocation)
 }
 
 func TestNewOutputFile(t *testing.T) {
@@ -207,7 +204,7 @@ func TestNewOutputFile(t *testing.T) {
         "type": "file",
         "file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
         "current_link": "/tmp/snet-daemon.log",
-        "clock_timezone": "UTC",
+        "clock_timezone": "Local",
         "rotation_time_in_sec": 86400,
         "max_age_in_sec": 604800,
         "rotation_count": 0
@@ -219,6 +216,8 @@ func TestNewOutputFile(t *testing.T) {
 	assert.Nil(t, err)
 	_, isFileWriter := writer.(*rotatelogs.RotateLogs)
 	assert.True(t, isFileWriter, "Unexpected writer type, actual: %T, expected: %T", writer, &rotatelogs.RotateLogs{})
+	// there is no simple way to check that other parameters are applied
+	// correctly
 }
 
 func TestNewOutputStdout(t *testing.T) {
@@ -242,19 +241,20 @@ func TestNewOutputIncorrectType(t *testing.T) {
 	var _, err = newOutputByConfig(outputConfig)
 
 	assert.NotNil(t, err)
-	assert.Equal(t, errors.New("Unexpected output type: UNKNOWN"), err, "Unexpected error message")
+	assert.Equal(t, errors.New("Unexpected output type: UNKNOWN"), err)
 }
 
 func TestNewOutputIncorrectClockTimezone(t *testing.T) {
 	var outputConfigJSON = `{
         "type": "file",
-        "clock_timezone": "UNKNOWN"
+        "clock_timezone": "UNKNOWN..."
     }`
 	var outputConfig = newConfigFromString(outputConfigJSON, defaultOutputConfig)
 
 	var _, err = newOutputByConfig(outputConfig)
 
 	assert.NotNil(t, err)
+	assert.Equal(t, errors.New("time: invalid location name"), err)
 }
 
 func TestNewIncorrectFileOutputFilePattern(t *testing.T) {
@@ -281,11 +281,35 @@ func TestNewOutputDefault(t *testing.T) {
 }
 
 func TestInitLogger(t *testing.T) {
-	var loggerConfig = defaultLogConfig
+	var loggerConfigJSON = `
+	{
+		"level": "error",
+		"timezone": "Local",
+		"formatter": {
+			"type": "json"
+		},
+		"output": {
+			"type": "file",
+			"file_pattern": "/tmp/snet-daemon.%Y%m%d.log",
+			"current_link": "/tmp/snet-daemon.log",
+			"rotation_time_in_sec": 86400,
+			"max_age_in_sec": 604800,
+			"rotation_count": 0
+		}
+	}`
+	var loggerConfig = newConfigFromString(loggerConfigJSON, nil)
+	var logger = log.New()
 
-	var err = InitLogger(loggerConfig)
+	var err = initLogger(logger, loggerConfig)
 
 	assert.Nil(t, err)
+	assert.Equal(t, log.ErrorLevel, logger.Level)
+	var formatter = logger.Formatter.(*timezoneFormatter)
+	assert.Equal(t, time.Local, formatter.timestampLocation)
+	_, isFormatterDelegate := formatter.delegate.(*log.JSONFormatter)
+	assert.True(t, isFormatterDelegate, "Unexpected underlying formatter type, actual: %T, expected: %T", formatter.delegate, &log.JSONFormatter{})
+	_, isFileWriter := logger.Out.(*rotatelogs.RotateLogs)
+	assert.True(t, isFileWriter, "Unexpected writer type, actual: %T, expected: %T", logger.Out, &rotatelogs.RotateLogs{})
 }
 
 func TestInitLoggerIncorrectLevel(t *testing.T) {
@@ -323,6 +347,18 @@ func TestInitLoggerIncorrectOutput(t *testing.T) {
 	var err = InitLogger(loggerConfig)
 
 	assert.Equal(t, errors.New("Unable initialize log output, error: Unexpected output type: UNKNOWN"), err, "Unexpected error message")
+}
+
+func TestInitLoggerIncorrectTimezone(t *testing.T) {
+	var loggerConfigJSON = `{
+		"timezone": "UNKNOWN..."
+    }`
+	var loggerConfig = newConfigFromString(loggerConfigJSON, defaultLogConfig)
+	var logger = log.New()
+
+	var err = initLogger(logger, loggerConfig)
+
+	assert.Equal(t, errors.New("Unable initialize log formatter, error: time: invalid location name"), err)
 }
 
 func TestLogRotation(t *testing.T) {

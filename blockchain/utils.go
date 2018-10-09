@@ -55,3 +55,11 @@ func addressToHex(address *common.Address) string {
 func bytesToBase64(bytes []byte) string {
 	return base64.StdEncoding.EncodeToString(bytes)
 }
+
+func hexToBytes(str string) []byte {
+	return common.FromHex(str)
+}
+
+func hexToAddress(str string) common.Address {
+	return common.Address(common.BytesToAddress(hexToBytes(str)))
+}

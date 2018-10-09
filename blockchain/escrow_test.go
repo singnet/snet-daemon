@@ -129,14 +129,6 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 	return md
 }
 
-func hexToBytes(str string) []byte {
-	return common.FromHex(str)
-}
-
-func hexToAddress(str string) common.Address {
-	return common.Address(common.BytesToAddress(hexToBytes(str)))
-}
-
 type testPaymentData struct {
 	channelID, channelNonce, fullAmount, prevAmount, newAmount int64
 	state                                                      PaymentChannelState

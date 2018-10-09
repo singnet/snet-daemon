@@ -154,7 +154,7 @@ func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Paym
 	channel, e := h.storage.Get(channelKey)
 	if e != nil {
 		log.WithError(e).Warn("Payment channel not found")
-		return nil, status.Newf(codes.FailedPrecondition, "payment channel \"%v\" not found", channelKey)
+		return nil, status.Newf(codes.InvalidArgument, "payment channel \"%v\" not found", channelKey)
 	}
 
 	amount, err := getBigInt(context.MD, PaymentChannelAmountHeader)

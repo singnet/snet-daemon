@@ -65,6 +65,10 @@ func (storage *storageMockType) CompareAndSwap(key *PaymentChannelKey, prevState
 	return nil
 }
 
+func (storage *storageMockType) Clear() {
+	storage.data = make(map[channelStorageKey]*PaymentChannelData)
+}
+
 var processorMock = Processor{
 	escrowContractAddress: hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf"),
 }
@@ -111,11 +115,18 @@ func intToUint256(value int64) []byte {
 }
 
 func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
-	return metadata.Pairs(
-		PaymentChannelIDHeader, strconv.FormatInt(channelID, 10),
-		PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10),
-		PaymentChannelAmountHeader, strconv.FormatInt(amount, 10),
-		PaymentChannelSignatureHeader, string(getSignature(&processorMock.escrowContractAddress, channelID, channelNonce, amount)))
+	md := metadata.New(map[string]string{})
+	if channelID != 0 {
+		md.Set(PaymentChannelIDHeader, strconv.FormatInt(channelID, 10))
+	}
+	if channelNonce != 0 {
+		md.Set(PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10))
+	}
+	if amount != 0 {
+		md.Set(PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
+	}
+	md.Set(PaymentChannelSignatureHeader, string(getSignature(&processorMock.escrowContractAddress, channelID, channelNonce, amount)))
+	return md
 }
 
 func hexToBytes(str string) []byte {
@@ -223,6 +234,71 @@ func TestGetPayment(t *testing.T) {
 	payment := _payment.(*escrowPaymentType)
 	assert.Equal(t, big.NewInt(12345), payment.amount)
 	// TODO: finish
+}
+
+func TestGetPaymentNoChannelId(t *testing.T) {
+	context := getTestContext(&testPaymentData{
+		channelID:    0,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+	})
+
+	_, err := paymentHandler.Payment(context)
+
+	assert.Equal(t, status.New(codes.InvalidArgument, "missing \"snet-payment-channel-id\""), err)
+}
+
+func TestGetPaymentNoChannelNonce(t *testing.T) {
+	context := getTestContext(&testPaymentData{
+		channelID:    42,
+		channelNonce: 0,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+	})
+
+	_, err := paymentHandler.Payment(context)
+
+	assert.Equal(t, status.New(codes.InvalidArgument, "missing \"snet-payment-channel-nonce\""), err)
+}
+
+func TestGetPaymentNoChannelAmount(t *testing.T) {
+	context := getTestContext(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    0,
+		prevAmount:   12300,
+		state:        Open,
+	})
+
+	_, err := paymentHandler.Payment(context)
+
+	assert.Equal(t, status.New(codes.InvalidArgument, "missing \"snet-payment-channel-amount\""), err)
+}
+
+func TestGetPaymentNoChannel(t *testing.T) {
+	context := getTestContext(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+	})
+	storageMock.Clear()
+
+	_, err := paymentHandler.Payment(context)
+
+	assert.Equal(t, status.New(codes.InvalidArgument, "payment channel \"{ID: 42, Nonce: 3}\" not found"), err)
 }
 
 func TestValidatePayment(t *testing.T) {

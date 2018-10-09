@@ -3,6 +3,7 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,6 +34,8 @@ func generatePrivateKey() (privateKey *ecdsa.PrivateKey) {
 	return
 }
 
+type channelStorageKey string
+
 type storageMockType struct {
 	data map[channelStorageKey]*PaymentChannelData
 }
@@ -40,8 +43,6 @@ type storageMockType struct {
 var storageMock = storageMockType{
 	data: make(map[channelStorageKey]*PaymentChannelData),
 }
-
-type channelStorageKey string
 
 func getChannelStorageKey(key *PaymentChannelKey) channelStorageKey {
 	return channelStorageKey(fmt.Sprintf("%v", key))
@@ -64,7 +65,9 @@ func (storage *storageMockType) CompareAndSwap(key *PaymentChannelKey, prevState
 	return nil
 }
 
-var processorMock = Processor{}
+var processorMock = Processor{
+	escrowContractAddress: hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf"),
+}
 
 type incomeValidatorMockType struct {
 	err *status.Status
@@ -82,7 +85,7 @@ var paymentHandler = escrowPaymentHandler{
 	incomeValidator: &incomeValidatorMock,
 }
 
-func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
+func getSignature(contractAddress *common.Address, channelID, channelNonce, amount int64) (signature []byte) {
 	hash := crypto.Keccak256(
 		hashPrefix32Bytes,
 		crypto.Keccak256(
@@ -98,17 +101,21 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 		panic(fmt.Sprintf("Cannot sign test message: %v", err))
 	}
 
-	return metadata.Pairs(
-		PaymentChannelIDHeader, strconv.FormatInt(channelID, 10),
-		PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10),
-		PaymentChannelAmountHeader, strconv.FormatInt(amount, 10),
-		PaymentChannelSignatureHeader, string(signature))
+	return signature
 }
 
 func intToUint256(value int64) []byte {
 	bytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(bytes, uint64(value))
 	return common.BytesToHash(bytes).Bytes()
+}
+
+func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
+	return metadata.Pairs(
+		PaymentChannelIDHeader, strconv.FormatInt(channelID, 10),
+		PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10),
+		PaymentChannelAmountHeader, strconv.FormatInt(amount, 10),
+		PaymentChannelSignatureHeader, string(getSignature(&processorMock.escrowContractAddress, channelID, channelNonce, amount)))
 }
 
 func hexToBytes(str string) []byte {
@@ -127,13 +134,12 @@ type testPaymentData struct {
 }
 
 func getTestPayment(data *testPaymentData) *escrowPaymentType {
-	md := getEscrowMetadata(data.channelID, data.channelNonce, data.newAmount)
 	signature := data.signature
 	if signature == nil {
-		signature, _ = getBytes(md, PaymentChannelSignatureHeader)
+		signature = getSignature(&processorMock.escrowContractAddress, data.channelID, data.channelNonce, data.newAmount)
 	}
 	return &escrowPaymentType{
-		grpcContext: &GrpcStreamContext{MD: md},
+		grpcContext: &GrpcStreamContext{MD: getEscrowMetadata(data.channelID, data.channelNonce, data.newAmount)},
 		channelKey:  &PaymentChannelKey{ID: big.NewInt(data.channelID), Nonce: big.NewInt(data.channelNonce)},
 		amount:      big.NewInt(data.newAmount),
 		signature:   signature,
@@ -148,9 +154,28 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	}
 }
 
+func getTestContext(data *testPaymentData) *GrpcStreamContext {
+	storageMock.Put(
+		&PaymentChannelKey{ID: big.NewInt(data.channelID), Nonce: big.NewInt(data.channelNonce)},
+		&PaymentChannelData{
+			State:            data.state,
+			Sender:           crypto.PubkeyToAddress(testPrivateKey.PublicKey),
+			FullAmount:       big.NewInt(data.fullAmount),
+			Expiration:       data.expiration,
+			AuthorizedAmount: big.NewInt(data.prevAmount),
+			Signature:        nil,
+		},
+	)
+	md := getEscrowMetadata(data.channelID, data.channelNonce, data.newAmount)
+	return &GrpcStreamContext{
+		MD: md,
+	}
+}
+
 func TestGetPublicKeyFromPayment(t *testing.T) {
-	escrowContractAddress := hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
-	handler := escrowPaymentHandler{processor: &Processor{escrowContractAddress: escrowContractAddress}}
+	handler := escrowPaymentHandler{
+		processor: &Processor{escrowContractAddress: hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")},
+	}
 	payment := escrowPaymentType{
 		channelKey: &PaymentChannelKey{ID: big.NewInt(1789), Nonce: big.NewInt(1917)},
 		amount:     big.NewInt(31415),
@@ -164,21 +189,36 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 	assert.Equal(t, hexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
 }
 
-func _TestGetPayment(t *testing.T) {
-	storageMock.Put(
-		&PaymentChannelKey{ID: big.NewInt(42), Nonce: big.NewInt(3)},
-		&PaymentChannelData{
-			State:            Open,
-			Sender:           crypto.PubkeyToAddress(testPrivateKey.PublicKey),
-			FullAmount:       big.NewInt(12345),
-			Expiration:       time.Now().Add(time.Hour),
-			AuthorizedAmount: big.NewInt(12300),
-			Signature:        nil,
-		},
-	)
-	md := getEscrowMetadata(42, 3, 12345)
+func TestPaymentChannelToJSON(t *testing.T) {
+	channel := PaymentChannelData{
+		State:            Open,
+		Sender:           crypto.PubkeyToAddress(testPrivateKey.PublicKey),
+		FullAmount:       big.NewInt(12345),
+		Expiration:       time.Now().Add(time.Hour),
+		AuthorizedAmount: big.NewInt(12300),
+		Signature:        hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+	}
 
-	_payment, err := paymentHandler.Payment(&GrpcStreamContext{MD: md})
+	bytes, err := json.Marshal(channel)
+	assert.Nil(t, err)
+
+	channelCopy := &PaymentChannelData{}
+	err = json.Unmarshal(bytes, channelCopy)
+	assert.Nil(t, err)
+}
+
+func TestGetPayment(t *testing.T) {
+	context := getTestContext(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+	})
+
+	_payment, err := paymentHandler.Payment(context)
 	assert.Nil(t, err)
 	payment := _payment.(*escrowPaymentType)
 	assert.Equal(t, big.NewInt(12345), payment.amount)

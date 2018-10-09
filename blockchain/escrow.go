@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
@@ -81,6 +82,10 @@ type PaymentChannelStorage interface {
 	CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (err error)
 }
 
+func (key PaymentChannelKey) String() string {
+	return fmt.Sprintf("{ID: %v, Nonce: %v}", key.ID, key.Nonce)
+}
+
 // IncomeData is used to pass information to the pricing validation system.
 // This system can use information about call to calculate price and verify
 // income received.
@@ -126,6 +131,12 @@ type escrowPaymentType struct {
 	amount      *big.Int
 	signature   []byte
 	channel     *PaymentChannelData
+}
+
+// TODO: improve
+func (p *escrowPaymentType) String() string {
+	return fmt.Sprintf("{grpcContext: %v, channelKey: %v, amount: %v, signature: %v, channel: %v}",
+		p.grpcContext, p.channelKey, p.amount, p.signature, p.channel)
 }
 
 func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {
@@ -192,7 +203,7 @@ func (h *escrowPaymentHandler) Validate(_payment Payment) (err *status.Status) {
 
 	if payment.channel.FullAmount.Cmp(payment.amount) < 0 {
 		log.Warn("Not enough tokens on payment channel")
-		return status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: %v, payment amount: %v ", payment.channel.FullAmount, payment.amount)
+		return status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: %v, payment amount: %v", payment.channel.FullAmount, payment.amount)
 	}
 
 	income := big.NewInt(0)
@@ -220,9 +231,8 @@ func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymen
 	publicKey, e := crypto.SigToPub(paymentHash, payment.signature)
 	if e != nil {
 		log.WithError(e).WithFields(log.Fields{
+			"payment":     payment,
 			"paymentHash": common.ToHex(paymentHash),
-			"publicKey":   publicKey,
-			"err":         err,
 		}).Warn("Incorrect signature")
 		return nil, status.New(codes.Unauthenticated, "payment signature is not valid")
 	}

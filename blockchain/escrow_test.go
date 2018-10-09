@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"math/big"
@@ -66,15 +67,22 @@ func (storage *storageMockType) CompareAndSwap(key *PaymentChannelKey, prevState
 var processorMock = Processor{}
 
 type incomeValidatorMockType struct {
+	err *status.Status
 }
 
 var incomeValidatorMock = incomeValidatorMockType{}
 
 func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (err *status.Status) {
-	return nil
+	return incomeValidator.err
 }
 
-func getEscrowMetadata(channelID, channelNonce, amount int) metadata.MD {
+var paymentHandler = escrowPaymentHandler{
+	storage:         &storageMock,
+	processor:       &processorMock,
+	incomeValidator: &incomeValidatorMock,
+}
+
+func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 	hash := crypto.Keccak256(
 		hashPrefix32Bytes,
 		crypto.Keccak256(
@@ -91,13 +99,13 @@ func getEscrowMetadata(channelID, channelNonce, amount int) metadata.MD {
 	}
 
 	return metadata.Pairs(
-		PaymentChannelIDHeader, strconv.Itoa(channelID),
-		PaymentChannelNonceHeader, strconv.Itoa(channelNonce),
-		PaymentChannelAmountHeader, strconv.Itoa(amount),
+		PaymentChannelIDHeader, strconv.FormatInt(channelID, 10),
+		PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10),
+		PaymentChannelAmountHeader, strconv.FormatInt(amount, 10),
 		PaymentChannelSignatureHeader, string(signature))
 }
 
-func intToUint256(value int) []byte {
+func intToUint256(value int64) []byte {
 	bytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(bytes, uint64(value))
 	return common.BytesToHash(bytes).Bytes()
@@ -109,6 +117,35 @@ func hexToBytes(str string) []byte {
 
 func hexToAddress(str string) common.Address {
 	return common.Address(common.BytesToAddress(hexToBytes(str)))
+}
+
+type testPaymentData struct {
+	channelID, channelNonce, fullAmount, prevAmount, newAmount int64
+	state                                                      PaymentChannelState
+	expiration                                                 time.Time
+	signature                                                  []byte
+}
+
+func getTestPayment(data *testPaymentData) *escrowPaymentType {
+	md := getEscrowMetadata(data.channelID, data.channelNonce, data.newAmount)
+	signature := data.signature
+	if signature == nil {
+		signature, _ = getBytes(md, PaymentChannelSignatureHeader)
+	}
+	return &escrowPaymentType{
+		grpcContext: &GrpcStreamContext{MD: md},
+		channelKey:  &PaymentChannelKey{ID: big.NewInt(data.channelID), Nonce: big.NewInt(data.channelNonce)},
+		amount:      big.NewInt(data.newAmount),
+		signature:   signature,
+		channel: &PaymentChannelData{
+			State:            data.state,
+			Sender:           crypto.PubkeyToAddress(testPrivateKey.PublicKey),
+			FullAmount:       big.NewInt(data.fullAmount),
+			Expiration:       data.expiration,
+			AuthorizedAmount: big.NewInt(data.prevAmount),
+			Signature:        nil,
+		},
+	}
 }
 
 func TestGetPublicKeyFromPayment(t *testing.T) {
@@ -127,7 +164,7 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 	assert.Equal(t, hexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
 }
 
-func TestValidatePayment(t *testing.T) {
+func _TestGetPayment(t *testing.T) {
 	storageMock.Put(
 		&PaymentChannelKey{ID: big.NewInt(42), Nonce: big.NewInt(3)},
 		&PaymentChannelData{
@@ -140,14 +177,130 @@ func TestValidatePayment(t *testing.T) {
 		},
 	)
 	md := getEscrowMetadata(42, 3, 12345)
-	handler := escrowPaymentHandler{
+
+	_payment, err := paymentHandler.Payment(&GrpcStreamContext{MD: md})
+	assert.Nil(t, err)
+	payment := _payment.(*escrowPaymentType)
+	assert.Equal(t, big.NewInt(12345), payment.amount)
+	// TODO: finish
+}
+
+func TestValidatePayment(t *testing.T) {
+	payment := getTestPayment(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+	})
+
+	err := paymentHandler.Validate(payment)
+
+	assert.Nil(t, err)
+}
+
+func TestValidatePaymentChannelIsNotOpen(t *testing.T) {
+	payment := getTestPayment(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Closed,
+	})
+
+	err := paymentHandler.Validate(payment)
+
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel \"{ID: 42, Nonce: 3}\" is not opened"), err)
+}
+
+func TestValidatePaymentIncorrectSignature(t *testing.T) {
+	payment := getTestPayment(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+		signature:    hexToBytes("0x0000"),
+	})
+
+	err := paymentHandler.Validate(payment)
+
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment signature is not valid"), err)
+}
+
+func TestValidatePaymentIncorrectSigner(t *testing.T) {
+	payment := getTestPayment(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+		signature:    hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+	})
+
+	err := paymentHandler.Validate(payment)
+
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment is not signed by channel sender"), err)
+}
+
+func TestValidatePaymentExpiredChannel(t *testing.T) {
+	payment := getTestPayment(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+	})
+
+	err := paymentHandler.Validate(payment)
+
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is expired since \"2009-11-10 23:00:00 +0000 UTC\""), err)
+}
+
+func TestValidatePaymentAmountIsTooBig(t *testing.T) {
+	payment := getTestPayment(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12346,
+		prevAmount:   12300,
+		state:        Open,
+	})
+
+	err := paymentHandler.Validate(payment)
+
+	assert.Equal(t, status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: 12345, payment amount: 12346"), err)
+}
+
+func TestValidatePaymentIncorrectIncome(t *testing.T) {
+	payment := getTestPayment(&testPaymentData{
+		channelID:    42,
+		channelNonce: 3,
+		expiration:   time.Now().Add(time.Hour),
+		fullAmount:   12345,
+		newAmount:    12345,
+		prevAmount:   12300,
+		state:        Open,
+	})
+	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
+	paymentHandler := escrowPaymentHandler{
 		storage:         &storageMock,
 		processor:       &processorMock,
-		incomeValidator: &incomeValidatorMock,
+		incomeValidator: &incomeValidatorMockType{err: incomeErr},
 	}
 
-	payment, err := handler.Payment(&GrpcStreamContext{MD: md})
-	assert.Nil(t, err)
-	err = handler.Validate(payment)
-	assert.Nil(t, err)
+	err := paymentHandler.Validate(payment)
+
+	assert.Equal(t, incomeErr, err)
 }

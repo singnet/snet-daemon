@@ -300,9 +300,15 @@ func TestGetPayment(t *testing.T) {
 	defer clearTestContext()
 
 	payment, err := paymentHandler.Payment(context)
+
 	assert.Nil(t, err)
-	// TODO: doesn't work actually for unexported fields
-	assert.Equal(t, toJSON(getTestPayment(data)), toJSON(payment))
+	expected := getTestPayment(data)
+	actual := payment.(*escrowPaymentType)
+	assert.Equal(t, toJSON(expected.grpcContext), toJSON(actual.grpcContext))
+	assert.Equal(t, toJSON(expected.channelKey), toJSON(actual.channelKey))
+	assert.Equal(t, expected.amount, actual.amount)
+	assert.Equal(t, expected.signature, actual.signature)
+	assert.Equal(t, toJSON(expected.channel), toJSON(actual.channel))
 }
 
 func TestGetPaymentNoChannelId(t *testing.T) {

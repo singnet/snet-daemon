@@ -270,6 +270,7 @@ func (h *escrowPaymentHandler) Complete(_payment Payment) (err *status.Status) {
 		payment.channel,
 		&PaymentChannelData{
 			State:            payment.channel.State,
+			Sender:           payment.channel.Sender,
 			FullAmount:       payment.channel.FullAmount,
 			Expiration:       payment.channel.Expiration,
 			AuthorizedAmount: payment.amount,

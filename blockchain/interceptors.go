@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -51,16 +52,19 @@ type PaymentHandler interface {
 // GrpcStreamInterceptor returns gRPC interceptor to validate payment. If
 // blockchain is disabled then noOpInterceptor is returned.
 func GrpcStreamInterceptor(processor *Processor) grpc.StreamServerInterceptor {
-	if processor.enabled {
-		interceptor := &paymentValidationInterceptor{
-			processor:            processor,
-			jobPaymentHandler:    newJobPaymentHandler(processor),
-			escrowPaymentHandler: newEscrowPaymentHandler(processor, nil, nil),
-		}
-		return interceptor.intercept
+	if !processor.enabled {
+		log.Info("Blockchain is disabled: no payment validation")
+		return noOpInterceptor
 	}
 
-	return noOpInterceptor
+	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
+	interceptor := &paymentValidationInterceptor{
+		processor:            processor,
+		jobPaymentHandler:    newJobPaymentHandler(processor),
+		escrowPaymentHandler: newEscrowPaymentHandler(processor, nil, nil),
+	}
+	return interceptor.intercept
+
 }
 
 type paymentValidationInterceptor struct {
@@ -76,6 +80,7 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	if err != nil {
 		return err.Err()
 	}
+	log.WithField("context", context).Debug("New gRPC call received")
 
 	paymentHandler, err := interceptor.getPaymentHandler(context)
 	if err != nil {
@@ -86,14 +91,17 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	if err != nil {
 		return err.Err()
 	}
+	log.WithField("payment", payment).Debug("New payment received")
 
 	err = paymentHandler.Validate(payment)
 	if err != nil {
 		return err.Err()
 	}
+	log.Debug("Payment validated")
 
 	e := handler(srv, ss)
 	if e != nil {
+		log.WithError(e).Warn("gRPC handler returned error")
 		err = paymentHandler.CompleteAfterError(payment, e)
 		if err != nil {
 			return err.Err()
@@ -105,6 +113,7 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	if err != nil {
 		return err.Err()
 	}
+	log.Debug("Payment completed")
 
 	return nil
 }
@@ -112,6 +121,7 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *GrpcStreamContext, err *status.Status) {
 	md, ok := metadata.FromIncomingContext(serverStream.Context())
 	if !ok {
+		log.WithField("info", info).Error("Invalid metadata")
 		return nil, status.New(codes.InvalidArgument, "missing metadata")
 	}
 
@@ -128,6 +138,7 @@ func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *Grpc
 	if ok && len(paymentTypeMd) > 0 {
 		paymentType = paymentTypeMd[0]
 	}
+	log.WithField("paymentType", paymentType).Debug("Getting payment handler for the paymentType")
 
 	switch {
 	case paymentType == JobPaymentType:
@@ -135,6 +146,7 @@ func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *Grpc
 	case paymentType == EscrowPaymentType:
 		return interceptor.escrowPaymentHandler, nil
 	default:
+		log.WithField("paymentType", paymentType).Error("Unexpected payment type")
 		return nil, status.Newf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
 	}
 }

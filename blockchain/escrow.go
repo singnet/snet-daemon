@@ -201,7 +201,7 @@ func (h *escrowPaymentHandler) Validate(_payment Payment) (err *status.Status) {
 	}
 
 	if *signerAddress != payment.channel.Sender {
-		log.WithField("signerAddress", signerAddress).Warn("Channel sender is not equal to payment signer")
+		log.WithField("signerAddress", addressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
 		return status.New(codes.Unauthenticated, "payment is not signed by channel sender")
 	}
 

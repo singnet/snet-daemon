@@ -200,6 +200,17 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 	assert.Equal(t, hexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
 }
 
+func pairToString(data []byte, err error) string {
+	if err != nil {
+		panic(fmt.Sprintf("Unexpected error: %v", err))
+	}
+	return string(data)
+}
+
+func toJSON(data interface{}) string {
+	return pairToString(json.Marshal(data))
+}
+
 func TestPaymentChannelToJSON(t *testing.T) {
 	channel := PaymentChannelData{
 		State:            Open,
@@ -219,7 +230,7 @@ func TestPaymentChannelToJSON(t *testing.T) {
 }
 
 func TestGetPayment(t *testing.T) {
-	context := getTestContext(&testPaymentData{
+	data := &testPaymentData{
 		channelID:    42,
 		channelNonce: 3,
 		expiration:   time.Now().Add(time.Hour),
@@ -227,13 +238,12 @@ func TestGetPayment(t *testing.T) {
 		newAmount:    12345,
 		prevAmount:   12300,
 		state:        Open,
-	})
+	}
+	context := getTestContext(data)
 
-	_payment, err := paymentHandler.Payment(context)
+	payment, err := paymentHandler.Payment(context)
 	assert.Nil(t, err)
-	payment := _payment.(*escrowPaymentType)
-	assert.Equal(t, big.NewInt(12345), payment.amount)
-	// TODO: finish
+	assert.Equal(t, toJSON(getTestPayment(data)), toJSON(payment))
 }
 
 func TestGetPaymentNoChannelId(t *testing.T) {

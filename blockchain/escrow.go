@@ -27,8 +27,6 @@ const (
 	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 )
 
-// TODO: add formatters for PaymentChannelKey, PaymentChannelData
-
 // PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
 // consists of two parts: channel id and channel nonce. Channel nonce is
 // incremented each time when amount of tokens in channel descreases. Nonce
@@ -86,6 +84,18 @@ func (key PaymentChannelKey) String() string {
 	return fmt.Sprintf("{ID: %v, Nonce: %v}", key.ID, key.Nonce)
 }
 
+func (state PaymentChannelState) String() string {
+	return [...]string{
+		"Open",
+		"Closed",
+	}[state]
+}
+
+func (key PaymentChannelData) String() string {
+	return fmt.Sprintf("{State: %v, Sender: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
+		key.State, addressToHex(&key.Sender), key.FullAmount, key.Expiration.Format(time.RFC3339), key.AuthorizedAmount, bytesToBase64(key.Signature))
+}
+
 // IncomeData is used to pass information to the pricing validation system.
 // This system can use information about call to calculate price and verify
 // income received.
@@ -133,10 +143,9 @@ type escrowPaymentType struct {
 	channel     *PaymentChannelData
 }
 
-// TODO: improve
 func (p *escrowPaymentType) String() string {
 	return fmt.Sprintf("{grpcContext: %v, channelKey: %v, amount: %v, signature: %v, channel: %v}",
-		p.grpcContext, p.channelKey, p.amount, p.signature, p.channel)
+		p.grpcContext, p.channelKey, p.amount, bytesToBase64(p.signature), p.channel)
 }
 
 func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {

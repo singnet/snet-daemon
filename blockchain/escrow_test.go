@@ -183,6 +183,17 @@ func getTestContext(data *testPaymentData) *GrpcStreamContext {
 	}
 }
 
+func pairToString(data []byte, err error) string {
+	if err != nil {
+		panic(fmt.Sprintf("Unexpected error: %v", err))
+	}
+	return string(data)
+}
+
+func toJSON(data interface{}) string {
+	return pairToString(json.Marshal(data))
+}
+
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	handler := escrowPaymentHandler{
 		processor: &Processor{escrowContractAddress: hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")},
@@ -200,15 +211,20 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 	assert.Equal(t, hexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
 }
 
-func pairToString(data []byte, err error) string {
-	if err != nil {
-		panic(fmt.Sprintf("Unexpected error: %v", err))
+func TestGetPublicKeyFromPayment2(t *testing.T) {
+	handler := escrowPaymentHandler{
+		processor: &Processor{escrowContractAddress: hexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75")},
 	}
-	return string(data)
-}
+	payment := escrowPaymentType{
+		channelKey: &PaymentChannelKey{ID: big.NewInt(1789), Nonce: big.NewInt(1917)},
+		amount:     big.NewInt(31415),
+		signature:  hexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
+	}
 
-func toJSON(data interface{}) string {
-	return pairToString(json.Marshal(data))
+	address, err := handler.getSignerAddressFromPayment(&payment)
+
+	assert.Nil(t, err)
+	assert.Equal(t, hexToAddress("0x592E3C0f3B038A0D673F19a18a773F993d4b2610"), *address)
 }
 
 func TestPaymentChannelToJSON(t *testing.T) {

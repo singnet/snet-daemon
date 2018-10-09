@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -236,13 +237,21 @@ func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymen
 		),
 	)
 
-	// TODO: v % 27 + 27
-	publicKey, e := crypto.SigToPub(paymentHash, payment.signature)
+	log := log.WithFields(log.Fields{
+		"payment":     payment,
+		"paymentHash": common.ToHex(paymentHash),
+	})
+
+	v, _, _, e := parseSignature(payment.signature)
 	if e != nil {
-		log.WithError(e).WithFields(log.Fields{
-			"payment":     payment,
-			"paymentHash": common.ToHex(paymentHash),
-		}).Warn("Incorrect signature")
+		log.WithError(e).Warn("Error parsing signature")
+		return nil, status.New(codes.Unauthenticated, "payment signature is not valid")
+	}
+
+	signature := bytes.Join([][]byte{payment.signature[0:64], {v % 27}}, nil)
+	publicKey, e := crypto.SigToPub(paymentHash, signature)
+	if e != nil {
+		log.WithError(e).WithField("signature", signature).Warn("Incorrect signature")
 		return nil, status.New(codes.Unauthenticated, "payment signature is not valid")
 	}
 

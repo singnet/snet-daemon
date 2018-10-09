@@ -138,32 +138,65 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 }
 
 type testPaymentData struct {
-	channelID, channelNonce, fullAmount, prevAmount, newAmount int64
-	state                                                      PaymentChannelState
-	expiration                                                 time.Time
-	signature                                                  []byte
+	ChannelID, ChannelNonce, FullAmount, PrevAmount, NewAmount int64
+	State                                                      PaymentChannelState
+	Expiration                                                 time.Time
+	Signature                                                  []byte
 }
 
 func newPaymentChannelKey(ID, nonce int64) *PaymentChannelKey {
 	return &PaymentChannelKey{ID: big.NewInt(ID), Nonce: big.NewInt(nonce)}
 }
 
+var defaultData = &testPaymentData{
+	ChannelID:    42,
+	ChannelNonce: 3,
+	Expiration:   time.Now().Add(time.Hour),
+	FullAmount:   12345,
+	NewAmount:    12345,
+	PrevAmount:   12300,
+	State:        Open,
+}
+
+func copyTestData(orig *testPaymentData) (cpy *testPaymentData) {
+	bytes, err := json.Marshal(orig)
+	if err != nil {
+		panic(fmt.Errorf("Cannot copy test data: %v", err))
+	}
+
+	cpy = &testPaymentData{}
+	err = json.Unmarshal(bytes, cpy)
+	if err != nil {
+		panic(fmt.Errorf("Cannot copy test data: %v", err))
+	}
+
+	return cpy
+}
+
+type D *testPaymentData
+
+func patchDefaultData(patch func(d D)) (cpy *testPaymentData) {
+	cpy = copyTestData(defaultData)
+	patch(cpy)
+	return cpy
+}
+
 func getTestPayment(data *testPaymentData) *escrowPaymentType {
-	signature := data.signature
+	signature := data.Signature
 	if signature == nil {
-		signature = getSignature(&processorMock.escrowContractAddress, data.channelID, data.channelNonce, data.newAmount)
+		signature = getSignature(&processorMock.escrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount)
 	}
 	return &escrowPaymentType{
-		grpcContext: &GrpcStreamContext{MD: getEscrowMetadata(data.channelID, data.channelNonce, data.newAmount)},
-		channelKey:  newPaymentChannelKey(data.channelID, data.channelNonce),
-		amount:      big.NewInt(data.newAmount),
+		grpcContext: &GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
+		channelKey:  newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
+		amount:      big.NewInt(data.NewAmount),
 		signature:   signature,
 		channel: &PaymentChannelData{
-			State:            data.state,
+			State:            data.State,
 			Sender:           testPublicKey,
-			FullAmount:       big.NewInt(data.fullAmount),
-			Expiration:       data.expiration,
-			AuthorizedAmount: big.NewInt(data.prevAmount),
+			FullAmount:       big.NewInt(data.FullAmount),
+			Expiration:       data.Expiration,
+			AuthorizedAmount: big.NewInt(data.PrevAmount),
 			Signature:        nil,
 		},
 	}
@@ -171,17 +204,17 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 
 func getTestContext(data *testPaymentData) *GrpcStreamContext {
 	storageMock.Put(
-		newPaymentChannelKey(data.channelID, data.channelNonce),
+		newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
 		&PaymentChannelData{
-			State:            data.state,
+			State:            data.State,
 			Sender:           testPublicKey,
-			FullAmount:       big.NewInt(data.fullAmount),
-			Expiration:       data.expiration,
-			AuthorizedAmount: big.NewInt(data.prevAmount),
+			FullAmount:       big.NewInt(data.FullAmount),
+			Expiration:       data.Expiration,
+			AuthorizedAmount: big.NewInt(data.PrevAmount),
 			Signature:        nil,
 		},
 	)
-	md := getEscrowMetadata(data.channelID, data.channelNonce, data.newAmount)
+	md := getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)
 	return &GrpcStreamContext{
 		MD: md,
 	}
@@ -255,32 +288,27 @@ func TestPaymentChannelToJSON(t *testing.T) {
 
 func TestGetPayment(t *testing.T) {
 	data := &testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
+		ChannelID:    42,
+		ChannelNonce: 3,
+		Expiration:   time.Now().Add(time.Hour),
+		FullAmount:   12345,
+		NewAmount:    12345,
+		PrevAmount:   12300,
+		State:        Open,
 	}
 	context := getTestContext(data)
 	defer clearTestContext()
 
 	payment, err := paymentHandler.Payment(context)
 	assert.Nil(t, err)
+	// TODO: doesn't work actually for unexported fields
 	assert.Equal(t, toJSON(getTestPayment(data)), toJSON(payment))
 }
 
 func TestGetPaymentNoChannelId(t *testing.T) {
-	context := getTestContext(&testPaymentData{
-		channelID:    0,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-	})
+	context := getTestContext(patchDefaultData(func(d D) {
+		d.ChannelID = 0
+	}))
 	defer clearTestContext()
 
 	_, err := paymentHandler.Payment(context)
@@ -289,15 +317,9 @@ func TestGetPaymentNoChannelId(t *testing.T) {
 }
 
 func TestGetPaymentNoChannelNonce(t *testing.T) {
-	context := getTestContext(&testPaymentData{
-		channelID:    42,
-		channelNonce: 0,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-	})
+	context := getTestContext(patchDefaultData(func(d D) {
+		d.ChannelNonce = 0
+	}))
 	defer clearTestContext()
 
 	_, err := paymentHandler.Payment(context)
@@ -306,15 +328,9 @@ func TestGetPaymentNoChannelNonce(t *testing.T) {
 }
 
 func TestGetPaymentNoChannelAmount(t *testing.T) {
-	context := getTestContext(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    0,
-		prevAmount:   12300,
-		state:        Open,
-	})
+	context := getTestContext(patchDefaultData(func(d D) {
+		d.NewAmount = 0
+	}))
 	defer clearTestContext()
 
 	_, err := paymentHandler.Payment(context)
@@ -323,15 +339,7 @@ func TestGetPaymentNoChannelAmount(t *testing.T) {
 }
 
 func TestGetPaymentNoChannel(t *testing.T) {
-	context := getTestContext(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-	})
+	context := getTestContext(defaultData)
 	storageMock.Clear()
 
 	_, err := paymentHandler.Payment(context)
@@ -341,13 +349,13 @@ func TestGetPaymentNoChannel(t *testing.T) {
 
 func TestValidatePayment(t *testing.T) {
 	payment := getTestPayment(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
+		ChannelID:    42,
+		ChannelNonce: 3,
+		Expiration:   time.Now().Add(time.Hour),
+		FullAmount:   12345,
+		NewAmount:    12345,
+		PrevAmount:   12300,
+		State:        Open,
 	})
 
 	err := paymentHandler.Validate(payment)
@@ -356,15 +364,9 @@ func TestValidatePayment(t *testing.T) {
 }
 
 func TestValidatePaymentChannelIsNotOpen(t *testing.T) {
-	payment := getTestPayment(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Closed,
-	})
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.State = Closed
+	}))
 
 	err := paymentHandler.Validate(payment)
 
@@ -372,16 +374,9 @@ func TestValidatePaymentChannelIsNotOpen(t *testing.T) {
 }
 
 func TestValidatePaymentIncorrectSignature(t *testing.T) {
-	payment := getTestPayment(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-		signature:    hexToBytes("0x0000"),
-	})
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.Signature = hexToBytes("0x0000")
+	}))
 
 	err := paymentHandler.Validate(payment)
 
@@ -389,16 +384,9 @@ func TestValidatePaymentIncorrectSignature(t *testing.T) {
 }
 
 func TestValidatePaymentIncorrectSigner(t *testing.T) {
-	payment := getTestPayment(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-		signature:    hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
-	})
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.Signature = hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01")
+	}))
 
 	err := paymentHandler.Validate(payment)
 
@@ -406,15 +394,9 @@ func TestValidatePaymentIncorrectSigner(t *testing.T) {
 }
 
 func TestValidatePaymentExpiredChannel(t *testing.T) {
-	payment := getTestPayment(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-	})
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.Expiration = time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+	}))
 
 	err := paymentHandler.Validate(payment)
 
@@ -422,15 +404,9 @@ func TestValidatePaymentExpiredChannel(t *testing.T) {
 }
 
 func TestValidatePaymentAmountIsTooBig(t *testing.T) {
-	payment := getTestPayment(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12346,
-		prevAmount:   12300,
-		state:        Open,
-	})
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.NewAmount = 12346
+	}))
 
 	err := paymentHandler.Validate(payment)
 
@@ -438,15 +414,7 @@ func TestValidatePaymentAmountIsTooBig(t *testing.T) {
 }
 
 func TestValidatePaymentIncorrectIncome(t *testing.T) {
-	payment := getTestPayment(&testPaymentData{
-		channelID:    42,
-		channelNonce: 3,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12345,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-	})
+	payment := getTestPayment(defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	paymentHandler := escrowPaymentHandler{
 		storage:         &storageMock,
@@ -460,15 +428,12 @@ func TestValidatePaymentIncorrectIncome(t *testing.T) {
 }
 
 func TestCompletePayment(t *testing.T) {
-	data := &testPaymentData{
-		channelID:    43,
-		channelNonce: 4,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12346,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-	}
+	data := patchDefaultData(func(d D) {
+		d.ChannelID = 43
+		d.ChannelNonce = 4
+		d.FullAmount = 12346
+		d.NewAmount = 12345
+	})
 	getTestContext(data)
 	payment := getTestPayment(data)
 
@@ -488,15 +453,12 @@ func TestCompletePayment(t *testing.T) {
 }
 
 func TestCompletePaymentCannotUpdateChannel(t *testing.T) {
-	data := &testPaymentData{
-		channelID:    43,
-		channelNonce: 4,
-		expiration:   time.Now().Add(time.Hour),
-		fullAmount:   12346,
-		newAmount:    12345,
-		prevAmount:   12300,
-		state:        Open,
-	}
+	data := patchDefaultData(func(d D) {
+		d.ChannelID = 43
+		d.ChannelNonce = 4
+		d.FullAmount = 12346
+		d.NewAmount = 12345
+	})
 	payment := getTestPayment(data)
 
 	err := paymentHandler.Complete(payment)

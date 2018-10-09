@@ -21,20 +21,35 @@ const (
 	EscrowPaymentType = "escrow"
 )
 
+// GrpcStreamContext contains information about gRPC call which is used to
+// validate payment and pricing.
 type GrpcStreamContext struct {
 	MD   metadata.MD
 	Info *grpc.StreamServerInfo
 }
 
+// Payment represents payment handler specific data which is validated
+// and used to complete payment.
 type Payment interface{}
 
+// PaymentHandler interface which is used by gRPC interceptor to get, validate
+// and complete payment. There are two payment handler implementations so far:
+// jobPaymentHandler and escrowPaymentHandler.
 type PaymentHandler interface {
+	// Payment extracts payment data from gRPC request context.
 	Payment(context *GrpcStreamContext) (payment Payment, err *status.Status)
+	// Validate checks validity of payment data, it returns nil if data is
+	// valid or appropriate gRPC error otherwise.
 	Validate(payment Payment) (err *status.Status)
+	// Complete completes payment if gRPC call was successfully proceeded by
+	// service.
 	Complete(payment Payment) (err *status.Status)
+	// CompleteAfterError completes payment if service returns error.
 	CompleteAfterError(payment Payment, result error) (err *status.Status)
 }
 
+// GrpcStreamInterceptor returns gRPC interceptor to validate payment. If
+// blockchain is disabled then noOpInterceptor is returned.
 func GrpcStreamInterceptor(processor *Processor) grpc.StreamServerInterceptor {
 	if processor.enabled {
 		interceptor := &paymentValidationInterceptor{

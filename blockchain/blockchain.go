@@ -31,16 +31,15 @@ type jobInfo struct {
 }
 
 type Processor struct {
-	enabled            bool
-	ethClient          *ethclient.Client
-	rawClient          *rpc.Client
-	agent              *Agent
-	sigHasher          func([]byte) []byte
-	privateKey         *ecdsa.PrivateKey
-	address            string
-	jobCompletionQueue chan *jobInfo
-	boltDB             *bolt.DB
-	// TODO: load escrowContractAddress
+	enabled               bool
+	ethClient             *ethclient.Client
+	rawClient             *rpc.Client
+	agent                 *Agent
+	sigHasher             func([]byte) []byte
+	privateKey            *ecdsa.PrivateKey
+	address               string
+	jobCompletionQueue    chan *jobInfo
+	boltDB                *bolt.DB
 	escrowContractAddress common.Address
 }
 
@@ -66,6 +65,9 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 		p.ethClient = ethclient.NewClient(client)
 	}
 
+	// TODO: if address is not in config, try to load it using network
+	// configuration
+	p.escrowContractAddress = common.HexToAddress(config.GetString(config.MultiPartyEscrowContractAddressKey))
 	agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
 
 	// Setup agent

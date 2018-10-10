@@ -49,7 +49,7 @@ func parseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error)
 }
 
 func addressToHex(address *common.Address) string {
-	return common.ToHex(address.Bytes())
+	return address.Hex()
 }
 
 func bytesToBase64(bytes []byte) string {

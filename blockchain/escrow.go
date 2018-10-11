@@ -160,12 +160,12 @@ func (h *escrowPaymentHandler) Type() (typ string) {
 }
 
 func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {
-	channelID, err := getBigInt(context.MD, PaymentChannelIDHeader)
+	channelID, err := GetBigInt(context.MD, PaymentChannelIDHeader)
 	if err != nil {
 		return
 	}
 
-	channelNonce, err := getBigInt(context.MD, PaymentChannelNonceHeader)
+	channelNonce, err := GetBigInt(context.MD, PaymentChannelNonceHeader)
 	if err != nil {
 		return
 	}
@@ -177,12 +177,12 @@ func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Paym
 		return nil, status.Newf(codes.InvalidArgument, "payment channel \"%v\" not found", channelKey)
 	}
 
-	amount, err := getBigInt(context.MD, PaymentChannelAmountHeader)
+	amount, err := GetBigInt(context.MD, PaymentChannelAmountHeader)
 	if err != nil {
 		return
 	}
 
-	signature, err := getBytes(context.MD, PaymentChannelSignatureHeader)
+	signature, err := GetBytes(context.MD, PaymentChannelSignatureHeader)
 	if err != nil {
 		return
 	}

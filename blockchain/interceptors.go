@@ -153,8 +153,9 @@ func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *Grpc
 	return paymentHandler, nil
 }
 
-func getBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) {
-	str, err := getSingleValue(md, key)
+// GetBigInt gets big.Int value from gRPC metadata
+func GetBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) {
+	str, err := GetSingleValue(md, key)
 	if err != nil {
 		return
 	}
@@ -168,12 +169,14 @@ func getBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) 
 	return
 }
 
-func getBytes(md metadata.MD, key string) (result []byte, err *status.Status) {
+// GetBytes gets bytes array value from gRPC metadata for key with '-bin'
+// suffix, internally this data is encoded as base64
+func GetBytes(md metadata.MD, key string) (result []byte, err *status.Status) {
 	if !strings.HasSuffix(key, "-bin") {
 		return nil, status.Newf(codes.InvalidArgument, "incorrect binary key name \"%v\"", key)
 	}
 
-	str, err := getSingleValue(md, key)
+	str, err := GetSingleValue(md, key)
 	if err != nil {
 		return
 	}
@@ -181,15 +184,18 @@ func getBytes(md metadata.MD, key string) (result []byte, err *status.Status) {
 	return []byte(str), nil
 }
 
-func getBytesFromHexString(md metadata.MD, key string) (value []byte, err *status.Status) {
-	str, err := getSingleValue(md, key)
+// GetBytesFromHex gets bytes array value from gRPC metadata, bytes array is
+// encoded as hex string
+func GetBytesFromHex(md metadata.MD, key string) (value []byte, err *status.Status) {
+	str, err := GetSingleValue(md, key)
 	if err != nil {
 		return
 	}
 	return common.FromHex(str), nil
 }
 
-func getSingleValue(md metadata.MD, key string) (value string, err *status.Status) {
+// GetSingleValue gets string value from gRPC metadata
+func GetSingleValue(md metadata.MD, key string) (value string, err *status.Status) {
 	array := md.Get(key)
 
 	if len(array) == 0 {

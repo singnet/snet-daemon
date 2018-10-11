@@ -46,12 +46,12 @@ func (h *jobPaymentHandler) Type() (typ string) {
 }
 
 func (h *jobPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {
-	jobAddressBytes, err := getBytesFromHexString(context.MD, JobAddressHeader)
+	jobAddressBytes, err := GetBytesFromHex(context.MD, JobAddressHeader)
 	if err != nil {
 		return
 	}
 
-	jobSignatureBytes, err := getBytesFromHexString(context.MD, JobSignatureHeader)
+	jobSignatureBytes, err := GetBytesFromHex(context.MD, JobSignatureHeader)
 	if err != nil {
 		return
 	}

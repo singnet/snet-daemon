@@ -1,10 +1,11 @@
-package blockchain
+package escrow
 
 import (
 	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/handler"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -99,7 +100,7 @@ func (state PaymentChannelState) String() string {
 
 func (key PaymentChannelData) String() string {
 	return fmt.Sprintf("{State: %v, Sender: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		key.State, AddressToHex(&key.Sender), key.FullAmount, key.Expiration.Format(time.RFC3339), key.AuthorizedAmount, BytesToBase64(key.Signature))
+		key.State, blockchain.AddressToHex(&key.Sender), key.FullAmount, key.Expiration.Format(time.RFC3339), key.AuthorizedAmount, blockchain.BytesToBase64(key.Signature))
 }
 
 // IncomeData is used to pass information to the pricing validation system.
@@ -128,18 +129,18 @@ type IncomeValidator interface {
 
 // escrowPaymentHandler implements paymentHandlerType interface
 type escrowPaymentHandler struct {
-	storage         PaymentChannelStorage
-	processor       *Processor
-	incomeValidator IncomeValidator
+	escrowContractAddress common.Address
+	storage               PaymentChannelStorage
+	incomeValidator       IncomeValidator
 }
 
 // NewEscrowPaymentHandler returns instance of handler.PaymentHandler to validate
 // payments via MultiPartyEscrow contract.
-func NewEscrowPaymentHandler(processor *Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) handler.PaymentHandler {
+func NewEscrowPaymentHandler(processor *blockchain.Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) handler.PaymentHandler {
 	return &escrowPaymentHandler{
-		processor:       processor,
-		storage:         storage,
-		incomeValidator: incomeValidator,
+		escrowContractAddress: processor.EscrowContractAddress(),
+		storage:               storage,
+		incomeValidator:       incomeValidator,
 	}
 }
 
@@ -153,7 +154,7 @@ type escrowPaymentType struct {
 
 func (p *escrowPaymentType) String() string {
 	return fmt.Sprintf("{grpcContext: %v, channelKey: %v, amount: %v, signature: %v, channel: %v}",
-		p.grpcContext, p.channelKey, p.amount, BytesToBase64(p.signature), p.channel)
+		p.grpcContext, p.channelKey, p.amount, blockchain.BytesToBase64(p.signature), p.channel)
 }
 
 func (h *escrowPaymentHandler) Type() (typ string) {
@@ -212,7 +213,7 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 	}
 
 	if *signerAddress != payment.channel.Sender {
-		log.WithField("signerAddress", AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
+		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
 		return status.New(codes.Unauthenticated, "payment is not signed by channel sender")
 	}
 
@@ -239,9 +240,9 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 
 func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymentType) (signer *common.Address, err *status.Status) {
 	paymentHash := crypto.Keccak256(
-		HashPrefix32Bytes,
+		blockchain.HashPrefix32Bytes,
 		crypto.Keccak256(
-			h.processor.escrowContractAddress.Bytes(),
+			h.escrowContractAddress.Bytes(),
 			bigIntToBytes(payment.channelKey.ID),
 			bigIntToBytes(payment.channelKey.Nonce),
 			bigIntToBytes(payment.amount),
@@ -253,7 +254,7 @@ func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymen
 		"paymentHash": common.ToHex(paymentHash),
 	})
 
-	v, _, _, e := ParseSignature(payment.signature)
+	v, _, _, e := blockchain.ParseSignature(payment.signature)
 	if e != nil {
 		log.WithError(e).Warn("Error parsing signature")
 		return nil, status.New(codes.Unauthenticated, "payment signature is not valid")

@@ -119,3 +119,7 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 func (processor *Processor) Enabled() (enabled bool) {
 	return processor.enabled
 }
+
+func (processor *Processor) EscrowContractAddress() common.Address {
+	return processor.escrowContractAddress
+}

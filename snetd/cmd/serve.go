@@ -17,6 +17,7 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
+	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
@@ -232,7 +233,7 @@ func getGrpcInterceptor(processor *blockchain.Processor) grpc.StreamServerInterc
 	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
 	return handler.GrpcStreamInterceptor(
 		blockchain.NewJobPaymentHandler(processor),
-		blockchain.NewEscrowPaymentHandler(processor, nil, nil),
+		escrow.NewEscrowPaymentHandler(processor, nil, nil),
 	)
 }
 

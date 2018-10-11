@@ -17,7 +17,9 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
+	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
@@ -186,7 +188,7 @@ func (d daemon) start() {
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
-			grpc.StreamInterceptor(blockchain.GrpcStreamInterceptor(&d.blockProc)),
+			grpc.StreamInterceptor(getGrpcInterceptor(&d.blockProc)),
 		)
 
 		mux := cmux.New(d.lis)
@@ -218,8 +220,21 @@ func (d daemon) start() {
 	} else {
 		log.Debug("starting simple HTTP daemon")
 
-		go http.Serve(d.lis, handlers.CORS(corsOptions...)(handler.NewHTTPHandler(d.blockProc)))
+		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
+}
+
+func getGrpcInterceptor(processor *blockchain.Processor) grpc.StreamServerInterceptor {
+	if !processor.Enabled() {
+		log.Info("Blockchain is disabled: no payment validation")
+		return handler.NoOpInterceptor
+	}
+
+	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
+	return handler.GrpcStreamInterceptor(
+		blockchain.NewJobPaymentHandler(processor),
+		escrow.NewEscrowPaymentHandler(processor, nil, nil),
+	)
 }
 
 func (d daemon) stop() {

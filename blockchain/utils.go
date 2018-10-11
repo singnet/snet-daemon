@@ -33,7 +33,8 @@ func derivePrivateKey(mnemonic string, path ...uint32) (*ecdsa.PrivateKey, error
 	return privKey.ToECDSA(), nil
 }
 
-func parseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error) {
+// ParseSignature parses Ethereum signature.
+func ParseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error) {
 	r := [32]byte{}
 	s := [32]byte{}
 
@@ -48,18 +49,22 @@ func parseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error)
 	return v, r, s, nil
 }
 
-func addressToHex(address *common.Address) string {
-	return common.ToHex(address.Bytes())
+// AddressToHex converts Ethereum address to hex string representation.
+func AddressToHex(address *common.Address) string {
+	return address.Hex()
 }
 
-func bytesToBase64(bytes []byte) string {
+// BytesToBase64 converts array of bytes to base64 string.
+func BytesToBase64(bytes []byte) string {
 	return base64.StdEncoding.EncodeToString(bytes)
 }
 
-func hexToBytes(str string) []byte {
+// HexToBytes converts hex string to bytes array.
+func HexToBytes(str string) []byte {
 	return common.FromHex(str)
 }
 
-func hexToAddress(str string) common.Address {
-	return common.Address(common.BytesToAddress(hexToBytes(str)))
+// HexToAddress converts hex string to Ethreum address.
+func HexToAddress(str string) common.Address {
+	return common.Address(common.BytesToAddress(HexToBytes(str)))
 }

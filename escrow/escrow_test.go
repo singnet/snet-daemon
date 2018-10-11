@@ -1,4 +1,4 @@
-package blockchain
+package escrow
 
 import (
 	"crypto/ecdsa"
@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/handler"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -77,10 +79,6 @@ func (storage *storageMockType) Clear() {
 	storage.data = make(map[channelStorageKey]*PaymentChannelData)
 }
 
-var processorMock = Processor{
-	escrowContractAddress: hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf"),
-}
-
 type incomeValidatorMockType struct {
 	err *status.Status
 }
@@ -91,17 +89,19 @@ func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (er
 	return incomeValidator.err
 }
 
+var testEscrowContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
+
 var paymentHandler = escrowPaymentHandler{
-	storage:         &storageMock,
-	processor:       &processorMock,
-	incomeValidator: &incomeValidatorMock,
+	escrowContractAddress: testEscrowContractAddress,
+	storage:               &storageMock,
+	incomeValidator:       &incomeValidatorMock,
 }
 
 func getSignature(contractAddress *common.Address, channelID, channelNonce, amount int64) (signature []byte) {
 	hash := crypto.Keccak256(
-		hashPrefix32Bytes,
+		blockchain.HashPrefix32Bytes,
 		crypto.Keccak256(
-			processorMock.escrowContractAddress.Bytes(),
+			testEscrowContractAddress.Bytes(),
 			intToUint256(channelID),
 			intToUint256(channelNonce),
 			intToUint256(amount),
@@ -133,7 +133,7 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 	if amount != 0 {
 		md.Set(PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
 	}
-	md.Set(PaymentChannelSignatureHeader, string(getSignature(&processorMock.escrowContractAddress, channelID, channelNonce, amount)))
+	md.Set(PaymentChannelSignatureHeader, string(getSignature(&testEscrowContractAddress, channelID, channelNonce, amount)))
 	return md
 }
 
@@ -184,10 +184,10 @@ func patchDefaultData(patch func(d D)) (cpy *testPaymentData) {
 func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	signature := data.Signature
 	if signature == nil {
-		signature = getSignature(&processorMock.escrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount)
+		signature = getSignature(&testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount)
 	}
 	return &escrowPaymentType{
-		grpcContext: &GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
+		grpcContext: &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
 		channelKey:  newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
 		amount:      big.NewInt(data.NewAmount),
 		signature:   signature,
@@ -202,7 +202,7 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	}
 }
 
-func getTestContext(data *testPaymentData) *GrpcStreamContext {
+func getTestContext(data *testPaymentData) *handler.GrpcStreamContext {
 	storageMock.Put(
 		newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
 		&PaymentChannelData{
@@ -215,7 +215,7 @@ func getTestContext(data *testPaymentData) *GrpcStreamContext {
 		},
 	)
 	md := getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)
-	return &GrpcStreamContext{
+	return &handler.GrpcStreamContext{
 		MD: md,
 	}
 }
@@ -237,35 +237,35 @@ func toJSON(data interface{}) string {
 
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	handler := escrowPaymentHandler{
-		processor: &Processor{escrowContractAddress: hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")},
+		escrowContractAddress: testEscrowContractAddress,
 	}
 	payment := escrowPaymentType{
 		channelKey: newPaymentChannelKey(1789, 1917),
 		amount:     big.NewInt(31415),
 		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
-		signature: hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+		signature: blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
 
 	address, err := handler.getSignerAddressFromPayment(&payment)
 
 	assert.Nil(t, err)
-	assert.Equal(t, hexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
+	assert.Equal(t, blockchain.HexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
 }
 
 func TestGetPublicKeyFromPayment2(t *testing.T) {
 	handler := escrowPaymentHandler{
-		processor: &Processor{escrowContractAddress: hexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75")},
+		escrowContractAddress: blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75"),
 	}
 	payment := escrowPaymentType{
 		channelKey: newPaymentChannelKey(1789, 1917),
 		amount:     big.NewInt(31415),
-		signature:  hexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
+		signature:  blockchain.HexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
 	}
 
 	address, err := handler.getSignerAddressFromPayment(&payment)
 
 	assert.Nil(t, err)
-	assert.Equal(t, hexToAddress("0x592E3C0f3B038A0D673F19a18a773F993d4b2610"), *address)
+	assert.Equal(t, blockchain.HexToAddress("0x592E3C0f3B038A0D673F19a18a773F993d4b2610"), *address)
 }
 
 func TestPaymentChannelToJSON(t *testing.T) {
@@ -275,7 +275,7 @@ func TestPaymentChannelToJSON(t *testing.T) {
 		FullAmount:       big.NewInt(12345),
 		Expiration:       time.Now().Add(time.Hour),
 		AuthorizedAmount: big.NewInt(12300),
-		Signature:        hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+		Signature:        blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
 
 	bytes, err := json.Marshal(channel)
@@ -381,7 +381,7 @@ func TestValidatePaymentChannelIsNotOpen(t *testing.T) {
 
 func TestValidatePaymentIncorrectSignature(t *testing.T) {
 	payment := getTestPayment(patchDefaultData(func(d D) {
-		d.Signature = hexToBytes("0x0000")
+		d.Signature = blockchain.HexToBytes("0x0000")
 	}))
 
 	err := paymentHandler.Validate(payment)
@@ -391,7 +391,7 @@ func TestValidatePaymentIncorrectSignature(t *testing.T) {
 
 func TestValidatePaymentIncorrectSigner(t *testing.T) {
 	payment := getTestPayment(patchDefaultData(func(d D) {
-		d.Signature = hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01")
+		d.Signature = blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01")
 	}))
 
 	err := paymentHandler.Validate(payment)
@@ -423,9 +423,9 @@ func TestValidatePaymentIncorrectIncome(t *testing.T) {
 	payment := getTestPayment(defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	paymentHandler := escrowPaymentHandler{
-		storage:         &storageMock,
-		processor:       &processorMock,
-		incomeValidator: &incomeValidatorMockType{err: incomeErr},
+		escrowContractAddress: testEscrowContractAddress,
+		storage:               &storageMock,
+		incomeValidator:       &incomeValidatorMockType{err: incomeErr},
 	}
 
 	err := paymentHandler.Validate(payment)

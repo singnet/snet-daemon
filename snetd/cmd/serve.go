@@ -186,7 +186,7 @@ func (d daemon) start() {
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
-			grpc.StreamInterceptor(d.blockProc.GrpcStreamInterceptor()),
+			grpc.StreamInterceptor(blockchain.GrpcStreamInterceptor(&d.blockProc)),
 		)
 
 		mux := cmux.New(d.lis)

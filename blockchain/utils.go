@@ -2,10 +2,12 @@ package blockchain
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil/hdkeychain"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/tyler-smith/go-bip39"
 )
 
@@ -44,4 +46,20 @@ func parseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error)
 	copy(s[:], jobSignatureBytes[32:64])
 
 	return v, r, s, nil
+}
+
+func addressToHex(address *common.Address) string {
+	return common.ToHex(address.Bytes())
+}
+
+func bytesToBase64(bytes []byte) string {
+	return base64.StdEncoding.EncodeToString(bytes)
+}
+
+func hexToBytes(str string) []byte {
+	return common.FromHex(str)
+}
+
+func hexToAddress(str string) common.Address {
+	return common.Address(common.BytesToAddress(hexToBytes(str)))
 }

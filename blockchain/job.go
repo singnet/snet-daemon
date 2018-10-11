@@ -11,7 +11,6 @@ import (
 	"github.com/singnet/snet-daemon/db"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -24,42 +23,56 @@ const (
 )
 
 type jobPaymentHandler struct {
-	p                 *Processor
-	md                metadata.MD
+	p *Processor
+}
+
+type jobPaymentType struct {
+	grpcContext       *GrpcStreamContext
 	jobAddressBytes   []byte
 	jobSignatureBytes []byte
 }
 
-func newJobPaymentHandler(p *Processor, md metadata.MD) *jobPaymentHandler {
-	return &jobPaymentHandler{p: p, md: md}
+func newJobPaymentHandler(p *Processor) *jobPaymentHandler {
+	return &jobPaymentHandler{p: p}
 }
 
-func (h *jobPaymentHandler) validatePayment() error {
-	var err error
-
-	h.jobAddressBytes, err = getBytes(h.md, JobAddressHeader)
+func (h *jobPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {
+	jobAddressBytes, err := getBytesFromHexString(context.MD, JobAddressHeader)
 	if err != nil {
-		return err
+		return
 	}
 
-	h.jobSignatureBytes, err = getBytes(h.md, JobSignatureHeader)
+	jobSignatureBytes, err := getBytesFromHexString(context.MD, JobSignatureHeader)
 	if err != nil {
-		return err
+		return
 	}
 
-	valid := h.p.IsValidJobInvocation(h.jobAddressBytes, h.jobSignatureBytes)
+	return &jobPaymentType{
+		grpcContext:       context,
+		jobAddressBytes:   jobAddressBytes,
+		jobSignatureBytes: jobSignatureBytes,
+	}, nil
+}
+
+func (h *jobPaymentHandler) Validate(_payment Payment) (err *status.Status) {
+	var payment = _payment.(*jobPaymentType)
+
+	valid := h.p.IsValidJobInvocation(payment.jobAddressBytes, payment.jobSignatureBytes)
 	if !valid {
-		return status.Errorf(codes.Unauthenticated, "job invocation not valid")
+		return status.Newf(codes.Unauthenticated, "job invocation not valid")
 	}
 
 	return nil
 }
 
-func (h *jobPaymentHandler) completePayment() {
-	h.p.CompleteJob(h.jobAddressBytes, h.jobSignatureBytes)
+func (h *jobPaymentHandler) Complete(_payment Payment) (err *status.Status) {
+	var payment = _payment.(*jobPaymentType)
+	h.p.CompleteJob(payment.jobAddressBytes, payment.jobSignatureBytes)
+	return nil
 }
 
-func (h *jobPaymentHandler) completePaymentAfterError(err error) {
+func (h *jobPaymentHandler) CompleteAfterError(_payment Payment, result error) (err *status.Status) {
+	return nil
 }
 
 func (p *Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []byte) bool {
@@ -93,7 +106,7 @@ func (p *Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []by
 	}
 
 	pubKey, err := crypto.SigToPub(p.sigHasher(jobAddressBytes), bytes.Join([][]byte{jobSignatureBytes[0:64], {v % 27}},
-		[]byte{}))
+		nil))
 	if err != nil {
 		log.WithError(err).Error("error recovering signature")
 		return false

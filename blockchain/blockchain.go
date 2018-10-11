@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -32,15 +31,16 @@ type jobInfo struct {
 }
 
 type Processor struct {
-	enabled            bool
-	ethClient          *ethclient.Client
-	rawClient          *rpc.Client
-	agent              *Agent
-	sigHasher          func([]byte) []byte
-	privateKey         *ecdsa.PrivateKey
-	address            string
-	jobCompletionQueue chan *jobInfo
-	boltDB             *bolt.DB
+	enabled               bool
+	ethClient             *ethclient.Client
+	rawClient             *rpc.Client
+	agent                 *Agent
+	sigHasher             func([]byte) []byte
+	privateKey            *ecdsa.PrivateKey
+	address               string
+	jobCompletionQueue    chan *jobInfo
+	boltDB                *bolt.DB
+	escrowContractAddress common.Address
 }
 
 // NewProcessor creates a new blockchain processor
@@ -65,6 +65,9 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 		p.ethClient = ethclient.NewClient(client)
 	}
 
+	// TODO: if address is not in config, try to load it using network
+	// configuration
+	p.escrowContractAddress = common.HexToAddress(config.GetString(config.MultiPartyEscrowContractAddressKey))
 	agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
 
 	// Setup agent
@@ -111,12 +114,4 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 	}
 
 	return p, nil
-}
-
-func (p Processor) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
-	if p.enabled {
-		return p.jobValidationInterceptor
-	}
-
-	return noOpInterceptor
 }

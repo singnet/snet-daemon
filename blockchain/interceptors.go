@@ -15,11 +15,6 @@ const (
 	// PaymentTypeHeader is a type of payment used to pay for a RPC call.
 	// Supported types are: "job", "escrow".
 	PaymentTypeHeader = "snet-payment-type"
-	// JobPaymentType each call should be payed using unique instance of funded Job
-	JobPaymentType = "job"
-	// EscrowPaymentType each call should have id and nonce of payment channel
-	// in metadata.
-	EscrowPaymentType = "escrow"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to
@@ -37,6 +32,9 @@ type Payment interface{}
 // and complete payment. There are two payment handler implementations so far:
 // jobPaymentHandler and escrowPaymentHandler.
 type PaymentHandler interface {
+	// Type is a content of PaymentTypeHeader field which triggers usage of the
+	// payment handler.
+	Type() (typ string)
 	// Payment extracts payment data from gRPC request context.
 	Payment(context *GrpcStreamContext) (payment Payment, err *status.Status)
 	// Validate checks validity of payment data, it returns nil if data is
@@ -51,7 +49,7 @@ type PaymentHandler interface {
 
 // GrpcStreamInterceptor returns gRPC interceptor to validate payment. If
 // blockchain is disabled then noOpInterceptor is returned.
-func GrpcStreamInterceptor(processor *Processor, jobHandler PaymentHandler, escrowHandler PaymentHandler) grpc.StreamServerInterceptor {
+func GrpcStreamInterceptor(processor *Processor, defaultPaymentHandler PaymentHandler, paymentHandler ...PaymentHandler) grpc.StreamServerInterceptor {
 	if !processor.enabled {
 		log.Info("Blockchain is disabled: no payment validation")
 		return noOpInterceptor
@@ -59,16 +57,24 @@ func GrpcStreamInterceptor(processor *Processor, jobHandler PaymentHandler, escr
 
 	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
 	interceptor := &paymentValidationInterceptor{
-		jobPaymentHandler:    jobHandler,
-		escrowPaymentHandler: escrowHandler,
+		defaultPaymentHandler: defaultPaymentHandler,
+		paymentHandlers:       make(map[string]PaymentHandler),
 	}
+
+	interceptor.paymentHandlers[defaultPaymentHandler.Type()] = defaultPaymentHandler
+	log.WithField("defaultPaymentType", defaultPaymentHandler.Type()).Info("Default payment handler registered")
+	for _, handler := range paymentHandler {
+		interceptor.paymentHandlers[handler.Type()] = handler
+		log.WithField("paymentType", handler.Type()).Info("Payment handler for type registered")
+	}
+
 	return interceptor.intercept
 
 }
 
 type paymentValidationInterceptor struct {
-	jobPaymentHandler    PaymentHandler
-	escrowPaymentHandler PaymentHandler
+	defaultPaymentHandler PaymentHandler
+	paymentHandlers       map[string]PaymentHandler
 }
 
 func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -131,22 +137,20 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 
 func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *status.Status) {
 	paymentTypeMd, ok := context.MD[PaymentTypeHeader]
-
-	paymentType := JobPaymentType
-	if ok && len(paymentTypeMd) > 0 {
-		paymentType = paymentTypeMd[0]
+	if !ok || len(paymentTypeMd) == 0 {
+		log.WithField("defaultPaymentHandlerType", interceptor.defaultPaymentHandler.Type()).Debug("Payment type was not set by caller, return default payment handler")
+		return interceptor.defaultPaymentHandler, nil
 	}
-	log.WithField("paymentType", paymentType).Debug("Getting payment handler for the paymentType")
 
-	switch {
-	case paymentType == JobPaymentType:
-		return interceptor.jobPaymentHandler, nil
-	case paymentType == EscrowPaymentType:
-		return interceptor.escrowPaymentHandler, nil
-	default:
+	paymentType := paymentTypeMd[0]
+	paymentHandler, ok := interceptor.paymentHandlers[paymentType]
+	if !ok {
 		log.WithField("paymentType", paymentType).Error("Unexpected payment type")
 		return nil, status.Newf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
 	}
+
+	log.WithField("paymentType", paymentType).Debug("Return payment handler by type")
+	return paymentHandler, nil
 }
 
 func getBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) {

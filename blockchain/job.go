@@ -20,6 +20,9 @@ const (
 
 	JobAddressHeader   = "snet-job-address"
 	JobSignatureHeader = "snet-job-signature"
+
+	// JobPaymentType each call should be payed using unique instance of funded Job
+	JobPaymentType = "job"
 )
 
 type jobPaymentHandler struct {
@@ -36,6 +39,10 @@ type jobPaymentType struct {
 // payments through Job contract.
 func NewJobPaymentHandler(p *Processor) PaymentHandler {
 	return &jobPaymentHandler{p: p}
+}
+
+func (h *jobPaymentHandler) Type() (typ string) {
+	return JobPaymentType
 }
 
 func (h *jobPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {

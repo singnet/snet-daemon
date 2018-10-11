@@ -26,6 +26,10 @@ const (
 	// PaymentChannelSignatureHeader is a signature of the client to confirm
 	// amount withdrawing authorization. Value is an array of bytes.
 	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
+
+	// EscrowPaymentType each call should have id and nonce of payment channel
+	// in metadata.
+	EscrowPaymentType = "escrow"
 )
 
 // PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
@@ -149,6 +153,10 @@ type escrowPaymentType struct {
 func (p *escrowPaymentType) String() string {
 	return fmt.Sprintf("{grpcContext: %v, channelKey: %v, amount: %v, signature: %v, channel: %v}",
 		p.grpcContext, p.channelKey, p.amount, bytesToBase64(p.signature), p.channel)
+}
+
+func (h *escrowPaymentHandler) Type() (typ string) {
+	return EscrowPaymentType
 }
 
 func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {

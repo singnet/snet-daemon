@@ -32,7 +32,9 @@ type jobPaymentType struct {
 	jobSignatureBytes []byte
 }
 
-func newJobPaymentHandler(p *Processor) *jobPaymentHandler {
+// NewJobPaymentHandler returns an instance of PaymentHandler which validates
+// payments through Job contract.
+func NewJobPaymentHandler(p *Processor) PaymentHandler {
 	return &jobPaymentHandler{p: p}
 }
 

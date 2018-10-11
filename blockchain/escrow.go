@@ -128,7 +128,9 @@ type escrowPaymentHandler struct {
 	incomeValidator IncomeValidator
 }
 
-func newEscrowPaymentHandler(processor *Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) *escrowPaymentHandler {
+// NewEscrowPaymentHandler returns instance of PaymentHandler to validate
+// payments via MultiPartyEscrow contract.
+func NewEscrowPaymentHandler(processor *Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) PaymentHandler {
 	return &escrowPaymentHandler{
 		processor:       processor,
 		storage:         storage,

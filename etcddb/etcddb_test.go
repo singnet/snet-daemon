@@ -10,28 +10,31 @@ import (
 )
 
 type PaymentChannelStorageConf struct {
-	ID             string
-	ClientPort     int `mapstructure:"CLIENT_PORT"`
-	PeerPort       int `mapstructure:"PEER_PORT"`
-	Token          string
-	StorageCluster string `mapstructure:"STORAGE_CLUSTER"`
+	ID         string
+	ClientPort int `mapstructure:"CLIENT_PORT"`
+	PeerPort   int `mapstructure:"PEER_PORT"`
+	Token      string
 }
 
 func TestConfigParsing(t *testing.T) {
 
 	const conf = `
 	{
-		"TEST": "test_value",
+		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2480",
+
 		"PAYMENT_CHANNEL_STORAGE": {
 			"ID": "storage_1",
 			"CLIENT_PORT": 2379,
 			"PEER_PORT": 2380,
-			"TOKEN": "payment_channel_storage_token",
-			"STORAGE_CLUSTER" : "storage_1=http://127.0.0.1:2480"
+			"TOKEN": "payment_channel_storage_token"
 		}
 	}`
 
 	vip := readConfig(t, conf)
+
+	cluster := vip.GetString("PAYMENT_CHANNEL_STORAGE_CLUSTER")
+	assert.Equal(t, "storage_1=http://127.0.0.1:2480", cluster)
+
 	var paymentChannelStorageConf = PaymentChannelStorageConf{}
 	err := vip.UnmarshalKey("PAYMENT_CHANNEL_STORAGE", &paymentChannelStorageConf)
 
@@ -46,7 +49,6 @@ func TestConfigParsing(t *testing.T) {
 	assert.Equal(t, 2379, paymentChannelStorageConf.ClientPort)
 	assert.Equal(t, 2380, paymentChannelStorageConf.PeerPort)
 	assert.Equal(t, "payment_channel_storage_token", paymentChannelStorageConf.Token)
-	assert.Equal(t, "storage_1=http://127.0.0.1:2480", paymentChannelStorageConf.StorageCluster)
 }
 
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {

@@ -78,7 +78,7 @@ func (storage *storageMockType) Clear() {
 }
 
 var processorMock = Processor{
-	escrowContractAddress: hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf"),
+	escrowContractAddress: HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf"),
 }
 
 type incomeValidatorMockType struct {
@@ -99,7 +99,7 @@ var paymentHandler = escrowPaymentHandler{
 
 func getSignature(contractAddress *common.Address, channelID, channelNonce, amount int64) (signature []byte) {
 	hash := crypto.Keccak256(
-		hashPrefix32Bytes,
+		HashPrefix32Bytes,
 		crypto.Keccak256(
 			processorMock.escrowContractAddress.Bytes(),
 			intToUint256(channelID),
@@ -237,35 +237,35 @@ func toJSON(data interface{}) string {
 
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	handler := escrowPaymentHandler{
-		processor: &Processor{escrowContractAddress: hexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")},
+		processor: &Processor{escrowContractAddress: HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")},
 	}
 	payment := escrowPaymentType{
 		channelKey: newPaymentChannelKey(1789, 1917),
 		amount:     big.NewInt(31415),
 		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
-		signature: hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+		signature: HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
 
 	address, err := handler.getSignerAddressFromPayment(&payment)
 
 	assert.Nil(t, err)
-	assert.Equal(t, hexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
+	assert.Equal(t, HexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
 }
 
 func TestGetPublicKeyFromPayment2(t *testing.T) {
 	handler := escrowPaymentHandler{
-		processor: &Processor{escrowContractAddress: hexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75")},
+		processor: &Processor{escrowContractAddress: HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75")},
 	}
 	payment := escrowPaymentType{
 		channelKey: newPaymentChannelKey(1789, 1917),
 		amount:     big.NewInt(31415),
-		signature:  hexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
+		signature:  HexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
 	}
 
 	address, err := handler.getSignerAddressFromPayment(&payment)
 
 	assert.Nil(t, err)
-	assert.Equal(t, hexToAddress("0x592E3C0f3B038A0D673F19a18a773F993d4b2610"), *address)
+	assert.Equal(t, HexToAddress("0x592E3C0f3B038A0D673F19a18a773F993d4b2610"), *address)
 }
 
 func TestPaymentChannelToJSON(t *testing.T) {
@@ -275,7 +275,7 @@ func TestPaymentChannelToJSON(t *testing.T) {
 		FullAmount:       big.NewInt(12345),
 		Expiration:       time.Now().Add(time.Hour),
 		AuthorizedAmount: big.NewInt(12300),
-		Signature:        hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+		Signature:        HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
 
 	bytes, err := json.Marshal(channel)
@@ -381,7 +381,7 @@ func TestValidatePaymentChannelIsNotOpen(t *testing.T) {
 
 func TestValidatePaymentIncorrectSignature(t *testing.T) {
 	payment := getTestPayment(patchDefaultData(func(d D) {
-		d.Signature = hexToBytes("0x0000")
+		d.Signature = HexToBytes("0x0000")
 	}))
 
 	err := paymentHandler.Validate(payment)
@@ -391,7 +391,7 @@ func TestValidatePaymentIncorrectSignature(t *testing.T) {
 
 func TestValidatePaymentIncorrectSigner(t *testing.T) {
 	payment := getTestPayment(patchDefaultData(func(d D) {
-		d.Signature = hexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01")
+		d.Signature = HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01")
 	}))
 
 	err := paymentHandler.Validate(payment)

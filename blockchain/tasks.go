@@ -34,7 +34,7 @@ func (p Processor) processJobCompletions() {
 		log := log.WithFields(log.Fields{"jobAddress": common.BytesToAddress(jobInfo.jobAddressBytes).Hex(),
 			"jobSignature": hex.EncodeToString(jobInfo.jobSignatureBytes)})
 
-		v, r, s, err := parseSignature(jobInfo.jobSignatureBytes)
+		v, r, s, err := ParseSignature(jobInfo.jobSignatureBytes)
 
 		if err != nil {
 			log.WithError(err).Error("error parsing job signature")

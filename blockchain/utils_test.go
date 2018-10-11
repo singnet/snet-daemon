@@ -6,7 +6,7 @@ import (
 )
 
 func TestBytesToBase64(t *testing.T) {
-	base64 := bytesToBase64([]byte{1, 2, 254, 255})
+	base64 := BytesToBase64([]byte{1, 2, 254, 255})
 
 	assert.Equal(t, "AQL+/w==", base64)
 }

@@ -108,7 +108,7 @@ func (p *Processor) IsValidJobInvocation(jobAddressBytes, jobSignatureBytes []by
 		return false
 	}
 
-	v, r, s, err := parseSignature(jobSignatureBytes)
+	v, r, s, err := ParseSignature(jobSignatureBytes)
 	if err != nil {
 		log.WithError(err).Error("error parsing signature")
 		return false

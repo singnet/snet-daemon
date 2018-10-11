@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	// Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
-	hashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
+	// HashPrefix32Bytes is an Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
+	HashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
 	hashPrefix42Bytes = []byte("\x19Ethereum Signed Message:\n420x")
 )
 
@@ -87,7 +87,7 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 		// the raw bytes of the address rather than the hex-encoded string
 		if bytes.Equal(bcSum[:], []byte{244, 176, 168, 6, 74, 56, 171, 175, 38, 48, 245, 246, 189, 0, 67, 200}) {
 			p.sigHasher = func(i []byte) []byte {
-				return crypto.Keccak256(hashPrefix32Bytes, crypto.Keccak256(i))
+				return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 			}
 		} else {
 			p.sigHasher = func(i []byte) []byte {

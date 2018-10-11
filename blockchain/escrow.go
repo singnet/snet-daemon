@@ -98,7 +98,7 @@ func (state PaymentChannelState) String() string {
 
 func (key PaymentChannelData) String() string {
 	return fmt.Sprintf("{State: %v, Sender: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		key.State, addressToHex(&key.Sender), key.FullAmount, key.Expiration.Format(time.RFC3339), key.AuthorizedAmount, bytesToBase64(key.Signature))
+		key.State, AddressToHex(&key.Sender), key.FullAmount, key.Expiration.Format(time.RFC3339), key.AuthorizedAmount, BytesToBase64(key.Signature))
 }
 
 // IncomeData is used to pass information to the pricing validation system.
@@ -152,7 +152,7 @@ type escrowPaymentType struct {
 
 func (p *escrowPaymentType) String() string {
 	return fmt.Sprintf("{grpcContext: %v, channelKey: %v, amount: %v, signature: %v, channel: %v}",
-		p.grpcContext, p.channelKey, p.amount, bytesToBase64(p.signature), p.channel)
+		p.grpcContext, p.channelKey, p.amount, BytesToBase64(p.signature), p.channel)
 }
 
 func (h *escrowPaymentHandler) Type() (typ string) {
@@ -211,7 +211,7 @@ func (h *escrowPaymentHandler) Validate(_payment Payment) (err *status.Status) {
 	}
 
 	if *signerAddress != payment.channel.Sender {
-		log.WithField("signerAddress", addressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
+		log.WithField("signerAddress", AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
 		return status.New(codes.Unauthenticated, "payment is not signed by channel sender")
 	}
 
@@ -238,7 +238,7 @@ func (h *escrowPaymentHandler) Validate(_payment Payment) (err *status.Status) {
 
 func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymentType) (signer *common.Address, err *status.Status) {
 	paymentHash := crypto.Keccak256(
-		hashPrefix32Bytes,
+		HashPrefix32Bytes,
 		crypto.Keccak256(
 			h.processor.escrowContractAddress.Bytes(),
 			bigIntToBytes(payment.channelKey.ID),
@@ -252,7 +252,7 @@ func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymen
 		"paymentHash": common.ToHex(paymentHash),
 	})
 
-	v, _, _, e := parseSignature(payment.signature)
+	v, _, _, e := ParseSignature(payment.signature)
 	if e != nil {
 		log.WithError(e).Warn("Error parsing signature")
 		return nil, status.New(codes.Unauthenticated, "payment signature is not valid")

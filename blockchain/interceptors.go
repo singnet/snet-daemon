@@ -49,13 +49,7 @@ type PaymentHandler interface {
 
 // GrpcStreamInterceptor returns gRPC interceptor to validate payment. If
 // blockchain is disabled then noOpInterceptor is returned.
-func GrpcStreamInterceptor(processor *Processor, defaultPaymentHandler PaymentHandler, paymentHandler ...PaymentHandler) grpc.StreamServerInterceptor {
-	if !processor.enabled {
-		log.Info("Blockchain is disabled: no payment validation")
-		return noOpInterceptor
-	}
-
-	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
+func GrpcStreamInterceptor(defaultPaymentHandler PaymentHandler, paymentHandler ...PaymentHandler) grpc.StreamServerInterceptor {
 	interceptor := &paymentValidationInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,
 		paymentHandlers:       make(map[string]PaymentHandler),
@@ -209,7 +203,8 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *status.Statu
 	return array[0], nil
 }
 
-func noOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
+// NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
+func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 	return handler(srv, ss)
 }

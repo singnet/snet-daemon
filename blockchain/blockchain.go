@@ -115,3 +115,7 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 
 	return p, nil
 }
+
+func (processor *Processor) Enabled() (enabled bool) {
+	return processor.enabled
+}

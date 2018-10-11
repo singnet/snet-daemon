@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/db"
+	"github.com/singnet/snet-daemon/handler"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,14 +31,14 @@ type jobPaymentHandler struct {
 }
 
 type jobPaymentType struct {
-	grpcContext       *GrpcStreamContext
+	grpcContext       *handler.GrpcStreamContext
 	jobAddressBytes   []byte
 	jobSignatureBytes []byte
 }
 
 // NewJobPaymentHandler returns an instance of PaymentHandler which validates
 // payments through Job contract.
-func NewJobPaymentHandler(p *Processor) PaymentHandler {
+func NewJobPaymentHandler(p *Processor) handler.PaymentHandler {
 	return &jobPaymentHandler{p: p}
 }
 
@@ -45,13 +46,13 @@ func (h *jobPaymentHandler) Type() (typ string) {
 	return JobPaymentType
 }
 
-func (h *jobPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {
-	jobAddressBytes, err := GetBytesFromHex(context.MD, JobAddressHeader)
+func (h *jobPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *status.Status) {
+	jobAddressBytes, err := handler.GetBytesFromHex(context.MD, JobAddressHeader)
 	if err != nil {
 		return
 	}
 
-	jobSignatureBytes, err := GetBytesFromHex(context.MD, JobSignatureHeader)
+	jobSignatureBytes, err := handler.GetBytesFromHex(context.MD, JobSignatureHeader)
 	if err != nil {
 		return
 	}
@@ -63,7 +64,7 @@ func (h *jobPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment
 	}, nil
 }
 
-func (h *jobPaymentHandler) Validate(_payment Payment) (err *status.Status) {
+func (h *jobPaymentHandler) Validate(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*jobPaymentType)
 
 	valid := h.p.IsValidJobInvocation(payment.jobAddressBytes, payment.jobSignatureBytes)
@@ -74,13 +75,13 @@ func (h *jobPaymentHandler) Validate(_payment Payment) (err *status.Status) {
 	return nil
 }
 
-func (h *jobPaymentHandler) Complete(_payment Payment) (err *status.Status) {
+func (h *jobPaymentHandler) Complete(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*jobPaymentType)
 	h.p.CompleteJob(payment.jobAddressBytes, payment.jobSignatureBytes)
 	return nil
 }
 
-func (h *jobPaymentHandler) CompleteAfterError(_payment Payment, result error) (err *status.Status) {
+func (h *jobPaymentHandler) CompleteAfterError(_payment handler.Payment, result error) (err *status.Status) {
 	return nil
 }
 

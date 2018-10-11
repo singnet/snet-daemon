@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/handler"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -187,7 +188,7 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 		signature = getSignature(&processorMock.escrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount)
 	}
 	return &escrowPaymentType{
-		grpcContext: &GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
+		grpcContext: &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
 		channelKey:  newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
 		amount:      big.NewInt(data.NewAmount),
 		signature:   signature,
@@ -202,7 +203,7 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	}
 }
 
-func getTestContext(data *testPaymentData) *GrpcStreamContext {
+func getTestContext(data *testPaymentData) *handler.GrpcStreamContext {
 	storageMock.Put(
 		newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
 		&PaymentChannelData{
@@ -215,7 +216,7 @@ func getTestContext(data *testPaymentData) *GrpcStreamContext {
 		},
 	)
 	md := getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)
-	return &GrpcStreamContext{
+	return &handler.GrpcStreamContext{
 		MD: md,
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/handler"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -110,7 +111,7 @@ type IncomeData struct {
 	Income *big.Int
 	// GrpcContext contains gRPC stream context information. For instance
 	// metadata could be used to pass invoice id to check pricing.
-	GrpcContext *GrpcStreamContext
+	GrpcContext *handler.GrpcStreamContext
 }
 
 // IncomeValidator uses pricing information to check that call was payed
@@ -118,7 +119,7 @@ type IncomeData struct {
 // depending on pricing policy. For instance one can verify that call is payed
 // according to invoice. Each RPC method can have different price and so on. To
 // implement this strategies additional information from gRPC context can be
-// required. In such case it should be added into GrpcStreamContext.
+// required. In such case it should be added into handler.GrpcStreamContext.
 type IncomeValidator interface {
 	// Validate returns nil if validation is successful or correct gRPC status
 	// to be sent to client in case of validation error.
@@ -132,9 +133,9 @@ type escrowPaymentHandler struct {
 	incomeValidator IncomeValidator
 }
 
-// NewEscrowPaymentHandler returns instance of PaymentHandler to validate
+// NewEscrowPaymentHandler returns instance of handler.PaymentHandler to validate
 // payments via MultiPartyEscrow contract.
-func NewEscrowPaymentHandler(processor *Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) PaymentHandler {
+func NewEscrowPaymentHandler(processor *Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) handler.PaymentHandler {
 	return &escrowPaymentHandler{
 		processor:       processor,
 		storage:         storage,
@@ -143,7 +144,7 @@ func NewEscrowPaymentHandler(processor *Processor, storage PaymentChannelStorage
 }
 
 type escrowPaymentType struct {
-	grpcContext *GrpcStreamContext
+	grpcContext *handler.GrpcStreamContext
 	channelKey  *PaymentChannelKey
 	amount      *big.Int
 	signature   []byte
@@ -159,13 +160,13 @@ func (h *escrowPaymentHandler) Type() (typ string) {
 	return EscrowPaymentType
 }
 
-func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Payment, err *status.Status) {
-	channelID, err := GetBigInt(context.MD, PaymentChannelIDHeader)
+func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *status.Status) {
+	channelID, err := handler.GetBigInt(context.MD, PaymentChannelIDHeader)
 	if err != nil {
 		return
 	}
 
-	channelNonce, err := GetBigInt(context.MD, PaymentChannelNonceHeader)
+	channelNonce, err := handler.GetBigInt(context.MD, PaymentChannelNonceHeader)
 	if err != nil {
 		return
 	}
@@ -177,12 +178,12 @@ func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Paym
 		return nil, status.Newf(codes.InvalidArgument, "payment channel \"%v\" not found", channelKey)
 	}
 
-	amount, err := GetBigInt(context.MD, PaymentChannelAmountHeader)
+	amount, err := handler.GetBigInt(context.MD, PaymentChannelAmountHeader)
 	if err != nil {
 		return
 	}
 
-	signature, err := GetBytes(context.MD, PaymentChannelSignatureHeader)
+	signature, err := handler.GetBytes(context.MD, PaymentChannelSignatureHeader)
 	if err != nil {
 		return
 	}
@@ -196,7 +197,7 @@ func (h *escrowPaymentHandler) Payment(context *GrpcStreamContext) (payment Paym
 	}, nil
 }
 
-func (h *escrowPaymentHandler) Validate(_payment Payment) (err *status.Status) {
+func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
 	var log = log.WithField("payment", payment)
 
@@ -273,7 +274,7 @@ func bigIntToBytes(value *big.Int) []byte {
 	return common.BigToHash(value).Bytes()
 }
 
-func (h *escrowPaymentHandler) Complete(_payment Payment) (err *status.Status) {
+func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
 	e := h.storage.CompareAndSwap(
 		payment.channelKey,
@@ -294,6 +295,6 @@ func (h *escrowPaymentHandler) Complete(_payment Payment) (err *status.Status) {
 	return
 }
 
-func (h *escrowPaymentHandler) CompleteAfterError(_payment Payment, result error) (err *status.Status) {
+func (h *escrowPaymentHandler) CompleteAfterError(_payment handler.Payment, result error) (err *status.Status) {
 	return
 }

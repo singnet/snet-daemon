@@ -1,4 +1,4 @@
-package blockchain
+package handler
 
 import (
 	"github.com/stretchr/testify/assert"

@@ -18,6 +18,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
 	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
@@ -218,18 +219,18 @@ func (d daemon) start() {
 	} else {
 		log.Debug("starting simple HTTP daemon")
 
-		go http.Serve(d.lis, handlers.CORS(corsOptions...)(handler.NewHTTPHandler(d.blockProc)))
+		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
 }
 
 func getGrpcInterceptor(processor *blockchain.Processor) grpc.StreamServerInterceptor {
 	if !processor.Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
-		return blockchain.NoOpInterceptor
+		return handler.NoOpInterceptor
 	}
 
 	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-	return blockchain.GrpcStreamInterceptor(
+	return handler.GrpcStreamInterceptor(
 		blockchain.NewJobPaymentHandler(processor),
 		blockchain.NewEscrowPaymentHandler(processor, nil, nil),
 	)

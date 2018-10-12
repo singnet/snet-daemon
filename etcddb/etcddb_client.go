@@ -2,9 +2,19 @@ package etcddb
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
+)
+
+const (
+	// ConnectionTimeout connectio timeout
+	ConnectionTimeout = 5 * time.Second
+
+	// RequestTimeout connectio timeout
+	RequestTimeout = 5 * time.Second
 )
 
 // EtcdClient struct has some useful methods to wolrk with etcd client
@@ -14,7 +24,7 @@ type EtcdClient struct {
 }
 
 // NewEtcdClient create new etcd storage client
-func NewEtcdClient(connectionTimeout time.Duration, callTimeout time.Duration, endpoints []string) (*EtcdClient, error) {
+func NewEtcdClient(connectionTimeout time.Duration, requestTimeout time.Duration, endpoints []string) (*EtcdClient, error) {
 	etcdv3, err := clientv3.New(clientv3.Config{
 		Endpoints:   endpoints,
 		DialTimeout: connectionTimeout,
@@ -24,7 +34,7 @@ func NewEtcdClient(connectionTimeout time.Duration, callTimeout time.Duration, e
 		return nil, err
 	}
 
-	return &EtcdClient{timeout: callTimeout, etcdv3: etcdv3}, nil
+	return &EtcdClient{timeout: requestTimeout, etcdv3: etcdv3}, nil
 }
 
 // Get gets value from etcd by key
@@ -86,4 +96,21 @@ func byteArraytoString(bytes []byte) string {
 
 func stringToByteArray(str string) []byte {
 	return []byte(str)
+}
+
+// GetPaymentChannelEndpoints returns endpoints from cluster string
+func GetPaymentChannelEndpoints(cluster string) (endpoints []string, err error) {
+
+	for _, nameAndEndpoint := range strings.Split(cluster, ",") {
+		nameAndEndpoint = strings.TrimSpace(nameAndEndpoint)
+		index := strings.Index(nameAndEndpoint, "=")
+		if index <= 0 || index >= len(nameAndEndpoint)-1 {
+			err = errors.New("cluster string does not have format name=host:port[,name=host:port]+ " + cluster)
+			return
+		}
+		endpoint := nameAndEndpoint[index+1 : len(nameAndEndpoint)]
+		endpoints = append(endpoints, endpoint)
+	}
+
+	return
 }

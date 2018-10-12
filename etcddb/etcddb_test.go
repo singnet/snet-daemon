@@ -82,6 +82,43 @@ func TestPaymentChannelStorageConf(t *testing.T) {
 	assert.NotNil(t, etcd)
 
 	defer etcd.Close()
+
+	cluster := GetPaymentChannelCluster(vip)
+	endpoints, err := GetPaymentChannelEndpoints(cluster)
+
+	assert.Nil(t, err)
+
+	client, err := NewEtcdClient(ConnectionTimeout, RequestTimeout, endpoints)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, client)
+	defer client.Close()
+
+	key := "key"
+	value := "value"
+	err = client.Put(stringToByteArray(key), stringToByteArray(value))
+	assert.Nil(t, err)
+
+	getResult, err := client.Get(stringToByteArray(key))
+	assert.Nil(t, err)
+	assert.Equal(t, value, byteArraytoString(getResult))
+}
+
+func TestGetClusterEndpoints(t *testing.T) {
+
+	checkGetClusterEndpoints(t, "storage_1=http://127.0.0.1:2380", []string{"http://127.0.0.1:2380"})
+	checkGetClusterEndpoints(
+		t,
+		"storage_1=http://127.0.0.1:2380,storage_2=http://127.0.0.1:2480",
+		[]string{"http://127.0.0.1:2380", "http://127.0.0.1:2480"},
+	)
+}
+
+func checkGetClusterEndpoints(t *testing.T, cluster string, expects []string) {
+
+	endpoints, err := GetPaymentChannelEndpoints(cluster)
+	assert.Nil(t, err)
+	assert.Equal(t, expects, endpoints)
 }
 
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {

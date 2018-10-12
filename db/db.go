@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/coreos/bbolt"
+	bolt "github.com/coreos/bbolt"
 	"github.com/pkg/errors"
 )
 

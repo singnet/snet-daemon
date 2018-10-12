@@ -15,41 +15,47 @@ func NewCombinedStorage(processor *blockchain.Processor, delegate PaymentChannel
 	return nil
 }
 
-func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChannelData, err error) {
+func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
 	log := log.WithField("key", key)
 
-	state, err = storage.delegate.Get(key)
-	if err == nil {
+	state, ok, err = storage.delegate.Get(key)
+	if ok && err == nil {
 		return
+	}
+	if err != nil {
+		return nil, false, err
 	}
 	log.Info("Channel key is not found in storage")
 
-	state, err = storage.getChannelStateFromBlockchain(key)
-	if err != nil {
+	state, ok, err = storage.getChannelStateFromBlockchain(key)
+	if !ok || err != nil {
 		return
 	}
 	log.WithField("state", state).Info("Channel found in blockchain")
 
-	err = storage.CompareAndSwap(key, nil, state)
+	ok, err = storage.CompareAndSwap(key, nil, state)
 	if err != nil {
-		log.Error("Cannot save channel in storage by key")
 		return
+	}
+	if !ok {
+		log.Warn("Key is already present in the storage")
+		return nil, false, err
 	}
 	log.WithField("state", state).Info("Channel saved in storage")
 
 	return
 }
 
-func (storage *combinedStorage) getChannelStateFromBlockchain(key *PaymentChannelKey) (state *PaymentChannelData, err error) {
+func (storage *combinedStorage) getChannelStateFromBlockchain(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
 	// TODO: implement
-	return nil, errors.New("not implemented yet")
+	return nil, false, errors.New("not implemented yet")
 }
 
 func (storage *combinedStorage) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
 	return storage.delegate.Put(key, state)
 }
 
-func (storage *combinedStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (err error) {
+func (storage *combinedStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }
 

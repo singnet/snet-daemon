@@ -79,7 +79,7 @@ type PaymentChannelData struct {
 // id.
 type PaymentChannelStorage interface {
 	// Get returns channel information by channel id.
-	Get(key *PaymentChannelKey) (paymentChannel *PaymentChannelData, err error)
+	Get(key *PaymentChannelKey) (state *PaymentChannelData, err error)
 	// Put writes channel information by channel id.
 	Put(key *PaymentChannelKey, state *PaymentChannelData) (err error)
 	// CompareAndSwap atomically replaces old payment channel state by new

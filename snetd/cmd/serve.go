@@ -188,7 +188,7 @@ func (d daemon) start() {
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
-			grpc.StreamInterceptor(getGrpcInterceptor(&d.blockProc)),
+			grpc.StreamInterceptor(d.getGrpcInterceptor()),
 		)
 
 		mux := cmux.New(d.lis)
@@ -224,16 +224,22 @@ func (d daemon) start() {
 	}
 }
 
-func getGrpcInterceptor(processor *blockchain.Processor) grpc.StreamServerInterceptor {
-	if !processor.Enabled() {
+func (d *daemon) getGrpcInterceptor() grpc.StreamServerInterceptor {
+	if !d.blockProc.Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
 		return handler.NoOpInterceptor
 	}
 
 	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
 	return handler.GrpcStreamInterceptor(
-		blockchain.NewJobPaymentHandler(processor),
-		escrow.NewEscrowPaymentHandler(processor, nil, nil),
+		blockchain.NewJobPaymentHandler(&d.blockProc),
+		escrow.NewEscrowPaymentHandler(
+			&d.blockProc,
+			escrow.NewCombinedStorage(
+				&d.blockProc,
+				escrow.NewDbStorage(d.boltDB)),
+			nil,
+		),
 	)
 }
 

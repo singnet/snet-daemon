@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -40,11 +41,13 @@ func generatePrivateKey() (privateKey *ecdsa.PrivateKey) {
 type channelStorageKey string
 
 type storageMockType struct {
-	data map[channelStorageKey]*PaymentChannelData
+	data   map[channelStorageKey]*PaymentChannelData
+	errors map[channelStorageKey]bool
 }
 
 var storageMock = storageMockType{
-	data: make(map[channelStorageKey]*PaymentChannelData),
+	data:   make(map[channelStorageKey]*PaymentChannelData),
+	errors: make(map[channelStorageKey]bool),
 }
 
 func getChannelStorageKey(key *PaymentChannelKey) channelStorageKey {
@@ -56,27 +59,32 @@ func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChan
 	return nil
 }
 
-func (storage *storageMockType) Get(key *PaymentChannelKey) (channel *PaymentChannelData, err error) {
-	channel, ok := storage.data[getChannelStorageKey(key)]
-	if !ok {
-		return nil, fmt.Errorf("No value for key: \"%v\"", key)
+func (storage *storageMockType) Get(_key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	key := getChannelStorageKey(_key)
+	if storage.errors[key] {
+		return nil, false, errors.New("storage error")
 	}
-	return channel, nil
+	channel, ok = storage.data[key]
+	if !ok {
+		return nil, false, nil
+	}
+	return channel, true, nil
 }
 
-func (storage *storageMockType) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (err error) {
-	current, err := storage.Get(key)
-	if err != nil {
+func (storage *storageMockType) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
+	current, ok, err := storage.Get(key)
+	if !ok || err != nil {
 		return
 	}
 	if toJSON(current) != toJSON(prevState) {
-		return fmt.Errorf("Current state is not equal to expected, current: %v, expected: %v", current, prevState)
+		return false, nil
 	}
-	return storage.Put(key, newState)
+	return true, storage.Put(key, newState)
 }
 
 func (storage *storageMockType) Clear() {
 	storage.data = make(map[channelStorageKey]*PaymentChannelData)
+	storage.errors = make(map[channelStorageKey]bool)
 }
 
 type incomeValidatorMockType struct {
@@ -344,9 +352,20 @@ func TestGetPaymentNoChannelAmount(t *testing.T) {
 	assert.Equal(t, status.New(codes.InvalidArgument, "missing \"snet-payment-channel-amount\""), err)
 }
 
+func TestGetPaymentStorageError(t *testing.T) {
+	context := getTestContext(defaultData)
+	storageMock.errors[getChannelStorageKey(newPaymentChannelKey(defaultData.ChannelID, defaultData.ChannelNonce))] = true
+	defer clearTestContext()
+
+	_, err := paymentHandler.Payment(context)
+
+	assert.Equal(t, status.New(codes.Internal, "payment channel storage error"), err)
+}
+
 func TestGetPaymentNoChannel(t *testing.T) {
 	context := getTestContext(defaultData)
 	storageMock.Clear()
+	defer clearTestContext()
 
 	_, err := paymentHandler.Payment(context)
 
@@ -379,9 +398,19 @@ func TestValidatePaymentChannelIsNotOpen(t *testing.T) {
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel \"{ID: 42, Nonce: 3}\" is not opened"), err)
 }
 
-func TestValidatePaymentIncorrectSignature(t *testing.T) {
+func TestValidatePaymentIncorrectSignatureLength(t *testing.T) {
 	payment := getTestPayment(patchDefaultData(func(d D) {
 		d.Signature = blockchain.HexToBytes("0x0000")
+	}))
+
+	err := paymentHandler.Validate(payment)
+
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment signature is not valid"), err)
+}
+
+func TestValidatePaymentIncorrectSignatureChecksum(t *testing.T) {
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.Signature = blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef21")
 	}))
 
 	err := paymentHandler.Validate(payment)
@@ -441,13 +470,15 @@ func TestCompletePayment(t *testing.T) {
 		d.NewAmount = 12345
 	})
 	getTestContext(data)
+	defer clearTestContext()
 	payment := getTestPayment(data)
 
 	err := paymentHandler.Complete(payment)
-	channelState, e := storageMock.Get(newPaymentChannelKey(43, 4))
+	channelState, ok, e := storageMock.Get(newPaymentChannelKey(43, 4))
 
 	assert.Nil(t, err)
 	assert.Nil(t, e)
+	assert.True(t, ok)
 	assert.Equal(t, toJSON(&PaymentChannelData{
 		State:            Open,
 		Sender:           testPublicKey,
@@ -466,8 +497,25 @@ func TestCompletePaymentCannotUpdateChannel(t *testing.T) {
 		d.NewAmount = 12345
 	})
 	payment := getTestPayment(data)
+	storageMock.errors[getChannelStorageKey(newPaymentChannelKey(43, 4))] = true
+	defer clearTestContext()
 
 	err := paymentHandler.Complete(payment)
 
 	assert.Equal(t, status.New(codes.Internal, "unable to store new payment channel state"), err)
+}
+
+func TestCompletePaymentConcurrentUpdate(t *testing.T) {
+	data := patchDefaultData(func(d D) {
+		d.ChannelID = 43
+		d.ChannelNonce = 4
+		d.FullAmount = 12346
+		d.NewAmount = 12345
+	})
+	clearTestContext()
+	payment := getTestPayment(data)
+
+	err := paymentHandler.Complete(payment)
+
+	assert.Equal(t, status.New(codes.Unauthenticated, "state of payment channel \"{ID: 43, Nonce: 4}\" was concurrently updated"), err)
 }

@@ -78,13 +78,16 @@ type PaymentChannelData struct {
 // PaymentChannelStorage is an interface to get channel information by channel
 // id.
 type PaymentChannelStorage interface {
-	// Get returns channel information by channel id.
-	Get(key *PaymentChannelKey) (paymentChannel *PaymentChannelData, err error)
+	// Get returns channel information by channel id. ok value indicates
+	// whether passed key was found. err indicates storage error.
+	Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error)
 	// Put writes channel information by channel id.
 	Put(key *PaymentChannelKey, state *PaymentChannelData) (err error)
 	// CompareAndSwap atomically replaces old payment channel state by new
-	// state.
-	CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (err error)
+	// state. If ok flag is true and err is nil then operation was successful.
+	// If err is nil and ok is false then operation failed because prevState is
+	// not equal to current state. err indicates storage error.
+	CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error)
 }
 
 func (key PaymentChannelKey) String() string {
@@ -173,9 +176,12 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 	}
 
 	channelKey := &PaymentChannelKey{channelID, channelNonce}
-	channel, e := h.storage.Get(channelKey)
+	channel, ok, e := h.storage.Get(channelKey)
 	if e != nil {
-		log.WithError(e).Warn("Payment channel not found")
+		return nil, status.Newf(codes.Internal, "payment channel storage error")
+	}
+	if !ok {
+		log.Warn("Payment channel not found")
 		return nil, status.Newf(codes.InvalidArgument, "payment channel \"%v\" not found", channelKey)
 	}
 
@@ -277,7 +283,7 @@ func bigIntToBytes(value *big.Int) []byte {
 
 func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
-	e := h.storage.CompareAndSwap(
+	ok, e := h.storage.CompareAndSwap(
 		payment.channelKey,
 		payment.channel,
 		&PaymentChannelData{
@@ -293,6 +299,11 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 		log.WithError(e).Error("Unable to store new payment channel state")
 		return status.New(codes.Internal, "unable to store new payment channel state")
 	}
+	if !ok {
+		log.WithField("payment", payment).Warn("Channel state was changed concurrently")
+		return status.Newf(codes.Unauthenticated, "state of payment channel \"%v\" was concurrently updated", payment.channelKey)
+	}
+
 	return
 }
 

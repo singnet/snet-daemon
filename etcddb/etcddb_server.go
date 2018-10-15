@@ -10,8 +10,16 @@ import (
 	"go.etcd.io/etcd/embed"
 )
 
+// EtcdServer struct has some useful methods to wolrk with etcd server
+type EtcdServer struct {
+	etcd *embed.Etcd
+}
+
 // InitEtcdServer run etcd server according to the config
-func InitEtcdServer(vip *viper.Viper) (etcd *embed.Etcd, err error) {
+// reuturns null if PAYMENT_CHANNEL_STORAGE property is not defined
+// in the config file or the ENABLED field of the PAYMENT_CHANNEL_STORAGE
+// is set to false
+func InitEtcdServer(vip *viper.Viper) (server *EtcdServer, err error) {
 
 	cluster := GetPaymentChannelCluster(vip)
 
@@ -21,13 +29,20 @@ func InitEtcdServer(vip *viper.Viper) (etcd *embed.Etcd, err error) {
 		return
 	}
 
-	return StartEtcdServer(conf, cluster)
+	etcd, err := startEtcdServer(conf, cluster)
+	server = &EtcdServer{etcd: etcd}
+	return
+}
+
+// Close closes etcd server
+func (server *EtcdServer) Close() {
+	server.etcd.Close()
 }
 
 // StartEtcdServer starts ectd server
 // The method blocks until the server is started
 // or failed by timeout
-func StartEtcdServer(
+func startEtcdServer(
 	conf *PaymentChannelStorageConf,
 	cluster string,
 ) (etcd *embed.Etcd, err error) {

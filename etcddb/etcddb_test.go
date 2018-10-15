@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEmptyPaymentChannelStorageConf(t *testing.T) {
+func TestEmptyEtcdServerConf(t *testing.T) {
 
 	const confJSON = `
 	{
@@ -24,9 +24,31 @@ func TestEmptyPaymentChannelStorageConf(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Nil(t, conf)
 
+	server, err := InitEtcdServer(vip)
+
+	assert.Nil(t, err)
+	assert.Nil(t, server)
 }
 
-func TestConfigParsing(t *testing.T) {
+func TestDisabledEtcdServerConf(t *testing.T) {
+
+	const confJSON = `
+		{
+			"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380",
+
+			"PAYMENT_CHANNEL_STORAGE": {
+				"ENABLED": false
+			}
+		}`
+
+	vip := readConfig(t, confJSON)
+	server, err := InitEtcdServer(vip)
+
+	assert.Nil(t, err)
+	assert.Nil(t, server)
+}
+
+func TestEnabledEtcdServerConf(t *testing.T) {
 
 	const confJSON = `
 	{
@@ -34,6 +56,7 @@ func TestConfigParsing(t *testing.T) {
 
 		"PAYMENT_CHANNEL_STORAGE": {
 			"ID": "storage_1",
+			"HOST" : "127.0.0.1",
 			"CLIENT_PORT": 2379,
 			"PEER_PORT": 2380,
 			"TOKEN": "payment_channel_storage_token",
@@ -42,7 +65,6 @@ func TestConfigParsing(t *testing.T) {
 	}`
 
 	vip := readConfig(t, confJSON)
-
 	cluster := GetPaymentChannelCluster(vip)
 	assert.Equal(t, "storage_1=http://127.0.0.1:2380", cluster)
 
@@ -52,13 +74,19 @@ func TestConfigParsing(t *testing.T) {
 	assert.NotNil(t, conf)
 
 	assert.Equal(t, "storage_1", conf.ID)
+	assert.Equal(t, "127.0.0.1", conf.Host)
 	assert.Equal(t, 2379, conf.ClientPort)
 	assert.Equal(t, 2380, conf.PeerPort)
 	assert.Equal(t, "payment_channel_storage_token", conf.Token)
 	assert.Equal(t, true, conf.Enabled)
-}
 
-func TestPaymentChannelStorageConf(t *testing.T) {
+	server, err := InitEtcdServer(vip)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, server)
+	defer server.Close()
+}
+func TestPaymentChannelStorageReadWrite(t *testing.T) {
 
 	const confJSON = `
 	{
@@ -76,12 +104,12 @@ func TestPaymentChannelStorageConf(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	etcd, err := InitEtcdServer(vip)
+	server, err := InitEtcdServer(vip)
 
 	assert.Nil(t, err)
-	assert.NotNil(t, etcd)
+	assert.NotNil(t, server)
 
-	defer etcd.Close()
+	defer server.Close()
 
 	cluster := GetPaymentChannelCluster(vip)
 	endpoints, err := GetPaymentChannelEndpoints(cluster)

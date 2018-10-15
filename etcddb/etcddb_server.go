@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.etcd.io/etcd/embed"
 )
@@ -76,10 +77,12 @@ func getEtcdConf(conf *PaymentChannelStorageServerConf, cluster string) *embed.C
 		Host:   fmt.Sprintf("%s:%d", conf.Host, conf.PeerPort),
 	}
 
-	fmt.Printf("name: '%s'\n", conf.ID)
-	fmt.Printf("client url: '%v'\n", clientURL)
-	fmt.Printf("peer   url: '%v'\n", peerURL)
-	fmt.Printf("initial cluster: '%s'\n", cluster)
+	log.WithFields(log.Fields{
+		"etcd id":         conf.ID,
+		"client url":      clientURL,
+		"peer   url":      peerURL,
+		"initial cluster": cluster,
+	}).Debug()
 
 	etcdConf := embed.NewConfig()
 	etcdConf.Name = conf.ID

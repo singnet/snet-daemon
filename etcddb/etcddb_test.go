@@ -157,6 +157,62 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 	assert.Equal(t, value, byteArraytoString(getResult))
 }
 
+func TestPaymentChannelStorageCAS(t *testing.T) {
+
+	const confJSON = `
+	{
+		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380",
+
+		"PAYMENT_CHANNEL_STORAGE_SERVER": {
+			"ID": "storage_1",
+			"HOST" : "127.0.0.1",
+			"TOKEN": "unique_payment_channel_cluster_token"
+		}
+	}`
+
+	vip := readConfig(t, confJSON)
+
+	server, err := InitEtcdServer(vip)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, server)
+
+	defer server.Close()
+
+	client, err := NewEtcdClient(vip)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, client)
+
+	defer client.Close()
+
+	key := "key"
+	expect := "expect"
+	update := "update"
+
+	err = client.Put(stringToByteArray(key), stringToByteArray(expect))
+	assert.Nil(t, err)
+
+	ok, err := client.CompareAndSet(
+		stringToByteArray(key),
+		stringToByteArray(expect),
+		stringToByteArray(update),
+	)
+	assert.Nil(t, err)
+	assert.True(t, ok)
+
+	updateResult, err := client.Get(stringToByteArray(key))
+	assert.Nil(t, err)
+	assert.Equal(t, update, byteArraytoString(updateResult))
+
+	ok, err = client.CompareAndSet(
+		stringToByteArray(key),
+		stringToByteArray(expect),
+		stringToByteArray(update),
+	)
+	assert.Nil(t, err)
+	assert.False(t, ok)
+}
 func TestMissedEndpoints(t *testing.T) {
 
 	endpoints, err := getPaymentChannelEndpoints("")

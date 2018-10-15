@@ -70,8 +70,9 @@ func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
 func (client *EtcdClient) Get(key []byte) ([]byte, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
-	response, err := client.etcdv3.Get(ctx, byteArraytoString(key))
 	defer cancel()
+
+	response, err := client.etcdv3.Get(ctx, byteArraytoString(key))
 
 	if err != nil {
 		return nil, err
@@ -88,8 +89,9 @@ func (client *EtcdClient) Put(key []byte, value []byte) error {
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
-	_, err := etcdv3.Put(ctx, byteArraytoString(key), byteArraytoString(value))
 	defer cancel()
+
+	_, err := etcdv3.Put(ctx, byteArraytoString(key), byteArraytoString(value))
 
 	return err
 }

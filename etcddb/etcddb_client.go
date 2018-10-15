@@ -6,15 +6,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/viper"
 	"go.etcd.io/etcd/clientv3"
 )
 
 const (
-	// ConnectionTimeout connectio timeout
-	ConnectionTimeout = 5 * time.Second
+	// DefaultConnectionTimeout connection timeout in seconds
+	DefaultConnectionTimeout = 5
 
-	// RequestTimeout connectio timeout
-	RequestTimeout = 5 * time.Second
+	// DefaultRequestTimeout connection timeout in seconds
+	DefaultRequestTimeout = 5
 )
 
 // EtcdClient struct has some useful methods to wolrk with etcd client
@@ -23,18 +24,46 @@ type EtcdClient struct {
 	etcdv3  *clientv3.Client
 }
 
-// NewEtcdClient create new etcd storage client
-func NewEtcdClient(connectionTimeout time.Duration, requestTimeout time.Duration, endpoints []string) (*EtcdClient, error) {
+// NewEtcdClient create new etcd storage client.
+// It uses default connection and request timeouts in case
+// PAYMENT_CHANNEL_STORAGE_CLIENT struct is not set
+func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
+
+	cluster := GetPaymentChannelCluster(vip)
+	endpoints, err := getPaymentChannelEndpoints(cluster)
+
+	if err != nil {
+		return
+	}
+
+	conf, err := GetPaymentChannelStorageClientConf(vip)
+
+	if err != nil {
+		return
+	}
+
+	if conf == nil {
+		conf = &PaymentChannelStorageClientConf{
+			ConnectionTimeout: DefaultConnectionTimeout,
+			RequestTimeout:    DefaultRequestTimeout,
+		}
+	}
+
+	connectionTimeout := time.Duration(conf.ConnectionTimeout) * time.Second
+
 	etcdv3, err := clientv3.New(clientv3.Config{
 		Endpoints:   endpoints,
 		DialTimeout: connectionTimeout,
 	})
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return &EtcdClient{timeout: requestTimeout, etcdv3: etcdv3}, nil
+	requestTimeout := time.Duration(conf.RequestTimeout) * time.Second
+	client = &EtcdClient{timeout: requestTimeout, etcdv3: etcdv3}
+
+	return
 }
 
 // Get gets value from etcd by key
@@ -98,8 +127,7 @@ func stringToByteArray(str string) []byte {
 	return []byte(str)
 }
 
-// GetPaymentChannelEndpoints returns endpoints from cluster string
-func GetPaymentChannelEndpoints(cluster string) (endpoints []string, err error) {
+func getPaymentChannelEndpoints(cluster string) (endpoints []string, err error) {
 
 	for _, nameAndEndpoint := range strings.Split(cluster, ",") {
 		nameAndEndpoint = strings.TrimSpace(nameAndEndpoint)

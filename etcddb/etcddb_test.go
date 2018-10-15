@@ -20,7 +20,7 @@ func TestEmptyEtcdServerConf(t *testing.T) {
 	cluster := GetPaymentChannelCluster(vip)
 	assert.Equal(t, "storage_1=http://127.0.0.1:2380", cluster)
 
-	conf, err := GetPaymentChannelStorageConf(vip)
+	conf, err := GetPaymentChannelStorageServerConf(vip)
 	assert.Nil(t, err)
 	assert.Nil(t, conf)
 
@@ -36,7 +36,7 @@ func TestDisabledEtcdServerConf(t *testing.T) {
 		{
 			"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380",
 
-			"PAYMENT_CHANNEL_STORAGE": {
+			"PAYMENT_CHANNEL_STORAGE_SERVER": {
 				"ENABLED": false
 			}
 		}`
@@ -54,12 +54,12 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	{
 		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380",
 
-		"PAYMENT_CHANNEL_STORAGE": {
+		"PAYMENT_CHANNEL_STORAGE_SERVER": {
 			"ID": "storage_1",
 			"HOST" : "127.0.0.1",
 			"CLIENT_PORT": 2379,
 			"PEER_PORT": 2380,
-			"TOKEN": "payment_channel_storage_token",
+			"TOKEN": "unique_payment_channel_cluster_token",
 			"ENABLED": true
 		}
 	}`
@@ -68,7 +68,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	cluster := GetPaymentChannelCluster(vip)
 	assert.Equal(t, "storage_1=http://127.0.0.1:2380", cluster)
 
-	conf, err := GetPaymentChannelStorageConf(vip)
+	conf, err := GetPaymentChannelStorageServerConf(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -77,7 +77,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", conf.Host)
 	assert.Equal(t, 2379, conf.ClientPort)
 	assert.Equal(t, 2380, conf.PeerPort)
-	assert.Equal(t, "payment_channel_storage_token", conf.Token)
+	assert.Equal(t, "unique_payment_channel_cluster_token", conf.Token)
 	assert.Equal(t, true, conf.Enabled)
 
 	server, err := InitEtcdServer(vip)
@@ -86,18 +86,48 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.NotNil(t, server)
 	defer server.Close()
 }
+
+func TestEtcdClientConf(t *testing.T) {
+
+	const confJSON = `
+	{
+		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380",
+
+		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
+			"CONNECTION_TIMEOUT": 15,
+			"REQUEST_TIMEOUT": 5
+		}
+	}`
+
+	vip := readConfig(t, confJSON)
+	cluster := GetPaymentChannelCluster(vip)
+	assert.Equal(t, "storage_1=http://127.0.0.1:2380", cluster)
+
+	conf, err := GetPaymentChannelStorageClientConf(vip)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, conf)
+	assert.Equal(t, 15, conf.ConnectionTimeout)
+	assert.Equal(t, 5, conf.RequestTimeout)
+}
+
 func TestPaymentChannelStorageReadWrite(t *testing.T) {
 
 	const confJSON = `
 	{
 		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380",
 
-		"PAYMENT_CHANNEL_STORAGE": {
+		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
+			"CONNECTION_TIMEOUT": 5,
+			"REQUEST_TIMEOUT": 3
+		},
+
+		"PAYMENT_CHANNEL_STORAGE_SERVER": {
 			"ID": "storage_1",
 			"HOST" : "127.0.0.1",			
 			"CLIENT_PORT": 2379,
 			"PEER_PORT": 2380,
-			"TOKEN": "payment_channel_storage_token",
+			"TOKEN": "unique_payment_channel_cluster_token",
 			"ENABLED": true
 		}
 	}`
@@ -111,12 +141,7 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 
 	defer server.Close()
 
-	cluster := GetPaymentChannelCluster(vip)
-	endpoints, err := GetPaymentChannelEndpoints(cluster)
-
-	assert.Nil(t, err)
-
-	client, err := NewEtcdClient(ConnectionTimeout, RequestTimeout, endpoints)
+	client, err := NewEtcdClient(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
@@ -132,6 +157,13 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 	assert.Equal(t, value, byteArraytoString(getResult))
 }
 
+func TestMissedEndpoints(t *testing.T) {
+
+	endpoints, err := getPaymentChannelEndpoints("")
+	assert.NotNil(t, err)
+	assert.Nil(t, endpoints)
+}
+
 func TestGetClusterEndpoints(t *testing.T) {
 
 	checkGetClusterEndpoints(t, "storage_1=http://127.0.0.1:2380", []string{"http://127.0.0.1:2380"})
@@ -144,7 +176,8 @@ func TestGetClusterEndpoints(t *testing.T) {
 
 func checkGetClusterEndpoints(t *testing.T, cluster string, expects []string) {
 
-	endpoints, err := GetPaymentChannelEndpoints(cluster)
+	endpoints, err := getPaymentChannelEndpoints(cluster)
+
 	assert.Nil(t, err)
 	assert.Equal(t, expects, endpoints)
 }

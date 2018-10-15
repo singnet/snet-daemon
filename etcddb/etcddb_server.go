@@ -23,7 +23,7 @@ func InitEtcdServer(vip *viper.Viper) (server *EtcdServer, err error) {
 
 	cluster := GetPaymentChannelCluster(vip)
 
-	conf, err := GetPaymentChannelStorageConf(vip)
+	conf, err := GetPaymentChannelStorageServerConf(vip)
 
 	if err != nil || conf == nil || !conf.Enabled {
 		return
@@ -43,7 +43,7 @@ func (server *EtcdServer) Close() {
 // The method blocks until the server is started
 // or failed by timeout
 func startEtcdServer(
-	conf *PaymentChannelStorageConf,
+	conf *PaymentChannelStorageServerConf,
 	cluster string,
 ) (etcd *embed.Etcd, err error) {
 
@@ -64,7 +64,7 @@ func startEtcdServer(
 	return
 }
 
-func getEtcdConf(conf *PaymentChannelStorageConf, cluster string) *embed.Config {
+func getEtcdConf(conf *PaymentChannelStorageServerConf, cluster string) *embed.Config {
 
 	clientURL := &url.URL{
 		Scheme: conf.Scheme,
@@ -99,6 +99,9 @@ func getEtcdConf(conf *PaymentChannelStorageConf, cluster string) *embed.Config 
 
 	// --initial-cluster
 	etcdConf.InitialCluster = cluster
+
+	//--initial-cluster-token
+	etcdConf.InitialClusterToken = conf.Token
 
 	//  --initial-cluster-state
 	etcdConf.ClusterState = embed.ClusterStateFlagNew

@@ -5,6 +5,7 @@ snetd.db
 snetd.config.json
 /vendor/
 blockchain/agent.go
+blockchain/multi_party_escrow.go
 /build/
 
 # Binaries for programs and plugins

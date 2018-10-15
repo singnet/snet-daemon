@@ -1,15 +1,39 @@
 package etcddb
 
 import (
+	"encoding/json"
+	"strings"
+
 	"github.com/spf13/viper"
 )
 
 const (
+	// PaymentChannelStorageClientKey key for viper
+	PaymentChannelStorageClientKey = "payment_channel_storage_client"
+
+	// DefaultPaymentChannelStorageClientConf default client conf
+	DefaultPaymentChannelStorageClientConf = `
+	{
+        "CONNECTION_TIMEOUT": 5,
+        "REQUEST_TIMEOUT": 3
+    }`
+
 	// PaymentChannelStorageServerKey key for viper
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 
-	// PaymentChannelStorageClientKey key for viper
-	PaymentChannelStorageClientKey = "payment_channel_storage_client"
+	// DefaultPaymentChannelStorageServerConf default server conf
+	// Note that running snet-daemon with several replicas require
+	// that the default configuration file should be updated
+	// according to the real information about etcd nodes in cluster
+	DefaultPaymentChannelStorageServerConf = `
+	{
+        "ID": "storage-1",
+        "HOST" : "127.0.0.1",
+        "CLIENT_PORT": 2379,
+        "PEER_PORT": 2380,
+        "TOKEN": "unique-token",
+        "ENABLED": true
+    }`
 )
 
 // PaymentChannelStorageServerConf contains embedded etcd server config
@@ -43,13 +67,18 @@ func GetPaymentChannelCluster(vip *viper.Viper) string {
 }
 
 // GetPaymentChannelStorageServerConf gets PaymentChannelStorageServerConf from viper
+// The DefaultPaymentChannelStorageServerConf is used in case the PAYMENT_CHANNEL_STORAGE_SERVER field
+// is not set in the configuration file
 func GetPaymentChannelStorageServerConf(vip *viper.Viper) (conf *PaymentChannelStorageServerConf, err error) {
 
+	conf = &PaymentChannelStorageServerConf{Scheme: "http", ClientPort: 2379, PeerPort: 2380, Enabled: true}
+
 	if vip.Get(PaymentChannelStorageServerKey) == nil {
+		defaultConf := normalizeDefaultConf(DefaultPaymentChannelStorageServerConf)
+		err = json.Unmarshal([]byte(defaultConf), conf)
 		return
 	}
 
-	conf = &PaymentChannelStorageServerConf{Scheme: "http", ClientPort: 2379, PeerPort: 2380, Enabled: true}
 	err = vip.UnmarshalKey(PaymentChannelStorageServerKey, conf)
 	return
 }
@@ -63,14 +92,23 @@ type PaymentChannelStorageClientConf struct {
 }
 
 // GetPaymentChannelStorageClientConf gets PaymentChannelStorageServerConf from viper
+// The DefaultPaymentChannelStorageClientConf is used in case the PAYMENT_CHANNEL_STORAGE_CLIENT field
+// is not set in the configuration file
 func GetPaymentChannelStorageClientConf(vip *viper.Viper) (conf *PaymentChannelStorageClientConf, err error) {
 
+	conf = &PaymentChannelStorageClientConf{ConnectionTimeout: 5, RequestTimeout: 3}
+
 	if vip.Get(PaymentChannelStorageClientKey) == nil {
+		defaultConf := normalizeDefaultConf(DefaultPaymentChannelStorageClientConf)
+		err = json.Unmarshal([]byte(defaultConf), conf)
 		return
 	}
 
-	conf = &PaymentChannelStorageClientConf{}
 	err = vip.UnmarshalKey(PaymentChannelStorageClientKey, conf)
 
 	return
+}
+
+func normalizeDefaultConf(conf string) string {
+	return strings.Replace(conf, "_", "", -1)
 }

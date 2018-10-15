@@ -9,7 +9,7 @@ This field is used both by etcd server and client:
 
 ```json
 {
-  "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_2=http://127.0.0.2:2380,storage_3=http://127.0.0.3:2380"
+  "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380"
 }
 ```
 
@@ -20,12 +20,12 @@ contain the JSON map with name *PAYMENT_CHANNEL_STORAGE_SERVER* and values:
 
 | Field name  | Description                                        |Default Value|
 |-------------|----------------------------------------------------|-------------|
-| ID          | unique name of the etcd server node                |             |
+| ID          | unique name of the etcd server node                |storage-1    |
 | SCHEMA      | URL schema used to create client and peer and urls |http         |
-| HOST        | host where the etcd server is executed             |             |
+| HOST        | host where the etcd server is executed             |127.0.0.1    |
 | CLIENT_PORT | port to listen clients requests                    |2379         |
 | PEER_PORT   | port to listen etcd peers                          |2380         |
-| TOKEN       | unique initial cluster token                       |             |
+| TOKEN       | unique initial cluster token                       |unique-token |
 | ENABLED     | enable running embedded etcd server                |true         |
 
 
@@ -44,7 +44,7 @@ Config for snet-daemon that does not run embedded etcd node:
 
 ```json
 {
-  "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_2=http://127.0.0.2:2380,storage_3=http://127.0.0.3:2380"
+  "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380"
 }
 ```
 
@@ -55,11 +55,11 @@ Config for snet-daemon that runs embedded etcd node:
     "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380",
 
     "PAYMENT_CHANNEL_STORAGE_SERVER": {
-        "ID": "storage_1",
+        "ID": "storage-1",
         "HOST" : "127.0.0.1",
         "CLIENT_PORT": 2379,
         "PEER_PORT": 2380,
-        "TOKEN": "payment_channel_storage_token",
+        "TOKEN": "unique-token",
         "ENABLED": true
     }
 }
@@ -69,14 +69,14 @@ Note that it is possible to disable running an embedded etcd server in the confi
 
 ```json
 {
-    "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380,storage_2=http://127.0.0.2:2380,storage_3=http://127.0.0.3:2380",
+    "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380,storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380",
 
     "PAYMENT_CHANNEL_STORAGE_SERVER": {
-        "ID": "storage_2",
+        "ID": "storage-2",
         "HOST" : "127.0.0.2",
         "CLIENT_PORT": 2379,
         "PEER_PORT": 2380,
-        "TOKEN": "payment_channel_storage_token",
+        "TOKEN": "unique-token",
         "ENABLED": false
     }
 }
@@ -94,11 +94,11 @@ Note that it is possible to disable running an embedded etcd server in the confi
 
 ```json
 {
-    "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage_1=http://127.0.0.1:2380,storage_2=http://127.0.0.2:2380,storage_3=http://127.0.0.3:2380",
+    "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380,storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380",
 
     "PAYMENT_CHANNEL_STORAGE_CLIENT": {
-        "CONNECTION_TIMEOUT": 2379,
-        "REQUEST_TIMEOUT": 2380
+        "CONNECTION_TIMEOUT": 5,
+        "REQUEST_TIMEOUT": 3
     }
 }
 ```

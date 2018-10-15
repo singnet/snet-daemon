@@ -2,7 +2,7 @@ package escrow
 
 import (
 	"errors"
-	"github.com/coreos/bbolt"
+	bolt "github.com/coreos/bbolt"
 	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 )

@@ -198,13 +198,14 @@ func (d daemon) start() {
 		grpcL := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc"))
 		httpL := mux.Match(cmux.HTTP1Fast())
 
-		grpcWebServer := grpcweb.WrapServer(d.grpcServer)
+		grpcWebServer := grpcweb.WrapServer(d.grpcServer, grpcweb.WithCorsForRegisteredEndpointsOnly(false))
 
 		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			if grpcWebServer.IsGrpcWebRequest(req) {
+			if grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req) {
 				grpcWebServer.ServeHTTP(resp, req)
 			} else {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
+					resp.Header().Set("Access-Control-Allow-Origin", "*")
 					fmt.Fprintln(resp, config.GetString(config.WireEncodingKey))
 				} else {
 					http.NotFound(resp, req)
@@ -215,7 +216,7 @@ func (d daemon) start() {
 		log.Debug("starting daemon")
 
 		go d.grpcServer.Serve(grpcL)
-		go http.Serve(httpL, handlers.CORS(corsOptions...)(httpHandler))
+		go http.Serve(httpL, httpHandler)
 		go mux.Serve()
 	} else {
 		log.Debug("starting simple HTTP daemon")

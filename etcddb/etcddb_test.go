@@ -25,6 +25,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	const confJSON = `{
 		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380"
 	}`
+
 	vip := readConfig(t, confJSON)
 	conf, err := GetPaymentChannelStorageServerConf(vip)
 
@@ -36,13 +37,12 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, 2379, conf.ClientPort)
 	assert.Equal(t, 2380, conf.PeerPort)
 	assert.Equal(t, "unique-token", conf.Token)
-	assert.Equal(t, true, conf.Enabled)
+	assert.Equal(t, false, conf.Enabled)
 
 	server, err := InitEtcdServer(vip)
 
 	assert.Nil(t, err)
-	assert.NotNil(t, server)
-	defer server.Close()
+	assert.Nil(t, server)
 }
 
 func TestDisabledEtcdServerConf(t *testing.T) {

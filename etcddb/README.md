@@ -29,6 +29,9 @@ contain the JSON map with name *PAYMENT_CHANNEL_STORAGE_SERVER* and values:
 | ENABLED     | enable running embedded etcd server                |true         |
 
 
+`Note`:  If *PAYMENT_CHANNEL_STORAGE_SERVER* field is not set in the configuration file its *ENABLED*
+field is set to *false* by default and in this case the etcd server is not started.
+
 Schema, host, and CLIENT_PORT/PEER_PORT are used together to compose etcd listen-client-urls/listen-peer-urls
 (see the link below).
 

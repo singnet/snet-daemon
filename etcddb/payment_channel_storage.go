@@ -21,10 +21,14 @@ const (
 	// PaymentChannelStorageServerKey key for viper
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 
-	// DefaultPaymentChannelStorageServerConf default server conf
+	// DefaultPaymentChannelStorageServerConf default server conf.
 	// Note that running snet-daemon with several replicas require
 	// that the default configuration file should be updated
-	// according to the real information about etcd nodes in cluster
+	// according to the real information about etcd nodes in cluster.
+	// Because DefaultPaymentChannelStorageServerConf is used when
+	// the PAYMENT_CHANNEL_STORAGE_SERVER field is not set in the
+	// property file it is treated as etcd server is not configured
+	// and the ENABLED in this case is set to false by default.
 	DefaultPaymentChannelStorageServerConf = `
 	{
         "ID": "storage-1",
@@ -32,7 +36,7 @@ const (
         "CLIENT_PORT": 2379,
         "PEER_PORT": 2380,
         "TOKEN": "unique-token",
-        "ENABLED": true
+        "ENABLED": false
     }`
 )
 

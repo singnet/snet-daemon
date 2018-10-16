@@ -3,8 +3,8 @@
     "bip39": "2.5.0",
     "fs-extra": "5.0.0",
     "ganache-cli": "6.1.6",
-    "singularitynet-platform-contracts": "github://singnet/platform-contracts",
-    "singularitynet-token-contracts": "2.0.0",
+    "singularitynet-platform-contracts": "github:vsbogd/platform-contracts#3ac55ab0f048981b7d02e90a53cf8621332426c6",
+    "singularitynet-token-contracts": "github:vsbogd/token-contracts#38d5008e698baf1342942c35cf90e39336a41365",
     "truffle": "4.1.13",
     "truffle-contract": "3.0.6",
     "truffle-hdwallet-provider": "0.0.5"

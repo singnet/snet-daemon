@@ -1,4 +1,4 @@
-//go:generate abigen --abi ../resources/blockchain/node_modules/singularitynet-token-contracts/abi/SingularityNetToken.json --bin ../resources/blockchain/node_modules/singularitynet-token-contracts/bytecode/SingularityNetToken.hex --pkg blockchain --type SingularityNetToken --out singularity_net_token_test.go
+//go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-token-contracts --contract-name SingularityNetToken --go-package blockchain --output-file singularity_net_token_test.go
 
 package blockchain
 

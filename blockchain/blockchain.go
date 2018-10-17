@@ -1,5 +1,5 @@
 //go:generate abigen --abi ../resources/blockchain/node_modules/singularitynet-platform-contracts/abi/Agent.json --pkg blockchain --type Agent --out agent.go
-//go:generate abigen --abi ../resources/blockchain/node_modules/singularitynet-platform-contracts/abi/MultiPartyEscrow.json --bin ../resources/blockchain/node_modules/singularitynet-platform-contracts/bytecode/MultiPartyEscrow.hex --pkg blockchain --type MultiPartyEscrow --out multi_party_escrow.go
+//go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name MultiPartyEscrow --go-package blockchain --output-file multi_party_escrow.go
 
 package blockchain
 

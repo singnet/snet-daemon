@@ -111,8 +111,8 @@ func TestDefaultEtcdClientConf(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
 
-	assert.Equal(t, 5, conf.ConnectionTimeout)
-	assert.Equal(t, 3, conf.RequestTimeout)
+	assert.Equal(t, 5000, conf.ConnectionTimeout)
+	assert.Equal(t, 3000, conf.RequestTimeout)
 }
 
 func TestEtcdClientConf(t *testing.T) {
@@ -122,8 +122,8 @@ func TestEtcdClientConf(t *testing.T) {
 		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380",
 
 		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
-			"CONNECTION_TIMEOUT": 15,
-			"REQUEST_TIMEOUT": 5
+			"CONNECTION_TIMEOUT": 15000,
+			"REQUEST_TIMEOUT": 5000
 		}
 	}`
 
@@ -135,8 +135,8 @@ func TestEtcdClientConf(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
-	assert.Equal(t, 15, conf.ConnectionTimeout)
-	assert.Equal(t, 5, conf.RequestTimeout)
+	assert.Equal(t, 15000, conf.ConnectionTimeout)
+	assert.Equal(t, 5000, conf.RequestTimeout)
 }
 
 func TestPaymentChannelStorageReadWrite(t *testing.T) {
@@ -146,13 +146,13 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380",
 
 		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
-			"CONNECTION_TIMEOUT": 5,
-			"REQUEST_TIMEOUT": 3
+			"CONNECTION_TIMEOUT": 5000,
+			"REQUEST_TIMEOUT": 3000
 		},
 
 		"PAYMENT_CHANNEL_STORAGE_SERVER": {
 			"ID": "storage-1",
-			"HOST" : "127.0.0.1",			
+			"HOST" : "127.0.0.1",
 			"CLIENT_PORT": 2379,
 			"PEER_PORT": 2380,
 			"TOKEN": "unique-token",

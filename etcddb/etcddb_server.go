@@ -82,7 +82,7 @@ func getEtcdConf(conf *PaymentChannelStorageServerConf, cluster string) *embed.C
 		"client url":      clientURL,
 		"peer   url":      peerURL,
 		"initial cluster": cluster,
-	}).Debug()
+	}).Info()
 
 	etcdConf := embed.NewConfig()
 	etcdConf.Name = conf.ID

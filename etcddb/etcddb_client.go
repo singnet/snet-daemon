@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	// DefaultConnectionTimeout connection timeout in seconds
-	DefaultConnectionTimeout = 5
+	// DefaultConnectionTimeout default connection timeout in milliseconds
+	DefaultConnectionTimeout = 5000
 
-	// DefaultRequestTimeout connection timeout in seconds
-	DefaultRequestTimeout = 5
+	// DefaultRequestTimeout default request timeout in milliseconds
+	DefaultRequestTimeout = 3000
 )
 
 // EtcdClient struct has some useful methods to wolrk with etcd client
@@ -49,7 +49,7 @@ func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
 		}
 	}
 
-	connectionTimeout := time.Duration(conf.ConnectionTimeout) * time.Second
+	connectionTimeout := time.Duration(conf.ConnectionTimeout) * time.Millisecond
 
 	etcdv3, err := clientv3.New(clientv3.Config{
 		Endpoints:   endpoints,
@@ -60,7 +60,7 @@ func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
 		return
 	}
 
-	requestTimeout := time.Duration(conf.RequestTimeout) * time.Second
+	requestTimeout := time.Duration(conf.RequestTimeout) * time.Millisecond
 	client = &EtcdClient{timeout: requestTimeout, etcdv3: etcdv3}
 
 	return

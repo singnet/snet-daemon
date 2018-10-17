@@ -14,8 +14,8 @@ const (
 	// DefaultPaymentChannelStorageClientConf default client conf
 	DefaultPaymentChannelStorageClientConf = `
 	{
-        "CONNECTION_TIMEOUT": 5,
-        "REQUEST_TIMEOUT": 3
+        "CONNECTION_TIMEOUT": 5000,
+        "REQUEST_TIMEOUT": 3000
     }`
 
 	// PaymentChannelStorageServerKey key for viper

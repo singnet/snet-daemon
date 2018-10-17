@@ -96,6 +96,18 @@ func (client *EtcdClient) Put(key []byte, value []byte) error {
 	return err
 }
 
+// Delete deletes the existing key and value from etcd
+func (client *EtcdClient) Delete(key []byte) error {
+
+	etcdv3 := client.etcdv3
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	defer cancel()
+
+	_, err := etcdv3.Delete(ctx, byteArraytoString(key))
+
+	return err
+}
+
 // CompareAndSet uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSet(key []byte, expect []byte, update []byte) (bool, error) {
 

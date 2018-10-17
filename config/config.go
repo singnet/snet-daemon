@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -33,6 +34,7 @@ const (
 	SSLCertPathKey                     = "SSL_CERT"
 	SSLKeyPathKey                      = "SSL_KEY"
 	WireEncodingKey                    = "WIRE_ENCODING"
+	ReplicaGroupIDKey                  = "REPLICA_GROUP_ID" // TODO: read replica group id from IPFS metadata
 
 	defaultConfigJson string = `
 {
@@ -66,7 +68,8 @@ const (
 			"rotation_count": 0
 		},
 		"hooks": []
-	}
+	},
+	"replica_group_id": "0"
 }
 `
 )
@@ -164,6 +167,10 @@ func GetString(key string) string {
 
 func GetInt(key string) int {
 	return vip.GetInt(key)
+}
+
+func GetBigInt(key string) *big.Int {
+	return big.NewInt(int64(vip.GetInt(key)))
 }
 
 func GetDuration(key string) time.Duration {

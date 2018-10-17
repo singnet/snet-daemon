@@ -42,6 +42,7 @@ type Processor struct {
 	jobCompletionQueue    chan *jobInfo
 	boltDB                *bolt.DB
 	escrowContractAddress common.Address
+	multiPartyEscrow      *MultiPartyEscrow
 }
 
 // NewProcessor creates a new blockchain processor
@@ -69,6 +70,12 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 	// TODO: if address is not in config, try to load it using network
 	// configuration
 	p.escrowContractAddress = common.HexToAddress(config.GetString(config.MultiPartyEscrowContractAddressKey))
+	if mpe, err := NewMultiPartyEscrow(p.escrowContractAddress, p.ethClient); err != nil {
+		return p, errors.Wrap(err, "error instantiating MultiPartyEscrow contract")
+	} else {
+		p.multiPartyEscrow = mpe
+	}
+
 	agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
 
 	// Setup agent
@@ -123,4 +130,8 @@ func (processor *Processor) Enabled() (enabled bool) {
 
 func (processor *Processor) EscrowContractAddress() common.Address {
 	return processor.escrowContractAddress
+}
+
+func (processor *Processor) MultiPartyEscrow() *MultiPartyEscrow {
+	return processor.multiPartyEscrow
 }

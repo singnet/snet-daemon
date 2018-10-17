@@ -56,11 +56,19 @@ const (
 
 // PaymentChannelData is to keep all channel related information.
 type PaymentChannelData struct {
+	// Nonce is a nonce of this channel state
+	Nonce *big.Int
 	// State is a payment channel state: Open or Closed.
 	State PaymentChannelState
 	// Sender is an Ethereum address of the client which created the channel.
 	// It is and address to be charged for RPC call.
 	Sender common.Address
+	// Recipient is an address which can claim funds from channel using
+	// signature. It is an address of service provider.
+	Recipient common.Address
+	// GroupId is an id of the group of service replicas which share the same
+	// payment channel.
+	GroupId *big.Int
 	// FullAmount is an amount which is deposited in channel by Sender.
 	FullAmount *big.Int
 	// Expiration is an date and time at which channel will be expired. Since

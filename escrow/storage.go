@@ -1,8 +1,8 @@
 package escrow
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/coreos/bbolt"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
@@ -101,7 +101,53 @@ func (storage *combinedStorage) CompareAndSwap(key *PaymentChannelKey, prevState
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }
 
-func NewDbStorage(db *bolt.DB) (storage PaymentChannelStorage) {
-	// TODO: implement
+type memoryStorageKey string
+
+type memoryStorage struct {
+	data map[memoryStorageKey]*PaymentChannelData
+}
+
+func NewMemStorage() (storage PaymentChannelStorage) {
+	return &memoryStorage{
+		data: make(map[memoryStorageKey]*PaymentChannelData),
+	}
+}
+
+func getMemoryStorageKey(key *PaymentChannelKey) memoryStorageKey {
+	return memoryStorageKey(fmt.Sprintf("%v", key))
+}
+
+func (storage *memoryStorage) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
+	storage.data[getMemoryStorageKey(key)] = channel
 	return nil
+}
+
+func (storage *memoryStorage) Get(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	channel, ok = storage.data[getMemoryStorageKey(key)]
+	if !ok {
+		return nil, false, nil
+	}
+	return channel, true, nil
+}
+
+func (storage *memoryStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
+	current, ok, err := storage.Get(key)
+	if !ok || err != nil {
+		return
+	}
+	if toJSON(current) != toJSON(prevState) {
+		return false, nil
+	}
+	return true, storage.Put(key, newState)
+}
+
+func toJSON(data interface{}) string {
+	return bytesErrorTupleToString(json.Marshal(data))
+}
+
+func bytesErrorTupleToString(data []byte, err error) string {
+	if err != nil {
+		panic(fmt.Sprintf("Unexpected error: %v", err))
+	}
+	return string(data)
 }

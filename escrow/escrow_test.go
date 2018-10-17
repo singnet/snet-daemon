@@ -38,53 +38,43 @@ func generatePrivateKey() (privateKey *ecdsa.PrivateKey) {
 	return
 }
 
-type channelStorageKey string
-
 type storageMockType struct {
-	data   map[channelStorageKey]*PaymentChannelData
-	errors map[channelStorageKey]bool
+	delegate PaymentChannelStorage
+	errors   map[memoryStorageKey]bool
 }
 
 var storageMock = storageMockType{
-	data:   make(map[channelStorageKey]*PaymentChannelData),
-	errors: make(map[channelStorageKey]bool),
-}
-
-func getChannelStorageKey(key *PaymentChannelKey) channelStorageKey {
-	return channelStorageKey(fmt.Sprintf("%v", key))
+	delegate: NewMemStorage(),
+	errors:   make(map[memoryStorageKey]bool),
 }
 
 func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
-	storage.data[getChannelStorageKey(key)] = channel
-	return nil
+	return storage.delegate.Put(key, channel)
 }
 
 func (storage *storageMockType) Get(_key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
-	key := getChannelStorageKey(_key)
+	key := getMemoryStorageKey(_key)
 	if storage.errors[key] {
 		return nil, false, errors.New("storage error")
 	}
-	channel, ok = storage.data[key]
-	if !ok {
-		return nil, false, nil
-	}
-	return channel, true, nil
+	return storage.delegate.Get(_key)
 }
 
-func (storage *storageMockType) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
-	current, ok, err := storage.Get(key)
-	if !ok || err != nil {
-		return
+func (storage *storageMockType) CompareAndSwap(_key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
+	key := getMemoryStorageKey(_key)
+	if storage.errors[key] {
+		return false, errors.New("storage error")
 	}
-	if toJSON(current) != toJSON(prevState) {
-		return false, nil
-	}
-	return true, storage.Put(key, newState)
+	return storage.delegate.CompareAndSwap(_key, prevState, newState)
 }
 
 func (storage *storageMockType) Clear() {
-	storage.data = make(map[channelStorageKey]*PaymentChannelData)
-	storage.errors = make(map[channelStorageKey]bool)
+	storage.delegate = NewMemStorage()
+	storage.errors = make(map[memoryStorageKey]bool)
+}
+
+func (storage *storageMockType) SetError(key *PaymentChannelKey, err bool) {
+	storage.errors[getMemoryStorageKey(key)] = err
 }
 
 type incomeValidatorMockType struct {
@@ -232,17 +222,6 @@ func clearTestContext() {
 	storageMock.Clear()
 }
 
-func pairToString(data []byte, err error) string {
-	if err != nil {
-		panic(fmt.Sprintf("Unexpected error: %v", err))
-	}
-	return string(data)
-}
-
-func toJSON(data interface{}) string {
-	return pairToString(json.Marshal(data))
-}
-
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	handler := escrowPaymentHandler{
 		escrowContractAddress: testEscrowContractAddress,
@@ -354,7 +333,7 @@ func TestGetPaymentNoChannelAmount(t *testing.T) {
 
 func TestGetPaymentStorageError(t *testing.T) {
 	context := getTestContext(defaultData)
-	storageMock.errors[getChannelStorageKey(newPaymentChannelKey(defaultData.ChannelID, defaultData.ChannelNonce))] = true
+	storageMock.SetError(newPaymentChannelKey(defaultData.ChannelID, defaultData.ChannelNonce), true)
 	defer clearTestContext()
 
 	_, err := paymentHandler.Payment(context)
@@ -497,7 +476,7 @@ func TestCompletePaymentCannotUpdateChannel(t *testing.T) {
 		d.NewAmount = 12345
 	})
 	payment := getTestPayment(data)
-	storageMock.errors[getChannelStorageKey(newPaymentChannelKey(43, 4))] = true
+	storageMock.SetError(newPaymentChannelKey(43, 4), true)
 	defer clearTestContext()
 
 	err := paymentHandler.Complete(payment)

@@ -135,3 +135,7 @@ func (processor *Processor) EscrowContractAddress() common.Address {
 func (processor *Processor) MultiPartyEscrow() *MultiPartyEscrow {
 	return processor.multiPartyEscrow
 }
+
+func (processor *Processor) Agent() *Agent {
+	return processor.agent
+}

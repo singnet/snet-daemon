@@ -1,13 +1,17 @@
 package escrow
 
 import (
+	"bytes"
 	"math/big"
+	"net"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
@@ -42,24 +46,17 @@ func (storageMock *etcdStorageMockType) Clear() {
 	storageMock.keys = nil
 }
 
+type EtcdStorageTemplateType struct {
+	ClientPort int
+	PeerPort   int
+}
+
 func initEtcdStorage() (close func(), err error) {
 
-	const confJSON = `
-	{
-		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380",
-		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
-			"CONNECTION_TIMEOUT": 5000,
-			"REQUEST_TIMEOUT": 3000
-		},
-		"PAYMENT_CHANNEL_STORAGE_SERVER": {
-			"ID": "storage-1",
-			"HOST" : "127.0.0.1",
-			"CLIENT_PORT": 2379,
-			"PEER_PORT": 2380,
-			"TOKEN": "unique-token",
-			"ENABLED": true
-		}
-	}`
+	confJSON, err := getEtcdJSONConf()
+	if err != nil {
+		return
+	}
 
 	vip := viper.New()
 	err = config.ReadConfigFromJsonString(vip, confJSON)
@@ -92,7 +89,76 @@ func initEtcdStorage() (close func(), err error) {
 		server.Close()
 		storage.Close()
 	}, nil
+}
 
+func getEtcdJSONConf() (json string, err error) {
+	const confJSONTemplate = `
+	{
+		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:{{.ClientPort}}",
+		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
+			"CONNECTION_TIMEOUT": 5000,
+			"REQUEST_TIMEOUT": 3000
+		},
+		"PAYMENT_CHANNEL_STORAGE_SERVER": {
+			"ID": "storage-1",
+			"HOST" : "127.0.0.1",
+			"CLIENT_PORT": {{.ClientPort}},
+			"PEER_PORT": {{.PeerPort}},
+			"TOKEN": "unique-token",
+			"ENABLED": true
+		}
+	}`
+
+	tmpl, err := template.New("etcd").Parse(confJSONTemplate)
+	if err != nil {
+		return
+	}
+
+	clientPort, err := getFreePort()
+	if err != nil {
+		return
+	}
+
+	peerPort, err := getFreePort()
+	if err != nil {
+		return
+	}
+
+	data := EtcdStorageTemplateType{
+		ClientPort: clientPort,
+		PeerPort:   peerPort,
+	}
+
+	var buff bytes.Buffer
+	err = tmpl.Execute(&buff, data)
+	if err != nil {
+		return
+	}
+
+	json = buff.String()
+
+	log.WithFields(log.Fields{
+		"client port": clientPort,
+		"peer   port": peerPort,
+	}).Info()
+
+	log.Info("etcd config", json)
+
+	return
+}
+
+func getFreePort() (port int, err error) {
+
+	listener, err := net.Listen("tcp", ":0")
+
+	if err != nil {
+		return
+	}
+
+	defer listener.Close()
+
+	port = listener.Addr().(*net.TCPAddr).Port
+	return
 }
 
 func getTestEtcdContext(data *testPaymentData) *handler.GrpcStreamContext {

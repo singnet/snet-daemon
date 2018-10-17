@@ -120,7 +120,9 @@ func clearTestEtcdContext() {
 func TestEtcdGetPayment(t *testing.T) {
 
 	close, e := initEtcdStorage()
-	assert.Nil(t, e)
+	if e != nil {
+		t.Errorf("error during etcd storage initializatrion: %v", e)
+	}
 	defer close()
 
 	data := &testPaymentData{

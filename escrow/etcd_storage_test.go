@@ -69,8 +69,6 @@ func initEtcdStorage() (close func(), err error) {
 		return
 	}
 
-	NewEtcdStorage(vip)
-
 	storage, err := NewEtcdStorage(vip)
 
 	if err != nil {
@@ -94,10 +92,10 @@ func initEtcdStorage() (close func(), err error) {
 func getEtcdJSONConf() (json string, err error) {
 	const confJSONTemplate = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:{{.ClientPort}}",
 		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
 			"CONNECTION_TIMEOUT": 5000,
-			"REQUEST_TIMEOUT": 3000
+			"REQUEST_TIMEOUT": 3000,
+			"ENDPOINTS": ["http://127.0.0.1:{{.ClientPort}}"]
 		},
 		"PAYMENT_CHANNEL_STORAGE_SERVER": {
 			"ID": "storage-1",
@@ -105,6 +103,7 @@ func getEtcdJSONConf() (json string, err error) {
 			"CLIENT_PORT": {{.ClientPort}},
 			"PEER_PORT": {{.PeerPort}},
 			"TOKEN": "unique-token",
+			"CLUSTER": "storage-1=http://127.0.0.1:{{.PeerPort}}",
 			"ENABLED": true
 		}
 	}`
@@ -187,7 +186,7 @@ func TestEtcdGetPayment(t *testing.T) {
 
 	close, e := initEtcdStorage()
 	if e != nil {
-		t.Errorf("error during etcd storage initializatrion: %v", e)
+		t.Errorf("error during etcd storage initialization: %v", e)
 	}
 	defer close()
 

@@ -2,10 +2,10 @@ package etcddb
 
 import (
 	"context"
-	"errors"
-	"strings"
+	"fmt"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.etcd.io/etcd/clientv3"
 )
@@ -29,30 +29,18 @@ type EtcdClient struct {
 // PAYMENT_CHANNEL_STORAGE_CLIENT struct is not set
 func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
 
-	cluster := GetPaymentChannelCluster(vip)
-	endpoints, err := getPaymentChannelEndpoints(cluster)
-
-	if err != nil {
-		return
-	}
-
 	conf, err := GetPaymentChannelStorageClientConf(vip)
 
 	if err != nil {
 		return
 	}
 
-	if conf == nil {
-		conf = &PaymentChannelStorageClientConf{
-			ConnectionTimeout: DefaultConnectionTimeout,
-			RequestTimeout:    DefaultRequestTimeout,
-		}
-	}
+	log.WithField("etcd client conf", fmt.Sprintf("%+v", conf)).Info()
 
 	connectionTimeout := time.Duration(conf.ConnectionTimeout) * time.Millisecond
 
 	etcdv3, err := clientv3.New(clientv3.Config{
-		Endpoints:   endpoints,
+		Endpoints:   conf.Endpoints,
 		DialTimeout: connectionTimeout,
 	})
 
@@ -139,20 +127,4 @@ func byteArraytoString(bytes []byte) string {
 
 func stringToByteArray(str string) []byte {
 	return []byte(str)
-}
-
-func getPaymentChannelEndpoints(cluster string) (endpoints []string, err error) {
-
-	for _, nameAndEndpoint := range strings.Split(cluster, ",") {
-		nameAndEndpoint = strings.TrimSpace(nameAndEndpoint)
-		index := strings.Index(nameAndEndpoint, "=")
-		if index <= 0 || index >= len(nameAndEndpoint)-1 {
-			err = errors.New("cluster string does not have format name=host:port[,name=host:port]+ " + cluster)
-			return
-		}
-		endpoint := nameAndEndpoint[index+1 : len(nameAndEndpoint)]
-		endpoints = append(endpoints, endpoint)
-	}
-
-	return
 }

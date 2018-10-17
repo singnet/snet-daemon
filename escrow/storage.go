@@ -1,7 +1,8 @@
 package escrow
 
 import (
-	"encoding/json"
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
@@ -135,14 +136,20 @@ func (storage *memoryStorage) CompareAndSwap(key *PaymentChannelKey, prevState *
 	if !ok || err != nil {
 		return
 	}
-	if toJSON(current) != toJSON(prevState) {
+	if !bytes.Equal(toBytes(current), toBytes(prevState)) {
 		return false, nil
 	}
 	return true, storage.Put(key, newState)
 }
 
-func toJSON(data interface{}) string {
-	return bytesErrorTupleToString(json.Marshal(data))
+func toBytes(data interface{}) []byte {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(data)
+	if err != nil {
+		log.WithError(err).Fatal("Error while encoding value to binary")
+	}
+	return buffer.Bytes()
 }
 
 func bytesErrorTupleToString(data []byte, err error) string {

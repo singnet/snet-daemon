@@ -222,6 +222,10 @@ func clearTestContext() {
 	storageMock.Clear()
 }
 
+func toJSON(data interface{}) string {
+	return bytesErrorTupleToString(json.Marshal(data))
+}
+
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	handler := escrowPaymentHandler{
 		escrowContractAddress: testEscrowContractAddress,

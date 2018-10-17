@@ -91,17 +91,18 @@ Note that it is possible to disable running an embedded etcd server in the confi
 
 | Field name         | Description                                   |Default Value|
 |--------------------|-----------------------------------------------|-------------|
-| CONNECTION_TIMEOUT | timeout for failing to establish a connection |5            |
-| REQUEST_TIMEOUT    | per request timeout                           |3            |
+| CONNECTION_TIMEOUT | timeout for failing to establish a connection |5000         |
+| REQUEST_TIMEOUT    | per request timeout                           |3000         |
 
+Connection and request timeoutes are measured in milliseconds.
 
 ```json
 {
     "PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380,storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380",
 
     "PAYMENT_CHANNEL_STORAGE_CLIENT": {
-        "CONNECTION_TIMEOUT": 5,
-        "REQUEST_TIMEOUT": 3
+        "CONNECTION_TIMEOUT": 5000,
+        "REQUEST_TIMEOUT": 3000
     }
 }
 ```

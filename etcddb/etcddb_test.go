@@ -241,6 +241,48 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestPaymentChannelStorageNilValue(t *testing.T) {
+
+	const confJSON = `
+	{ "payment_channel_storage_server": {} }`
+
+	vip := readConfig(t, confJSON)
+
+	server, err := InitEtcdServerFromVip(vip)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, server)
+
+	defer server.Close()
+
+	client, err := NewEtcdClient()
+
+	assert.Nil(t, err)
+	assert.NotNil(t, client)
+	defer client.Close()
+
+	key := "key-for-nil-value"
+	keyBytes := stringToByteArray(key)
+
+	err = client.Delete(keyBytes)
+	assert.Nil(t, err)
+
+	missedValue, ok, err := client.Get(keyBytes)
+
+	assert.Nil(t, err)
+	assert.False(t, ok)
+	assert.Nil(t, missedValue)
+
+	err = client.Put(keyBytes, nil)
+	assert.Nil(t, err)
+
+	nillValue, ok, err := client.Get(keyBytes)
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Nil(t, nillValue)
+
+}
+
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {
 	vip = viper.New()
 	err := config.ReadConfigFromJsonString(vip, configJSON)

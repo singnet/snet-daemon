@@ -71,9 +71,6 @@ func (client *EtcdClient) Get(key []byte) (value []byte, ok bool, err error) {
 	}
 
 	for _, kv := range response.Kvs {
-		if len(kv.Value) == 0 {
-			return
-		}
 		ok = true
 		value = kv.Value
 		return

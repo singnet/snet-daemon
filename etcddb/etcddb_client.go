@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.etcd.io/etcd/clientv3"
@@ -25,9 +26,12 @@ type EtcdClient struct {
 }
 
 // NewEtcdClient create new etcd storage client.
-// It uses default connection and request timeouts in case
-// PAYMENT_CHANNEL_STORAGE_CLIENT struct is not set
-func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
+func NewEtcdClient() (client *EtcdClient, err error) {
+	return NewEtcdClientFromVip(config.Vip())
+}
+
+// NewEtcdClientFromVip create new etcd storage client from viper.
+func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 
 	conf, err := GetPaymentChannelStorageClientConf(vip)
 

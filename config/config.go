@@ -33,6 +33,8 @@ const (
 	SSLCertPathKey                     = "SSL_CERT"
 	SSLKeyPathKey                      = "SSL_KEY"
 	WireEncodingKey                    = "WIRE_ENCODING"
+	PaymentChannelStorageClientKey     = "payment_channel_storage_client"
+	PaymentChannelStorageServerKey     = "payment_channel_storage_server"
 
 	defaultConfigJson string = `
 {
@@ -66,6 +68,20 @@ const (
 			"rotation_count": 0
 		},
 		"hooks": []
+	},
+	"payment_channel_storage_client": {
+		"connection_timeout": 5000,
+		"request_timeout": 3000,
+		"endpoints": ["http://127.0.0.1:2379"]
+	},
+	"payment_channel_storage_server": {
+		"id": "storage-1",
+		"host" : "127.0.0.1",
+		"client_port": 2379,
+		"peer_port": 2380,
+		"token": "unique-token",
+		"cluster": "storage-1=http://127.0.0.1:2380",
+		"enabled": false
 	}
 }
 `

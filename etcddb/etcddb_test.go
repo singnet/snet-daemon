@@ -10,10 +10,7 @@ import (
 
 func TestDefaultEtcdServerConf(t *testing.T) {
 
-	const confJSON = `{}`
-
-	vip := readConfig(t, confJSON)
-	conf, err := GetPaymentChannelStorageServerConf(vip)
+	conf, err := GetPaymentChannelStorageServerConf(config.Vip())
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -27,7 +24,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "storage-1=http://127.0.0.1:2380", conf.Cluster)
 	assert.Equal(t, false, conf.Enabled)
 
-	server, err := InitEtcdServer(vip)
+	server, err := InitEtcdServer()
 
 	assert.Nil(t, err)
 	assert.Nil(t, server)
@@ -37,13 +34,13 @@ func TestDisabledEtcdServerConf(t *testing.T) {
 
 	const confJSON = `
 		{
-			"PAYMENT_CHANNEL_STORAGE_SERVER": {
-				"ENABLED": false
+			"payment_channel_storage_server": {
+				"enabled": false
 			}
 		}`
 
 	vip := readConfig(t, confJSON)
-	server, err := InitEtcdServer(vip)
+	server, err := InitEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.Nil(t, server)
@@ -53,14 +50,14 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 
 	const confJSON = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_SERVER": {
-			"ID": "storage-1",
-			"HOST" : "127.0.0.1",
-			"CLIENT_PORT": 2379,
-			"PEER_PORT": 2380,
-			"TOKEN": "unique-token",
-			"CLUSTER": "storage-1=http://127.0.0.1:2380",
-			"ENABLED": true
+		"payment_channel_storage_server": {
+			"id": "storage-1",
+			"host" : "127.0.0.1",
+			"client_port": 2379,
+			"peer_port": 2380,
+			"token": "unique-token",
+			"cluster": "storage-1=http://127.0.0.1:2380",
+			"enabled": true
 		}
 	}`
 
@@ -78,7 +75,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, true, conf.Enabled)
 
-	server, err := InitEtcdServer(vip)
+	server, err := InitEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
@@ -87,9 +84,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 
 func TestDefaultEtcdClientConf(t *testing.T) {
 
-	const confJSON = `{}`
-	vip := readConfig(t, confJSON)
-	conf, err := GetPaymentChannelStorageClientConf(vip)
+	conf, err := GetPaymentChannelStorageClientConf(config.Vip())
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -103,10 +98,10 @@ func TestEtcdClientConf(t *testing.T) {
 
 	const confJSON = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
-			"CONNECTION_TIMEOUT": 15000,
-			"REQUEST_TIMEOUT": 5000,
-			"ENDPOINTS": ["http://127.0.0.1:2479"]
+		"payment_channel_storage_client": {
+			"connection_timeout": 15000,
+			"request_timeout": 5000,
+			"endpoints": ["http://127.0.0.1:2479"]
 		}
 	}`
 
@@ -125,33 +120,33 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 
 	const confJSON = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
-			"CONNECTION_TIMEOUT": 5000,
-			"REQUEST_TIMEOUT": 3000,
-			"ENDPOINTS": ["http://127.0.0.1:2379"]
+		"payment_channel_storage_client": {
+			"connection_timeout": 5000,
+			"request_timeout": 3000,
+			"endpoints": ["http://127.0.0.1:2379"]
 		},
 
-		"PAYMENT_CHANNEL_STORAGE_SERVER": {
-			"ID": "storage-1",
-			"HOST" : "127.0.0.1",
-			"CLIENT_PORT": 2379,
-			"PEER_PORT": 2380,
-			"TOKEN": "unique-token",
-			"CLUSTER": "storage-1=http://127.0.0.1:2380",
-			"ENABLED": true
+		"payment_channel_storage_server": {
+			"id": "storage-1",
+			"host" : "127.0.0.1",
+			"client_port": 2379,
+			"peer_port": 2380,
+			"token": "unique-token",
+			"cluster": "storage-1=http://127.0.0.1:2380",
+			"enabled": true
 		}
 	}`
 
 	vip := readConfig(t, confJSON)
 
-	server, err := InitEtcdServer(vip)
+	server, err := InitEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
 
 	defer server.Close()
 
-	client, err := NewEtcdClient(vip)
+	client, err := NewEtcdClientFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
@@ -183,24 +178,24 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 
 	const confJSON = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_SERVER": {
-			"ID": "storage-1",
-			"HOST" : "127.0.0.1",
-			"CLUSTER": "storage-1=http://127.0.0.1:2380",
-			"TOKEN": "unique-token"
+		"payment_channel_storage_server": {
+			"id": "storage-1",
+			"host" : "127.0.0.1",
+			"cluster": "storage-1=http://127.0.0.1:2380",
+			"token": "unique-token"
 		}
 	}`
 
 	vip := readConfig(t, confJSON)
 
-	server, err := InitEtcdServer(vip)
+	server, err := InitEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
 
 	defer server.Close()
 
-	client, err := NewEtcdClient(vip)
+	client, err := NewEtcdClient()
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)

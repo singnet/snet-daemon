@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/spf13/viper"
 )
@@ -13,9 +14,14 @@ type EtcdStorage struct {
 	client *etcddb.EtcdClient
 }
 
-// NewEtcdStorage create an etcd storage from Ciper config
-func NewEtcdStorage(vip *viper.Viper) (storage *EtcdStorage, err error) {
-	client, err := etcddb.NewEtcdClient(vip)
+// NewEtcdStorage create an etcd storage
+func NewEtcdStorage() (storage *EtcdStorage, err error) {
+	return NewEtcdStorageFromVip(config.Vip())
+}
+
+// NewEtcdStorageFromVip create an etcd storage from Viper config
+func NewEtcdStorageFromVip(vip *viper.Viper) (storage *EtcdStorage, err error) {
+	client, err := etcddb.NewEtcdClientFromVip(vip)
 
 	if err != nil {
 		return

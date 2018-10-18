@@ -39,9 +39,9 @@ func (storage *EtcdStorage) Get(key *PaymentChannelKey) (state *PaymentChannelDa
 		return
 	}
 
-	valueBytes, err := storage.client.Get(keyBytes)
+	valueBytes, ok, err := storage.client.Get(keyBytes)
 
-	if err != nil || len(valueBytes) == 0 {
+	if err != nil || !ok {
 		return
 	}
 

@@ -59,7 +59,7 @@ func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 }
 
 // Get gets value from etcd by key
-func (client *EtcdClient) Get(key []byte) ([]byte, error) {
+func (client *EtcdClient) Get(key []byte) (value []byte, ok bool, err error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
@@ -67,13 +67,19 @@ func (client *EtcdClient) Get(key []byte) ([]byte, error) {
 	response, err := client.etcdv3.Get(ctx, byteArraytoString(key))
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	for _, kv := range response.Kvs {
-		return kv.Value, nil
+		if len(kv.Value) == 0 {
+			return
+		}
+		ok = true
+		value = kv.Value
+		return
 	}
-	return nil, nil
+
+	return
 }
 
 // Put puts key and value to etcd

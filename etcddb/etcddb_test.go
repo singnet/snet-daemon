@@ -152,6 +152,11 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 	assert.NotNil(t, client)
 	defer client.Close()
 
+	missedValue, ok, err := client.Get(stringToByteArray("missed_key"))
+	assert.Nil(t, err)
+	assert.False(t, ok)
+	assert.Nil(t, missedValue)
+
 	key := "key"
 	value := "value"
 	keyBytes := stringToByteArray(key)
@@ -160,17 +165,19 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 	err = client.Put(keyBytes, valueBytes)
 	assert.Nil(t, err)
 
-	getResult, err := client.Get(keyBytes)
+	getResult, ok, err := client.Get(keyBytes)
 	assert.Nil(t, err)
+	assert.True(t, ok)
 	assert.True(t, len(getResult) > 0)
 	assert.Equal(t, value, byteArraytoString(getResult))
 
 	err = client.Delete(keyBytes)
 	assert.Nil(t, err)
 
-	getResult, err = client.Get(keyBytes)
+	getResult, ok, err = client.Get(keyBytes)
 	assert.Nil(t, err)
-	assert.True(t, len(getResult) == 0)
+	assert.False(t, ok)
+	assert.Nil(t, getResult)
 
 }
 
@@ -220,8 +227,9 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, ok)
 
-	updateResult, err := client.Get(keyBytes)
+	updateResult, ok, err := client.Get(keyBytes)
 	assert.Nil(t, err)
+	assert.True(t, ok)
 	assert.Equal(t, update, byteArraytoString(updateResult))
 
 	ok, err = client.CompareAndSet(

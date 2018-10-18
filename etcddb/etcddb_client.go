@@ -39,7 +39,7 @@ func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 		return
 	}
 
-	log.WithField("etcd client conf", fmt.Sprintf("%+v", conf)).Info()
+	log.WithField("PaymentChannelStorageClient", fmt.Sprintf("%+v", conf)).Info()
 
 	connectionTimeout := time.Duration(conf.ConnectionTimeout) * time.Millisecond
 

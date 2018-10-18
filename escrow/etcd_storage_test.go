@@ -137,11 +137,11 @@ func getEtcdJSONConf() (json string, err error) {
 	json = buff.String()
 
 	log.WithFields(log.Fields{
-		"client port": clientPort,
-		"peer   port": peerPort,
+		"ClientPort": clientPort,
+		"PeerPort":   peerPort,
 	}).Info()
 
-	log.Info("etcd config", json)
+	log.Info("EtcdConfig", json)
 
 	return
 }

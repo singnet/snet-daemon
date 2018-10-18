@@ -78,9 +78,9 @@ func getEtcdConf(conf *PaymentChannelStorageServerConf) *embed.Config {
 		Host:   fmt.Sprintf("%s:%d", conf.Host, conf.PeerPort),
 	}
 
-	log.WithField("etcd server conf", fmt.Sprintf("%+v", conf)).Info()
-	log.WithField("client url", clientURL).Info()
-	log.WithField("peer   url", peerURL).Info()
+	log.WithField("PaymentChannelStorageServer", fmt.Sprintf("%+v", conf)).Info()
+	log.WithField("ClientURL", clientURL).Info()
+	log.WithField("PeerURL", peerURL).Info()
 
 	etcdConf := embed.NewConfig()
 	etcdConf.Name = conf.ID

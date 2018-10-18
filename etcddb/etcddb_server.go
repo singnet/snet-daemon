@@ -22,15 +22,13 @@ type EtcdServer struct {
 // is set to false
 func InitEtcdServer(vip *viper.Viper) (server *EtcdServer, err error) {
 
-	cluster := GetPaymentChannelCluster(vip)
-
 	conf, err := GetPaymentChannelStorageServerConf(vip)
 
 	if err != nil || conf == nil || !conf.Enabled {
 		return
 	}
 
-	etcd, err := startEtcdServer(conf, cluster)
+	etcd, err := startEtcdServer(conf)
 	server = &EtcdServer{etcd: etcd}
 	return
 }
@@ -43,12 +41,9 @@ func (server *EtcdServer) Close() {
 // StartEtcdServer starts ectd server
 // The method blocks until the server is started
 // or failed by timeout
-func startEtcdServer(
-	conf *PaymentChannelStorageServerConf,
-	cluster string,
-) (etcd *embed.Etcd, err error) {
+func startEtcdServer(conf *PaymentChannelStorageServerConf) (etcd *embed.Etcd, err error) {
 
-	etcdConf := getEtcdConf(conf, cluster)
+	etcdConf := getEtcdConf(conf)
 	etcd, err = embed.StartEtcd(etcdConf)
 
 	if err != nil {
@@ -65,7 +60,7 @@ func startEtcdServer(
 	return
 }
 
-func getEtcdConf(conf *PaymentChannelStorageServerConf, cluster string) *embed.Config {
+func getEtcdConf(conf *PaymentChannelStorageServerConf) *embed.Config {
 
 	clientURL := &url.URL{
 		Scheme: conf.Scheme,
@@ -77,12 +72,9 @@ func getEtcdConf(conf *PaymentChannelStorageServerConf, cluster string) *embed.C
 		Host:   fmt.Sprintf("%s:%d", conf.Host, conf.PeerPort),
 	}
 
-	log.WithFields(log.Fields{
-		"etcd id":         conf.ID,
-		"client url":      clientURL,
-		"peer   url":      peerURL,
-		"initial cluster": cluster,
-	}).Info()
+	log.WithField("etcd server conf", fmt.Sprintf("%+v", conf)).Info()
+	log.WithField("client url", clientURL).Info()
+	log.WithField("peer   url", peerURL).Info()
 
 	etcdConf := embed.NewConfig()
 	etcdConf.Name = conf.ID
@@ -101,7 +93,7 @@ func getEtcdConf(conf *PaymentChannelStorageServerConf, cluster string) *embed.C
 	etcdConf.APUrls = []url.URL{*peerURL}
 
 	// --initial-cluster
-	etcdConf.InitialCluster = cluster
+	etcdConf.InitialCluster = conf.Cluster
 
 	//--initial-cluster-token
 	etcdConf.InitialClusterToken = conf.Token

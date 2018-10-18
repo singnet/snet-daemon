@@ -15,7 +15,8 @@ const (
 	DefaultPaymentChannelStorageClientConf = `
 	{
         "CONNECTION_TIMEOUT": 5000,
-        "REQUEST_TIMEOUT": 3000
+		"REQUEST_TIMEOUT": 3000,
+		"ENDPOINTS": ["http://127.0.0.1:2379"]
     }`
 
 	// PaymentChannelStorageServerKey key for viper
@@ -32,10 +33,12 @@ const (
 	DefaultPaymentChannelStorageServerConf = `
 	{
         "ID": "storage-1",
+        "SCHEME" : "http",
         "HOST" : "127.0.0.1",
         "CLIENT_PORT": 2379,
         "PEER_PORT": 2380,
-        "TOKEN": "unique-token",
+		"TOKEN": "unique-token",
+		"CLUSTER": "storage-1=http://127.0.0.1:2380",
         "ENABLED": false
     }`
 )
@@ -62,12 +65,8 @@ type PaymentChannelStorageServerConf struct {
 	ClientPort int `mapstructure:"CLIENT_PORT"`
 	PeerPort   int `mapstructure:"PEER_PORT"`
 	Token      string
+	Cluster    string
 	Enabled    bool
-}
-
-// GetPaymentChannelCluster gets payment channel cluster from viper
-func GetPaymentChannelCluster(vip *viper.Viper) string {
-	return vip.GetString("PAYMENT_CHANNEL_STORAGE_CLUSTER")
 }
 
 // GetPaymentChannelStorageServerConf gets PaymentChannelStorageServerConf from viper
@@ -75,14 +74,20 @@ func GetPaymentChannelCluster(vip *viper.Viper) string {
 // is not set in the configuration file
 func GetPaymentChannelStorageServerConf(vip *viper.Viper) (conf *PaymentChannelStorageServerConf, err error) {
 
-	conf = &PaymentChannelStorageServerConf{Scheme: "http", ClientPort: 2379, PeerPort: 2380, Enabled: true}
+	// conf = &PaymentChannelStorageServerConf{Scheme: "http", ClientPort: 2379, PeerPort: 2380, Enabled: true}
+	conf = &PaymentChannelStorageServerConf{}
+	defaultConf := normalizeDefaultConf(DefaultPaymentChannelStorageServerConf)
+	err = json.Unmarshal([]byte(defaultConf), conf)
 
-	if vip.Get(PaymentChannelStorageServerKey) == nil {
-		defaultConf := normalizeDefaultConf(DefaultPaymentChannelStorageServerConf)
-		err = json.Unmarshal([]byte(defaultConf), conf)
+	if err != nil {
 		return
 	}
 
+	if vip.Get(PaymentChannelStorageServerKey) == nil {
+		return
+	}
+
+	conf.Enabled = true
 	err = vip.UnmarshalKey(PaymentChannelStorageServerKey, conf)
 	return
 }
@@ -90,9 +95,11 @@ func GetPaymentChannelStorageServerConf(vip *viper.Viper) (conf *PaymentChannelS
 // PaymentChannelStorageClientConf config
 // ConnectionTimeout - timeout for failing to establish a connection
 // RequestTimeout    - per request timeout
+// Endpoints         - cluster endpoints
 type PaymentChannelStorageClientConf struct {
 	ConnectionTimeout int `mapstructure:"CONNECTION_TIMEOUT"`
 	RequestTimeout    int `mapstructure:"REQUEST_TIMEOUT"`
+	Endpoints         []string
 }
 
 // GetPaymentChannelStorageClientConf gets PaymentChannelStorageServerConf from viper
@@ -100,11 +107,15 @@ type PaymentChannelStorageClientConf struct {
 // is not set in the configuration file
 func GetPaymentChannelStorageClientConf(vip *viper.Viper) (conf *PaymentChannelStorageClientConf, err error) {
 
-	conf = &PaymentChannelStorageClientConf{ConnectionTimeout: 5, RequestTimeout: 3}
+	conf = &PaymentChannelStorageClientConf{}
+	defaultConf := normalizeDefaultConf(DefaultPaymentChannelStorageClientConf)
+	err = json.Unmarshal([]byte(defaultConf), conf)
+
+	if err != nil {
+		return
+	}
 
 	if vip.Get(PaymentChannelStorageClientKey) == nil {
-		defaultConf := normalizeDefaultConf(DefaultPaymentChannelStorageClientConf)
-		err = json.Unmarshal([]byte(defaultConf), conf)
 		return
 	}
 

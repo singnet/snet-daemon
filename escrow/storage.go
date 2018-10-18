@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"math/big"
+	"time"
 )
 
 type combinedStorage struct {
@@ -64,13 +66,19 @@ func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChann
 	return
 }
 
+var zeroAddress = common.Address{}
+
 func (storage *combinedStorage) getChannelStateFromBlockchain(id *big.Int) (state *PaymentChannelData, ok bool, err error) {
 	log := log.WithField("id", id)
 
 	channel, err := storage.mpe.Channels(nil, id)
 	if err != nil {
-		log.WithError(err).Warn("Unable to find channel id in blockchain")
+		log.WithError(err).Warn("Error while looking up for channel id in blockchain")
 		return nil, false, err
+	}
+	if channel.Sender == zeroAddress {
+		log.Warn("Unable to find channel id in blockchain")
+		return nil, false, nil
 	}
 	log = log.WithField("channel", channel)
 	log.Debug("Channel found in blockchain")
@@ -82,13 +90,13 @@ func (storage *combinedStorage) getChannelStateFromBlockchain(id *big.Int) (stat
 	}
 
 	return &PaymentChannelData{
-		Nonce:      channel.Nonce,
-		State:      Open,
-		Sender:     channel.Sender,
-		Recipient:  channel.Recipient,
-		GroupId:    channel.ReplicaId,
-		FullAmount: channel.Value,
-		//Expiration:       channel.Expiration,
+		Nonce:            channel.Nonce,
+		State:            Open,
+		Sender:           channel.Sender,
+		Recipient:        channel.Recipient,
+		GroupId:          channel.ReplicaId,
+		FullAmount:       channel.Value,
+		Expiration:       time.Unix(channel.Expiration.Int64(), 0),
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}, true, nil
@@ -133,11 +141,20 @@ func (storage *memoryStorage) Get(key *PaymentChannelKey) (channel *PaymentChann
 
 func (storage *memoryStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
 	current, ok, err := storage.Get(key)
-	if !ok || err != nil {
+	if err != nil {
 		return
 	}
-	if !bytes.Equal(toBytes(current), toBytes(prevState)) {
-		return false, nil
+	if prevState == nil {
+		if ok {
+			return false, nil
+		}
+	} else {
+		if !ok {
+			return false, nil
+		}
+		if !bytes.Equal(toBytes(current), toBytes(prevState)) {
+			return false, nil
+		}
 	}
 	return true, storage.Put(key, newState)
 }

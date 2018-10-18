@@ -15,17 +15,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"math/big"
-	"os"
 	"strconv"
 	"testing"
 	"time"
 )
-
-func TestMain(m *testing.M) {
-	result := m.Run()
-
-	os.Exit(result)
-}
 
 var testPrivateKey = generatePrivateKey()
 var testPublicKey = crypto.PubkeyToAddress(testPrivateKey.PublicKey)
@@ -95,7 +88,7 @@ var paymentHandler = escrowPaymentHandler{
 	incomeValidator:       &incomeValidatorMock,
 }
 
-func getSignature(contractAddress *common.Address, channelID, channelNonce, amount int64) (signature []byte) {
+func getSignature(contractAddress *common.Address, channelID, channelNonce, amount int64, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	hash := crypto.Keccak256(
 		blockchain.HashPrefix32Bytes,
 		crypto.Keccak256(
@@ -106,7 +99,7 @@ func getSignature(contractAddress *common.Address, channelID, channelNonce, amou
 		),
 	)
 
-	signature, err := crypto.Sign(hash, testPrivateKey)
+	signature, err := crypto.Sign(hash, privateKey)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot sign test message: %v", err))
 	}
@@ -131,7 +124,7 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 	if amount != 0 {
 		md.Set(PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
 	}
-	md.Set(PaymentChannelSignatureHeader, string(getSignature(&testEscrowContractAddress, channelID, channelNonce, amount)))
+	md.Set(PaymentChannelSignatureHeader, string(getSignature(&testEscrowContractAddress, channelID, channelNonce, amount, testPrivateKey)))
 	return md
 }
 
@@ -182,7 +175,7 @@ func patchDefaultData(patch func(d D)) (cpy *testPaymentData) {
 func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	signature := data.Signature
 	if signature == nil {
-		signature = getSignature(&testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount)
+		signature = getSignature(&testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount, testPrivateKey)
 	}
 	return &escrowPaymentType{
 		grpcContext: &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},

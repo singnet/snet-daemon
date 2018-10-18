@@ -132,7 +132,8 @@ func TestCombinedStorageGetReadFromBlockchain(t *testing.T) {
 		ID:    big.NewInt(0),
 		Nonce: big.NewInt(0),
 	}
-	depositAndOpenChannel(t, 12345, expiration, 0)
+	ethereum := storageTest.ethereum
+	ethereum.SnetTransferTokens(ethereum.ClientWallet, 12345).SnetApproveMpe(ethereum.ClientWallet, 12345).MpeDeposit(ethereum.ClientWallet, 12345).MpeOpenChannel(ethereum.ClientWallet, ethereum.ServerWallet, 12345, expiration, 0).Commit()
 
 	channel, ok, err := storageTest.combinedStorage.Get(expectedKey)
 
@@ -191,30 +192,3 @@ func depositAndOpenChannel(t *testing.T, amount int64, expiration time.Time, gro
 	assert.Nil(t, err)
 	assert.NotEqual(t, zeroAddress, ch.Sender)
 }
-
-/*
-	storageTest.combinedStorage.channels = func(opts *bind.CallOpts, arg0 *big.Int) (struct {
-		Sender     common.Address
-		Recipient  common.Address
-		ReplicaId  *big.Int
-		Value      *big.Int
-		Nonce      *big.Int
-		Expiration *big.Int
-	}, error) {
-		return struct {
-			Sender     common.Address
-			Recipient  common.Address
-			ReplicaId  *big.Int
-			Value      *big.Int
-			Nonce      *big.Int
-			Expiration *big.Int
-		}{
-			Sender:     storageTest.senderAddress,
-			Recipient:  storageTest.recipientAddress,
-			ReplicaId:  big.NewInt(0),
-			Value:      big.NewInt(12345),
-			Nonce:      big.NewInt(0),
-			Expiration: big.NewInt(time.Now().Add(time.Hour).Unix()),
-		}, nil
-	}
-*/

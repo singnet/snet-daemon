@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
+	"time"
 )
 
 type SimulatedEthereumEnvironment struct {
@@ -24,6 +25,43 @@ type SimulatedEthereumEnvironment struct {
 	SingularityNetToken     *SingularityNetToken
 	MultiPartyEscrowAddress common.Address
 	MultiPartyEscrow        *MultiPartyEscrow
+}
+
+func (env *SimulatedEthereumEnvironment) SnetTransferTokens(to *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
+	_, err := env.SingularityNetToken.TransferTokens(EstimateGas(env.SingnetWallet), to.From, big.NewInt(amount))
+	if err != nil {
+		panic(fmt.Sprintf("Unable to transfer tokens: %v"))
+	}
+	return env
+}
+
+func (env *SimulatedEthereumEnvironment) SnetApproveMpe(from *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
+	_, err := env.SingularityNetToken.Approve(EstimateGas(from), env.MultiPartyEscrowAddress, big.NewInt(amount))
+	if err != nil {
+		panic(fmt.Sprintf("Unable to aprove tokens transfer to MPE: %v"))
+	}
+	return env
+}
+
+func (env *SimulatedEthereumEnvironment) MpeDeposit(from *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
+	_, err := env.MultiPartyEscrow.Deposit(EstimateGas(from), big.NewInt(amount))
+	if err != nil {
+		panic(fmt.Sprintf("Unable to deposit tokens to MPE: %v"))
+	}
+	return env
+}
+
+func (env *SimulatedEthereumEnvironment) MpeOpenChannel(from *bind.TransactOpts, to *bind.TransactOpts, amount int64, expiration time.Time, groupId int64) *SimulatedEthereumEnvironment {
+	_, err := env.MultiPartyEscrow.OpenChannel(EstimateGas(from), to.From, big.NewInt(amount), big.NewInt(expiration.Unix()), big.NewInt(groupId))
+	if err != nil {
+		panic(fmt.Sprintf("Unable to open MPE payment channel: %v"))
+	}
+	return env
+}
+
+func (env *SimulatedEthereumEnvironment) Commit() *SimulatedEthereumEnvironment {
+	env.Backend.Commit()
+	return env
 }
 
 func GetSimulatedEthereumEnvironment() (env SimulatedEthereumEnvironment) {

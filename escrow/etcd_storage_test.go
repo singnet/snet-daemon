@@ -17,33 +17,33 @@ import (
 )
 
 var etcdPaymentHandler escrowPaymentHandler
-var etcdStorageMock etcdStorageMockType
+var cleanableEtcdStorage cleanableEtcdStorageType
 
-type etcdStorageMockType struct {
+type cleanableEtcdStorageType struct {
 	*EtcdStorage
 	keys []*PaymentChannelKey
 }
 
-func (storageMock *etcdStorageMockType) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
-	storageMock.keys = append(storageMock.keys, key)
-	return storageMock.EtcdStorage.Put(key, state)
+func (storage *cleanableEtcdStorageType) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
+	storage.keys = append(storage.keys, key)
+	return storage.EtcdStorage.Put(key, state)
 }
 
-func (storageMock *etcdStorageMockType) CompareAndSwap(
+func (storage *cleanableEtcdStorageType) CompareAndSwap(
 	key *PaymentChannelKey,
 	prevState *PaymentChannelData,
 	newState *PaymentChannelData,
 ) (ok bool, err error) {
-	storageMock.keys = append(storageMock.keys, key)
-	return storageMock.EtcdStorage.CompareAndSwap(key, prevState, newState)
+	storage.keys = append(storage.keys, key)
+	return storage.EtcdStorage.CompareAndSwap(key, prevState, newState)
 }
 
-func (storageMock *etcdStorageMockType) Clear() {
-	for _, key := range storageMock.keys {
+func (storage *cleanableEtcdStorageType) Clear() {
+	for _, key := range storage.keys {
 		bytes, _ := serialize(key)
-		storageMock.client.Delete(bytes)
+		storage.client.Delete(bytes)
 	}
-	storageMock.keys = nil
+	storage.keys = nil
 }
 
 type EtcdStorageTemplateType struct {
@@ -75,11 +75,11 @@ func initEtcdStorage() (close func(), err error) {
 		return
 	}
 
-	etcdStorageMock = etcdStorageMockType{EtcdStorage: storage}
+	cleanableEtcdStorage = cleanableEtcdStorageType{EtcdStorage: storage}
 
 	etcdPaymentHandler = escrowPaymentHandler{
 		escrowContractAddress: testEscrowContractAddress,
-		storage:               &etcdStorageMock,
+		storage:               &cleanableEtcdStorage,
 		incomeValidator:       &incomeValidatorMock,
 	}
 
@@ -161,7 +161,7 @@ func getFreePort() (port int, err error) {
 }
 
 func getTestEtcdContext(data *testPaymentData) *handler.GrpcStreamContext {
-	etcdStorageMock.Put(
+	cleanableEtcdStorage.Put(
 		newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
 		&PaymentChannelData{
 			State:            data.State,
@@ -179,7 +179,7 @@ func getTestEtcdContext(data *testPaymentData) *handler.GrpcStreamContext {
 }
 
 func clearTestEtcdContext() {
-	etcdStorageMock.Clear()
+	cleanableEtcdStorage.Clear()
 }
 
 func TestEtcdGetPayment(t *testing.T) {

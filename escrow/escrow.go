@@ -295,12 +295,15 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 		payment.channelKey,
 		payment.channel,
 		&PaymentChannelData{
+			Nonce:            payment.channel.Nonce,
 			State:            payment.channel.State,
 			Sender:           payment.channel.Sender,
+			Recipient:        payment.channel.Recipient,
 			FullAmount:       payment.channel.FullAmount,
 			Expiration:       payment.channel.Expiration,
 			AuthorizedAmount: payment.amount,
 			Signature:        payment.signature,
+			GroupId:          payment.channel.GroupId,
 		},
 	)
 	if e != nil {

@@ -22,6 +22,8 @@ import (
 
 var testPrivateKey = generatePrivateKey()
 var testPublicKey = crypto.PubkeyToAddress(testPrivateKey.PublicKey)
+var recipientPrivateKey = generatePrivateKey()
+var recipientPublicKey = crypto.PubkeyToAddress(recipientPrivateKey.PublicKey)
 
 func generatePrivateKey() (privateKey *ecdsa.PrivateKey) {
 	privateKey, err := crypto.GenerateKey()
@@ -129,10 +131,10 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 }
 
 type testPaymentData struct {
-	ChannelID, ChannelNonce, FullAmount, PrevAmount, NewAmount int64
-	State                                                      PaymentChannelState
-	Expiration                                                 time.Time
-	Signature                                                  []byte
+	ChannelID, ChannelNonce, FullAmount, PrevAmount, NewAmount, GroupId int64
+	State                                                               PaymentChannelState
+	Expiration                                                          time.Time
+	Signature                                                           []byte
 }
 
 func newPaymentChannelKey(ID, nonce int64) *PaymentChannelKey {
@@ -147,6 +149,7 @@ var defaultData = &testPaymentData{
 	NewAmount:    12345,
 	PrevAmount:   12300,
 	State:        Open,
+	GroupId:      1,
 }
 
 func copyTestData(orig *testPaymentData) (cpy *testPaymentData) {
@@ -183,12 +186,15 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 		amount:      big.NewInt(data.NewAmount),
 		signature:   signature,
 		channel: &PaymentChannelData{
+			Nonce:            big.NewInt(data.ChannelNonce),
 			State:            data.State,
 			Sender:           testPublicKey,
+			Recipient:        recipientPublicKey,
 			FullAmount:       big.NewInt(data.FullAmount),
 			Expiration:       data.Expiration,
 			AuthorizedAmount: big.NewInt(data.PrevAmount),
 			Signature:        nil,
+			GroupId:          big.NewInt(data.GroupId),
 		},
 	}
 }
@@ -197,12 +203,15 @@ func getTestContext(data *testPaymentData) *handler.GrpcStreamContext {
 	storageMock.Put(
 		newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
 		&PaymentChannelData{
+			Nonce:            big.NewInt(data.ChannelNonce),
 			State:            data.State,
 			Sender:           testPublicKey,
+			Recipient:        recipientPublicKey,
 			FullAmount:       big.NewInt(data.FullAmount),
 			Expiration:       data.Expiration,
 			AuthorizedAmount: big.NewInt(data.PrevAmount),
 			Signature:        nil,
+			GroupId:          big.NewInt(data.GroupId),
 		},
 	)
 	md := getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)
@@ -254,12 +263,15 @@ func TestGetPublicKeyFromPayment2(t *testing.T) {
 
 func TestPaymentChannelToJSON(t *testing.T) {
 	channel := PaymentChannelData{
+		Nonce:            big.NewInt(3),
 		State:            Open,
 		Sender:           testPublicKey,
+		Recipient:        recipientPublicKey,
 		FullAmount:       big.NewInt(12345),
 		Expiration:       time.Now().Add(time.Hour),
 		AuthorizedAmount: big.NewInt(12300),
 		Signature:        blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+		GroupId:          big.NewInt(1),
 	}
 
 	bytes, err := json.Marshal(channel)
@@ -456,12 +468,15 @@ func TestCompletePayment(t *testing.T) {
 	assert.Nil(t, e)
 	assert.True(t, ok)
 	assert.Equal(t, toJSON(&PaymentChannelData{
+		Nonce:            big.NewInt(4),
 		State:            Open,
 		Sender:           testPublicKey,
+		Recipient:        recipientPublicKey,
 		FullAmount:       big.NewInt(12346),
 		Expiration:       payment.channel.Expiration,
 		AuthorizedAmount: big.NewInt(12345),
 		Signature:        payment.signature,
+		GroupId:          big.NewInt(1),
 	}), toJSON(channelState))
 }
 

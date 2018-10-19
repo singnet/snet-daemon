@@ -55,7 +55,7 @@ func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChann
 
 	ok, err = storage.CompareAndSwap(key, nil, state)
 	if err != nil {
-		return
+		return nil, false, err
 	}
 	if !ok {
 		log.Warn("Key is already present in the storage")

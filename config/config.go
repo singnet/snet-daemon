@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
@@ -57,7 +59,7 @@ const (
 		"level": "info",
 		"timezone": "UTC",
 		"formatter": {
-			"type": "json"
+			"type": "text"
 		},
 		"output": {
 			"type": "file",
@@ -198,4 +200,22 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	}
 
 	return sub
+}
+
+var hiddenKeys = map[string]bool{
+	strings.ToUpper(PrivateKeyKey):       true,
+	strings.ToUpper(HdwalletMnemonicKey): true,
+}
+
+func LogConfig() {
+	log.Info("Final configuration:")
+	keys := vip.AllKeys()
+	sort.Strings(keys)
+	for _, key := range keys {
+		if hiddenKeys[strings.ToUpper(key)] {
+			log.Infof("%v: ***", key)
+		} else {
+			log.Infof("%v: %v", key, vip.Get(key))
+		}
+	}
 }

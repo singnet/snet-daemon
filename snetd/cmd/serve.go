@@ -45,6 +45,7 @@ var ServeCmd = &cobra.Command{
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize logger")
 		}
+		config.LogConfig()
 
 		var d daemon
 		d, err = newDaemon()
@@ -77,6 +78,7 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
 	} else {
 		log.Info("Configuration file is not set, using default configuration")
 	}
+
 }
 
 func isFileExist(fileName string) bool {

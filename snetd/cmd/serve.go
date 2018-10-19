@@ -190,6 +190,7 @@ func (d daemon) start() {
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
 			grpc.StreamInterceptor(d.getGrpcInterceptor()),
 		)
+		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, &escrow.PaymentChannelStateService{})
 
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json

@@ -8,23 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetPaymentChannelCluster(t *testing.T) {
-	const confJSON = `
-	{
-		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380"
-	}`
-
-	vip := readConfig(t, confJSON)
-
-	cluster := GetPaymentChannelCluster(vip)
-	assert.Equal(t, "storage-1=http://127.0.0.1:2380", cluster)
-}
-
 func TestDefaultEtcdServerConf(t *testing.T) {
 
-	const confJSON = `{
-		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380"
-	}`
+	const confJSON = `{}`
 
 	vip := readConfig(t, confJSON)
 	conf, err := GetPaymentChannelStorageServerConf(vip)
@@ -33,10 +19,12 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.NotNil(t, conf)
 
 	assert.Equal(t, "storage-1", conf.ID)
+	assert.Equal(t, "http", conf.Scheme)
 	assert.Equal(t, "127.0.0.1", conf.Host)
 	assert.Equal(t, 2379, conf.ClientPort)
 	assert.Equal(t, 2380, conf.PeerPort)
 	assert.Equal(t, "unique-token", conf.Token)
+	assert.Equal(t, "storage-1=http://127.0.0.1:2380", conf.Cluster)
 	assert.Equal(t, false, conf.Enabled)
 
 	server, err := InitEtcdServer(vip)
@@ -49,8 +37,6 @@ func TestDisabledEtcdServerConf(t *testing.T) {
 
 	const confJSON = `
 		{
-			"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380",
-
 			"PAYMENT_CHANNEL_STORAGE_SERVER": {
 				"ENABLED": false
 			}
@@ -67,21 +53,18 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 
 	const confJSON = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380",
-
 		"PAYMENT_CHANNEL_STORAGE_SERVER": {
 			"ID": "storage-1",
 			"HOST" : "127.0.0.1",
 			"CLIENT_PORT": 2379,
 			"PEER_PORT": 2380,
 			"TOKEN": "unique-token",
+			"CLUSTER": "storage-1=http://127.0.0.1:2380",
 			"ENABLED": true
 		}
 	}`
 
 	vip := readConfig(t, confJSON)
-	cluster := GetPaymentChannelCluster(vip)
-	assert.Equal(t, "storage-1=http://127.0.0.1:2380", cluster)
 
 	conf, err := GetPaymentChannelStorageServerConf(vip)
 
@@ -113,23 +96,21 @@ func TestDefaultEtcdClientConf(t *testing.T) {
 
 	assert.Equal(t, 5000, conf.ConnectionTimeout)
 	assert.Equal(t, 3000, conf.RequestTimeout)
+	assert.Equal(t, []string{"http://127.0.0.1:2379"}, conf.Endpoints)
 }
 
 func TestEtcdClientConf(t *testing.T) {
 
 	const confJSON = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380",
-
 		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
 			"CONNECTION_TIMEOUT": 15000,
-			"REQUEST_TIMEOUT": 5000
+			"REQUEST_TIMEOUT": 5000,
+			"ENDPOINTS": ["http://127.0.0.1:2479"]
 		}
 	}`
 
 	vip := readConfig(t, confJSON)
-	cluster := GetPaymentChannelCluster(vip)
-	assert.Equal(t, "storage-1=http://127.0.0.1:2380", cluster)
 
 	conf, err := GetPaymentChannelStorageClientConf(vip)
 
@@ -137,17 +118,17 @@ func TestEtcdClientConf(t *testing.T) {
 	assert.NotNil(t, conf)
 	assert.Equal(t, 15000, conf.ConnectionTimeout)
 	assert.Equal(t, 5000, conf.RequestTimeout)
+	assert.Equal(t, []string{"http://127.0.0.1:2479"}, conf.Endpoints)
 }
 
 func TestPaymentChannelStorageReadWrite(t *testing.T) {
 
 	const confJSON = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380",
-
 		"PAYMENT_CHANNEL_STORAGE_CLIENT": {
 			"CONNECTION_TIMEOUT": 5000,
-			"REQUEST_TIMEOUT": 3000
+			"REQUEST_TIMEOUT": 3000,
+			"ENDPOINTS": ["http://127.0.0.1:2379"]
 		},
 
 		"PAYMENT_CHANNEL_STORAGE_SERVER": {
@@ -156,6 +137,7 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 			"CLIENT_PORT": 2379,
 			"PEER_PORT": 2380,
 			"TOKEN": "unique-token",
+			"CLUSTER": "storage-1=http://127.0.0.1:2380",
 			"ENABLED": true
 		}
 	}`
@@ -177,23 +159,34 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 
 	key := "key"
 	value := "value"
-	err = client.Put(stringToByteArray(key), stringToByteArray(value))
+	keyBytes := stringToByteArray(key)
+	valueBytes := stringToByteArray(value)
+
+	err = client.Put(keyBytes, valueBytes)
 	assert.Nil(t, err)
 
-	getResult, err := client.Get(stringToByteArray(key))
+	getResult, err := client.Get(keyBytes)
 	assert.Nil(t, err)
+	assert.True(t, len(getResult) > 0)
 	assert.Equal(t, value, byteArraytoString(getResult))
+
+	err = client.Delete(keyBytes)
+	assert.Nil(t, err)
+
+	getResult, err = client.Get(keyBytes)
+	assert.Nil(t, err)
+	assert.True(t, len(getResult) == 0)
+
 }
 
 func TestPaymentChannelStorageCAS(t *testing.T) {
 
 	const confJSON = `
 	{
-		"PAYMENT_CHANNEL_STORAGE_CLUSTER": "storage-1=http://127.0.0.1:2380",
-
 		"PAYMENT_CHANNEL_STORAGE_SERVER": {
 			"ID": "storage-1",
 			"HOST" : "127.0.0.1",
+			"CLUSTER": "storage-1=http://127.0.0.1:2380",
 			"TOKEN": "unique-token"
 		}
 	}`
@@ -217,53 +210,32 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 	key := "key"
 	expect := "expect"
 	update := "update"
+	keyBytes := stringToByteArray(key)
+	expectBytes := stringToByteArray(expect)
+	updateBytes := stringToByteArray(update)
 
-	err = client.Put(stringToByteArray(key), stringToByteArray(expect))
+	err = client.Put(keyBytes, expectBytes)
 	assert.Nil(t, err)
 
 	ok, err := client.CompareAndSet(
-		stringToByteArray(key),
-		stringToByteArray(expect),
-		stringToByteArray(update),
+		keyBytes,
+		expectBytes,
+		updateBytes,
 	)
 	assert.Nil(t, err)
 	assert.True(t, ok)
 
-	updateResult, err := client.Get(stringToByteArray(key))
+	updateResult, err := client.Get(keyBytes)
 	assert.Nil(t, err)
 	assert.Equal(t, update, byteArraytoString(updateResult))
 
 	ok, err = client.CompareAndSet(
-		stringToByteArray(key),
-		stringToByteArray(expect),
-		stringToByteArray(update),
+		keyBytes,
+		expectBytes,
+		updateBytes,
 	)
 	assert.Nil(t, err)
 	assert.False(t, ok)
-}
-func TestMissedEndpoints(t *testing.T) {
-
-	endpoints, err := getPaymentChannelEndpoints("")
-	assert.NotNil(t, err)
-	assert.Nil(t, endpoints)
-}
-
-func TestGetClusterEndpoints(t *testing.T) {
-
-	checkGetClusterEndpoints(t, "storage-1=http://127.0.0.1:2380", []string{"http://127.0.0.1:2380"})
-	checkGetClusterEndpoints(
-		t,
-		"storage-1=http://127.0.0.1:2380,storage-2=http://127.0.0.1:2480",
-		[]string{"http://127.0.0.1:2380", "http://127.0.0.1:2480"},
-	)
-}
-
-func checkGetClusterEndpoints(t *testing.T, cluster string, expects []string) {
-
-	endpoints, err := getPaymentChannelEndpoints(cluster)
-
-	assert.Nil(t, err)
-	assert.Equal(t, expects, endpoints)
 }
 
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {

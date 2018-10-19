@@ -164,12 +164,15 @@ func getTestEtcdContext(data *testPaymentData) *handler.GrpcStreamContext {
 	cleanableEtcdStorage.Put(
 		newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
 		&PaymentChannelData{
+			Nonce:            big.NewInt(data.ChannelNonce),
 			State:            data.State,
 			Sender:           testPublicKey,
+			Recipient:        recipientPublicKey,
 			FullAmount:       big.NewInt(data.FullAmount),
 			Expiration:       data.Expiration,
 			AuthorizedAmount: big.NewInt(data.PrevAmount),
 			Signature:        nil,
+			GroupId:          big.NewInt(data.GroupId),
 		},
 	)
 	md := getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)

@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -33,8 +34,9 @@ const (
 	SSLCertPathKey                     = "SSL_CERT"
 	SSLKeyPathKey                      = "SSL_KEY"
 	WireEncodingKey                    = "WIRE_ENCODING"
-	PaymentChannelStorageClientKey     = "payment_channel_storage_client"
-	PaymentChannelStorageServerKey     = "payment_channel_storage_server"
+	ReplicaGroupIDKey                  = "REPLICA_GROUP_ID" // TODO: read replica group id from IPFS metadata
+	PaymentChannelStorageClientKey     = "PAYMENT_CHANNEL_STORAGE_CLIENT"
+	PaymentChannelStorageServerKey     = "PAYMENT_CHANNEL_STORAGE_SERVER"
 
 	defaultConfigJson string = `
 {
@@ -69,6 +71,7 @@ const (
 		},
 		"hooks": []
 	},
+	"replica_group_id": "0",
 	"payment_channel_storage_client": {
 		"connection_timeout": 5000,
 		"request_timeout": 3000,
@@ -180,6 +183,10 @@ func GetString(key string) string {
 
 func GetInt(key string) int {
 	return vip.GetInt(key)
+}
+
+func GetBigInt(key string) *big.Int {
+	return big.NewInt(int64(vip.GetInt(key)))
 }
 
 func GetDuration(key string) time.Duration {

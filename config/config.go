@@ -35,6 +35,8 @@ const (
 	SSLKeyPathKey                      = "SSL_KEY"
 	WireEncodingKey                    = "WIRE_ENCODING"
 	ReplicaGroupIDKey                  = "REPLICA_GROUP_ID" // TODO: read replica group id from IPFS metadata
+	PaymentChannelStorageClientKey     = "PAYMENT_CHANNEL_STORAGE_CLIENT"
+	PaymentChannelStorageServerKey     = "PAYMENT_CHANNEL_STORAGE_SERVER"
 
 	defaultConfigJson string = `
 {
@@ -69,7 +71,21 @@ const (
 		},
 		"hooks": []
 	},
-	"replica_group_id": "0"
+	"replica_group_id": "0",
+	"payment_channel_storage_client": {
+		"connection_timeout": 5000,
+		"request_timeout": 3000,
+		"endpoints": ["http://127.0.0.1:2379"]
+	},
+	"payment_channel_storage_server": {
+		"id": "storage-1",
+		"host" : "127.0.0.1",
+		"client_port": 2379,
+		"peer_port": 2380,
+		"token": "unique-token",
+		"cluster": "storage-1=http://127.0.0.1:2380",
+		"enabled": false
+	}
 }
 `
 )

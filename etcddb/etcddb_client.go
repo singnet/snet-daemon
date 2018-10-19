@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.etcd.io/etcd/clientv3"
@@ -25,9 +26,12 @@ type EtcdClient struct {
 }
 
 // NewEtcdClient create new etcd storage client.
-// It uses default connection and request timeouts in case
-// PAYMENT_CHANNEL_STORAGE_CLIENT struct is not set
-func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
+func NewEtcdClient() (client *EtcdClient, err error) {
+	return NewEtcdClientFromVip(config.Vip())
+}
+
+// NewEtcdClientFromVip create new etcd storage client from viper.
+func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 
 	conf, err := GetPaymentChannelStorageClientConf(vip)
 
@@ -35,7 +39,7 @@ func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
 		return
 	}
 
-	log.WithField("etcd client conf", fmt.Sprintf("%+v", conf)).Info()
+	log.WithField("PaymentChannelStorageClient", fmt.Sprintf("%+v", conf)).Info()
 
 	connectionTimeout := time.Duration(conf.ConnectionTimeout) * time.Millisecond
 
@@ -55,7 +59,7 @@ func NewEtcdClient(vip *viper.Viper) (client *EtcdClient, err error) {
 }
 
 // Get gets value from etcd by key
-func (client *EtcdClient) Get(key []byte) ([]byte, error) {
+func (client *EtcdClient) Get(key []byte) (value []byte, ok bool, err error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
@@ -63,13 +67,16 @@ func (client *EtcdClient) Get(key []byte) ([]byte, error) {
 	response, err := client.etcdv3.Get(ctx, byteArraytoString(key))
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	for _, kv := range response.Kvs {
-		return kv.Value, nil
+		ok = true
+		value = kv.Value
+		return
 	}
-	return nil, nil
+
+	return
 }
 
 // Put puts key and value to etcd

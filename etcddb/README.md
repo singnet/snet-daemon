@@ -9,19 +9,19 @@ contain the JSON map with name *PAYMENT_CHANNEL_STORAGE_SERVER* and values:
 
 | Field name  | Description                                        |Default Value                  |
 |-------------|----------------------------------------------------|-------------------------------|
-| ID          | unique name of the etcd server node                |storage-1                      |
-| SCHEMA      | URL schema used to create client and peer and urls |http                           |
-| HOST        | host where the etcd server is executed             |127.0.0.1                      |
-| CLIENT_PORT | port to listen clients requests                    |2379                           |
-| PEER_PORT   | port to listen etcd peers                          |2380                           |
-| TOKEN       | unique initial cluster token                       |unique-token                   |
-| CLUSTER     | initial cluster configuration for bootstrapping    |storage-1=http://127.0.0.1:2380|
-| ENABLED     | enable running embedded etcd server                |true                           |
+| id          | unique name of the etcd server node                |storage-1                      |
+| schema      | URL schema used to create client and peer and urls |http                           |
+| host        | host where the etcd server is executed             |127.0.0.1                      |
+| client_port | port to listen clients requests                    |2379                           |
+| peer_port   | port to listen etcd peers                          |2380                           |
+| token       | unique initial cluster token                       |unique-token                   |
+| cluster     | initial cluster configuration for bootstrapping    |storage-1=http://127.0.0.1:2380|
+| enabled     | enable running embedded etcd server                |true                           |
 
 
-The CLUSTER field is a comma-separated list of one or more etcd peer URLs in form of *id=host:peer_port*.
+The cluster field is a comma-separated list of one or more etcd peer URLs in form of *id=host:peer_port*.
 
-Schema, host, and CLIENT_PORT/PEER_PORT are used together to compose etcd listen-client-urls/listen-peer-urls
+schema, host, and client_port/peer_port are used together to compose etcd listen-client-urls/listen-peer-urls
 (see the link below).
 
 Using unique token, etcd can generate unique cluster IDs and member IDs for the clusters even if they otherwise have
@@ -33,7 +33,7 @@ For more details see
 It is possible to configure snet-daemon to run with or without embedded etcd server.
 
 
-If *PAYMENT_CHANNEL_STORAGE_SERVER* field is not set in the configuration file its *ENABLED*
+If *PAYMENT_CHANNEL_STORAGE_SERVER* field is not set in the configuration file its *enabled*
 field is set to *false* by default and in this case the etcd server is not started.
 
 Config for snet-daemon that does not run embedded etcd node:
@@ -41,54 +41,54 @@ Config for snet-daemon that does not run embedded etcd node:
 ```json
 {}
 ```
-* *ENABLED* field is set to _false_
+* *enabled* field is set to _false_
 ```json
 {
-    "PAYMENT_CHANNEL_STORAGE_SERVER": {
-        "ID": "storage-2",
-        "HOST" : "127.0.0.2",
-        "CLIENT_PORT": 2379,
-        "PEER_PORT": 2380,
-        "TOKEN": "unique-token",
-        "CLUSTER": "storage-1=http://127.0.0.1:2380,storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380",
-        "ENABLED": false
+    "payment_channel_storage_server": {
+        "id": "storage-2",
+        "host" : "127.0.0.2",
+        "client_port": 2379,
+        "peer_port": 2380,
+        "token": "unique-token",
+        "cluster": "storage-1=http://127.0.0.1:2380,storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380",
+        "enabled": false
     }
 }
 
 Config for snet-daemon that runs embedded etcd node:
 
-* *ENABLED* field is set to _true_
+* *enabled* field is set to _true_
 
 ```json
 {
     "PAYMENT_CHANNEL_STORAGE_SERVER": {
-        "ID": "storage-1",
-        "HOST" : "127.0.0.1",
-        "CLIENT_PORT": 2379,
-        "PEER_PORT": 2380,
-        "TOKEN": "unique-token",
-        "CLUSTER": "storage-1=http://127.0.0.1:2380",
-        "ENABLED": true
+        "id": "storage-1",
+        "host" : "127.0.0.1",
+        "client_port": 2379,
+        "peer_port": 2380,
+        "token": "unique-token",
+        "cluster": "storage-1=http://127.0.0.1:2380",
+        "enabled": true
     }
 }
 ```
 
-* *ENABLED* field is omitted
+* *enabled* field is omitted
 
 ```json
 {
     "PAYMENT_CHANNEL_STORAGE_SERVER": {
-        "ID": "storage-1",
-        "HOST" : "127.0.0.1",
-        "CLIENT_PORT": 2379,
-        "PEER_PORT": 2380,
-        "TOKEN": "unique-token",
-        "CLUSTER": "storage-1=http://127.0.0.1:2380",
+        "id": "storage-1",
+        "host" : "127.0.0.1",
+        "client_port": 2379,
+        "peer_port": 2380,
+        "token": "unique-token",
+        "cluster": "storage-1=http://127.0.0.1:2380",
     }
 }
 ```
 
-Note that it is possible to disable running an embedded etcd server in the config file by setting *ENABLED* field to false:
+Note that it is possible to disable running an embedded etcd server in the config file by setting *enabled* field to false:
 
 
 # etcd client configuration
@@ -97,18 +97,18 @@ Note that it is possible to disable running an embedded etcd server in the confi
 
 | Field name         | Description                                   |Default Value            |
 |--------------------|-----------------------------------------------|-------------------------|
-| CONNECTION_TIMEOUT | timeout for failing to establish a connection |5000                     |
-| REQUEST_TIMEOUT    | per request timeout                           |3000                     |
-| ENDPOINTS          | etcd cluster endpoints                        |["http://127.0.0.1:2379"]|
+| connection_timeout | timeout for failing to establish a connection |5000                     |
+| request_timeout    | per request timeout                           |3000                     |
+| endpoints          | list of etcd cluster endpoints                |["http://127.0.0.1:2379"]|
 
 Connection and request timeoutes are measured in milliseconds.
 
 ```json
 {
     "PAYMENT_CHANNEL_STORAGE_CLIENT": {
-        "CONNECTION_TIMEOUT": 5000,
-        "REQUEST_TIMEOUT": 3000,
-        "ENDPOINTS": ["http://127.0.0.1:2379"]
+        "connection_timeout": 5000,
+        "request_timeout": 3000,
+        "endpoints": ["http://127.0.0.1:2379"]
     }
 }
 ```

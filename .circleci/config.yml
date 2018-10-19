@@ -24,7 +24,7 @@ jobs:
           command: ./scripts/install
       - run:
           name: Run build script
-          command: ./scripts/build
+          command: ./scripts/build linux amd64
       - run:
           name: Run test script
           command: ./scripts/test

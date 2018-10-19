@@ -9,6 +9,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"math/big"
+	"sync"
 	"time"
 )
 
@@ -113,12 +114,14 @@ func (storage *combinedStorage) CompareAndSwap(key *PaymentChannelKey, prevState
 type memoryStorageKey string
 
 type memoryStorage struct {
-	data map[memoryStorageKey]*PaymentChannelData
+	data  map[memoryStorageKey]*PaymentChannelData
+	mutex *sync.RWMutex
 }
 
 func NewMemStorage() (storage PaymentChannelStorage) {
 	return &memoryStorage{
-		data: make(map[memoryStorageKey]*PaymentChannelData),
+		data:  make(map[memoryStorageKey]*PaymentChannelData),
+		mutex: &sync.RWMutex{},
 	}
 }
 
@@ -127,11 +130,25 @@ func getMemoryStorageKey(key *PaymentChannelKey) memoryStorageKey {
 }
 
 func (storage *memoryStorage) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
+	return storage.unsafePut(key, channel)
+}
+
+func (storage *memoryStorage) unsafePut(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
 	storage.data[getMemoryStorageKey(key)] = channel
 	return nil
 }
 
 func (storage *memoryStorage) Get(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	storage.mutex.RLock()
+	defer storage.mutex.RUnlock()
+
+	return storage.unsafeGet(key)
+}
+
+func (storage *memoryStorage) unsafeGet(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	channel, ok = storage.data[getMemoryStorageKey(key)]
 	if !ok {
 		return nil, false, nil
@@ -140,7 +157,10 @@ func (storage *memoryStorage) Get(key *PaymentChannelKey) (channel *PaymentChann
 }
 
 func (storage *memoryStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
-	current, ok, err := storage.Get(key)
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
+	current, ok, err := storage.unsafeGet(key)
 	if err != nil {
 		return
 	}
@@ -156,7 +176,7 @@ func (storage *memoryStorage) CompareAndSwap(key *PaymentChannelKey, prevState *
 			return false, nil
 		}
 	}
-	return true, storage.Put(key, newState)
+	return true, storage.unsafePut(key, newState)
 }
 
 func toBytes(data interface{}) []byte {

@@ -3,6 +3,7 @@ package escrow
 
 import (
 	"github.com/singnet/snet-daemon/blockchain"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"math/big"
 )
@@ -11,6 +12,10 @@ type PaymentChannelStateService struct {
 }
 
 func (service *PaymentChannelStateService) GetChannelState(context context.Context, request *ChannelStateRequest) (reply *ChannelStateReply, err error) {
+	log.WithFields(log.Fields{
+		"context": context,
+		"request": request,
+	}).Debug("GetChannelState called")
 	return &ChannelStateReply{
 		CurrentNonce: bigIntToBytes(big.NewInt(1)),
 		CurrentValue: bigIntToBytes(big.NewInt(2)),

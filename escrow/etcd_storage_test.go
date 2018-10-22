@@ -64,7 +64,12 @@ func initEtcdStorage() (close func(), err error) {
 		return
 	}
 
-	server, err := etcddb.InitEtcdServerFromVip(vip)
+	server, err := etcddb.GetEtcdServerFromVip(vip)
+	if err != nil {
+		return
+	}
+
+	err = server.Start()
 	if err != nil {
 		return
 	}

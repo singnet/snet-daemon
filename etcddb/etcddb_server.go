@@ -14,19 +14,20 @@ import (
 
 // EtcdServer struct has some useful methods to wolrk with etcd server
 type EtcdServer struct {
+	conf *PaymentChannelStorageServerConf
 	etcd *embed.Etcd
 }
 
-// InitEtcdServer run etcd server according to the config
+// GetEtcdServer returns EtcdServer in case it is defined in the viper config
 // reuturns null if PAYMENT_CHANNEL_STORAGE property is not defined
 // in the config file or the ENABLED field of the PAYMENT_CHANNEL_STORAGE
 // is set to false
-func InitEtcdServer() (server *EtcdServer, err error) {
-	return InitEtcdServerFromVip(config.Vip())
+func GetEtcdServer() (server *EtcdServer, err error) {
+	return GetEtcdServerFromVip(config.Vip())
 }
 
-// InitEtcdServerFromVip run etcd server using viper config
-func InitEtcdServerFromVip(vip *viper.Viper) (server *EtcdServer, err error) {
+// GetEtcdServerFromVip run etcd server using viper config
+func GetEtcdServerFromVip(vip *viper.Viper) (server *EtcdServer, err error) {
 
 	conf, err := GetPaymentChannelStorageServerConf(vip)
 
@@ -34,8 +35,19 @@ func InitEtcdServerFromVip(vip *viper.Viper) (server *EtcdServer, err error) {
 		return
 	}
 
-	etcd, err := startEtcdServer(conf)
-	server = &EtcdServer{etcd: etcd}
+	server = &EtcdServer{conf: conf}
+	return
+}
+
+// Start starts etcd server
+func (server *EtcdServer) Start() (err error) {
+
+	etcd, err := startEtcdServer(server.conf)
+	if err != nil {
+		return
+	}
+
+	server.etcd = etcd
 	return
 }
 

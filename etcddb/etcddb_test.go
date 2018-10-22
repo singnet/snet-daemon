@@ -24,7 +24,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "storage-1=http://127.0.0.1:2380", conf.Cluster)
 	assert.Equal(t, false, conf.Enabled)
 
-	server, err := InitEtcdServer()
+	server, err := GetEtcdServer()
 
 	assert.Nil(t, err)
 	assert.Nil(t, server)
@@ -40,7 +40,7 @@ func TestDisabledEtcdServerConf(t *testing.T) {
 		}`
 
 	vip := readConfig(t, confJSON)
-	server, err := InitEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.Nil(t, server)
@@ -75,10 +75,12 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, true, conf.Enabled)
 
-	server, err := InitEtcdServerFromVip(vip)
-
+	server, err := GetEtcdServerFromVip(vip)
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
+
+	err = server.Start()
+	assert.Nil(t, err)
 	defer server.Close()
 }
 
@@ -139,10 +141,12 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	server, err := InitEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
+	err = server.Start()
+	assert.Nil(t, err)
 
 	defer server.Close()
 
@@ -195,11 +199,13 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	server, err := InitEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
 
+	err = server.Start()
+	assert.Nil(t, err)
 	defer server.Close()
 
 	client, err := NewEtcdClient()
@@ -248,11 +254,13 @@ func TestPaymentChannelStorageNilValue(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	server, err := InitEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
 
+	err = server.Start()
+	assert.Nil(t, err)
 	defer server.Close()
 
 	client, err := NewEtcdClient()

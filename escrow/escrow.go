@@ -99,7 +99,7 @@ type PaymentChannelStorage interface {
 }
 
 func (key PaymentChannelKey) String() string {
-	return fmt.Sprintf("{ID: %v, Nonce: %v}", key.ID, key.Nonce)
+	return fmt.Sprintf("{ID: %v}", key.ID)
 }
 
 func (state PaymentChannelState) String() string {
@@ -132,16 +132,17 @@ func NewEscrowPaymentHandler(processor *blockchain.Processor, storage PaymentCha
 }
 
 type escrowPaymentType struct {
-	grpcContext *handler.GrpcStreamContext
-	channelKey  *PaymentChannelKey
-	amount      *big.Int
-	signature   []byte
-	channel     *PaymentChannelData
+	grpcContext  *handler.GrpcStreamContext
+	channelID    *big.Int
+	channelNonce *big.Int
+	amount       *big.Int
+	signature    []byte
+	channel      *PaymentChannelData
 }
 
 func (p *escrowPaymentType) String() string {
-	return fmt.Sprintf("{grpcContext: %v, channelKey: %v, amount: %v, signature: %v, channel: %v}",
-		p.grpcContext, p.channelKey, p.amount, blockchain.BytesToBase64(p.signature), p.channel)
+	return fmt.Sprintf("{grpcContext: %v, channelID: %v, channelNonce: %v, amount: %v, signature: %v, channel: %v}",
+		p.grpcContext, p.channelID, p.channelNonce, p.amount, blockchain.BytesToBase64(p.signature), p.channel)
 }
 
 func (h *escrowPaymentHandler) Type() (typ string) {
@@ -159,7 +160,7 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 		return
 	}
 
-	channelKey := &PaymentChannelKey{channelID, channelNonce}
+	channelKey := &PaymentChannelKey{ID: channelID}
 	channel, ok, e := h.storage.Get(channelKey)
 	if e != nil {
 		return nil, status.Newf(codes.Internal, "payment channel storage error")
@@ -180,11 +181,12 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 	}
 
 	return &escrowPaymentType{
-		grpcContext: context,
-		channelKey:  channelKey,
-		amount:      amount,
-		signature:   signature,
-		channel:     channel,
+		grpcContext:  context,
+		channelID:    channelID,
+		channelNonce: channelNonce,
+		amount:       amount,
+		signature:    signature,
+		channel:      channel,
 	}, nil
 }
 
@@ -194,7 +196,7 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 
 	if payment.channel.State != Open {
 		log.Warn("Payment channel is not opened")
-		return status.Newf(codes.Unauthenticated, "payment channel \"%v\" is not opened", payment.channelKey)
+		return status.Newf(codes.Unauthenticated, "payment channel is not opened, channel id: %v", payment.channelID)
 	}
 
 	signerAddress, err := h.getSignerAddressFromPayment(payment)
@@ -233,8 +235,8 @@ func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymen
 		blockchain.HashPrefix32Bytes,
 		crypto.Keccak256(
 			h.escrowContractAddress.Bytes(),
-			bigIntToBytes(payment.channelKey.ID),
-			bigIntToBytes(payment.channelKey.Nonce),
+			bigIntToBytes(payment.channelID),
+			bigIntToBytes(payment.channelNonce),
 			bigIntToBytes(payment.amount),
 		),
 	)
@@ -268,7 +270,7 @@ func bigIntToBytes(value *big.Int) []byte {
 func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
 	ok, e := h.storage.CompareAndSwap(
-		payment.channelKey,
+		&PaymentChannelKey{ID: payment.channelID},
 		payment.channel,
 		&PaymentChannelData{
 			Nonce:            payment.channel.Nonce,
@@ -288,7 +290,7 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 	}
 	if !ok {
 		log.WithField("payment", payment).Warn("Channel state was changed concurrently")
-		return status.Newf(codes.Unauthenticated, "state of payment channel \"%v\" was concurrently updated", payment.channelKey)
+		return status.Newf(codes.Unauthenticated, "state of payment channel was concurrently updated, channel id: %v", payment.channelID)
 	}
 
 	return

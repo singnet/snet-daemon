@@ -35,7 +35,7 @@ func NewEtcdClient() (client *EtcdClient, err error) {
 // NewEtcdClientFromVip create new etcd storage client from viper.
 func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 
-	conf, err := GetPaymentChannelStorageClientConf(vip)
+	conf, err := GetEtcdClientConf(vip)
 
 	if err != nil {
 		return

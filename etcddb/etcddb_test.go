@@ -10,7 +10,7 @@ import (
 
 func TestDefaultEtcdServerConf(t *testing.T) {
 
-	conf, err := GetPaymentChannelStorageServerConf(config.Vip())
+	conf, err := GetEtcdServerConf(config.Vip())
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -63,7 +63,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	conf, err := GetPaymentChannelStorageServerConf(vip)
+	conf, err := GetEtcdServerConf(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -86,7 +86,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 
 func TestDefaultEtcdClientConf(t *testing.T) {
 
-	conf, err := GetPaymentChannelStorageClientConf(config.Vip())
+	conf, err := GetEtcdClientConf(config.Vip())
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -109,7 +109,7 @@ func TestEtcdClientConf(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	conf, err := GetPaymentChannelStorageClientConf(vip)
+	conf, err := GetEtcdClientConf(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)

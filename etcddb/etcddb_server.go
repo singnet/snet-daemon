@@ -14,7 +14,7 @@ import (
 
 // EtcdServer struct has some useful methods to wolrk with etcd server
 type EtcdServer struct {
-	conf *PaymentChannelStorageServerConf
+	conf *EtcdServerConf
 	etcd *embed.Etcd
 }
 
@@ -29,7 +29,7 @@ func GetEtcdServer() (server *EtcdServer, err error) {
 // GetEtcdServerFromVip run etcd server using viper config
 func GetEtcdServerFromVip(vip *viper.Viper) (server *EtcdServer, err error) {
 
-	conf, err := GetPaymentChannelStorageServerConf(vip)
+	conf, err := GetEtcdServerConf(vip)
 
 	if err != nil || conf == nil || !conf.Enabled {
 		return
@@ -59,7 +59,7 @@ func (server *EtcdServer) Close() {
 // StartEtcdServer starts ectd server
 // The method blocks until the server is started
 // or failed by timeout
-func startEtcdServer(conf *PaymentChannelStorageServerConf) (etcd *embed.Etcd, err error) {
+func startEtcdServer(conf *EtcdServerConf) (etcd *embed.Etcd, err error) {
 
 	etcdConf := getEtcdConf(conf)
 	etcd, err = embed.StartEtcd(etcdConf)
@@ -78,7 +78,7 @@ func startEtcdServer(conf *PaymentChannelStorageServerConf) (etcd *embed.Etcd, e
 	return
 }
 
-func getEtcdConf(conf *PaymentChannelStorageServerConf) *embed.Config {
+func getEtcdConf(conf *EtcdServerConf) *embed.Config {
 
 	clientURL := &url.URL{
 		Scheme: conf.Scheme,

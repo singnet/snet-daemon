@@ -8,7 +8,9 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"go.etcd.io/etcd/clientv3"
+
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
 )
 
 const (
@@ -105,6 +107,14 @@ func (client *EtcdClient) Delete(key []byte) error {
 
 // CompareAndSet uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSet(key []byte, expect []byte, update []byte) (bool, error) {
+	if expect == nil {
+		return client.createSync(key, update)
+	} else {
+		return client.compareAndSet(key, expect, update)
+	}
+}
+
+func (client *EtcdClient) compareAndSet(key []byte, expect []byte, update []byte) (bool, error) {
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
@@ -121,6 +131,44 @@ func (client *EtcdClient) CompareAndSet(key []byte, expect []byte, update []byte
 	}
 
 	return response.Succeeded, nil
+}
+
+func (client *EtcdClient) createSync(key []byte, value []byte) (ok bool, err error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	defer cancel()
+
+	etcdv3 := client.etcdv3
+	session, err := concurrency.NewSession(etcdv3)
+
+	if err != nil {
+		return
+	}
+
+	lockKey := byteArraytoString(key)
+	mu := concurrency.NewMutex(session, lockKey)
+	err = mu.Lock(ctx)
+
+	if err != nil {
+		return
+	}
+
+	defer mu.Unlock(context.Background())
+
+	response, err := etcdv3.Get(ctx, lockKey)
+
+	if err != nil || response.Count != 0 {
+		return
+	}
+
+	_, err = etcdv3.Put(ctx, lockKey, byteArraytoString(value))
+
+	if err != nil {
+		return
+	}
+
+	ok = true
+	return
 }
 
 // Close closes etcd client

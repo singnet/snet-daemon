@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/json"
@@ -94,15 +95,21 @@ var paymentHandler = escrowPaymentHandler{
 	incomeValidator:       &incomeValidatorMock,
 }
 
-func getSignature(contractAddress *common.Address, channelID, channelNonce, amount int64, privateKey *ecdsa.PrivateKey) (signature []byte) {
+func getPaymentSignature(contractAddress *common.Address, channelID, channelNonce, amount int64, privateKey *ecdsa.PrivateKey) (signature []byte) {
+	message := bytes.Join([][]byte{
+		testEscrowContractAddress.Bytes(),
+		intToUint256(channelID),
+		intToUint256(channelNonce),
+		intToUint256(amount),
+	}, nil)
+
+	return getSignature(message, privateKey)
+}
+
+func getSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	hash := crypto.Keccak256(
 		blockchain.HashPrefix32Bytes,
-		crypto.Keccak256(
-			testEscrowContractAddress.Bytes(),
-			intToUint256(channelID),
-			intToUint256(channelNonce),
-			intToUint256(amount),
-		),
+		crypto.Keccak256(message),
 	)
 
 	signature, err := crypto.Sign(hash, privateKey)
@@ -130,7 +137,7 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 	if amount != 0 {
 		md.Set(PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
 	}
-	md.Set(PaymentChannelSignatureHeader, string(getSignature(&testEscrowContractAddress, channelID, channelNonce, amount, testPrivateKey)))
+	md.Set(PaymentChannelSignatureHeader, string(getPaymentSignature(&testEscrowContractAddress, channelID, channelNonce, amount, testPrivateKey)))
 	return md
 }
 
@@ -182,7 +189,7 @@ func patchDefaultData(patch func(d D)) (cpy *testPaymentData) {
 func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	signature := data.Signature
 	if signature == nil {
-		signature = getSignature(&testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount, testPrivateKey)
+		signature = getPaymentSignature(&testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount, testPrivateKey)
 	}
 	return &escrowPaymentType{
 		grpcContext:  &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},

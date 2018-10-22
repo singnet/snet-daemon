@@ -1,9 +1,9 @@
 package etcddb
 
 import (
-	"encoding/json"
 	"strings"
 
+	"github.com/singnet/snet-daemon/config"
 	"github.com/spf13/viper"
 )
 
@@ -74,21 +74,24 @@ type PaymentChannelStorageServerConf struct {
 // is not set in the configuration file
 func GetPaymentChannelStorageServerConf(vip *viper.Viper) (conf *PaymentChannelStorageServerConf, err error) {
 
-	// conf = &PaymentChannelStorageServerConf{Scheme: "http", ClientPort: 2379, PeerPort: 2380, Enabled: true}
-	conf = &PaymentChannelStorageServerConf{}
-	defaultConf := normalizeDefaultConf(DefaultPaymentChannelStorageServerConf)
-	err = json.Unmarshal([]byte(defaultConf), conf)
-
-	if err != nil {
-		return
+	conf = &PaymentChannelStorageServerConf{
+		ID:         "storage-1",
+		Scheme:     "http",
+		Host:       "127.0.0.1",
+		ClientPort: 2379,
+		PeerPort:   2380,
+		Token:      "unique-token",
+		Cluster:    "storage-1=http://127.0.0.1:2380",
+		Enabled:    false,
 	}
 
-	if vip.Get(PaymentChannelStorageServerKey) == nil {
+	if !vip.InConfig(PaymentChannelStorageServerKey) {
 		return
 	}
 
 	conf.Enabled = true
-	err = vip.UnmarshalKey(PaymentChannelStorageServerKey, conf)
+
+	err = vip.UnmarshalKey(config.PaymentChannelStorageServerKey, conf)
 	return
 }
 
@@ -97,8 +100,8 @@ func GetPaymentChannelStorageServerConf(vip *viper.Viper) (conf *PaymentChannelS
 // RequestTimeout    - per request timeout
 // Endpoints         - cluster endpoints
 type PaymentChannelStorageClientConf struct {
-	ConnectionTimeout int `mapstructure:"CONNECTION_TIMEOUT"`
-	RequestTimeout    int `mapstructure:"REQUEST_TIMEOUT"`
+	ConnectionTimeout int `mapstructure:"connection_timeout"`
+	RequestTimeout    int `mapstructure:"request_timeout"`
 	Endpoints         []string
 }
 
@@ -107,20 +110,17 @@ type PaymentChannelStorageClientConf struct {
 // is not set in the configuration file
 func GetPaymentChannelStorageClientConf(vip *viper.Viper) (conf *PaymentChannelStorageClientConf, err error) {
 
-	conf = &PaymentChannelStorageClientConf{}
-	defaultConf := normalizeDefaultConf(DefaultPaymentChannelStorageClientConf)
-	err = json.Unmarshal([]byte(defaultConf), conf)
+	conf = &PaymentChannelStorageClientConf{
+		ConnectionTimeout: 5000,
+		RequestTimeout:    3000,
+		Endpoints:         []string{"http://127.0.0.1:2379"},
+	}
 
-	if err != nil {
+	if !vip.InConfig(PaymentChannelStorageClientKey) {
 		return
 	}
 
-	if vip.Get(PaymentChannelStorageClientKey) == nil {
-		return
-	}
-
-	err = vip.UnmarshalKey(PaymentChannelStorageClientKey, conf)
-
+	err = vip.UnmarshalKey(config.PaymentChannelStorageClientKey, conf)
 	return
 }
 

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.etcd.io/etcd/embed"
@@ -20,7 +21,12 @@ type EtcdServer struct {
 // reuturns null if PAYMENT_CHANNEL_STORAGE property is not defined
 // in the config file or the ENABLED field of the PAYMENT_CHANNEL_STORAGE
 // is set to false
-func InitEtcdServer(vip *viper.Viper) (server *EtcdServer, err error) {
+func InitEtcdServer() (server *EtcdServer, err error) {
+	return InitEtcdServerFromVip(config.Vip())
+}
+
+// InitEtcdServerFromVip run etcd server using viper config
+func InitEtcdServerFromVip(vip *viper.Viper) (server *EtcdServer, err error) {
 
 	conf, err := GetPaymentChannelStorageServerConf(vip)
 
@@ -72,9 +78,9 @@ func getEtcdConf(conf *PaymentChannelStorageServerConf) *embed.Config {
 		Host:   fmt.Sprintf("%s:%d", conf.Host, conf.PeerPort),
 	}
 
-	log.WithField("etcd server conf", fmt.Sprintf("%+v", conf)).Info()
-	log.WithField("client url", clientURL).Info()
-	log.WithField("peer   url", peerURL).Info()
+	log.WithField("PaymentChannelStorageServer", fmt.Sprintf("%+v", conf)).Info()
+	log.WithField("ClientURL", clientURL).Info()
+	log.WithField("PeerURL", peerURL).Info()
 
 	etcdConf := embed.NewConfig()
 	etcdConf.Name = conf.ID

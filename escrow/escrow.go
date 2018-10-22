@@ -194,9 +194,9 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 	var payment = _payment.(*escrowPaymentType)
 	var log = log.WithField("payment", payment)
 
-	if payment.channel.State != Open {
-		log.Warn("Payment channel is not opened")
-		return status.Newf(codes.Unauthenticated, "payment channel is not opened, channel id: %v", payment.channelID)
+	if payment.channelNonce.Cmp(payment.channel.Nonce) != 0 {
+		log.Warn("Incorrect nonce is sent by client")
+		return status.Newf(codes.Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", payment.channel.Nonce, payment.channelNonce)
 	}
 
 	signerAddress, err := h.getSignerAddressFromPayment(payment)

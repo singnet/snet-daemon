@@ -28,10 +28,6 @@ func NewCombinedStorage(processor *blockchain.Processor, delegate PaymentChannel
 func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
 	log := log.WithField("key", key)
 
-	// TODO: in fact we need to get latest actual state from storage by channel
-	// id and if channel is not found then load its state from blockchain.
-	// Then we should compare nonce with nonce which is sent by client, and
-	// this logic can be moved into escrowPaymentHandler.
 	state, ok, err = storage.delegate.Get(key)
 	if ok && err == nil {
 		return
@@ -47,12 +43,6 @@ func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChann
 	}
 	log = log.WithField("state", state)
 	log.Info("Channel found in blockchain")
-
-	// TODO: see comment at the beginning of the method
-	if state.Nonce.Cmp(key.Nonce) != 0 {
-		log.Warn("Channel nonce is not equal to expected")
-		return nil, false, fmt.Errorf("Channel nonce: %v is not equal to expected: %v", state.Nonce, key.Nonce)
-	}
 
 	ok, err = storage.CompareAndSwap(key, nil, state)
 	if err != nil {

@@ -380,14 +380,15 @@ func TestValidatePayment(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestValidatePaymentChannelIsNotOpen(t *testing.T) {
+func TestValidatePaymentChannelNonce(t *testing.T) {
 	payment := getTestPayment(patchDefaultData(func(d D) {
-		d.State = Closed
+		d.ChannelNonce = 3
 	}))
+	payment.channelNonce = big.NewInt(2)
 
 	err := paymentHandler.Validate(payment)
 
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is not opened, channel id: 42"), err)
+	assert.Equal(t, status.New(codes.Unauthenticated, "incorrect payment channel nonce, latest: 3, sent: 2"), err)
 }
 
 func TestValidatePaymentIncorrectSignatureLength(t *testing.T) {

@@ -229,6 +229,13 @@ func toJSON(data interface{}) string {
 	return bytesErrorTupleToString(json.Marshal(data))
 }
 
+func bytesErrorTupleToString(data []byte, err error) string {
+	if err != nil {
+		panic(fmt.Sprintf("Unexpected error: %v", err))
+	}
+	return string(data)
+}
+
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	handler := escrowPaymentHandler{
 		escrowContractAddress: testEscrowContractAddress,

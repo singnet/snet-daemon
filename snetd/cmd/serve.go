@@ -18,6 +18,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
 	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
@@ -92,6 +93,7 @@ type daemon struct {
 	lis           net.Listener
 	boltDB        *bolt.DB
 	sslCert       *tls.Certificate
+	etcdServer    *etcddb.EtcdServer
 }
 
 func newDaemon() (daemon, error) {
@@ -139,10 +141,24 @@ func newDaemon() (daemon, error) {
 		d.sslCert = &cert
 	}
 
+	etcdServer, err := etcddb.GetEtcdServer()
+	if err != nil {
+		return d, errors.Wrap(err, "error during etcd config parsing")
+	}
+	d.etcdServer = etcdServer
+
 	return d, nil
 }
 
 func (d daemon) start() {
+
+	if d.etcdServer != nil {
+		err := d.etcdServer.Start()
+		if err != nil {
+			log.WithError(err).Error("unable to start etcd server")
+		}
+	}
+
 	d.blockProc.StartLoop()
 
 	var tlsConfig *tls.Config
@@ -245,6 +261,11 @@ func (d *daemon) getGrpcInterceptor() grpc.StreamServerInterceptor {
 }
 
 func (d daemon) stop() {
+
+	if d.etcdServer != nil {
+		d.etcdServer.Close()
+	}
+
 	if d.boltDB != nil {
 		d.boltDB.Close()
 	}

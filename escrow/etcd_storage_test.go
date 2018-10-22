@@ -2,15 +2,12 @@ package escrow
 
 import (
 	"bytes"
-	"math/big"
 	"net"
 	"testing"
 	"text/template"
-	"time"
 
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/etcddb"
-	"github.com/singnet/snet-daemon/handler"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -20,28 +17,27 @@ var etcdPaymentHandler escrowPaymentHandler
 var cleanableEtcdStorage cleanableEtcdStorageType
 
 type cleanableEtcdStorageType struct {
-	*EtcdStorage
-	keys []*PaymentChannelKey
+	*etcddb.EtcdClient
+	keys []string
 }
 
-func (storage *cleanableEtcdStorageType) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
+func (storage *cleanableEtcdStorageType) Put(key string, state string) (err error) {
 	storage.keys = append(storage.keys, key)
-	return storage.EtcdStorage.Put(key, state)
+	return storage.EtcdClient.Put(key, state)
 }
 
 func (storage *cleanableEtcdStorageType) CompareAndSwap(
-	key *PaymentChannelKey,
-	prevState *PaymentChannelData,
-	newState *PaymentChannelData,
+	key string,
+	prevState string,
+	newState string,
 ) (ok bool, err error) {
 	storage.keys = append(storage.keys, key)
-	return storage.EtcdStorage.CompareAndSwap(key, prevState, newState)
+	return storage.EtcdClient.CompareAndSwap(key, prevState, newState)
 }
 
 func (storage *cleanableEtcdStorageType) Clear() {
 	for _, key := range storage.keys {
-		bytes, _ := serialize(key)
-		storage.client.Delete(bytes)
+		storage.EtcdClient.Delete(key)
 	}
 	storage.keys = nil
 }
@@ -74,23 +70,16 @@ func initEtcdStorage() (close func(), err error) {
 		return
 	}
 
-	storage, err := NewEtcdStorageFromVip(vip)
-
+	client, err := etcddb.NewEtcdClientFromVip(vip)
 	if err != nil {
 		return
 	}
 
-	cleanableEtcdStorage = cleanableEtcdStorageType{EtcdStorage: storage}
-
-	etcdPaymentHandler = escrowPaymentHandler{
-		escrowContractAddress: testEscrowContractAddress,
-		storage:               &cleanableEtcdStorage,
-		incomeValidator:       &incomeValidatorMock,
-	}
+	cleanableEtcdStorage = cleanableEtcdStorageType{EtcdClient: client}
 
 	return func() {
 		server.Close()
-		storage.Close()
+		client.Close()
 	}, nil
 }
 
@@ -165,31 +154,6 @@ func getFreePort() (port int, err error) {
 	return
 }
 
-func getTestEtcdContext(data *testPaymentData) *handler.GrpcStreamContext {
-	cleanableEtcdStorage.Put(
-		newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
-		&PaymentChannelData{
-			Nonce:            big.NewInt(data.ChannelNonce),
-			State:            data.State,
-			Sender:           testPublicKey,
-			Recipient:        recipientPublicKey,
-			FullAmount:       big.NewInt(data.FullAmount),
-			Expiration:       data.Expiration,
-			AuthorizedAmount: big.NewInt(data.PrevAmount),
-			Signature:        nil,
-			GroupId:          big.NewInt(data.GroupId),
-		},
-	)
-	md := getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)
-	return &handler.GrpcStreamContext{
-		MD: md,
-	}
-}
-
-func clearTestEtcdContext() {
-	cleanableEtcdStorage.Clear()
-}
-
 func TestEtcdGetPayment(t *testing.T) {
 
 	close, e := initEtcdStorage()
@@ -198,26 +162,11 @@ func TestEtcdGetPayment(t *testing.T) {
 	}
 	defer close()
 
-	data := &testPaymentData{
-		ChannelID:    42,
-		ChannelNonce: 3,
-		Expiration:   time.Now().Add(time.Hour),
-		FullAmount:   12345,
-		NewAmount:    12345,
-		PrevAmount:   12300,
-		State:        Open,
-	}
-	context := getTestEtcdContext(data)
-	defer clearTestEtcdContext()
-
-	payment, err := etcdPaymentHandler.Payment(context)
-
+	err := cleanableEtcdStorage.Put("key", "value")
 	assert.Nil(t, err)
-	expected := getTestPayment(data)
-	actual := payment.(*escrowPaymentType)
-	assert.Equal(t, toJSON(expected.grpcContext), toJSON(actual.grpcContext))
-	assert.Equal(t, toJSON(expected.channelKey), toJSON(actual.channelKey))
-	assert.Equal(t, expected.amount, actual.amount)
-	assert.Equal(t, expected.signature, actual.signature)
-	assert.Equal(t, toJSON(expected.channel), toJSON(actual.channel))
+
+	value, ok, err := cleanableEtcdStorage.Get("key")
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, "value", value)
 }

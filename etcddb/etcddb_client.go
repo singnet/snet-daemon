@@ -8,7 +8,9 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"go.etcd.io/etcd/clientv3"
+
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
 )
 
 const (
@@ -59,12 +61,12 @@ func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 }
 
 // Get gets value from etcd by key
-func (client *EtcdClient) Get(key []byte) (value []byte, ok bool, err error) {
+func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
-	response, err := client.etcdv3.Get(ctx, byteArraytoString(key))
+	response, err := client.etcdv3.Get(ctx, key)
 
 	if err != nil {
 		return
@@ -72,7 +74,7 @@ func (client *EtcdClient) Get(key []byte) (value []byte, ok bool, err error) {
 
 	for _, kv := range response.Kvs {
 		ok = true
-		value = kv.Value
+		value = string(kv.Value)
 		return
 	}
 
@@ -80,40 +82,40 @@ func (client *EtcdClient) Get(key []byte) (value []byte, ok bool, err error) {
 }
 
 // Put puts key and value to etcd
-func (client *EtcdClient) Put(key []byte, value []byte) error {
+func (client *EtcdClient) Put(key string, value string) (err error) {
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
-	_, err := etcdv3.Put(ctx, byteArraytoString(key), byteArraytoString(value))
+	_, err = etcdv3.Put(ctx, key, value)
 
 	return err
 }
 
 // Delete deletes the existing key and value from etcd
-func (client *EtcdClient) Delete(key []byte) error {
+func (client *EtcdClient) Delete(key string) error {
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
-	_, err := etcdv3.Delete(ctx, byteArraytoString(key))
+	_, err := etcdv3.Delete(ctx, key)
 
 	return err
 }
 
-// CompareAndSet uses CAS operation to set a value
-func (client *EtcdClient) CompareAndSet(key []byte, expect []byte, update []byte) (bool, error) {
+// CompareAndSwap uses CAS operation to set a value
+func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
 	response, err := etcdv3.KV.Txn(ctx).If(
-		clientv3.Compare(clientv3.Value(byteArraytoString(key)), "=", byteArraytoString(expect)),
+		clientv3.Compare(clientv3.Value(key), "=", prevValue),
 	).Then(
-		clientv3.OpPut(byteArraytoString(key), byteArraytoString(update)),
+		clientv3.OpPut(key, newValue),
 	).Commit()
 
 	if err != nil {
@@ -123,15 +125,45 @@ func (client *EtcdClient) CompareAndSet(key []byte, expect []byte, update []byte
 	return response.Succeeded, nil
 }
 
+// PutIfAbsent puts value if absent
+func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	defer cancel()
+
+	etcdv3 := client.etcdv3
+	session, err := concurrency.NewSession(etcdv3)
+
+	if err != nil {
+		return
+	}
+
+	mu := concurrency.NewMutex(session, key)
+	err = mu.Lock(ctx)
+
+	if err != nil {
+		return
+	}
+
+	defer mu.Unlock(context.Background())
+
+	response, err := etcdv3.Get(ctx, key)
+
+	if err != nil || response.Count != 0 {
+		return
+	}
+
+	_, err = etcdv3.Put(ctx, key, value)
+
+	if err != nil {
+		return
+	}
+
+	ok = true
+	return
+}
+
 // Close closes etcd client
 func (client *EtcdClient) Close() {
 	client.etcdv3.Close()
-}
-
-func byteArraytoString(bytes []byte) string {
-	return string(bytes)
-}
-
-func stringToByteArray(str string) []byte {
-	return []byte(str)
 }

@@ -156,33 +156,30 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 	assert.NotNil(t, client)
 	defer client.Close()
 
-	missedValue, ok, err := client.Get(stringToByteArray("missed_key"))
+	missedValue, ok, err := client.Get("missed_key")
 	assert.Nil(t, err)
 	assert.False(t, ok)
-	assert.Nil(t, missedValue)
+	assert.Equal(t, "", missedValue)
 
 	key := "key"
 	value := "value"
-	keyBytes := stringToByteArray(key)
-	valueBytes := stringToByteArray(value)
 
-	err = client.Put(keyBytes, valueBytes)
+	err = client.Put(key, value)
 	assert.Nil(t, err)
 
-	getResult, ok, err := client.Get(keyBytes)
+	getResult, ok, err := client.Get(key)
 	assert.Nil(t, err)
 	assert.True(t, ok)
 	assert.True(t, len(getResult) > 0)
-	assert.Equal(t, value, byteArraytoString(getResult))
+	assert.Equal(t, value, getResult)
 
-	err = client.Delete(keyBytes)
+	err = client.Delete(key)
 	assert.Nil(t, err)
 
-	getResult, ok, err = client.Get(keyBytes)
+	getResult, ok, err = client.Get(key)
 	assert.Nil(t, err)
 	assert.False(t, ok)
-	assert.Nil(t, getResult)
-
+	assert.Equal(t, "", getResult)
 }
 
 func TestPaymentChannelStorageCAS(t *testing.T) {
@@ -218,30 +215,27 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 	key := "key"
 	expect := "expect"
 	update := "update"
-	keyBytes := stringToByteArray(key)
-	expectBytes := stringToByteArray(expect)
-	updateBytes := stringToByteArray(update)
 
-	err = client.Put(keyBytes, expectBytes)
+	err = client.Put(key, expect)
 	assert.Nil(t, err)
 
-	ok, err := client.CompareAndSet(
-		keyBytes,
-		expectBytes,
-		updateBytes,
+	ok, err := client.CompareAndSwap(
+		key,
+		expect,
+		update,
 	)
 	assert.Nil(t, err)
 	assert.True(t, ok)
 
-	updateResult, ok, err := client.Get(keyBytes)
+	updateResult, ok, err := client.Get(key)
 	assert.Nil(t, err)
 	assert.True(t, ok)
-	assert.Equal(t, update, byteArraytoString(updateResult))
+	assert.Equal(t, update, updateResult)
 
-	ok, err = client.CompareAndSet(
-		keyBytes,
-		expectBytes,
-		updateBytes,
+	ok, err = client.CompareAndSwap(
+		key,
+		expect,
+		update,
 	)
 	assert.Nil(t, err)
 	assert.False(t, ok)
@@ -270,24 +264,35 @@ func TestPaymentChannelStorageNilValue(t *testing.T) {
 	defer client.Close()
 
 	key := "key-for-nil-value"
-	keyBytes := stringToByteArray(key)
 
-	err = client.Delete(keyBytes)
+	err = client.Delete(key)
 	assert.Nil(t, err)
 
-	missedValue, ok, err := client.Get(keyBytes)
+	missedValue, ok, err := client.Get(key)
 
 	assert.Nil(t, err)
 	assert.False(t, ok)
-	assert.Nil(t, missedValue)
+	assert.Equal(t, "", missedValue)
 
-	err = client.Put(keyBytes, nil)
+	err = client.Put(key, "")
 	assert.Nil(t, err)
 
-	nillValue, ok, err := client.Get(keyBytes)
+	nillValue, ok, err := client.Get(key)
 	assert.Nil(t, err)
 	assert.True(t, ok)
-	assert.Nil(t, nillValue)
+	assert.Equal(t, "", nillValue)
+
+	err = client.Delete(key)
+	assert.Nil(t, err)
+
+	firstValue := "first-value"
+	ok, err = client.PutIfAbsent(key, firstValue)
+	assert.Nil(t, err)
+	assert.True(t, ok)
+
+	ok, err = client.PutIfAbsent(key, firstValue)
+	assert.Nil(t, err)
+	assert.False(t, ok)
 
 }
 

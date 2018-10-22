@@ -7,42 +7,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	// PaymentChannelStorageClientKey key for viper
-	PaymentChannelStorageClientKey = "payment_channel_storage_client"
-
-	// DefaultPaymentChannelStorageClientConf default client conf
-	DefaultPaymentChannelStorageClientConf = `
-	{
-        "CONNECTION_TIMEOUT": 5000,
-		"REQUEST_TIMEOUT": 3000,
-		"ENDPOINTS": ["http://127.0.0.1:2379"]
-    }`
-
-	// PaymentChannelStorageServerKey key for viper
-	PaymentChannelStorageServerKey = "payment_channel_storage_server"
-
-	// DefaultPaymentChannelStorageServerConf default server conf.
-	// Note that running snet-daemon with several replicas require
-	// that the default configuration file should be updated
-	// according to the real information about etcd nodes in cluster.
-	// Because DefaultPaymentChannelStorageServerConf is used when
-	// the PAYMENT_CHANNEL_STORAGE_SERVER field is not set in the
-	// property file it is treated as etcd server is not configured
-	// and the ENABLED in this case is set to false by default.
-	DefaultPaymentChannelStorageServerConf = `
-	{
-        "ID": "storage-1",
-        "SCHEME" : "http",
-        "HOST" : "127.0.0.1",
-        "CLIENT_PORT": 2379,
-        "PEER_PORT": 2380,
-		"TOKEN": "unique-token",
-		"CLUSTER": "storage-1=http://127.0.0.1:2380",
-        "ENABLED": false
-    }`
-)
-
 // PaymentChannelStorageServerConf contains embedded etcd server config
 // ID - unique name of the etcd server node
 // Scheme - URL schema used to create client and peer and urls
@@ -85,7 +49,7 @@ func GetPaymentChannelStorageServerConf(vip *viper.Viper) (conf *PaymentChannelS
 		Enabled:    false,
 	}
 
-	if !vip.InConfig(PaymentChannelStorageServerKey) {
+	if !vip.InConfig(strings.ToLower(config.PaymentChannelStorageServerKey)) {
 		return
 	}
 
@@ -116,7 +80,7 @@ func GetPaymentChannelStorageClientConf(vip *viper.Viper) (conf *PaymentChannelS
 		Endpoints:         []string{"http://127.0.0.1:2379"},
 	}
 
-	if !vip.InConfig(PaymentChannelStorageClientKey) {
+	if !vip.InConfig(strings.ToLower(config.PaymentChannelStorageClientKey)) {
 		return
 	}
 

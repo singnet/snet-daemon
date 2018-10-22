@@ -35,16 +35,20 @@ func generatePrivateKey() (privateKey *ecdsa.PrivateKey) {
 
 type storageMockType struct {
 	delegate PaymentChannelStorage
-	errors   map[memoryStorageKey]bool
+	errors   map[string]bool
 }
 
 var storageMock = storageMockType{
-	delegate: NewMemStorage(),
-	errors:   make(map[memoryStorageKey]bool),
+	delegate: NewPaymentChannelStorage(NewMemStorage()),
+	errors:   make(map[string]bool),
 }
 
 func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
 	return storage.delegate.Put(key, channel)
+}
+
+func getMemoryStorageKey(key *PaymentChannelKey) string {
+	return key.String()
 }
 
 func (storage *storageMockType) Get(_key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
@@ -64,8 +68,8 @@ func (storage *storageMockType) CompareAndSwap(_key *PaymentChannelKey, prevStat
 }
 
 func (storage *storageMockType) Clear() {
-	storage.delegate = NewMemStorage()
-	storage.errors = make(map[memoryStorageKey]bool)
+	storage.delegate = NewPaymentChannelStorage(NewMemStorage())
+	storage.errors = make(map[string]bool)
 }
 
 func (storage *storageMockType) SetError(key *PaymentChannelKey, err bool) {
@@ -138,7 +142,7 @@ type testPaymentData struct {
 }
 
 func newPaymentChannelKey(ID, nonce int64) *PaymentChannelKey {
-	return &PaymentChannelKey{ID: big.NewInt(ID), Nonce: big.NewInt(nonce)}
+	return &PaymentChannelKey{ID: big.NewInt(ID)}
 }
 
 var defaultData = &testPaymentData{
@@ -181,10 +185,11 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 		signature = getSignature(&testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount, testPrivateKey)
 	}
 	return &escrowPaymentType{
-		grpcContext: &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
-		channelKey:  newPaymentChannelKey(data.ChannelID, data.ChannelNonce),
-		amount:      big.NewInt(data.NewAmount),
-		signature:   signature,
+		grpcContext:  &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
+		channelID:    big.NewInt(data.ChannelID),
+		channelNonce: big.NewInt(data.ChannelNonce),
+		amount:       big.NewInt(data.NewAmount),
+		signature:    signature,
 		channel: &PaymentChannelData{
 			Nonce:            big.NewInt(data.ChannelNonce),
 			State:            data.State,
@@ -228,13 +233,21 @@ func toJSON(data interface{}) string {
 	return bytesErrorTupleToString(json.Marshal(data))
 }
 
+func bytesErrorTupleToString(data []byte, err error) string {
+	if err != nil {
+		panic(fmt.Sprintf("Unexpected error: %v", err))
+	}
+	return string(data)
+}
+
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	handler := escrowPaymentHandler{
 		escrowContractAddress: testEscrowContractAddress,
 	}
 	payment := escrowPaymentType{
-		channelKey: newPaymentChannelKey(1789, 1917),
-		amount:     big.NewInt(31415),
+		channelID:    big.NewInt(1789),
+		channelNonce: big.NewInt(1917),
+		amount:       big.NewInt(31415),
 		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
 		signature: blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
@@ -250,9 +263,10 @@ func TestGetPublicKeyFromPayment2(t *testing.T) {
 		escrowContractAddress: blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75"),
 	}
 	payment := escrowPaymentType{
-		channelKey: newPaymentChannelKey(1789, 1917),
-		amount:     big.NewInt(31415),
-		signature:  blockchain.HexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
+		channelID:    big.NewInt(1789),
+		channelNonce: big.NewInt(1917),
+		amount:       big.NewInt(31415),
+		signature:    blockchain.HexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
 	}
 
 	address, err := handler.getSignerAddressFromPayment(&payment)
@@ -301,7 +315,8 @@ func TestGetPayment(t *testing.T) {
 	expected := getTestPayment(data)
 	actual := payment.(*escrowPaymentType)
 	assert.Equal(t, toJSON(expected.grpcContext), toJSON(actual.grpcContext))
-	assert.Equal(t, toJSON(expected.channelKey), toJSON(actual.channelKey))
+	assert.Equal(t, toJSON(expected.channelID), toJSON(actual.channelID))
+	assert.Equal(t, toJSON(expected.channelNonce), toJSON(actual.channelNonce))
 	assert.Equal(t, expected.amount, actual.amount)
 	assert.Equal(t, expected.signature, actual.signature)
 	assert.Equal(t, toJSON(expected.channel), toJSON(actual.channel))
@@ -357,7 +372,7 @@ func TestGetPaymentNoChannel(t *testing.T) {
 
 	_, err := paymentHandler.Payment(context)
 
-	assert.Equal(t, status.New(codes.InvalidArgument, "payment channel \"{ID: 42, Nonce: 3}\" not found"), err)
+	assert.Equal(t, status.New(codes.InvalidArgument, "payment channel \"{ID: 42}\" not found"), err)
 }
 
 func TestValidatePayment(t *testing.T) {
@@ -376,14 +391,15 @@ func TestValidatePayment(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestValidatePaymentChannelIsNotOpen(t *testing.T) {
+func TestValidatePaymentChannelNonce(t *testing.T) {
 	payment := getTestPayment(patchDefaultData(func(d D) {
-		d.State = Closed
+		d.ChannelNonce = 3
 	}))
+	payment.channelNonce = big.NewInt(2)
 
 	err := paymentHandler.Validate(payment)
 
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel \"{ID: 42, Nonce: 3}\" is not opened"), err)
+	assert.Equal(t, status.New(codes.Unauthenticated, "incorrect payment channel nonce, latest: 3, sent: 2"), err)
 }
 
 func TestValidatePaymentIncorrectSignatureLength(t *testing.T) {
@@ -508,5 +524,5 @@ func TestCompletePaymentConcurrentUpdate(t *testing.T) {
 
 	err := paymentHandler.Complete(payment)
 
-	assert.Equal(t, status.New(codes.Unauthenticated, "state of payment channel \"{ID: 43, Nonce: 4}\" was concurrently updated"), err)
+	assert.Equal(t, status.New(codes.Unauthenticated, "state of payment channel was concurrently updated, channel id: 43"), err)
 }

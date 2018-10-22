@@ -1,15 +1,12 @@
 package escrow
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"math/big"
-	"sync"
 	"time"
 )
 
@@ -28,10 +25,6 @@ func NewCombinedStorage(processor *blockchain.Processor, delegate PaymentChannel
 func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
 	log := log.WithField("key", key)
 
-	// TODO: in fact we need to get latest actual state from storage by channel
-	// id and if channel is not found then load its state from blockchain.
-	// Then we should compare nonce with nonce which is sent by client, and
-	// this logic can be moved into escrowPaymentHandler.
 	state, ok, err = storage.delegate.Get(key)
 	if ok && err == nil {
 		return
@@ -47,12 +40,6 @@ func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChann
 	}
 	log = log.WithField("state", state)
 	log.Info("Channel found in blockchain")
-
-	// TODO: see comment at the beginning of the method
-	if state.Nonce.Cmp(key.Nonce) != 0 {
-		log.Warn("Channel nonce is not equal to expected")
-		return nil, false, fmt.Errorf("Channel nonce: %v is not equal to expected: %v", state.Nonce, key.Nonce)
-	}
 
 	ok, err = storage.CompareAndSwap(key, nil, state)
 	if err != nil {
@@ -109,89 +96,4 @@ func (storage *combinedStorage) Put(key *PaymentChannelKey, state *PaymentChanne
 
 func (storage *combinedStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
-}
-
-type memoryStorageKey string
-
-type memoryStorage struct {
-	data  map[memoryStorageKey]*PaymentChannelData
-	mutex *sync.RWMutex
-}
-
-func NewMemStorage() (storage PaymentChannelStorage) {
-	return &memoryStorage{
-		data:  make(map[memoryStorageKey]*PaymentChannelData),
-		mutex: &sync.RWMutex{},
-	}
-}
-
-func getMemoryStorageKey(key *PaymentChannelKey) memoryStorageKey {
-	return memoryStorageKey(fmt.Sprintf("%v", key))
-}
-
-func (storage *memoryStorage) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
-	storage.mutex.Lock()
-	defer storage.mutex.Unlock()
-
-	return storage.unsafePut(key, channel)
-}
-
-func (storage *memoryStorage) unsafePut(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
-	storage.data[getMemoryStorageKey(key)] = channel
-	return nil
-}
-
-func (storage *memoryStorage) Get(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
-	storage.mutex.RLock()
-	defer storage.mutex.RUnlock()
-
-	return storage.unsafeGet(key)
-}
-
-func (storage *memoryStorage) unsafeGet(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
-	channel, ok = storage.data[getMemoryStorageKey(key)]
-	if !ok {
-		return nil, false, nil
-	}
-	return channel, true, nil
-}
-
-func (storage *memoryStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
-	storage.mutex.Lock()
-	defer storage.mutex.Unlock()
-
-	current, ok, err := storage.unsafeGet(key)
-	if err != nil {
-		return
-	}
-	if prevState == nil {
-		if ok {
-			return false, nil
-		}
-	} else {
-		if !ok {
-			return false, nil
-		}
-		if !bytes.Equal(toBytes(current), toBytes(prevState)) {
-			return false, nil
-		}
-	}
-	return true, storage.unsafePut(key, newState)
-}
-
-func toBytes(data interface{}) []byte {
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	err := encoder.Encode(data)
-	if err != nil {
-		log.WithError(err).Fatal("Error while encoding value to binary")
-	}
-	return buffer.Bytes()
-}
-
-func bytesErrorTupleToString(data []byte, err error) string {
-	if err != nil {
-		panic(fmt.Sprintf("Unexpected error: %v", err))
-	}
-	return string(data)
 }

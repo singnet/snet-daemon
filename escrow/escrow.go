@@ -39,8 +39,7 @@ const (
 // incremented each time when amount of tokens in channel descreases. Nonce
 // allows reusing channel id without risk of overexpenditure.
 type PaymentChannelKey struct {
-	ID    *big.Int
-	Nonce *big.Int
+	ID *big.Int
 }
 
 // PaymentChannelState is a current state of a payment channel. Payment
@@ -99,7 +98,7 @@ type PaymentChannelStorage interface {
 }
 
 func (key PaymentChannelKey) String() string {
-	return fmt.Sprintf("{ID: %v, Nonce: %v}", key.ID, key.Nonce)
+	return fmt.Sprintf("{ID: %v}", key.ID)
 }
 
 func (state PaymentChannelState) String() string {
@@ -109,33 +108,56 @@ func (state PaymentChannelState) String() string {
 	}[state]
 }
 
-func (key PaymentChannelData) String() string {
-	return fmt.Sprintf("{State: %v, Sender: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		key.State, blockchain.AddressToHex(&key.Sender), key.FullAmount, key.Expiration.Format(time.RFC3339), key.AuthorizedAmount, blockchain.BytesToBase64(key.Signature))
+func (data PaymentChannelData) String() string {
+	return fmt.Sprintf("{Nonce: %v. State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
+		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupId, data.FullAmount, data.Expiration.Format(time.RFC3339), data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
 }
 
-// IncomeData is used to pass information to the pricing validation system.
-// This system can use information about call to calculate price and verify
-// income received.
-type IncomeData struct {
-	// Income is a difference between previous authorized amount and amount
-	// which was received with current call.
-	Income *big.Int
-	// GrpcContext contains gRPC stream context information. For instance
-	// metadata could be used to pass invoice id to check pricing.
-	GrpcContext *handler.GrpcStreamContext
+type paymentChannelStorageImpl struct {
+	AtomicStorage AtomicStorage
 }
 
-// IncomeValidator uses pricing information to check that call was payed
-// correctly by channel sender. This interface can be implemented differently
-// depending on pricing policy. For instance one can verify that call is payed
-// according to invoice. Each RPC method can have different price and so on. To
-// implement this strategies additional information from gRPC context can be
-// required. In such case it should be added into handler.GrpcStreamContext.
-type IncomeValidator interface {
-	// Validate returns nil if validation is successful or correct gRPC status
-	// to be sent to client in case of validation error.
-	Validate(*IncomeData) (err *status.Status)
+func NewPaymentChannelStorage(atomicStorage AtomicStorage) PaymentChannelStorage {
+	return &paymentChannelStorageImpl{AtomicStorage: atomicStorage}
+}
+
+func (storage *paymentChannelStorageImpl) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
+	data, ok, err := storage.AtomicStorage.Get(key.String())
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	state = &PaymentChannelData{}
+	err = deserialize([]byte(data), state)
+	if err != nil {
+		return nil, false, err
+	}
+	return state, true, nil
+}
+
+func (storage *paymentChannelStorageImpl) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
+	data, err := serialize(state)
+	if err != nil {
+		return
+	}
+	return storage.AtomicStorage.Put(key.String(), string(data))
+}
+
+func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
+	newData, err := serialize(newState)
+	if err != nil {
+		return
+	}
+
+	if prevState == nil {
+		return storage.AtomicStorage.PutIfAbsent(key.String(), string(newData))
+	}
+
+	prevData, err := serialize(prevState)
+	if err != nil {
+		return
+	}
+
+	return storage.AtomicStorage.CompareAndSwap(key.String(), string(prevData), string(newData))
 }
 
 // escrowPaymentHandler implements paymentHandlerType interface
@@ -156,16 +178,17 @@ func NewEscrowPaymentHandler(processor *blockchain.Processor, storage PaymentCha
 }
 
 type escrowPaymentType struct {
-	grpcContext *handler.GrpcStreamContext
-	channelKey  *PaymentChannelKey
-	amount      *big.Int
-	signature   []byte
-	channel     *PaymentChannelData
+	grpcContext  *handler.GrpcStreamContext
+	channelID    *big.Int
+	channelNonce *big.Int
+	amount       *big.Int
+	signature    []byte
+	channel      *PaymentChannelData
 }
 
 func (p *escrowPaymentType) String() string {
-	return fmt.Sprintf("{grpcContext: %v, channelKey: %v, amount: %v, signature: %v, channel: %v}",
-		p.grpcContext, p.channelKey, p.amount, blockchain.BytesToBase64(p.signature), p.channel)
+	return fmt.Sprintf("{grpcContext: %v, channelID: %v, channelNonce: %v, amount: %v, signature: %v, channel: %v}",
+		p.grpcContext, p.channelID, p.channelNonce, p.amount, blockchain.BytesToBase64(p.signature), p.channel)
 }
 
 func (h *escrowPaymentHandler) Type() (typ string) {
@@ -183,7 +206,7 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 		return
 	}
 
-	channelKey := &PaymentChannelKey{channelID, channelNonce}
+	channelKey := &PaymentChannelKey{ID: channelID}
 	channel, ok, e := h.storage.Get(channelKey)
 	if e != nil {
 		return nil, status.Newf(codes.Internal, "payment channel storage error")
@@ -204,11 +227,12 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 	}
 
 	return &escrowPaymentType{
-		grpcContext: context,
-		channelKey:  channelKey,
-		amount:      amount,
-		signature:   signature,
-		channel:     channel,
+		grpcContext:  context,
+		channelID:    channelID,
+		channelNonce: channelNonce,
+		amount:       amount,
+		signature:    signature,
+		channel:      channel,
 	}, nil
 }
 
@@ -216,9 +240,9 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 	var payment = _payment.(*escrowPaymentType)
 	var log = log.WithField("payment", payment)
 
-	if payment.channel.State != Open {
-		log.Warn("Payment channel is not opened")
-		return status.Newf(codes.Unauthenticated, "payment channel \"%v\" is not opened", payment.channelKey)
+	if payment.channelNonce.Cmp(payment.channel.Nonce) != 0 {
+		log.Warn("Incorrect nonce is sent by client")
+		return status.Newf(codes.Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", payment.channel.Nonce, payment.channelNonce)
 	}
 
 	signerAddress, err := h.getSignerAddressFromPayment(payment)
@@ -257,8 +281,8 @@ func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymen
 		blockchain.HashPrefix32Bytes,
 		crypto.Keccak256(
 			h.escrowContractAddress.Bytes(),
-			bigIntToBytes(payment.channelKey.ID),
-			bigIntToBytes(payment.channelKey.Nonce),
+			bigIntToBytes(payment.channelID),
+			bigIntToBytes(payment.channelNonce),
 			bigIntToBytes(payment.amount),
 		),
 	)
@@ -292,7 +316,7 @@ func bigIntToBytes(value *big.Int) []byte {
 func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
 	ok, e := h.storage.CompareAndSwap(
-		payment.channelKey,
+		&PaymentChannelKey{ID: payment.channelID},
 		payment.channel,
 		&PaymentChannelData{
 			Nonce:            payment.channel.Nonce,
@@ -312,7 +336,7 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 	}
 	if !ok {
 		log.WithField("payment", payment).Warn("Channel state was changed concurrently")
-		return status.Newf(codes.Unauthenticated, "state of payment channel \"%v\" was concurrently updated", payment.channelKey)
+		return status.Newf(codes.Unauthenticated, "state of payment channel was concurrently updated, channel id: %v", payment.channelID)
 	}
 
 	return

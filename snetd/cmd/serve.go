@@ -238,7 +238,8 @@ func (d *daemon) getGrpcInterceptor() grpc.StreamServerInterceptor {
 			&d.blockProc,
 			escrow.NewCombinedStorage(
 				&d.blockProc,
-				escrow.NewMemStorage()),
+				escrow.NewPaymentChannelStorage(escrow.NewMemStorage()),
+			),
 			escrow.NewIncomeValidator(&d.blockProc),
 		),
 	)

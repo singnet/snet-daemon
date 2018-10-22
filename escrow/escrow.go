@@ -108,9 +108,56 @@ func (state PaymentChannelState) String() string {
 	}[state]
 }
 
-func (key PaymentChannelData) String() string {
-	return fmt.Sprintf("{State: %v, Sender: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		key.State, blockchain.AddressToHex(&key.Sender), key.FullAmount, key.Expiration.Format(time.RFC3339), key.AuthorizedAmount, blockchain.BytesToBase64(key.Signature))
+func (data PaymentChannelData) String() string {
+	return fmt.Sprintf("{Nonce: %v. State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
+		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupId, data.FullAmount, data.Expiration.Format(time.RFC3339), data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
+}
+
+type paymentChannelStorageImpl struct {
+	AtomicStorage AtomicStorage
+}
+
+func NewPaymentChannelStorage(atomicStorage AtomicStorage) PaymentChannelStorage {
+	return &paymentChannelStorageImpl{AtomicStorage: atomicStorage}
+}
+
+func (storage *paymentChannelStorageImpl) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
+	data, ok, err := storage.AtomicStorage.Get(key.String())
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	state = &PaymentChannelData{}
+	err = deserialize([]byte(data), state)
+	if err != nil {
+		return nil, false, err
+	}
+	return state, true, nil
+}
+
+func (storage *paymentChannelStorageImpl) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
+	data, err := serialize(state)
+	if err != nil {
+		return
+	}
+	return storage.AtomicStorage.Put(key.String(), string(data))
+}
+
+func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
+	newData, err := serialize(newState)
+	if err != nil {
+		return
+	}
+
+	if prevState == nil {
+		return storage.AtomicStorage.PutIfAbsent(key.String(), string(newData))
+	}
+
+	prevData, err := serialize(prevState)
+	if err != nil {
+		return
+	}
+
+	return storage.AtomicStorage.CompareAndSwap(key.String(), string(prevData), string(newData))
 }
 
 // escrowPaymentHandler implements paymentHandlerType interface

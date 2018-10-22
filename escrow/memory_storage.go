@@ -3,57 +3,66 @@ package escrow
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"sync"
 )
 
-type memoryStorageKey string
-
 type memoryStorage struct {
-	data  map[memoryStorageKey]*PaymentChannelData
+	data  map[string]string
 	mutex *sync.RWMutex
 }
 
-func NewMemStorage() (storage PaymentChannelStorage) {
+func NewMemStorage() (storage AtomicStorage) {
 	return &memoryStorage{
-		data:  make(map[memoryStorageKey]*PaymentChannelData),
+		data:  make(map[string]string),
 		mutex: &sync.RWMutex{},
 	}
 }
 
-func getMemoryStorageKey(key *PaymentChannelKey) memoryStorageKey {
-	return memoryStorageKey(fmt.Sprintf("%v", key))
-}
-
-func (storage *memoryStorage) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
+func (storage *memoryStorage) Put(key, value string) (err error) {
 	storage.mutex.Lock()
 	defer storage.mutex.Unlock()
 
-	return storage.unsafePut(key, channel)
+	return storage.unsafePut(key, value)
 }
 
-func (storage *memoryStorage) unsafePut(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
-	storage.data[getMemoryStorageKey(key)] = channel
+func (storage *memoryStorage) unsafePut(key, value string) (err error) {
+	storage.data[key] = value
 	return nil
 }
 
-func (storage *memoryStorage) Get(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+func (storage *memoryStorage) Get(key string) (value string, ok bool, err error) {
 	storage.mutex.RLock()
 	defer storage.mutex.RUnlock()
 
 	return storage.unsafeGet(key)
 }
 
-func (storage *memoryStorage) unsafeGet(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
-	channel, ok = storage.data[getMemoryStorageKey(key)]
+func (storage *memoryStorage) unsafeGet(key string) (value string, ok bool, err error) {
+	value, ok = storage.data[key]
 	if !ok {
-		return nil, false, nil
+		return "", false, nil
 	}
-	return channel, true, nil
+	return value, true, nil
 }
 
-func (storage *memoryStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
+func (storage *memoryStorage) PutIfAbsent(key, value string) (ok bool, err error) {
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
+	_, ok, err = storage.unsafeGet(key)
+	if err != nil {
+		return
+	}
+
+	if ok {
+		return false, nil
+	}
+
+	return true, storage.unsafePut(key, value)
+}
+
+func (storage *memoryStorage) CompareAndSwap(key, prevValue, newValue string) (ok bool, err error) {
 	storage.mutex.Lock()
 	defer storage.mutex.Unlock()
 
@@ -61,19 +70,12 @@ func (storage *memoryStorage) CompareAndSwap(key *PaymentChannelKey, prevState *
 	if err != nil {
 		return
 	}
-	if prevState == nil {
-		if ok {
-			return false, nil
-		}
-	} else {
-		if !ok {
-			return false, nil
-		}
-		if !bytes.Equal(toBytes(current), toBytes(prevState)) {
-			return false, nil
-		}
+
+	if !ok || !bytes.Equal(toBytes(current), toBytes(prevValue)) {
+		return false, nil
 	}
-	return true, storage.unsafePut(key, newState)
+
+	return true, storage.unsafePut(key, newValue)
 }
 
 func toBytes(data interface{}) []byte {

@@ -35,16 +35,20 @@ func generatePrivateKey() (privateKey *ecdsa.PrivateKey) {
 
 type storageMockType struct {
 	delegate PaymentChannelStorage
-	errors   map[memoryStorageKey]bool
+	errors   map[string]bool
 }
 
 var storageMock = storageMockType{
-	delegate: NewMemStorage(),
-	errors:   make(map[memoryStorageKey]bool),
+	delegate: NewPaymentChannelStorage(NewMemStorage()),
+	errors:   make(map[string]bool),
 }
 
 func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
 	return storage.delegate.Put(key, channel)
+}
+
+func getMemoryStorageKey(key *PaymentChannelKey) string {
+	return key.String()
 }
 
 func (storage *storageMockType) Get(_key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
@@ -64,8 +68,8 @@ func (storage *storageMockType) CompareAndSwap(_key *PaymentChannelKey, prevStat
 }
 
 func (storage *storageMockType) Clear() {
-	storage.delegate = NewMemStorage()
-	storage.errors = make(map[memoryStorageKey]bool)
+	storage.delegate = NewPaymentChannelStorage(NewMemStorage())
+	storage.errors = make(map[string]bool)
 }
 
 func (storage *storageMockType) SetError(key *PaymentChannelKey, err bool) {

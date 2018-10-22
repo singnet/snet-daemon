@@ -118,7 +118,7 @@ func TestEtcdClientConf(t *testing.T) {
 	assert.Equal(t, []string{"http://127.0.0.1:2479"}, conf.Endpoints)
 }
 
-func TestPaymentChannelStorageReadWrite(t *testing.T) {
+func TestEtcdPutGet(t *testing.T) {
 
 	const confJSON = `
 	{
@@ -182,7 +182,7 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 	assert.Equal(t, "", getResult)
 }
 
-func TestPaymentChannelStorageCAS(t *testing.T) {
+func TestEtcdCAS(t *testing.T) {
 
 	const confJSON = `
 	{
@@ -241,7 +241,7 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestPaymentChannelStorageNilValue(t *testing.T) {
+func TestEtcdNilValue(t *testing.T) {
 
 	const confJSON = `
 	{ "payment_channel_storage_server": {} }`

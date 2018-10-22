@@ -28,14 +28,12 @@ message ChannelStateRequest {
 message ChannelStateReply {
     // current_nonce is a latest nonce of the payment channel.
     bytes current_nonce = 1;
-    // current_value is a value of the payment channel.
-    bytes current_value = 2;
-    // signed_nonce is a last nonce of the channel which were signed by
-    // client.
-    bytes signed_nonce = 3;
-    // signed_amount is a last amount which were signed by client.
-    bytes signed_amount = 4;
-    // signature is a last signature sent by client which signs signed_nonce
-    // and signed_amount.
-    bytes signature = 5;
-}
+
+    // current_signed_amount is a last amount which were signed by client with current_nonce
+    //it could be absent if none message was signed with current_nonce
+    bytes current_signed_amount = 2;
+
+    // current_signature is a last signature sent by client with current_nonce
+    // it could be abset if none message was signed with current nonce
+    bytes current_signature = 3;
+ }

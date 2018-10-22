@@ -39,8 +39,7 @@ const (
 // incremented each time when amount of tokens in channel descreases. Nonce
 // allows reusing channel id without risk of overexpenditure.
 type PaymentChannelKey struct {
-	ID    *big.Int
-	Nonce *big.Int
+	ID *big.Int
 }
 
 // PaymentChannelState is a current state of a payment channel. Payment

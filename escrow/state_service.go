@@ -12,6 +12,12 @@ type PaymentChannelStateService struct {
 	latest PaymentChannelStorage
 }
 
+func NewPaymentChannelStateService(storage PaymentChannelStorage) *PaymentChannelStateService {
+	return &PaymentChannelStateService{
+		latest: storage,
+	}
+}
+
 func (service *PaymentChannelStateService) GetChannelState(context context.Context, request *ChannelStateRequest) (reply *ChannelStateReply, err error) {
 	log.WithFields(log.Fields{
 		"context": context,

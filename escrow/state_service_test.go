@@ -14,24 +14,49 @@ type stateServiceTestType struct {
 	service          PaymentChannelStateService
 	senderPrivateKey *ecdsa.PrivateKey
 	senderAddress    common.Address
-	storageMock      storageMockType
+	storageMock      *storageMockType
+
+	defaultChannelId   *big.Int
+	defaultChannelKey  *PaymentChannelKey
+	defaultChannelData *PaymentChannelData
+	defaultReply       *ChannelStateReply
 }
 
 var stateServiceTest = func() stateServiceTestType {
-	storageMock := storageMockType{
+	storageMock := &storageMockType{
 		delegate: NewPaymentChannelStorage(NewMemStorage()),
 		errors:   make(map[string]bool),
 	}
 	senderPrivateKey := generatePrivateKey()
 	senderAddress := crypto.PubkeyToAddress(senderPrivateKey.PublicKey)
 
+	defaultChannelId := big.NewInt(42)
+	defaultSignature, err := hex.DecodeString("0504030201")
+	if err != nil {
+		panic("Could not make defaultSignature")
+	}
+
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
-			latest: &storageMock,
+			latest: storageMock,
 		},
 		senderPrivateKey: senderPrivateKey,
 		senderAddress:    senderAddress,
 		storageMock:      storageMock,
+
+		defaultChannelId:  defaultChannelId,
+		defaultChannelKey: &PaymentChannelKey{ID: defaultChannelId},
+		defaultChannelData: &PaymentChannelData{
+			Sender:           senderAddress,
+			Signature:        defaultSignature,
+			Nonce:            big.NewInt(3),
+			AuthorizedAmount: big.NewInt(12345),
+		},
+		defaultReply: &ChannelStateReply{
+			CurrentNonce:        bigIntToBytes(big.NewInt(3)),
+			CurrentSignedAmount: bigIntToBytes(big.NewInt(12345)),
+			CurrentSignature:    defaultSignature,
+		},
 	}
 }()
 
@@ -48,6 +73,7 @@ func TestGetChannelState(t *testing.T) {
 			AuthorizedAmount: big.NewInt(12345),
 		},
 	)
+	defer stateServiceTest.storageMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -63,4 +89,21 @@ func TestGetChannelState(t *testing.T) {
 		CurrentSignedAmount: bigIntToBytes(big.NewInt(12345)),
 		CurrentSignature:    signature,
 	}, reply)
+}
+
+func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {
+	channelId := big.NewInt(255)
+	stateServiceTest.storageMock.Put(&PaymentChannelKey{ID: channelId}, stateServiceTest.defaultChannelData)
+	defer stateServiceTest.storageMock.Clear()
+
+	reply, err := stateServiceTest.service.GetChannelState(
+		nil,
+		&ChannelStateRequest{
+			ChannelId: []byte{0xFF},
+			Signature: getSignature(bigIntToBytes(channelId), stateServiceTest.senderPrivateKey),
+		},
+	)
+
+	assert.Nil(t, err)
+	assert.Equal(t, stateServiceTest.defaultReply, reply)
 }

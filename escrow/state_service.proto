@@ -5,8 +5,10 @@ package escrow;
 // PaymentChannelStateService contains methods to get the MultiPartyEscrow
 // payment channel state.
 // channel_id, channel_nonce, value and amount fields below in fact are
-// Solidity uint256 values. Which are big-endian integers padded by zeros, see
+// Solidity uint256 values. Which are big-endian integers, see
 // https://github.com/ethereum/wiki/wiki/Ethereum-Contract-ABI#formal-specification-of-the-encoding
+// These values may be or may be not padded by zeros, service supports both
+// options.
 service PaymentChannelStateService {
     // GetChannelState method returns a channel state by channel id.
     rpc GetChannelState(ChannelStateRequest) returns (ChannelStateReply) {}

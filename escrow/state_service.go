@@ -24,14 +24,13 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		"request": request,
 	}).Debug("GetChannelState called")
 
-	channelIdBytes := request.GetChannelId()
+	channelId := bytesToBigInt(request.GetChannelId())
 	signature := request.GetSignature()
-	sender, err := getSignerAddressFromMessage(channelIdBytes, signature)
+	sender, err := getSignerAddressFromMessage(bigIntToBytes(channelId), signature)
 	if err != nil {
 		return nil, errors.New("incorrect signature")
 	}
 
-	channelId := bytesToBigInt(channelIdBytes)
 	channel, ok, err := service.latest.Get(&PaymentChannelKey{ID: channelId})
 	if err != nil {
 		return nil, errors.New("channel storage error")

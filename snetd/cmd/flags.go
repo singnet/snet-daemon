@@ -43,6 +43,7 @@ func init() {
 
 	RootCmd.AddCommand(InitCmd)
 	RootCmd.AddCommand(ServeCmd)
+	RootCmd.AddCommand(ClaimCmd)
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))

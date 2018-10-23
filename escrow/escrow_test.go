@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/json"
@@ -35,12 +36,12 @@ func generatePrivateKey() (privateKey *ecdsa.PrivateKey) {
 
 type storageMockType struct {
 	delegate PaymentChannelStorage
-	errors   map[string]bool
+	err      error
 }
 
 var storageMock = storageMockType{
 	delegate: NewPaymentChannelStorage(NewMemStorage()),
-	errors:   make(map[string]bool),
+	err:      nil,
 }
 
 func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
@@ -52,28 +53,26 @@ func getMemoryStorageKey(key *PaymentChannelKey) string {
 }
 
 func (storage *storageMockType) Get(_key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
-	key := getMemoryStorageKey(_key)
-	if storage.errors[key] {
-		return nil, false, errors.New("storage error")
+	if storage.err != nil {
+		return nil, false, storage.err
 	}
 	return storage.delegate.Get(_key)
 }
 
 func (storage *storageMockType) CompareAndSwap(_key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
-	key := getMemoryStorageKey(_key)
-	if storage.errors[key] {
-		return false, errors.New("storage error")
+	if storage.err != nil {
+		return false, storage.err
 	}
 	return storage.delegate.CompareAndSwap(_key, prevState, newState)
 }
 
 func (storage *storageMockType) Clear() {
 	storage.delegate = NewPaymentChannelStorage(NewMemStorage())
-	storage.errors = make(map[string]bool)
+	storage.err = nil
 }
 
-func (storage *storageMockType) SetError(key *PaymentChannelKey, err bool) {
-	storage.errors[getMemoryStorageKey(key)] = err
+func (storage *storageMockType) SetError(err error) {
+	storage.err = err
 }
 
 type incomeValidatorMockType struct {
@@ -94,15 +93,21 @@ var paymentHandler = escrowPaymentHandler{
 	incomeValidator:       &incomeValidatorMock,
 }
 
-func getSignature(contractAddress *common.Address, channelID, channelNonce, amount int64, privateKey *ecdsa.PrivateKey) (signature []byte) {
+func getPaymentSignature(contractAddress *common.Address, channelID, channelNonce, amount int64, privateKey *ecdsa.PrivateKey) (signature []byte) {
+	message := bytes.Join([][]byte{
+		testEscrowContractAddress.Bytes(),
+		intToUint256(channelID),
+		intToUint256(channelNonce),
+		intToUint256(amount),
+	}, nil)
+
+	return getSignature(message, privateKey)
+}
+
+func getSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	hash := crypto.Keccak256(
 		blockchain.HashPrefix32Bytes,
-		crypto.Keccak256(
-			testEscrowContractAddress.Bytes(),
-			intToUint256(channelID),
-			intToUint256(channelNonce),
-			intToUint256(amount),
-		),
+		crypto.Keccak256(message),
 	)
 
 	signature, err := crypto.Sign(hash, privateKey)
@@ -130,7 +135,7 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 	if amount != 0 {
 		md.Set(PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
 	}
-	md.Set(PaymentChannelSignatureHeader, string(getSignature(&testEscrowContractAddress, channelID, channelNonce, amount, testPrivateKey)))
+	md.Set(PaymentChannelSignatureHeader, string(getPaymentSignature(&testEscrowContractAddress, channelID, channelNonce, amount, testPrivateKey)))
 	return md
 }
 
@@ -182,7 +187,7 @@ func patchDefaultData(patch func(d D)) (cpy *testPaymentData) {
 func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	signature := data.Signature
 	if signature == nil {
-		signature = getSignature(&testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount, testPrivateKey)
+		signature = getPaymentSignature(&testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount, testPrivateKey)
 	}
 	return &escrowPaymentType{
 		grpcContext:  &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
@@ -357,7 +362,7 @@ func TestGetPaymentNoChannelAmount(t *testing.T) {
 
 func TestGetPaymentStorageError(t *testing.T) {
 	context := getTestContext(defaultData)
-	storageMock.SetError(newPaymentChannelKey(defaultData.ChannelID, defaultData.ChannelNonce), true)
+	storageMock.SetError(errors.New("storage error"))
 	defer clearTestContext()
 
 	_, err := paymentHandler.Payment(context)
@@ -504,7 +509,7 @@ func TestCompletePaymentCannotUpdateChannel(t *testing.T) {
 		d.NewAmount = 12345
 	})
 	payment := getTestPayment(data)
-	storageMock.SetError(newPaymentChannelKey(43, 4), true)
+	storageMock.SetError(errors.New("storage error"))
 	defer clearTestContext()
 
 	err := paymentHandler.Complete(payment)

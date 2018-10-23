@@ -143,11 +143,17 @@ func newDaemon() (daemon, error) {
 		d.sslCert = &cert
 	}
 
-	etcdServer, err := etcddb.GetEtcdServer()
+	enabled, err := etcddb.IsEtcdServerEnabled()
 	if err != nil {
 		return d, errors.Wrap(err, "error during etcd config parsing")
 	}
-	d.etcdServer = etcdServer
+	if enabled {
+		etcdServer, err := etcddb.GetEtcdServer()
+		if err != nil {
+			return d, errors.Wrap(err, "error during etcd config parsing")
+		}
+		d.etcdServer = etcdServer
+	}
 
 	return d, nil
 }
@@ -203,11 +209,17 @@ func (d daemon) start() {
 		d.lis = tls.NewListener(d.lis, tlsConfig)
 	}
 
+	paymentChannelStorage := escrow.NewCombinedStorage(
+		&d.blockProc,
+		escrow.NewPaymentChannelStorage(escrow.NewMemStorage()),
+	)
+
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
-			grpc.StreamInterceptor(d.getGrpcInterceptor()),
+			grpc.StreamInterceptor(d.getGrpcInterceptor(paymentChannelStorage)),
 		)
+		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, escrow.NewPaymentChannelStateService(paymentChannelStorage))
 
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
@@ -243,7 +255,7 @@ func (d daemon) start() {
 	}
 }
 
-func (d *daemon) getGrpcInterceptor() grpc.StreamServerInterceptor {
+func (d *daemon) getGrpcInterceptor(paymentChannelStorage escrow.PaymentChannelStorage) grpc.StreamServerInterceptor {
 	if !d.blockProc.Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
 		return handler.NoOpInterceptor
@@ -254,10 +266,7 @@ func (d *daemon) getGrpcInterceptor() grpc.StreamServerInterceptor {
 		blockchain.NewJobPaymentHandler(&d.blockProc),
 		escrow.NewEscrowPaymentHandler(
 			&d.blockProc,
-			escrow.NewCombinedStorage(
-				&d.blockProc,
-				escrow.NewPaymentChannelStorage(escrow.NewMemStorage()),
-			),
+			paymentChannelStorage,
 			escrow.NewIncomeValidator(&d.blockProc),
 		),
 	)

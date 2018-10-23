@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -22,6 +23,10 @@ const (
 type GrpcStreamContext struct {
 	MD   metadata.MD
 	Info *grpc.StreamServerInfo
+}
+
+func (context *GrpcStreamContext) String() string {
+	return fmt.Sprintf("{MD: %v, Info: %v", context.MD, *context.Info)
 }
 
 // Payment represents payment handler specific data which is validated

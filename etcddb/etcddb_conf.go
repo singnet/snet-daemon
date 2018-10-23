@@ -7,6 +7,29 @@ import (
 	"github.com/spf13/viper"
 )
 
+// GetEtcdClientConf gets EtcdServerConf from viper
+// The DefaultEtcdClientConf is used in case the PAYMENT_CHANNEL_STORAGE_CLIENT field
+// is not set in the configuration file
+func GetEtcdClientConf(vip *viper.Viper) (conf *EtcdClientConf, err error) {
+
+	conf = &EtcdClientConf{
+		ConnectionTimeout: 5000,
+		RequestTimeout:    3000,
+		Endpoints:         []string{"http://127.0.0.1:2379"},
+	}
+
+	if !vip.InConfig(strings.ToLower(config.PaymentChannelStorageClientKey)) {
+		return
+	}
+
+	err = vip.UnmarshalKey(config.PaymentChannelStorageClientKey, conf)
+	return
+}
+
+func normalizeDefaultConf(conf string) string {
+	return strings.Replace(conf, "_", "", -1)
+}
+
 // EtcdServerConf contains embedded etcd server config
 // ID - unique name of the etcd server node
 // Scheme - URL schema used to create client and peer and urls
@@ -67,27 +90,4 @@ type EtcdClientConf struct {
 	ConnectionTimeout int `mapstructure:"connection_timeout"`
 	RequestTimeout    int `mapstructure:"request_timeout"`
 	Endpoints         []string
-}
-
-// GetEtcdClientConf gets EtcdServerConf from viper
-// The DefaultEtcdClientConf is used in case the PAYMENT_CHANNEL_STORAGE_CLIENT field
-// is not set in the configuration file
-func GetEtcdClientConf(vip *viper.Viper) (conf *EtcdClientConf, err error) {
-
-	conf = &EtcdClientConf{
-		ConnectionTimeout: 5000,
-		RequestTimeout:    3000,
-		Endpoints:         []string{"http://127.0.0.1:2379"},
-	}
-
-	if !vip.InConfig(strings.ToLower(config.PaymentChannelStorageClientKey)) {
-		return
-	}
-
-	err = vip.UnmarshalKey(config.PaymentChannelStorageClientKey, conf)
-	return
-}
-
-func normalizeDefaultConf(conf string) string {
-	return strings.Replace(conf, "_", "", -1)
 }

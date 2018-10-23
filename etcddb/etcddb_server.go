@@ -14,28 +14,40 @@ import (
 
 // EtcdServer struct has some useful methods to wolrk with etcd server
 type EtcdServer struct {
+	conf *EtcdServerConf
 	etcd *embed.Etcd
 }
 
-// InitEtcdServer run etcd server according to the config
+// GetEtcdServer returns EtcdServer in case it is defined in the viper config
 // reuturns null if PAYMENT_CHANNEL_STORAGE property is not defined
 // in the config file or the ENABLED field of the PAYMENT_CHANNEL_STORAGE
 // is set to false
-func InitEtcdServer() (server *EtcdServer, err error) {
-	return InitEtcdServerFromVip(config.Vip())
+func GetEtcdServer() (server *EtcdServer, err error) {
+	return GetEtcdServerFromVip(config.Vip())
 }
 
-// InitEtcdServerFromVip run etcd server using viper config
-func InitEtcdServerFromVip(vip *viper.Viper) (server *EtcdServer, err error) {
+// GetEtcdServerFromVip run etcd server using viper config
+func GetEtcdServerFromVip(vip *viper.Viper) (server *EtcdServer, err error) {
 
-	conf, err := GetPaymentChannelStorageServerConf(vip)
+	conf, err := GetEtcdServerConf(vip)
 
 	if err != nil || conf == nil || !conf.Enabled {
 		return
 	}
 
-	etcd, err := startEtcdServer(conf)
-	server = &EtcdServer{etcd: etcd}
+	server = &EtcdServer{conf: conf}
+	return
+}
+
+// Start starts etcd server
+func (server *EtcdServer) Start() (err error) {
+
+	etcd, err := startEtcdServer(server.conf)
+	if err != nil {
+		return
+	}
+
+	server.etcd = etcd
 	return
 }
 
@@ -47,7 +59,7 @@ func (server *EtcdServer) Close() {
 // StartEtcdServer starts ectd server
 // The method blocks until the server is started
 // or failed by timeout
-func startEtcdServer(conf *PaymentChannelStorageServerConf) (etcd *embed.Etcd, err error) {
+func startEtcdServer(conf *EtcdServerConf) (etcd *embed.Etcd, err error) {
 
 	etcdConf := getEtcdConf(conf)
 	etcd, err = embed.StartEtcd(etcdConf)
@@ -66,7 +78,7 @@ func startEtcdServer(conf *PaymentChannelStorageServerConf) (etcd *embed.Etcd, e
 	return
 }
 
-func getEtcdConf(conf *PaymentChannelStorageServerConf) *embed.Config {
+func getEtcdConf(conf *EtcdServerConf) *embed.Config {
 
 	clientURL := &url.URL{
 		Scheme: conf.Scheme,

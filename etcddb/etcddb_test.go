@@ -10,7 +10,7 @@ import (
 
 func TestDefaultEtcdServerConf(t *testing.T) {
 
-	conf, err := GetPaymentChannelStorageServerConf(config.Vip())
+	conf, err := GetEtcdServerConf(config.Vip())
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -24,7 +24,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "storage-1=http://127.0.0.1:2380", conf.Cluster)
 	assert.Equal(t, false, conf.Enabled)
 
-	server, err := InitEtcdServer()
+	server, err := GetEtcdServer()
 
 	assert.Nil(t, err)
 	assert.Nil(t, server)
@@ -40,7 +40,7 @@ func TestDisabledEtcdServerConf(t *testing.T) {
 		}`
 
 	vip := readConfig(t, confJSON)
-	server, err := InitEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.Nil(t, server)
@@ -63,7 +63,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	conf, err := GetPaymentChannelStorageServerConf(vip)
+	conf, err := GetEtcdServerConf(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -75,16 +75,18 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, true, conf.Enabled)
 
-	server, err := InitEtcdServerFromVip(vip)
-
+	server, err := GetEtcdServerFromVip(vip)
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
+
+	err = server.Start()
+	assert.Nil(t, err)
 	defer server.Close()
 }
 
 func TestDefaultEtcdClientConf(t *testing.T) {
 
-	conf, err := GetPaymentChannelStorageClientConf(config.Vip())
+	conf, err := GetEtcdClientConf(config.Vip())
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -107,7 +109,7 @@ func TestEtcdClientConf(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	conf, err := GetPaymentChannelStorageClientConf(vip)
+	conf, err := GetEtcdClientConf(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -116,7 +118,7 @@ func TestEtcdClientConf(t *testing.T) {
 	assert.Equal(t, []string{"http://127.0.0.1:2479"}, conf.Endpoints)
 }
 
-func TestPaymentChannelStorageReadWrite(t *testing.T) {
+func TestEtcdPutGet(t *testing.T) {
 
 	const confJSON = `
 	{
@@ -139,10 +141,12 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	server, err := InitEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
+	err = server.Start()
+	assert.Nil(t, err)
 
 	defer server.Close()
 
@@ -152,36 +156,33 @@ func TestPaymentChannelStorageReadWrite(t *testing.T) {
 	assert.NotNil(t, client)
 	defer client.Close()
 
-	missedValue, ok, err := client.Get(stringToByteArray("missed_key"))
+	missedValue, ok, err := client.Get("missed_key")
 	assert.Nil(t, err)
 	assert.False(t, ok)
-	assert.Nil(t, missedValue)
+	assert.Equal(t, "", missedValue)
 
 	key := "key"
 	value := "value"
-	keyBytes := stringToByteArray(key)
-	valueBytes := stringToByteArray(value)
 
-	err = client.Put(keyBytes, valueBytes)
+	err = client.Put(key, value)
 	assert.Nil(t, err)
 
-	getResult, ok, err := client.Get(keyBytes)
+	getResult, ok, err := client.Get(key)
 	assert.Nil(t, err)
 	assert.True(t, ok)
 	assert.True(t, len(getResult) > 0)
-	assert.Equal(t, value, byteArraytoString(getResult))
+	assert.Equal(t, value, getResult)
 
-	err = client.Delete(keyBytes)
+	err = client.Delete(key)
 	assert.Nil(t, err)
 
-	getResult, ok, err = client.Get(keyBytes)
+	getResult, ok, err = client.Get(key)
 	assert.Nil(t, err)
 	assert.False(t, ok)
-	assert.Nil(t, getResult)
-
+	assert.Equal(t, "", getResult)
 }
 
-func TestPaymentChannelStorageCAS(t *testing.T) {
+func TestEtcdCAS(t *testing.T) {
 
 	const confJSON = `
 	{
@@ -195,11 +196,13 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 
 	vip := readConfig(t, confJSON)
 
-	server, err := InitEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
 
+	err = server.Start()
+	assert.Nil(t, err)
 	defer server.Close()
 
 	client, err := NewEtcdClient()
@@ -212,47 +215,46 @@ func TestPaymentChannelStorageCAS(t *testing.T) {
 	key := "key"
 	expect := "expect"
 	update := "update"
-	keyBytes := stringToByteArray(key)
-	expectBytes := stringToByteArray(expect)
-	updateBytes := stringToByteArray(update)
 
-	err = client.Put(keyBytes, expectBytes)
+	err = client.Put(key, expect)
 	assert.Nil(t, err)
 
-	ok, err := client.CompareAndSet(
-		keyBytes,
-		expectBytes,
-		updateBytes,
+	ok, err := client.CompareAndSwap(
+		key,
+		expect,
+		update,
 	)
 	assert.Nil(t, err)
 	assert.True(t, ok)
 
-	updateResult, ok, err := client.Get(keyBytes)
+	updateResult, ok, err := client.Get(key)
 	assert.Nil(t, err)
 	assert.True(t, ok)
-	assert.Equal(t, update, byteArraytoString(updateResult))
+	assert.Equal(t, update, updateResult)
 
-	ok, err = client.CompareAndSet(
-		keyBytes,
-		expectBytes,
-		updateBytes,
+	ok, err = client.CompareAndSwap(
+		key,
+		expect,
+		update,
 	)
 	assert.Nil(t, err)
 	assert.False(t, ok)
 }
 
-func TestPaymentChannelStorageNilValue(t *testing.T) {
+func TestEtcdNilValue(t *testing.T) {
 
 	const confJSON = `
 	{ "payment_channel_storage_server": {} }`
 
 	vip := readConfig(t, confJSON)
 
-	server, err := InitEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
 
+	err = server.Start()
+	assert.Nil(t, err)
 	defer server.Close()
 
 	client, err := NewEtcdClient()
@@ -262,24 +264,35 @@ func TestPaymentChannelStorageNilValue(t *testing.T) {
 	defer client.Close()
 
 	key := "key-for-nil-value"
-	keyBytes := stringToByteArray(key)
 
-	err = client.Delete(keyBytes)
+	err = client.Delete(key)
 	assert.Nil(t, err)
 
-	missedValue, ok, err := client.Get(keyBytes)
+	missedValue, ok, err := client.Get(key)
 
 	assert.Nil(t, err)
 	assert.False(t, ok)
-	assert.Nil(t, missedValue)
+	assert.Equal(t, "", missedValue)
 
-	err = client.Put(keyBytes, nil)
+	err = client.Put(key, "")
 	assert.Nil(t, err)
 
-	nillValue, ok, err := client.Get(keyBytes)
+	nillValue, ok, err := client.Get(key)
 	assert.Nil(t, err)
 	assert.True(t, ok)
-	assert.Nil(t, nillValue)
+	assert.Equal(t, "", nillValue)
+
+	err = client.Delete(key)
+	assert.Nil(t, err)
+
+	firstValue := "first-value"
+	ok, err = client.PutIfAbsent(key, firstValue)
+	assert.Nil(t, err)
+	assert.True(t, ok)
+
+	ok, err = client.PutIfAbsent(key, firstValue)
+	assert.Nil(t, err)
+	assert.False(t, ok)
 
 }
 

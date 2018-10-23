@@ -33,8 +33,8 @@ var storageTest = func() storageTestType {
 	recipientPrivateKey := ethereum.ServerPrivateKey
 	recipientAddress := ethereum.ServerWallet.From
 	delegateStorage := &storageMockType{
-		delegate: NewMemStorage(),
-		errors:   make(map[memoryStorageKey]bool),
+		delegate: NewPaymentChannelStorage(NewMemStorage()),
+		errors:   make(map[string]bool),
 	}
 	return storageTestType{
 		ethereum: ethereum,
@@ -50,8 +50,7 @@ var storageTest = func() storageTestType {
 			Signature:        getSignature(&mpeContractAddress, 42, 3, 12300, senderPrivateKey),
 		},
 		defaultKey: PaymentChannelKey{
-			ID:    big.NewInt(42),
-			Nonce: big.NewInt(3),
+			ID: big.NewInt(42),
 		},
 		mpeContractAddress:  mpeContractAddress,
 		senderPrivateKey:    senderPrivateKey,
@@ -102,8 +101,7 @@ func TestCombinedStorageGetAlreadyInStorage(t *testing.T) {
 		Signature:        getSignature(&storageTest.mpeContractAddress, 42, 3, 12300, storageTest.senderPrivateKey),
 	}
 	expectedKey := &PaymentChannelKey{
-		ID:    big.NewInt(42),
-		Nonce: big.NewInt(3),
+		ID: big.NewInt(42),
 	}
 	storageTest.delegateStorage.Put(expectedKey, expectedChannel)
 	defer storageTest.delegateStorage.Clear()
@@ -129,8 +127,7 @@ func TestCombinedStorageGetReadFromBlockchain(t *testing.T) {
 		Signature:        nil,
 	}
 	expectedKey := &PaymentChannelKey{
-		ID:    big.NewInt(0),
-		Nonce: big.NewInt(0),
+		ID: big.NewInt(0),
 	}
 	ethereum := storageTest.ethereum
 	ethereum.SnetTransferTokens(ethereum.ClientWallet, 12345).SnetApproveMpe(ethereum.ClientWallet, 12345).MpeDeposit(ethereum.ClientWallet, 12345).MpeOpenChannel(ethereum.ClientWallet, ethereum.ServerWallet, 12345, expiration, 0).Commit()

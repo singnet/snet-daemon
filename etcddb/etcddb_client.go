@@ -138,6 +138,7 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 		return
 	}
 
+	// TODO: implement it using etcdv3.KV.Txn(ctx).If(...).Then(...).Commit() as in CompareAndSwap()
 	mu := concurrency.NewMutex(session, key)
 	err = mu.Lock(ctx)
 

@@ -81,6 +81,28 @@ func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 	return
 }
 
+// GetWithRange gets all values where key is prefix
+func (client *EtcdClient) GetWithRange(key string) (values []string, ok bool, err error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	defer cancel()
+
+	keyEnd := clientv3.GetPrefixRangeEnd(key)
+	response, err := client.etcdv3.Get(ctx, key, clientv3.WithRange(keyEnd))
+
+	if err != nil {
+		return
+	}
+
+	for _, kv := range response.Kvs {
+		ok = true
+		value := string(kv.Value)
+		values = append(values, value)
+	}
+
+	return
+}
+
 // Put puts key and value to etcd
 func (client *EtcdClient) Put(key string, value string) (err error) {
 

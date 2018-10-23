@@ -34,7 +34,7 @@ var storageTest = func() storageTestType {
 	recipientAddress := ethereum.ServerWallet.From
 	delegateStorage := &storageMockType{
 		delegate: NewPaymentChannelStorage(NewMemStorage()),
-		errors:   make(map[string]bool),
+		err:      nil,
 	}
 	return storageTestType{
 		ethereum: ethereum,

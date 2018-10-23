@@ -36,12 +36,12 @@ func generatePrivateKey() (privateKey *ecdsa.PrivateKey) {
 
 type storageMockType struct {
 	delegate PaymentChannelStorage
-	errors   map[string]bool
+	err      error
 }
 
 var storageMock = storageMockType{
 	delegate: NewPaymentChannelStorage(NewMemStorage()),
-	errors:   make(map[string]bool),
+	err:      nil,
 }
 
 func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChannelData) (err error) {
@@ -53,28 +53,26 @@ func getMemoryStorageKey(key *PaymentChannelKey) string {
 }
 
 func (storage *storageMockType) Get(_key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
-	key := getMemoryStorageKey(_key)
-	if storage.errors[key] {
-		return nil, false, errors.New("storage error")
+	if storage.err != nil {
+		return nil, false, storage.err
 	}
 	return storage.delegate.Get(_key)
 }
 
 func (storage *storageMockType) CompareAndSwap(_key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
-	key := getMemoryStorageKey(_key)
-	if storage.errors[key] {
-		return false, errors.New("storage error")
+	if storage.err != nil {
+		return false, storage.err
 	}
 	return storage.delegate.CompareAndSwap(_key, prevState, newState)
 }
 
 func (storage *storageMockType) Clear() {
 	storage.delegate = NewPaymentChannelStorage(NewMemStorage())
-	storage.errors = make(map[string]bool)
+	storage.err = nil
 }
 
-func (storage *storageMockType) SetError(key *PaymentChannelKey, err bool) {
-	storage.errors[getMemoryStorageKey(key)] = err
+func (storage *storageMockType) SetError(err error) {
+	storage.err = err
 }
 
 type incomeValidatorMockType struct {
@@ -364,7 +362,7 @@ func TestGetPaymentNoChannelAmount(t *testing.T) {
 
 func TestGetPaymentStorageError(t *testing.T) {
 	context := getTestContext(defaultData)
-	storageMock.SetError(newPaymentChannelKey(defaultData.ChannelID, defaultData.ChannelNonce), true)
+	storageMock.SetError(errors.New("storage error"))
 	defer clearTestContext()
 
 	_, err := paymentHandler.Payment(context)
@@ -511,7 +509,7 @@ func TestCompletePaymentCannotUpdateChannel(t *testing.T) {
 		d.NewAmount = 12345
 	})
 	payment := getTestPayment(data)
-	storageMock.SetError(newPaymentChannelKey(43, 4), true)
+	storageMock.SetError(errors.New("storage error"))
 	defer clearTestContext()
 
 	err := paymentHandler.Complete(payment)

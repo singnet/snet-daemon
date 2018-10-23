@@ -19,13 +19,14 @@ type stateServiceTestType struct {
 	defaultChannelId   *big.Int
 	defaultChannelKey  *PaymentChannelKey
 	defaultChannelData *PaymentChannelData
+	defaultRequest     *ChannelStateRequest
 	defaultReply       *ChannelStateReply
 }
 
 var stateServiceTest = func() stateServiceTestType {
 	storageMock := &storageMockType{
 		delegate: NewPaymentChannelStorage(NewMemStorage()),
-		errors:   make(map[string]bool),
+		err:      nil,
 	}
 	senderPrivateKey := generatePrivateKey()
 	senderAddress := crypto.PubkeyToAddress(senderPrivateKey.PublicKey)

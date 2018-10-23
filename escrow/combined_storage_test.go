@@ -34,7 +34,7 @@ var storageTest = func() storageTestType {
 	recipientAddress := ethereum.ServerWallet.From
 	delegateStorage := &storageMockType{
 		delegate: NewPaymentChannelStorage(NewMemStorage()),
-		errors:   make(map[string]bool),
+		err:      nil,
 	}
 	return storageTestType{
 		ethereum: ethereum,
@@ -47,7 +47,7 @@ var storageTest = func() storageTestType {
 			FullAmount:       big.NewInt(12345),
 			Expiration:       time.Now().Add(time.Hour),
 			AuthorizedAmount: big.NewInt(12300),
-			Signature:        getSignature(&mpeContractAddress, 42, 3, 12300, senderPrivateKey),
+			Signature:        getPaymentSignature(&mpeContractAddress, 42, 3, 12300, senderPrivateKey),
 		},
 		defaultKey: PaymentChannelKey{
 			ID: big.NewInt(42),
@@ -98,7 +98,7 @@ func TestCombinedStorageGetAlreadyInStorage(t *testing.T) {
 		FullAmount:       big.NewInt(12345),
 		Expiration:       time.Now().Add(time.Hour),
 		AuthorizedAmount: big.NewInt(12300),
-		Signature:        getSignature(&storageTest.mpeContractAddress, 42, 3, 12300, storageTest.senderPrivateKey),
+		Signature:        getPaymentSignature(&storageTest.mpeContractAddress, 42, 3, 12300, storageTest.senderPrivateKey),
 	}
 	expectedKey := &PaymentChannelKey{
 		ID: big.NewInt(42),

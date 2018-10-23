@@ -3,20 +3,22 @@ package codec
 import (
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/encoding"
 )
 
 func init() {
-	encoding.RegisterCodec(BytesCodec("proto"))
-	encoding.RegisterCodec(BytesCodec("json"))
+	encoding.RegisterCodec(BytesCodec("proto", &protoCodec{}))
+	encoding.RegisterCodec(BytesCodec("json", nil))
 }
 
-func BytesCodec(name string) encoding.Codec {
-	return bytesCodec{name: name}
+func BytesCodec(name string, fallback encoding.Codec) encoding.Codec {
+	return bytesCodec{name: name, fallback: fallback}
 }
 
 type bytesCodec struct {
-	name string
+	name     string
+	fallback encoding.Codec
 }
 
 type GrpcFrame struct {
@@ -27,7 +29,12 @@ func (s bytesCodec) Marshal(v interface{}) ([]byte, error) {
 	if m, ok := v.(*GrpcFrame); ok {
 		return m.Data, nil
 	}
-	return nil, fmt.Errorf("object %+v not of type codec.GrpcFrame", v)
+
+	if s.fallback == nil {
+		return nil, fmt.Errorf("object %+v not of type codec.GrpcFrame", v)
+	}
+
+	return s.fallback.Marshal(v)
 }
 
 func (s bytesCodec) Unmarshal(data []byte, v interface{}) error {
@@ -35,9 +42,34 @@ func (s bytesCodec) Unmarshal(data []byte, v interface{}) error {
 		m.Data = data
 		return nil
 	}
-	return fmt.Errorf("object %+v not of type codec.GrpcFrame", v)
+
+	if s.fallback == nil {
+		return fmt.Errorf("object %+v not of type codec.GrpcFrame", v)
+	}
+
+	return s.fallback.Unmarshal(data, v)
 }
 
 func (s bytesCodec) Name() string {
 	return s.name
+}
+
+/*
+Copied from https://github.com/mwitkow/grpc-proxy/blob/67591eb23c48346a480470e462289835d96f70da/proxy/codec.go#L57
+Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-PROXY for licensing terms.
+Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
+*/
+// protoCodec is a Codec implementation with protobuf. It is the default rawCodec for gRPC.
+type protoCodec struct{}
+
+func (protoCodec) Marshal(v interface{}) ([]byte, error) {
+	return proto.Marshal(v.(proto.Message))
+}
+
+func (protoCodec) Unmarshal(data []byte, v interface{}) error {
+	return proto.Unmarshal(data, v.(proto.Message))
+}
+
+func (protoCodec) Name() string {
+	return "proto"
 }

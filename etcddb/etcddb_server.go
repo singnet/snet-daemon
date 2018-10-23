@@ -18,6 +18,22 @@ type EtcdServer struct {
 	etcd *embed.Etcd
 }
 
+// IsEtcdServerEnabled checls that etcd server is enabled using conf file
+func IsEtcdServerEnabled() (enabled bool, err error) {
+	return IsEtcdServerEnabledInVip(config.Vip())
+}
+
+// IsEtcdServerEnabledInVip checls that etcd server is enabled using viper conf
+func IsEtcdServerEnabledInVip(vip *viper.Viper) (enabled bool, err error) {
+
+	conf, err := GetEtcdServerConf(vip)
+	if err != nil {
+		return
+	}
+
+	return conf.Enabled, nil
+}
+
 // GetEtcdServer returns EtcdServer in case it is defined in the viper config
 // reuturns null if PAYMENT_CHANNEL_STORAGE property is not defined
 // in the config file or the ENABLED field of the PAYMENT_CHANNEL_STORAGE

@@ -10,6 +10,10 @@ import (
 
 func TestDefaultEtcdServerConf(t *testing.T) {
 
+	enabled, err := IsEtcdServerEnabled()
+	assert.Nil(t, err)
+	assert.False(t, enabled)
+
 	conf, err := GetEtcdServerConf(config.Vip())
 
 	assert.Nil(t, err)
@@ -40,6 +44,10 @@ func TestDisabledEtcdServerConf(t *testing.T) {
 		}`
 
 	vip := readConfig(t, confJSON)
+	enabled, err := IsEtcdServerEnabledInVip(vip)
+	assert.Nil(t, err)
+	assert.False(t, enabled)
+
 	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
@@ -62,6 +70,10 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	}`
 
 	vip := readConfig(t, confJSON)
+
+	enabled, err := IsEtcdServerEnabledInVip(vip)
+	assert.Nil(t, err)
+	assert.True(t, enabled)
 
 	conf, err := GetEtcdServerConf(vip)
 

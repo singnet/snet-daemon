@@ -26,3 +26,6 @@ blockchain/singularity_net_token.go
 *~
 *.swp
 *.swo
+
+# etcd server temporary directories
+storage-*

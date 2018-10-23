@@ -143,11 +143,17 @@ func newDaemon() (daemon, error) {
 		d.sslCert = &cert
 	}
 
-	etcdServer, err := etcddb.GetEtcdServer()
+	enabled, err := etcddb.IsEtcdServerEnabled()
 	if err != nil {
 		return d, errors.Wrap(err, "error during etcd config parsing")
 	}
-	d.etcdServer = etcdServer
+	if enabled {
+		etcdServer, err := etcddb.GetEtcdServer()
+		if err != nil {
+			return d, errors.Wrap(err, "error during etcd config parsing")
+		}
+		d.etcdServer = etcdServer
+	}
 
 	return d, nil
 }

@@ -1,6 +1,7 @@
 package etcddb
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/singnet/snet-daemon/config"
@@ -192,6 +193,29 @@ func TestEtcdPutGet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, ok)
 	assert.Equal(t, "", getResult)
+
+	// GetWithRange
+	count := 3
+	keyValues := getKeyValuesWithPrefix("key-range", "value-range", count)
+
+	for _, keyValue := range keyValues {
+		err = client.Put(keyValue.key, keyValue.value)
+		assert.Nil(t, err)
+	}
+
+	err = client.Put("key-rangd", "value-range-before")
+	assert.Nil(t, err)
+	err = client.Put("key-rangf", "value-range-after")
+	assert.Nil(t, err)
+
+	values, ok, err := client.GetWithRange("key-range")
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, count, len(values))
+
+	for index, value := range values {
+		assert.Equal(t, keyValues[index].value, value)
+	}
 }
 
 func TestEtcdCAS(t *testing.T) {
@@ -306,6 +330,21 @@ func TestEtcdNilValue(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, ok)
 
+}
+
+type keyValue struct {
+	key   string
+	value string
+}
+
+func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (keyValues []keyValue) {
+	for i := 0; i < count; i++ {
+		key := fmt.Sprintf("%s-%d", keyPrefix, i)
+		value := fmt.Sprintf("%s-%d", valuePrefix, i)
+		keyValue := keyValue{key, value}
+		keyValues = append(keyValues, keyValue)
+	}
+	return
 }
 
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {

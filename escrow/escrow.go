@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -343,5 +344,26 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 }
 
 func (h *escrowPaymentHandler) CompleteAfterError(_payment handler.Payment, result error) (err *status.Status) {
+	return
+}
+
+func serialize(value interface{}) (slice []byte, err error) {
+
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err = e.Encode(value)
+	if err != nil {
+		return
+	}
+
+	slice = b.Bytes()
+	return
+}
+
+func deserialize(slice []byte, value interface{}) (err error) {
+
+	b := bytes.NewBuffer(slice)
+	d := gob.NewDecoder(b)
+	err = d.Decode(value)
 	return
 }

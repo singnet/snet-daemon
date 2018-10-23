@@ -1,9 +1,6 @@
 package escrow
 
 import (
-	"bytes"
-	"encoding/gob"
-	log "github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -71,19 +68,9 @@ func (storage *memoryStorage) CompareAndSwap(key, prevValue, newValue string) (o
 		return
 	}
 
-	if !ok || !bytes.Equal(toBytes(current), toBytes(prevValue)) {
+	if !ok || current != prevValue {
 		return false, nil
 	}
 
 	return true, storage.unsafePut(key, newValue)
-}
-
-func toBytes(data interface{}) []byte {
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	err := encoder.Encode(data)
-	if err != nil {
-		log.WithError(err).Fatal("Error while encoding value to binary")
-	}
-	return buffer.Bytes()
 }

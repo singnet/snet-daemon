@@ -1,7 +1,6 @@
 package escrow
 
 import (
-	fmt "fmt"
 	"math/big"
 
 	"github.com/singnet/snet-daemon/blockchain"
@@ -50,8 +49,7 @@ func (validator *incomeValidator) Validate(data *IncomeData) (err *status.Status
 	price := config.GetBigInt(config.PricePerCallKey)
 
 	if data.Income.Cmp(price) != 0 {
-		msg := fmt.Sprintf("income %d does not equal to price %d", data.Income, price)
-		err = status.New(codes.Internal, msg)
+		err = status.Newf(codes.Unauthenticated, "income %d does not equal to price %d", data.Income, price)
 		return
 	}
 

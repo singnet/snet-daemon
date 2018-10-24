@@ -29,3 +29,6 @@ escrow/state_service.pb.go
 *~
 *.swp
 *.swo
+
+# etcd server temporary directories
+storage-*

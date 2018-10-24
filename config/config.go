@@ -37,6 +37,7 @@ const (
 	SSLKeyPathKey                      = "SSL_KEY"
 	WireEncodingKey                    = "WIRE_ENCODING"
 	ReplicaGroupIDKey                  = "REPLICA_GROUP_ID" // TODO: read replica group id from IPFS metadata
+	PaymentChannelStorageTypeKey       = "PAYMENT_CHANNEL_STORAGE_TYPE"
 	PaymentChannelStorageClientKey     = "PAYMENT_CHANNEL_STORAGE_CLIENT"
 	PaymentChannelStorageServerKey     = "PAYMENT_CHANNEL_STORAGE_SERVER"
 
@@ -74,6 +75,7 @@ const (
 		"hooks": []
 	},
 	"replica_group_id": "0",
+	"payment_channel_storage_type": "memory",
 	"payment_channel_storage_client": {
 		"connection_timeout": 5000,
 		"request_timeout": 3000,

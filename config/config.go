@@ -85,6 +85,7 @@ const (
 	},
 	"payment_channel_storage_server": {
 		"id": "storage-1",
+		"scheme": "http",
 		"host" : "127.0.0.1",
 		"client_port": 2379,
 		"peer_port": 2380,
@@ -201,6 +202,10 @@ func GetDuration(key string) time.Duration {
 
 func GetBool(key string) bool {
 	return vip.GetBool(key)
+}
+
+func GetDefaultConfJSON() string {
+	return defaultConfigJson
 }
 
 // SubWithDefault returns sub-config by keys including configuration defaults

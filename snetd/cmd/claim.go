@@ -55,6 +55,10 @@ func newClaimCommand(cmd *cobra.Command, args []string, components *Components) 
 	if err != nil {
 		return
 	}
+	timeout, err := time.ParseDuration(claimTimeout)
+	if err != nil {
+		return
+	}
 
 	command = &claimCommand{
 		storage:    components.PaymentChannelStorage(),
@@ -62,6 +66,7 @@ func newClaimCommand(cmd *cobra.Command, args []string, components *Components) 
 
 		channelId: channelId,
 		sendBack:  claimSendBack,
+		timeout:   timeout,
 	}
 
 	return

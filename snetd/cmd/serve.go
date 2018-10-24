@@ -95,6 +95,7 @@ type daemon struct {
 	lis           net.Listener
 	boltDB        *bolt.DB
 	sslCert       *tls.Certificate
+	etcdClient    *etcddb.EtcdClient
 	etcdServer    *etcddb.EtcdServer
 }
 
@@ -209,9 +210,22 @@ func (d daemon) start() {
 		d.lis = tls.NewListener(d.lis, tlsConfig)
 	}
 
+	var delegateStorage escrow.AtomicStorage
+	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
+		client, err := etcddb.NewEtcdClient()
+		if err != nil {
+			log.WithError(err).Error("unable to create etcd client")
+		} else {
+			d.etcdClient = client
+			delegateStorage = client
+		}
+	} else {
+		delegateStorage = escrow.NewMemStorage()
+	}
+
 	paymentChannelStorage := escrow.NewCombinedStorage(
 		&d.blockProc,
-		escrow.NewPaymentChannelStorage(escrow.NewMemStorage()),
+		escrow.NewPaymentChannelStorage(delegateStorage),
 	)
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
@@ -273,6 +287,10 @@ func (d *daemon) getGrpcInterceptor(paymentChannelStorage escrow.PaymentChannelS
 }
 
 func (d daemon) stop() {
+
+	if d.etcdClient != nil {
+		d.etcdClient.Close()
+	}
 
 	if d.etcdServer != nil {
 		d.etcdServer.Close()

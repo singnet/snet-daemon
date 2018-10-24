@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc/encoding"
+	_ "google.golang.org/grpc/encoding/proto" // guarantees correct codec registering order
 )
 
 func init() {

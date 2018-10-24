@@ -1,10 +1,13 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/handler"
-	"google.golang.org/grpc/status"
 	"math/big"
+
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/handler"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // IncomeData is used to pass information to the pricing validation system.
@@ -41,7 +44,14 @@ func NewIncomeValidator(processor *blockchain.Processor) (validator IncomeValida
 	}
 }
 
-func (validator *incomeValidator) Validate(*IncomeData) (err *status.Status) {
-	// TODO: implement
-	return nil
+func (validator *incomeValidator) Validate(data *IncomeData) (err *status.Status) {
+
+	price := config.GetBigInt(config.PricePerCallKey)
+
+	if data.Income.Cmp(price) != 0 {
+		err = status.Newf(codes.Unauthenticated, "income %d does not equal to price %d", data.Income, price)
+		return
+	}
+
+	return
 }

@@ -27,6 +27,7 @@ const (
 	ExecutablePathKey                  = "EXECUTABLE_PATH"
 	HdwalletIndexKey                   = "HDWALLET_INDEX"
 	HdwalletMnemonicKey                = "HDWALLET_MNEMONIC"
+	PricePerCallKey                    = "PRICE_PER_CALL"
 	LogKey                             = "LOG"
 	PassthroughEnabledKey              = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey             = "PASSTHROUGH_ENDPOINT"
@@ -52,6 +53,7 @@ const (
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
+	"price_per_call": 10,
 	"passthrough_enabled": false,
 	"poll_sleep": "5s",
 	"service_type": "grpc",

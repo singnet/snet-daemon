@@ -81,8 +81,8 @@ func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 	return
 }
 
-// GetWithRange gets all values where key is prefix
-func (client *EtcdClient) GetWithRange(key string) (values []string, ok bool, err error) {
+// GetByKeyPrefix gets all values which have the same key prefix
+func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, ok bool, err error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()

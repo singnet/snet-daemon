@@ -196,19 +196,19 @@ func TestEtcdPutGet(t *testing.T) {
 
 	// GetWithRange
 	count := 3
-	keyValues := getKeyValuesWithPrefix("key-range", "value-range", count)
+	keyValues := getKeyValuesWithPrefix("key-range-bbb-", "value-range", count)
 
 	for _, keyValue := range keyValues {
 		err = client.Put(keyValue.key, keyValue.value)
 		assert.Nil(t, err)
 	}
 
-	err = client.Put("key-rangd", "value-range-before")
+	err = client.Put("key-range-bba", "value-range-before")
 	assert.Nil(t, err)
-	err = client.Put("key-rangf", "value-range-after")
+	err = client.Put("key-range-bbc", "value-range-after")
 	assert.Nil(t, err)
 
-	values, ok, err := client.GetWithRange("key-range")
+	values, ok, err := client.GetByKeyPrefix("key-range-bbb-")
 	assert.Nil(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, count, len(values))

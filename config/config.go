@@ -75,6 +75,7 @@ const (
 		"hooks": []
 	},
 	"replica_group_id": "0",
+	"payment_channel_storage_type": "memory",
 	"payment_channel_storage_client": {
 		"connection_timeout": 5000,
 		"request_timeout": 3000,

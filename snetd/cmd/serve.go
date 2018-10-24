@@ -164,7 +164,7 @@ func (d daemon) start() {
 	if d.etcdServer != nil {
 		err := d.etcdServer.Start()
 		if err != nil {
-			log.WithError(err).Error("unable to start etcd server")
+			log.WithError(err).Fatal("unable to start etcd server")
 		}
 	}
 
@@ -214,7 +214,7 @@ func (d daemon) start() {
 	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
 		client, err := etcddb.NewEtcdClient()
 		if err != nil {
-			log.WithError(err).Error("unable to create etcd client")
+			log.WithError(err).Fatal("unable to create etcd client")
 		} else {
 			d.etcdClient = client
 			delegateStorage = client

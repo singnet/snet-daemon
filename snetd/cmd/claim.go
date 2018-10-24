@@ -21,11 +21,14 @@ var ClaimCmd = &cobra.Command{
 	},
 }
 
-func runAndCleanup(cmd *cobra.Command, args []string) error {
+func runAndCleanup(cmd *cobra.Command, args []string) (err error) {
 	components := InitComponents(cmd)
 	defer components.Close()
 
-	command := newClaimCommand(cmd, args, components)
+	command, err := newClaimCommand(cmd, args, components)
+	if err != nil {
+		return
+	}
 
 	return command.Run()
 }
@@ -36,16 +39,28 @@ type claimCommand struct {
 	channel   *escrow.PaymentChannelData
 }
 
-func newClaimCommand(cmd *cobra.Command, args []string, components *Components) *claimCommand {
-	return &claimCommand{
-		channelId: getChannelId(cmd),
+func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command *claimCommand, err error) {
+	channelId, err := getChannelId(cmd)
+	if err != nil {
+		return
+	}
+
+	command = &claimCommand{
+		channelId: channelId,
 		storage:   components.PaymentChannelStorage(),
 	}
+
+	return
 }
 
-func getChannelId(cmd *cobra.Command) (id *big.Int) {
-	// TODO: implement
-	return big.NewInt(0)
+func getChannelId(cmd *cobra.Command) (id *big.Int, err error) {
+	str := cmd.Flags().Lookup(ClaimChannelIdFlag).Value.String()
+	value := &big.Int{}
+	err = value.UnmarshalText([]byte(str))
+	if err != nil {
+		return nil, fmt.Errorf("Incorrect decimal number format: %v, error: %v", str, err)
+	}
+	return value, nil
 }
 
 func (command *claimCommand) Run() (err error) {

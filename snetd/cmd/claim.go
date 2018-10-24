@@ -45,7 +45,7 @@ type claimCommand struct {
 
 	channelId *big.Int
 	sendBack  bool
-	timeout   *time.Duration
+	timeout   time.Duration
 
 	channel *escrow.PaymentChannelData
 }
@@ -77,8 +77,8 @@ func getChannelId(cmd *cobra.Command) (id *big.Int, err error) {
 }
 
 func (command *claimCommand) Run() (err error) {
-	if !blockchain.Enabled() {
-		return errors.New("blockchain should be enabled to claim money from channel")
+	if !command.blockchain.Enabled() {
+		return fmt.Errorf("blockchain should be enabled to claim money from channel")
 	}
 
 	err = command.getChannel()
@@ -114,9 +114,9 @@ func (command *claimCommand) getChannel() (err error) {
 func (command *claimCommand) incrementChannelNonce() (err error) {
 	nextChannel := *command.channel
 	nextChannel.Nonce = (&big.Int{}).Add(nextChannel.Nonce, big.NewInt(1))
-
-	// TODO: change FullAmount and AuthorizedAmount and Signature according new
-	// channel state
+	nextChannel.FullAmount = (&big.Int{}).Sub(nextChannel.FullAmount, nextChannel.AuthorizedAmount)
+	nextChannel.AuthorizedAmount = big.NewInt(0)
+	nextChannel.Signature = nil
 
 	ok, err := command.storage.CompareAndSwap(&escrow.PaymentChannelKey{ID: command.channelId}, command.channel, &nextChannel)
 	if err != nil {

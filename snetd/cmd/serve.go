@@ -10,13 +10,11 @@ import (
 	"strings"
 	"syscall"
 
-	bolt "github.com/coreos/bbolt"
 	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/db"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
@@ -25,7 +23,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
@@ -40,7 +37,11 @@ var ServeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
-		loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
+		components, err := InitComponents(cmd)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize daemon components")
+		}
+		defer components.Close()
 
 		err = logger.InitLogger(config.SubWithDefault(config.Vip(), config.LogKey))
 		if err != nil {
@@ -49,7 +50,7 @@ var ServeCmd = &cobra.Command{
 		config.LogConfig()
 
 		var d daemon
-		d, err = newDaemon()
+		d, err = newDaemon(components)
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize daemon")
 		}
@@ -65,54 +66,26 @@ var ServeCmd = &cobra.Command{
 	},
 }
 
-func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
-	var err error
-	var configFile = configFlag.Value.String()
-
-	// if file is not specified by user then configFile contains default name
-	if configFlag.Changed || isFileExist(configFile) {
-		err = config.LoadConfig(configFile)
-		if err != nil {
-			log.WithError(err).WithField("configFile", configFile).Fatal("Error reading configuration file")
-		}
-		log.WithField("configFile", configFile).Info("Using configuration file")
-	} else {
-		log.Info("Configuration file is not set, using default configuration")
-	}
-
-}
-
-func isFileExist(fileName string) bool {
-	_, err := os.Stat(fileName)
-	return !os.IsNotExist(err)
-}
-
 type daemon struct {
 	autoSSLDomain string
 	acmeListener  net.Listener
 	grpcServer    *grpc.Server
 	blockProc     blockchain.Processor
 	lis           net.Listener
-	boltDB        *bolt.DB
 	sslCert       *tls.Certificate
 	etcdClient    *etcddb.EtcdClient
 	etcdServer    *etcddb.EtcdServer
+	components    *Components
 }
 
-func newDaemon() (daemon, error) {
+func newDaemon(components *Components) (daemon, error) {
 	d := daemon{}
 
 	if err := config.Validate(); err != nil {
 		return d, err
 	}
 
-	if config.GetBool(config.BlockchainEnabledKey) {
-		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
-			return d, errors.Wrap(err, "unable to initialize bolt DB for blockchain state")
-		} else {
-			d.boltDB = database
-		}
-	}
+	d.components = components
 
 	var err error
 	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v",
@@ -131,10 +104,7 @@ func newDaemon() (daemon, error) {
 		}
 	}
 
-	d.blockProc, err = blockchain.NewProcessor(d.boltDB)
-	if err != nil {
-		return d, errors.Wrap(err, "unable to initialize blockchain processor")
-	}
+	d.blockProc = *components.Blockchain()
 
 	if sslKey := config.GetString(config.SSLKeyPathKey); sslKey != "" {
 		cert, err := tls.LoadX509KeyPair(config.GetString(config.SSLCertPathKey), sslKey)
@@ -210,30 +180,12 @@ func (d daemon) start() {
 		d.lis = tls.NewListener(d.lis, tlsConfig)
 	}
 
-	var delegateStorage escrow.AtomicStorage
-	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
-		client, err := etcddb.NewEtcdClient()
-		if err != nil {
-			log.WithError(err).Fatal("unable to create etcd client")
-		} else {
-			d.etcdClient = client
-			delegateStorage = client
-		}
-	} else {
-		delegateStorage = escrow.NewMemStorage()
-	}
-
-	paymentChannelStorage := escrow.NewCombinedStorage(
-		&d.blockProc,
-		escrow.NewPaymentChannelStorage(delegateStorage),
-	)
-
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
-			grpc.StreamInterceptor(d.getGrpcInterceptor(paymentChannelStorage)),
+			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
 		)
-		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, escrow.NewPaymentChannelStateService(paymentChannelStorage))
+		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
@@ -269,35 +221,10 @@ func (d daemon) start() {
 	}
 }
 
-func (d *daemon) getGrpcInterceptor(paymentChannelStorage escrow.PaymentChannelStorage) grpc.StreamServerInterceptor {
-	if !d.blockProc.Enabled() {
-		log.Info("Blockchain is disabled: no payment validation")
-		return handler.NoOpInterceptor
-	}
-
-	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-	return handler.GrpcStreamInterceptor(
-		blockchain.NewJobPaymentHandler(&d.blockProc),
-		escrow.NewEscrowPaymentHandler(
-			&d.blockProc,
-			paymentChannelStorage,
-			escrow.NewIncomeValidator(&d.blockProc),
-		),
-	)
-}
-
 func (d daemon) stop() {
-
-	if d.etcdClient != nil {
-		d.etcdClient.Close()
-	}
 
 	if d.etcdServer != nil {
 		d.etcdServer.Close()
-	}
-
-	if d.boltDB != nil {
-		d.boltDB.Close()
 	}
 
 	if d.grpcServer != nil {

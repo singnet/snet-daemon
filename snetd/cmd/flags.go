@@ -18,8 +18,13 @@ var RootCmd = &cobra.Command{
 	},
 }
 
+const (
+	ClaimChannelIdFlag = "channel-id"
+)
+
 var (
-	cfgFile            = RootCmd.PersistentFlags().StringP("config", "c", "snetd.config.json", "config file")
+	cfgFile = RootCmd.PersistentFlags().StringP("config", "c", "snetd.config.json", "config file")
+
 	autoSSLDomain      = ServeCmd.PersistentFlags().String("auto-ssl-domain", "", "enable SSL via LetsEncrypt for this domain (requires root)")
 	autoSSLCacheDir    = ServeCmd.PersistentFlags().String("auto-ssl-cache", ".certs", "auto-SSL certificate cache directory")
 	daemonType         = ServeCmd.PersistentFlags().StringP("type", "t", "grpc", "daemon type: one of 'grpc','http'")
@@ -35,6 +40,8 @@ var (
 	sslKeyPath         = ServeCmd.PersistentFlags().String("ssl-key", "", "SSL key file (.key)")
 	wireEncoding       = ServeCmd.PersistentFlags().String("wire-encoding", "proto", "message encoding: one of 'proto','json'")
 	pollSleep          = ServeCmd.PersistentFlags().String("poll-sleep", "5s", "blockchain poll sleep time")
+
+	claimChannelId = ClaimCmd.Flags().String(ClaimChannelIdFlag, "", "id of the payment channel to claim money")
 )
 
 func init() {
@@ -43,6 +50,9 @@ func init() {
 
 	RootCmd.AddCommand(InitCmd)
 	RootCmd.AddCommand(ServeCmd)
+	RootCmd.AddCommand(ClaimCmd)
+
+	ClaimCmd.MarkFlagRequired(ClaimChannelIdFlag)
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))

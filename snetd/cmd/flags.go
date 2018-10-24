@@ -20,6 +20,7 @@ var RootCmd = &cobra.Command{
 
 const (
 	ClaimChannelIdFlag = "channel-id"
+	ClaimSendBackFlag  = "send-back"
 )
 
 var (
@@ -41,7 +42,8 @@ var (
 	wireEncoding       = ServeCmd.PersistentFlags().String("wire-encoding", "proto", "message encoding: one of 'proto','json'")
 	pollSleep          = ServeCmd.PersistentFlags().String("poll-sleep", "5s", "blockchain poll sleep time")
 
-	claimChannelId = ClaimCmd.Flags().String(ClaimChannelIdFlag, "", "id of the payment channel to claim money")
+	claimChannelId string
+	claimSendBack  bool
 )
 
 func init() {
@@ -52,7 +54,9 @@ func init() {
 	RootCmd.AddCommand(ServeCmd)
 	RootCmd.AddCommand(ClaimCmd)
 
+	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money")
 	ClaimCmd.MarkFlagRequired(ClaimChannelIdFlag)
+	ClaimCmd.Flags().BoolVar(&claimSendBack, ClaimSendBackFlag, false, "send the rest of the channel value back to channel sender")
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))

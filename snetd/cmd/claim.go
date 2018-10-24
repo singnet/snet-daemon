@@ -61,17 +61,17 @@ func newClaimCommand(cmd *cobra.Command, args []string, components *Components) 
 		blockchain: components.Blockchain(),
 
 		channelId: channelId,
+		sendBack:  claimSendBack,
 	}
 
 	return
 }
 
 func getChannelId(cmd *cobra.Command) (id *big.Int, err error) {
-	str := cmd.Flags().Lookup(ClaimChannelIdFlag).Value.String()
 	value := &big.Int{}
-	err = value.UnmarshalText([]byte(str))
+	err = value.UnmarshalText([]byte(claimChannelId))
 	if err != nil {
-		return nil, fmt.Errorf("Incorrect decimal number format: %v, error: %v", str, err)
+		return nil, fmt.Errorf("Incorrect decimal number format: %v, error: %v", claimChannelId, err)
 	}
 	return value, nil
 }
@@ -113,10 +113,16 @@ func (command *claimCommand) getChannel() (err error) {
 
 func (command *claimCommand) incrementChannelNonce() (err error) {
 	nextChannel := *command.channel
-	nextChannel.Nonce = (&big.Int{}).Add(nextChannel.Nonce, big.NewInt(1))
-	nextChannel.FullAmount = (&big.Int{}).Sub(nextChannel.FullAmount, nextChannel.AuthorizedAmount)
-	nextChannel.AuthorizedAmount = big.NewInt(0)
-	nextChannel.Signature = nil
+
+	if command.sendBack {
+		nextChannel.State = escrow.Closed
+		nextChannel.FullAmount = nextChannel.AuthorizedAmount
+	} else {
+		nextChannel.Nonce = (&big.Int{}).Add(nextChannel.Nonce, big.NewInt(1))
+		nextChannel.FullAmount = (&big.Int{}).Sub(nextChannel.FullAmount, nextChannel.AuthorizedAmount)
+		nextChannel.AuthorizedAmount = big.NewInt(0)
+		nextChannel.Signature = nil
+	}
 
 	ok, err := command.storage.CompareAndSwap(&escrow.PaymentChannelKey{ID: command.channelId}, command.channel, &nextChannel)
 	if err != nil {

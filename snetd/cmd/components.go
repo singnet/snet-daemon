@@ -14,12 +14,14 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/db"
 	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
 )
 
 type Components struct {
 	db                         *bbolt.DB
 	blockchain                 *blockchain.Processor
+	etcdClient                 *etcddb.EtcdClient
 	paymentChannelStorage      escrow.PaymentChannelStorage
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
@@ -95,10 +97,24 @@ func (components *Components) initBlockchain() (err error) {
 }
 
 func (components *Components) initPaymentChannelStorage() (err error) {
+	var delegateStorage escrow.AtomicStorage
+	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
+		client, err := etcddb.NewEtcdClient()
+		if err != nil {
+			return errors.Wrap(err, "unable to create etcd client")
+		}
+
+		components.etcdClient = client
+		delegateStorage = client
+	} else {
+		delegateStorage = escrow.NewMemStorage()
+	}
+
 	components.paymentChannelStorage = escrow.NewCombinedStorage(
 		components.blockchain,
-		escrow.NewPaymentChannelStorage(escrow.NewMemStorage()),
+		escrow.NewPaymentChannelStorage(delegateStorage),
 	)
+
 	return nil
 }
 
@@ -130,6 +146,10 @@ func (components *Components) Close() {
 	if components.db != nil {
 		components.db.Close()
 	}
+	if components.etcdClient != nil {
+		components.etcdClient.Close()
+	}
+
 }
 
 func (components *Components) DB() (db *bbolt.DB) {

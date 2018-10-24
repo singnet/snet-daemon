@@ -73,6 +73,7 @@ type daemon struct {
 	blockProc     blockchain.Processor
 	lis           net.Listener
 	sslCert       *tls.Certificate
+	etcdClient    *etcddb.EtcdClient
 	etcdServer    *etcddb.EtcdServer
 	components    *Components
 }
@@ -133,7 +134,7 @@ func (d daemon) start() {
 	if d.etcdServer != nil {
 		err := d.etcdServer.Start()
 		if err != nil {
-			log.WithError(err).Error("unable to start etcd server")
+			log.WithError(err).Fatal("unable to start etcd server")
 		}
 	}
 

@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TODO: initialize client and server only once to make test faster
+
 func TestDefaultEtcdServerConf(t *testing.T) {
 
 	enabled, err := IsEtcdServerEnabled()

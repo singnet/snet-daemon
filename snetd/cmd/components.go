@@ -63,28 +63,6 @@ func isFileExist(fileName string) bool {
 	return !os.IsNotExist(err)
 }
 
-func (components *Components) EtcdServer() (server *etcddb.EtcdServer) {
-	if components.etcdServer != nil {
-		return components.etcdServer
-	}
-
-	enabled, err := etcddb.IsEtcdServerEnabled()
-	if err != nil {
-		log.WithError(err).Panic("error during etcd config parsing")
-	}
-	if !enabled {
-		return nil
-	}
-
-	server, err = etcddb.GetEtcdServer()
-	if err != nil {
-		log.WithError(err).Panic("error during etcd config parsing")
-	}
-
-	components.etcdServer = server
-	return server
-}
-
 func (components *Components) Close() {
 	if components.db != nil {
 		components.db.Close()
@@ -127,6 +105,42 @@ func (components *Components) Blockchain() *blockchain.Processor {
 	return components.blockchain
 }
 
+func (components *Components) EtcdServer() *etcddb.EtcdServer {
+	if components.etcdServer != nil {
+		return components.etcdServer
+	}
+
+	enabled, err := etcddb.IsEtcdServerEnabled()
+	if err != nil {
+		log.WithError(err).Panic("error during etcd config parsing")
+	}
+	if !enabled {
+		return nil
+	}
+
+	server, err := etcddb.GetEtcdServer()
+	if err != nil {
+		log.WithError(err).Panic("error during etcd config parsing")
+	}
+
+	components.etcdServer = server
+	return server
+}
+
+func (components *Components) EtcdClient() *etcddb.EtcdClient {
+	if components.etcdClient != nil {
+		return components.etcdClient
+	}
+
+	client, err := etcddb.NewEtcdClient()
+	if err != nil {
+		log.WithError(err).Panic("unable to create etcd client")
+	}
+
+	components.etcdClient = client
+	return components.etcdClient
+}
+
 func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStorage {
 	if components.paymentChannelStorage != nil {
 		return components.paymentChannelStorage
@@ -134,13 +148,7 @@ func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStora
 
 	var delegateStorage escrow.AtomicStorage
 	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
-		client, err := etcddb.NewEtcdClient()
-		if err != nil {
-			log.WithError(err).Panic("unable to create etcd client")
-		}
-
-		components.etcdClient = client
-		delegateStorage = client
+		delegateStorage = components.EtcdClient()
 	} else {
 		delegateStorage = escrow.NewMemStorage()
 	}

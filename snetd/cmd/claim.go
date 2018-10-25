@@ -25,10 +25,7 @@ var ClaimCmd = &cobra.Command{
 }
 
 func runAndCleanup(cmd *cobra.Command, args []string) (err error) {
-	components, err := InitComponents(cmd)
-	if err != nil {
-		return
-	}
+	components := InitComponents(cmd)
 	defer components.Close()
 
 	command, err := newClaimCommand(cmd, args, components)

@@ -27,12 +27,14 @@ type Components struct {
 	paymentChannelStateService *escrow.PaymentChannelStateService
 }
 
-func InitComponents(cmd *cobra.Command) (components *Components, err error) {
+func InitComponents(cmd *cobra.Command) (components *Components) {
 	components = &Components{}
 	defer func() {
+		err := recover()
 		if err != nil {
 			components.Close()
 			components = nil
+			panic("re-panic after components cleanup")
 		}
 	}()
 
@@ -42,14 +44,13 @@ func InitComponents(cmd *cobra.Command) (components *Components, err error) {
 }
 
 func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
-	var err error
 	var configFile = configFlag.Value.String()
 
 	// if file is not specified by user then configFile contains default name
 	if configFlag.Changed || isFileExist(configFile) {
-		err = config.LoadConfig(configFile)
+		err := config.LoadConfig(configFile)
 		if err != nil {
-			log.WithError(err).WithField("configFile", configFile).Fatal("Error reading configuration file")
+			log.WithError(err).WithField("configFile", configFile).Panic("Error reading configuration file")
 		}
 		log.WithField("configFile", configFile).Info("Using configuration file")
 	} else {

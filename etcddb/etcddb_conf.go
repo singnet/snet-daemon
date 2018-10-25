@@ -1,7 +1,6 @@
 package etcddb
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/singnet/snet-daemon/config"
@@ -13,23 +12,24 @@ import (
 // is not set in the configuration file
 func GetEtcdClientConf(vip *viper.Viper) (conf *EtcdClientConf, err error) {
 
-	type DefaultConf struct {
-		PaymentChannelStorageClient *EtcdClientConf `json:"payment_channel_storage_client"`
-	}
-
+	key := config.PaymentChannelStorageClientKey
 	conf = &EtcdClientConf{}
-	defaultConf := &DefaultConf{PaymentChannelStorageClient: conf}
 
-	err = json.Unmarshal([]byte(config.GetDefaultConfJSON()), defaultConf)
+	defaultVip, err := config.DefaultVip()
 	if err != nil {
 		return
 	}
 
-	if !vip.InConfig(strings.ToLower(config.PaymentChannelStorageClientKey)) {
+	err = defaultVip.UnmarshalKey(key, conf)
+	if err != nil {
 		return
 	}
 
-	err = vip.UnmarshalKey(config.PaymentChannelStorageClientKey, conf)
+	if !vip.InConfig(strings.ToLower(key)) {
+		return
+	}
+
+	err = vip.UnmarshalKey(key, conf)
 	return
 }
 
@@ -68,25 +68,26 @@ type EtcdServerConf struct {
 // is not set in the configuration file
 func GetEtcdServerConf(vip *viper.Viper) (conf *EtcdServerConf, err error) {
 
-	type DefaultConf struct {
-		PaymentChannelStorageServer *EtcdServerConf `json:"payment_channel_storage_server"`
-	}
-
+	key := config.PaymentChannelStorageServerKey
 	conf = &EtcdServerConf{}
-	defaultConf := &DefaultConf{PaymentChannelStorageServer: conf}
 
-	err = json.Unmarshal([]byte(config.GetDefaultConfJSON()), defaultConf)
+	defaultVip, err := config.DefaultVip()
 	if err != nil {
 		return
 	}
 
-	if !vip.InConfig(strings.ToLower(config.PaymentChannelStorageServerKey)) {
+	err = defaultVip.UnmarshalKey(key, conf)
+	if err != nil {
+		return
+	}
+
+	if !vip.InConfig(strings.ToLower(key)) {
 		return
 	}
 
 	conf.Enabled = true
 
-	err = vip.UnmarshalKey(config.PaymentChannelStorageServerKey, conf)
+	err = vip.UnmarshalKey(key, conf)
 	return
 }
 

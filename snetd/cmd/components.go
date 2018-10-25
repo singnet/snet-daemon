@@ -22,6 +22,7 @@ type Components struct {
 	db                         *bbolt.DB
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
+	etcdServer                 *etcddb.EtcdServer
 	paymentChannelStorage      escrow.PaymentChannelStorage
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
@@ -41,6 +42,7 @@ func InitComponents(cmd *cobra.Command) (components *Components, err error) {
 	for _, init := range []func() error{
 		components.initDb,
 		components.initBlockchain,
+		components.initPaymentChannelStorageServer,
 		components.initPaymentChannelStorage,
 		components.initGrpcInterceptor,
 		components.initPaymentChannelStateService,
@@ -96,6 +98,25 @@ func (components *Components) initBlockchain() (err error) {
 	return
 }
 
+func (components *Components) initPaymentChannelStorageServer() (err error) {
+	enabled, err := etcddb.IsEtcdServerEnabled()
+	if err != nil {
+		return errors.Wrap(err, "error during etcd config parsing")
+	}
+	if enabled {
+		etcdServer, err := etcddb.GetEtcdServer()
+		if err != nil {
+			return errors.Wrap(err, "error during etcd config parsing")
+		}
+		err = etcdServer.Start()
+		if err != nil {
+			return errors.Wrap(err, "error during etcd server starting")
+		}
+		components.etcdServer = etcdServer
+	}
+	return
+}
+
 func (components *Components) initPaymentChannelStorage() (err error) {
 	var delegateStorage escrow.AtomicStorage
 	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
@@ -103,7 +124,6 @@ func (components *Components) initPaymentChannelStorage() (err error) {
 		if err != nil {
 			return errors.Wrap(err, "unable to create etcd client")
 		}
-
 		components.etcdClient = client
 		delegateStorage = client
 	} else {
@@ -115,7 +135,7 @@ func (components *Components) initPaymentChannelStorage() (err error) {
 		escrow.NewPaymentChannelStorage(delegateStorage),
 	)
 
-	return nil
+	return
 }
 
 func (components *Components) initGrpcInterceptor() (err error) {
@@ -148,6 +168,9 @@ func (components *Components) Close() {
 	}
 	if components.etcdClient != nil {
 		components.etcdClient.Close()
+	}
+	if components.etcdServer != nil {
+		components.etcdServer.Close()
 	}
 
 }

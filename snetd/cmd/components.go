@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/coreos/bbolt"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -40,7 +39,6 @@ func InitComponents(cmd *cobra.Command) (components *Components, err error) {
 	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
 
 	for _, init := range []func() error{
-		components.initPaymentChannelStorage,
 		components.initGrpcInterceptor,
 		components.initPaymentChannelStateService,
 	} {
@@ -75,28 +73,6 @@ func isFileExist(fileName string) bool {
 	return !os.IsNotExist(err)
 }
 
-func (components *Components) initPaymentChannelStorage() (err error) {
-	var delegateStorage escrow.AtomicStorage
-	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
-		client, err := etcddb.NewEtcdClient()
-		if err != nil {
-			return errors.Wrap(err, "unable to create etcd client")
-		}
-
-		components.etcdClient = client
-		delegateStorage = client
-	} else {
-		delegateStorage = escrow.NewMemStorage()
-	}
-
-	components.paymentChannelStorage = escrow.NewCombinedStorage(
-		components.Blockchain(),
-		escrow.NewPaymentChannelStorage(delegateStorage),
-	)
-
-	return nil
-}
-
 func (components *Components) initGrpcInterceptor() (err error) {
 	if !components.Blockchain().Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
@@ -109,7 +85,7 @@ func (components *Components) initGrpcInterceptor() (err error) {
 		blockchain.NewJobPaymentHandler(components.Blockchain()),
 		escrow.NewEscrowPaymentHandler(
 			components.Blockchain(),
-			components.paymentChannelStorage,
+			components.PaymentChannelStorage(),
 			escrow.NewIncomeValidator(components.Blockchain()),
 		),
 	)
@@ -185,7 +161,29 @@ func (components *Components) Blockchain() *blockchain.Processor {
 	return components.blockchain
 }
 
-func (components *Components) PaymentChannelStorage() (storage escrow.PaymentChannelStorage) {
+func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStorage {
+	if components.paymentChannelStorage != nil {
+		return components.paymentChannelStorage
+	}
+
+	var delegateStorage escrow.AtomicStorage
+	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
+		client, err := etcddb.NewEtcdClient()
+		if err != nil {
+			log.WithError(err).Panic("unable to create etcd client")
+		}
+
+		components.etcdClient = client
+		delegateStorage = client
+	} else {
+		delegateStorage = escrow.NewMemStorage()
+	}
+
+	components.paymentChannelStorage = escrow.NewCombinedStorage(
+		components.Blockchain(),
+		escrow.NewPaymentChannelStorage(delegateStorage),
+	)
+
 	return components.paymentChannelStorage
 }
 

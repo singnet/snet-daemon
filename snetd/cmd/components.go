@@ -185,7 +185,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 			escrow.NewEscrowPaymentHandler(
 				components.Blockchain(),
 				components.PaymentChannelStorage(),
-				escrow.NewIncomeValidator(components.Blockchain()),
+				escrow.NewIncomeValidator(),
 			),
 		)
 	}

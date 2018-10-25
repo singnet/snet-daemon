@@ -36,10 +36,7 @@ var ServeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
-		components, err := InitComponents(cmd)
-		if err != nil {
-			log.WithError(err).Fatal("Unable to initialize daemon components")
-		}
+		components := InitComponents(cmd)
 		defer components.Close()
 
 		err = logger.InitLogger(config.SubWithDefault(config.Vip(), config.LogKey))

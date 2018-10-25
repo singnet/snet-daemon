@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/coreos/bbolt"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -28,43 +27,30 @@ type Components struct {
 	paymentChannelStateService *escrow.PaymentChannelStateService
 }
 
-func InitComponents(cmd *cobra.Command) (components *Components, err error) {
+func InitComponents(cmd *cobra.Command) (components *Components) {
 	components = &Components{}
 	defer func() {
+		err := recover()
 		if err != nil {
 			components.Close()
 			components = nil
+			panic("re-panic after components cleanup")
 		}
 	}()
 
 	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
 
-	for _, init := range []func() error{
-		components.initDb,
-		components.initBlockchain,
-		components.initPaymentChannelStorageServer,
-		components.initPaymentChannelStorage,
-		components.initGrpcInterceptor,
-		components.initPaymentChannelStateService,
-	} {
-		err = init()
-		if err != nil {
-			return
-		}
-	}
-
 	return
 }
 
 func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
-	var err error
 	var configFile = configFlag.Value.String()
 
 	// if file is not specified by user then configFile contains default name
 	if configFlag.Changed || isFileExist(configFile) {
-		err = config.LoadConfig(configFile)
+		err := config.LoadConfig(configFile)
 		if err != nil {
-			log.WithError(err).WithField("configFile", configFile).Fatal("Error reading configuration file")
+			log.WithError(err).WithField("configFile", configFile).Panic("Error reading configuration file")
 		}
 		log.WithField("configFile", configFile).Info("Using configuration file")
 	} else {
@@ -78,90 +64,6 @@ func isFileExist(fileName string) bool {
 	return !os.IsNotExist(err)
 }
 
-func (components *Components) initDb() (err error) {
-	if config.GetBool(config.BlockchainEnabledKey) {
-		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
-			return errors.Wrap(err, "unable to initialize bbolt DB for blockchain state")
-		} else {
-			components.db = database
-		}
-	}
-	return
-}
-
-func (components *Components) initBlockchain() (err error) {
-	blockchain, err := blockchain.NewProcessor(components.db)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize blockchain processor")
-	}
-	components.blockchain = &blockchain
-	return
-}
-
-func (components *Components) initPaymentChannelStorageServer() (err error) {
-	enabled, err := etcddb.IsEtcdServerEnabled()
-	if err != nil {
-		return errors.Wrap(err, "error during etcd config parsing")
-	}
-	if enabled {
-		etcdServer, err := etcddb.GetEtcdServer()
-		if err != nil {
-			return errors.Wrap(err, "error during etcd config parsing")
-		}
-		err = etcdServer.Start()
-		if err != nil {
-			return errors.Wrap(err, "error during etcd server starting")
-		}
-		components.etcdServer = etcdServer
-	}
-	return
-}
-
-func (components *Components) initPaymentChannelStorage() (err error) {
-	var delegateStorage escrow.AtomicStorage
-	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
-		client, err := etcddb.NewEtcdClient()
-		if err != nil {
-			return errors.Wrap(err, "unable to create etcd client")
-		}
-		components.etcdClient = client
-		delegateStorage = client
-	} else {
-		delegateStorage = escrow.NewMemStorage()
-	}
-
-	components.paymentChannelStorage = escrow.NewCombinedStorage(
-		components.blockchain,
-		escrow.NewPaymentChannelStorage(delegateStorage),
-	)
-
-	return
-}
-
-func (components *Components) initGrpcInterceptor() (err error) {
-	if !components.blockchain.Enabled() {
-		log.Info("Blockchain is disabled: no payment validation")
-		components.grpcInterceptor = handler.NoOpInterceptor
-		return nil
-	}
-
-	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-	components.grpcInterceptor = handler.GrpcStreamInterceptor(
-		blockchain.NewJobPaymentHandler(components.blockchain),
-		escrow.NewEscrowPaymentHandler(
-			components.blockchain,
-			components.paymentChannelStorage,
-			escrow.NewIncomeValidator(components.blockchain),
-		),
-	)
-	return nil
-}
-
-func (components *Components) initPaymentChannelStateService() (err error) {
-	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelStorage())
-	return nil
-}
-
 func (components *Components) Close() {
 	if components.db != nil {
 		components.db.Close()
@@ -172,25 +74,131 @@ func (components *Components) Close() {
 	if components.etcdServer != nil {
 		components.etcdServer.Close()
 	}
-
 }
 
-func (components *Components) DB() (db *bbolt.DB) {
+func (components *Components) DB() *bbolt.DB {
+	if components.db != nil {
+		return components.db
+	}
+
+	if config.GetBool(config.BlockchainEnabledKey) {
+		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
+			log.WithError(err).Panic("unable to initialize bbolt DB for blockchain state")
+		} else {
+			components.db = database
+		}
+	}
+
 	return components.db
 }
 
-func (components *Components) Blockchain() (blockchain *blockchain.Processor) {
+func (components *Components) Blockchain() *blockchain.Processor {
+	if components.blockchain != nil {
+		return components.blockchain
+	}
+
+	processor, err := blockchain.NewProcessor(components.DB())
+	if err != nil {
+		log.WithError(err).Panic("unable to initialize blockchain processor")
+	}
+
+	components.blockchain = &processor
 	return components.blockchain
 }
 
-func (components *Components) PaymentChannelStorage() (storage escrow.PaymentChannelStorage) {
+func (components *Components) EtcdServer() *etcddb.EtcdServer {
+	if components.etcdServer != nil {
+		return components.etcdServer
+	}
+
+	enabled, err := etcddb.IsEtcdServerEnabled()
+	if err != nil {
+		log.WithError(err).Panic("error during etcd config parsing")
+	}
+	if !enabled {
+		return nil
+	}
+
+	server, err := etcddb.GetEtcdServer()
+	if err != nil {
+		log.WithError(err).Panic("error during etcd config parsing")
+	}
+
+	err = server.Start()
+	if err != nil {
+		log.WithError(err).Panic("error during etcd server starting")
+	}
+
+	components.etcdServer = server
+	return server
+}
+
+func (components *Components) EtcdClient() *etcddb.EtcdClient {
+	if components.etcdClient != nil {
+		return components.etcdClient
+	}
+
+	// start etcd server if enabled as client will try connecting to it
+	components.EtcdServer()
+
+	client, err := etcddb.NewEtcdClient()
+	if err != nil {
+		log.WithError(err).Panic("unable to create etcd client")
+	}
+
+	components.etcdClient = client
+	return components.etcdClient
+}
+
+func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStorage {
+	if components.paymentChannelStorage != nil {
+		return components.paymentChannelStorage
+	}
+
+	var delegateStorage escrow.AtomicStorage
+	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
+		delegateStorage = components.EtcdClient()
+	} else {
+		delegateStorage = escrow.NewMemStorage()
+	}
+
+	components.paymentChannelStorage = escrow.NewCombinedStorage(
+		components.Blockchain(),
+		escrow.NewPaymentChannelStorage(delegateStorage),
+	)
+
 	return components.paymentChannelStorage
 }
 
-func (components *Components) GrpcInterceptor() (interceptor grpc.StreamServerInterceptor) {
+func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
+	if components.grpcInterceptor != nil {
+		return components.grpcInterceptor
+	}
+
+	if !components.Blockchain().Enabled() {
+		log.Info("Blockchain is disabled: no payment validation")
+		components.grpcInterceptor = handler.NoOpInterceptor
+	} else {
+		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
+		components.grpcInterceptor = handler.GrpcStreamInterceptor(
+			blockchain.NewJobPaymentHandler(components.Blockchain()),
+			escrow.NewEscrowPaymentHandler(
+				components.Blockchain(),
+				components.PaymentChannelStorage(),
+				escrow.NewIncomeValidator(components.Blockchain()),
+			),
+		)
+	}
+
 	return components.grpcInterceptor
 }
 
 func (components *Components) PaymentChannelStateService() (service *escrow.PaymentChannelStateService) {
+	if components.paymentChannelStateService != nil {
+		return components.paymentChannelStateService
+	}
+
+	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelStorage())
+
 	return components.paymentChannelStateService
 }

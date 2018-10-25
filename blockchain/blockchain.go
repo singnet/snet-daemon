@@ -9,6 +9,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
+	"math/big"
 
 	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
@@ -138,4 +140,19 @@ func (processor *Processor) MultiPartyEscrow() *MultiPartyEscrow {
 
 func (processor *Processor) Agent() *Agent {
 	return processor.agent
+}
+
+func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
+	// We have to do a raw call because the standard method of ethClient.HeaderByNumber(ctx, nil) errors on
+	// unmarshaling the response currently. See https://github.com/ethereum/go-ethereum/issues/3230
+	var currentBlockHex string
+	if err = processor.rawClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
+		log.WithError(err).Error("error determining current block")
+		return nil, fmt.Errorf("error determining current block: %v", err)
+	}
+
+	currentBlockBytes := common.FromHex(currentBlockHex)
+	currentBlock = new(big.Int).SetBytes(currentBlockBytes)
+
+	return
 }

@@ -6,15 +6,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/handler"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"math/big"
-	"time"
+
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/handler"
 )
 
 const (
@@ -73,9 +74,10 @@ type PaymentChannelData struct {
 	GroupId *big.Int
 	// FullAmount is an amount which is deposited in channel by Sender.
 	FullAmount *big.Int
-	// Expiration is an date and time at which channel will be expired. Since
-	// this moment Sender can withdraw tokens from channel.
-	Expiration time.Time
+	// Expiration is a time at which channel will be expired. This time is
+	// expressed in Ethereum block number. Since this block is added to
+	// blockchain Sender can withdraw tokens from channel.
+	Expiration *big.Int
 	// AuthorizedAmount is current amount which Sender authorized to withdraw by
 	// service provider. This amount increments on price after each successful
 	// RPC call.
@@ -113,7 +115,7 @@ func (state PaymentChannelState) String() string {
 
 func (data PaymentChannelData) String() string {
 	return fmt.Sprintf("{Nonce: %v. State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupId, data.FullAmount, data.Expiration.Format(time.RFC3339), data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
+		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupId, data.FullAmount, data.Expiration, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
 }
 
 type paymentChannelStorageImpl struct {
@@ -168,6 +170,7 @@ type escrowPaymentHandler struct {
 	escrowContractAddress common.Address
 	storage               PaymentChannelStorage
 	incomeValidator       IncomeValidator
+	blockchain            *blockchain.Processor
 }
 
 // NewEscrowPaymentHandler returns instance of handler.PaymentHandler to validate
@@ -177,6 +180,7 @@ func NewEscrowPaymentHandler(processor *blockchain.Processor, storage PaymentCha
 		escrowContractAddress: processor.EscrowContractAddress(),
 		storage:               storage,
 		incomeValidator:       incomeValidator,
+		blockchain:            processor,
 	}
 }
 
@@ -258,10 +262,13 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 		return status.New(codes.Unauthenticated, "payment is not signed by channel sender")
 	}
 
-	now := time.Now()
-	if payment.channel.Expiration.Before(now) {
-		log.WithField("now", now).Warn("Channel is expired")
-		return status.Newf(codes.Unauthenticated, "payment channel is expired since \"%v\"", payment.channel.Expiration)
+	currentBlock, e := h.blockchain.CurrentBlock()
+	if e != nil {
+		return status.Newf(codes.Internal, "cannot determine current block")
+	}
+	if currentBlock.Cmp(payment.channel.Expiration) >= 0 {
+		log.WithField("currentBlock", currentBlock).Warn("Channel is expired")
+		return status.Newf(codes.Unauthenticated, "payment channel is expired since \"%v\" block", payment.channel.Expiration)
 	}
 
 	if payment.channel.FullAmount.Cmp(payment.amount) < 0 {

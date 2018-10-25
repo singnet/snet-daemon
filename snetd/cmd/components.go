@@ -38,15 +38,6 @@ func InitComponents(cmd *cobra.Command) (components *Components, err error) {
 
 	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
 
-	for _, init := range []func() error{
-		components.initPaymentChannelStateService,
-	} {
-		err = init()
-		if err != nil {
-			return
-		}
-	}
-
 	return
 }
 
@@ -70,11 +61,6 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
 func isFileExist(fileName string) bool {
 	_, err := os.Stat(fileName)
 	return !os.IsNotExist(err)
-}
-
-func (components *Components) initPaymentChannelStateService() (err error) {
-	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelStorage())
-	return nil
 }
 
 func (components *Components) EtcdServer() (server *etcddb.EtcdServer) {
@@ -191,5 +177,11 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 }
 
 func (components *Components) PaymentChannelStateService() (service *escrow.PaymentChannelStateService) {
+	if components.paymentChannelStateService != nil {
+		return components.paymentChannelStateService
+	}
+
+	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelStorage())
+
 	return components.paymentChannelStateService
 }

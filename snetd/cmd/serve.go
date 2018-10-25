@@ -16,7 +16,6 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/escrow"
-	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
@@ -73,8 +72,6 @@ type daemon struct {
 	blockProc     blockchain.Processor
 	lis           net.Listener
 	sslCert       *tls.Certificate
-	etcdClient    *etcddb.EtcdClient
-	etcdServer    *etcddb.EtcdServer
 	components    *Components
 }
 
@@ -114,29 +111,10 @@ func newDaemon(components *Components) (daemon, error) {
 		d.sslCert = &cert
 	}
 
-	enabled, err := etcddb.IsEtcdServerEnabled()
-	if err != nil {
-		return d, errors.Wrap(err, "error during etcd config parsing")
-	}
-	if enabled {
-		etcdServer, err := etcddb.GetEtcdServer()
-		if err != nil {
-			return d, errors.Wrap(err, "error during etcd config parsing")
-		}
-		d.etcdServer = etcdServer
-	}
-
 	return d, nil
 }
 
 func (d daemon) start() {
-
-	if d.etcdServer != nil {
-		err := d.etcdServer.Start()
-		if err != nil {
-			log.WithError(err).Fatal("unable to start etcd server")
-		}
-	}
 
 	d.blockProc.StartLoop()
 
@@ -222,10 +200,6 @@ func (d daemon) start() {
 }
 
 func (d daemon) stop() {
-
-	if d.etcdServer != nil {
-		d.etcdServer.Close()
-	}
 
 	if d.grpcServer != nil {
 		d.grpcServer.Stop()

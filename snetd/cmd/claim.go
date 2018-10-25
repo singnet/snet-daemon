@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"fmt"
-	//"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/escrow"
+	"math/big"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"math/big"
+
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/escrow"
 )
 
 var ClaimCmd = &cobra.Command{
@@ -37,9 +40,14 @@ func runAndCleanup(cmd *cobra.Command, args []string) (err error) {
 }
 
 type claimCommand struct {
+	storage    escrow.PaymentChannelStorage
+	blockchain *blockchain.Processor
+
 	channelId *big.Int
-	storage   escrow.PaymentChannelStorage
-	channel   *escrow.PaymentChannelData
+	sendBack  bool
+	timeout   time.Duration
+
+	channel *escrow.PaymentChannelData
 }
 
 func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command *claimCommand, err error) {
@@ -47,32 +55,48 @@ func newClaimCommand(cmd *cobra.Command, args []string, components *Components) 
 	if err != nil {
 		return
 	}
+	timeout, err := time.ParseDuration(claimTimeout)
+	if err != nil {
+		return
+	}
 
 	command = &claimCommand{
+		storage:    components.PaymentChannelStorage(),
+		blockchain: components.Blockchain(),
+
 		channelId: channelId,
-		storage:   components.PaymentChannelStorage(),
+		sendBack:  claimSendBack,
+		timeout:   timeout,
 	}
 
 	return
 }
 
 func getChannelId(cmd *cobra.Command) (id *big.Int, err error) {
-	str := cmd.Flags().Lookup(ClaimChannelIdFlag).Value.String()
 	value := &big.Int{}
-	err = value.UnmarshalText([]byte(str))
+	err = value.UnmarshalText([]byte(claimChannelId))
 	if err != nil {
-		return nil, fmt.Errorf("Incorrect decimal number format: %v, error: %v", str, err)
+		return nil, fmt.Errorf("Incorrect decimal number format: %v, error: %v", claimChannelId, err)
 	}
 	return value, nil
 }
 
 func (command *claimCommand) Run() (err error) {
+	if !command.blockchain.Enabled() {
+		return fmt.Errorf("blockchain should be enabled to claim money from channel")
+	}
+
 	err = command.getChannel()
 	if err != nil {
 		return
 	}
 
 	err = command.incrementChannelNonce()
+	if err != nil {
+		return
+	}
+
+	err = command.claimMoneyFromChannel()
 	if err != nil {
 		return
 	}
@@ -94,7 +118,16 @@ func (command *claimCommand) getChannel() (err error) {
 
 func (command *claimCommand) incrementChannelNonce() (err error) {
 	nextChannel := *command.channel
-	nextChannel.Nonce = (&big.Int{}).Add(nextChannel.Nonce, big.NewInt(1))
+
+	if command.sendBack {
+		nextChannel.State = escrow.Closed
+		nextChannel.FullAmount = nextChannel.AuthorizedAmount
+	} else {
+		nextChannel.Nonce = (&big.Int{}).Add(nextChannel.Nonce, big.NewInt(1))
+		nextChannel.FullAmount = (&big.Int{}).Sub(nextChannel.FullAmount, nextChannel.AuthorizedAmount)
+		nextChannel.AuthorizedAmount = big.NewInt(0)
+		nextChannel.Signature = nil
+	}
 
 	ok, err := command.storage.CompareAndSwap(&escrow.PaymentChannelKey{ID: command.channelId}, command.channel, &nextChannel)
 	if err != nil {
@@ -104,4 +137,14 @@ func (command *claimCommand) incrementChannelNonce() (err error) {
 		return fmt.Errorf("Channel was concurrently updated, channel id: %v", command.channelId)
 	}
 	return nil
+}
+
+func (command *claimCommand) claimMoneyFromChannel() (err error) {
+	return command.blockchain.ClaimFundsFromChannel(
+		command.timeout,
+		command.channelId,
+		command.channel.AuthorizedAmount,
+		command.channel.Signature,
+		command.sendBack,
+	)
 }

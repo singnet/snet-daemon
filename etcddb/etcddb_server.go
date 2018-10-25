@@ -47,6 +47,8 @@ func GetEtcdServerFromVip(vip *viper.Viper) (server *EtcdServer, err error) {
 
 	conf, err := GetEtcdServerConf(vip)
 
+	log.WithField("PaymentChannelStorageServer", fmt.Sprintf("%+v", conf)).Info()
+
 	if err != nil || conf == nil || !conf.Enabled {
 		return
 	}

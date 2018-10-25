@@ -13,7 +13,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 
 	enabled, err := IsEtcdServerEnabled()
 	assert.Nil(t, err)
-	assert.False(t, enabled)
+	assert.True(t, enabled)
 
 	conf, err := GetEtcdServerConf(config.Vip())
 
@@ -27,12 +27,12 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, 2380, conf.PeerPort)
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, "storage-1=http://127.0.0.1:2380", conf.Cluster)
-	assert.Equal(t, false, conf.Enabled)
+	assert.Equal(t, true, conf.Enabled)
 
 	server, err := GetEtcdServer()
 
 	assert.Nil(t, err)
-	assert.Nil(t, server)
+	assert.NotNil(t, server)
 }
 
 func TestDisabledEtcdServerConf(t *testing.T) {

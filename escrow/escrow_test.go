@@ -32,6 +32,19 @@ type escrowTestType struct {
 	defaultData               *testPaymentData
 }
 
+type blockchainMockType struct {
+	escrowContractAddress common.Address
+	currentBlock          int64
+}
+
+func (mock *blockchainMockType) EscrowContractAddress() common.Address {
+	return mock.escrowContractAddress
+}
+
+func (mock *blockchainMockType) CurrentBlock() (currentBlock *big.Int, err error) {
+	return big.NewInt(mock.currentBlock), nil
+}
+
 var escrowTest = func() *escrowTestType {
 
 	var testPrivateKey = generatePrivateKey()
@@ -46,10 +59,15 @@ var escrowTest = func() *escrowTestType {
 
 	var testEscrowContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
-	var paymentHandler = &escrowPaymentHandler{
+	var blockchainMock = &blockchainMockType{
 		escrowContractAddress: testEscrowContractAddress,
-		storage:               storageMock,
-		incomeValidator:       incomeValidatorMock,
+		currentBlock:          99,
+	}
+
+	var paymentHandler = &escrowPaymentHandler{
+		storage:         storageMock,
+		incomeValidator: incomeValidatorMock,
+		blockchain:      blockchainMock,
 	}
 	var defaultData = &testPaymentData{
 		ChannelID:    42,
@@ -127,7 +145,7 @@ func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (er
 
 func getPaymentSignature(contractAddress *common.Address, channelID, channelNonce, amount int64, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	message := bytes.Join([][]byte{
-		escrowTest.testEscrowContractAddress.Bytes(),
+		contractAddress.Bytes(),
 		intToUint256(channelID),
 		intToUint256(channelNonce),
 		intToUint256(amount),
@@ -268,7 +286,7 @@ func bytesErrorTupleToString(data []byte, err error) string {
 
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	handler := escrowPaymentHandler{
-		escrowContractAddress: escrowTest.testEscrowContractAddress,
+		blockchain: &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress},
 	}
 	payment := escrowPaymentType{
 		channelID:    big.NewInt(1789),
@@ -286,7 +304,7 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 
 func TestGetPublicKeyFromPayment2(t *testing.T) {
 	handler := escrowPaymentHandler{
-		escrowContractAddress: blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75"),
+		blockchain: &blockchainMockType{escrowContractAddress: blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75")},
 	}
 	payment := escrowPaymentType{
 		channelID:    big.NewInt(1789),
@@ -459,13 +477,18 @@ func TestValidatePaymentIncorrectSigner(t *testing.T) {
 }
 
 func TestValidatePaymentExpiredChannel(t *testing.T) {
+	handler := escrowTest.paymentHandler
+	handler.blockchain = &blockchainMockType{
+		escrowContractAddress: escrowTest.testEscrowContractAddress,
+		currentBlock:          99,
+	}
 	payment := getTestPayment(patchDefaultData(func(d D) {
-		d.Expiration = 0
+		d.Expiration = 99
 	}))
 
-	err := escrowTest.paymentHandler.Validate(payment)
+	err := handler.Validate(payment)
 
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is expired since \"2009-11-10 23:00:00 +0000 UTC\""), err)
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is expired since \"99\" block"), err)
 }
 
 func TestValidatePaymentAmountIsTooBig(t *testing.T) {
@@ -482,9 +505,9 @@ func TestValidatePaymentIncorrectIncome(t *testing.T) {
 	payment := getTestPayment(escrowTest.defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	paymentHandler := escrowPaymentHandler{
-		escrowContractAddress: escrowTest.testEscrowContractAddress,
-		storage:               escrowTest.storageMock,
-		incomeValidator:       &incomeValidatorMockType{err: incomeErr},
+		storage:         escrowTest.storageMock,
+		incomeValidator: &incomeValidatorMockType{err: incomeErr},
+		blockchain:      &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress},
 	}
 
 	err := paymentHandler.Validate(payment)

@@ -165,22 +165,25 @@ func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey,
 	return storage.AtomicStorage.CompareAndSwap(key.String(), string(prevData), string(newData))
 }
 
+type EscrowBlockchainFunctions interface {
+	EscrowContractAddress() common.Address
+	CurrentBlock() (currentBlock *big.Int, err error)
+}
+
 // escrowPaymentHandler implements paymentHandlerType interface
 type escrowPaymentHandler struct {
-	escrowContractAddress common.Address
-	storage               PaymentChannelStorage
-	incomeValidator       IncomeValidator
-	blockchain            *blockchain.Processor
+	storage         PaymentChannelStorage
+	incomeValidator IncomeValidator
+	blockchain      EscrowBlockchainFunctions
 }
 
 // NewEscrowPaymentHandler returns instance of handler.PaymentHandler to validate
 // payments via MultiPartyEscrow contract.
 func NewEscrowPaymentHandler(processor *blockchain.Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) handler.PaymentHandler {
 	return &escrowPaymentHandler{
-		escrowContractAddress: processor.EscrowContractAddress(),
-		storage:               storage,
-		incomeValidator:       incomeValidator,
-		blockchain:            processor,
+		storage:         storage,
+		incomeValidator: incomeValidator,
+		blockchain:      processor,
 	}
 }
 
@@ -288,7 +291,7 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 
 func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymentType) (signer *common.Address, err *status.Status) {
 	message := bytes.Join([][]byte{
-		h.escrowContractAddress.Bytes(),
+		h.blockchain.EscrowContractAddress().Bytes(),
 		bigIntToBytes(payment.channelID),
 		bigIntToBytes(payment.channelNonce),
 		bigIntToBytes(payment.amount),

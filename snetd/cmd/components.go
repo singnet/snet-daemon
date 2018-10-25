@@ -40,7 +40,6 @@ func InitComponents(cmd *cobra.Command) (components *Components, err error) {
 	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
 
 	for _, init := range []func() error{
-		components.initDb,
 		components.initBlockchain,
 		components.initPaymentChannelStorage,
 		components.initGrpcInterceptor,
@@ -77,19 +76,8 @@ func isFileExist(fileName string) bool {
 	return !os.IsNotExist(err)
 }
 
-func (components *Components) initDb() (err error) {
-	if config.GetBool(config.BlockchainEnabledKey) {
-		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
-			return errors.Wrap(err, "unable to initialize bbolt DB for blockchain state")
-		} else {
-			components.db = database
-		}
-	}
-	return
-}
-
 func (components *Components) initBlockchain() (err error) {
-	blockchain, err := blockchain.NewProcessor(components.db)
+	blockchain, err := blockchain.NewProcessor(components.DB())
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize blockchain processor")
 	}
@@ -177,7 +165,19 @@ func (components *Components) Close() {
 	}
 }
 
-func (components *Components) DB() (db *bbolt.DB) {
+func (components *Components) DB() (database *bbolt.DB) {
+	if components.db != nil {
+		return components.db
+	}
+
+	if config.GetBool(config.BlockchainEnabledKey) {
+		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
+			log.WithError(err).Panic("unable to initialize bbolt DB for blockchain state")
+		} else {
+			components.db = database
+		}
+	}
+
 	return components.db
 }
 

@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 )
 
@@ -274,8 +275,10 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 	if e != nil {
 		return status.Newf(codes.Internal, "cannot determine current block")
 	}
-	if currentBlock.Cmp(payment.channel.Expiration) >= 0 {
-		log.WithField("currentBlock", currentBlock).Warn("Channel is expired")
+	expirationTreshold := config.GetBigInt(config.PaymentExpirationTresholdBlocksKey)
+	numberOfBlocksToExpire := new(big.Int).Sub(payment.channel.Expiration, currentBlock)
+	if numberOfBlocksToExpire.Cmp(expirationTreshold) <= 0 {
+		log.WithField("currentBlock", currentBlock).WithField("expirationTreshold", expirationTreshold).Warn("Channel expiration time is after expiration treshold")
 		return status.Newf(codes.Unauthenticated, "payment channel is expired since \"%v\" block", payment.channel.Expiration)
 	}
 

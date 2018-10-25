@@ -165,8 +165,13 @@ func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey,
 	return storage.AtomicStorage.CompareAndSwap(key.String(), string(prevData), string(newData))
 }
 
-type EscrowBlockchainFunctions interface {
+// EscrowBlockchainApi is an interface implemented by blockchain.Processor to
+// provide blockchain operations related to MultiPartyEscrow contract
+// processing.
+type EscrowBlockchainApi interface {
+	// EscrowContractAddress returns address of the MultiPartyEscrowContract
 	EscrowContractAddress() common.Address
+	// CurrentBlock returns current Ethereum blockchain block number
 	CurrentBlock() (currentBlock *big.Int, err error)
 }
 
@@ -174,7 +179,7 @@ type EscrowBlockchainFunctions interface {
 type escrowPaymentHandler struct {
 	storage         PaymentChannelStorage
 	incomeValidator IncomeValidator
-	blockchain      EscrowBlockchainFunctions
+	blockchain      EscrowBlockchainApi
 }
 
 // NewEscrowPaymentHandler returns instance of handler.PaymentHandler to validate

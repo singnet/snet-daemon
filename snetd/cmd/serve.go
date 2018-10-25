@@ -16,7 +16,6 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/escrow"
-	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
@@ -70,8 +69,6 @@ type daemon struct {
 	blockProc     blockchain.Processor
 	lis           net.Listener
 	sslCert       *tls.Certificate
-	etcdClient    *etcddb.EtcdClient
-	etcdServer    *etcddb.EtcdServer
 	components    *Components
 }
 
@@ -111,21 +108,14 @@ func newDaemon(components *Components) (daemon, error) {
 		d.sslCert = &cert
 	}
 
-	d.etcdServer = components.EtcdServer()
-
 	return d, nil
 }
 
 func (d daemon) start() {
 
-	if d.etcdServer != nil {
-		err := d.etcdServer.Start()
-		if err != nil {
-			log.WithError(err).Fatal("unable to start etcd server")
-		}
-	}
-
 	d.blockProc.StartLoop()
+
+	_ = d.components.EtcdServer() // start etcd server if enabled
 
 	var tlsConfig *tls.Config
 

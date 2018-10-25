@@ -1,6 +1,7 @@
 package etcddb
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/singnet/snet-daemon/config"
@@ -12,10 +13,16 @@ import (
 // is not set in the configuration file
 func GetEtcdClientConf(vip *viper.Viper) (conf *EtcdClientConf, err error) {
 
-	conf = &EtcdClientConf{
-		ConnectionTimeout: 5000,
-		RequestTimeout:    3000,
-		Endpoints:         []string{"http://127.0.0.1:2379"},
+	type DefaultConf struct {
+		PaymentChannelStorageClient *EtcdClientConf `json:"payment_channel_storage_client"`
+	}
+
+	conf = &EtcdClientConf{}
+	defaultConf := &DefaultConf{PaymentChannelStorageClient: conf}
+
+	err = json.Unmarshal([]byte(config.GetDefaultConfJSON()), defaultConf)
+	if err != nil {
+		return
 	}
 
 	if !vip.InConfig(strings.ToLower(config.PaymentChannelStorageClientKey)) {
@@ -49,8 +56,8 @@ type EtcdServerConf struct {
 	ID         string
 	Scheme     string
 	Host       string
-	ClientPort int `mapstructure:"CLIENT_PORT"`
-	PeerPort   int `mapstructure:"PEER_PORT"`
+	ClientPort int `json:"client_port" mapstructure:"CLIENT_PORT"`
+	PeerPort   int `json:"peer_port" mapstructure:"PEER_PORT"`
 	Token      string
 	Cluster    string
 	Enabled    bool
@@ -61,15 +68,16 @@ type EtcdServerConf struct {
 // is not set in the configuration file
 func GetEtcdServerConf(vip *viper.Viper) (conf *EtcdServerConf, err error) {
 
-	conf = &EtcdServerConf{
-		ID:         "storage-1",
-		Scheme:     "http",
-		Host:       "127.0.0.1",
-		ClientPort: 2379,
-		PeerPort:   2380,
-		Token:      "unique-token",
-		Cluster:    "storage-1=http://127.0.0.1:2380",
-		Enabled:    false,
+	type DefaultConf struct {
+		PaymentChannelStorageServer *EtcdServerConf `json:"payment_channel_storage_server"`
+	}
+
+	conf = &EtcdServerConf{}
+	defaultConf := &DefaultConf{PaymentChannelStorageServer: conf}
+
+	err = json.Unmarshal([]byte(config.GetDefaultConfJSON()), defaultConf)
+	if err != nil {
+		return
 	}
 
 	if !vip.InConfig(strings.ToLower(config.PaymentChannelStorageServerKey)) {
@@ -87,7 +95,7 @@ func GetEtcdServerConf(vip *viper.Viper) (conf *EtcdServerConf, err error) {
 // RequestTimeout    - per request timeout
 // Endpoints         - cluster endpoints
 type EtcdClientConf struct {
-	ConnectionTimeout int `mapstructure:"connection_timeout"`
-	RequestTimeout    int `mapstructure:"request_timeout"`
+	ConnectionTimeout int `json:"connection_timeout" mapstructure:"connection_timeout"`
+	RequestTimeout    int `json:"request_timeout" mapstructure:"request_timeout"`
 	Endpoints         []string
 }

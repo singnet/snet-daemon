@@ -124,6 +124,11 @@ func (components *Components) EtcdServer() *etcddb.EtcdServer {
 		log.WithError(err).Panic("error during etcd config parsing")
 	}
 
+	err = server.Start()
+	if err != nil {
+		log.WithError(err).Panic("error during etcd server starting")
+	}
+
 	components.etcdServer = server
 	return server
 }
@@ -152,6 +157,9 @@ func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStora
 		delegateStorage = components.EtcdClient()
 	} else {
 		delegateStorage = escrow.NewMemStorage()
+	}
+	if components.etcdServer != nil {
+		components.etcdServer.Close()
 	}
 
 	components.paymentChannelStorage = escrow.NewCombinedStorage(

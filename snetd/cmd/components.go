@@ -39,7 +39,6 @@ func InitComponents(cmd *cobra.Command) (components *Components, err error) {
 	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
 
 	for _, init := range []func() error{
-		components.initGrpcInterceptor,
 		components.initPaymentChannelStateService,
 	} {
 		err = init()
@@ -71,25 +70,6 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
 func isFileExist(fileName string) bool {
 	_, err := os.Stat(fileName)
 	return !os.IsNotExist(err)
-}
-
-func (components *Components) initGrpcInterceptor() (err error) {
-	if !components.Blockchain().Enabled() {
-		log.Info("Blockchain is disabled: no payment validation")
-		components.grpcInterceptor = handler.NoOpInterceptor
-		return nil
-	}
-
-	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-	components.grpcInterceptor = handler.GrpcStreamInterceptor(
-		blockchain.NewJobPaymentHandler(components.Blockchain()),
-		escrow.NewEscrowPaymentHandler(
-			components.Blockchain(),
-			components.PaymentChannelStorage(),
-			escrow.NewIncomeValidator(components.Blockchain()),
-		),
-	)
-	return nil
 }
 
 func (components *Components) initPaymentChannelStateService() (err error) {
@@ -187,7 +167,26 @@ func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStora
 	return components.paymentChannelStorage
 }
 
-func (components *Components) GrpcInterceptor() (interceptor grpc.StreamServerInterceptor) {
+func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
+	if components.grpcInterceptor != nil {
+		return components.grpcInterceptor
+	}
+
+	if !components.Blockchain().Enabled() {
+		log.Info("Blockchain is disabled: no payment validation")
+		components.grpcInterceptor = handler.NoOpInterceptor
+	} else {
+		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
+		components.grpcInterceptor = handler.GrpcStreamInterceptor(
+			blockchain.NewJobPaymentHandler(components.Blockchain()),
+			escrow.NewEscrowPaymentHandler(
+				components.Blockchain(),
+				components.PaymentChannelStorage(),
+				escrow.NewIncomeValidator(components.Blockchain()),
+			),
+		)
+	}
+
 	return components.grpcInterceptor
 }
 

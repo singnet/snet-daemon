@@ -2,13 +2,14 @@ package escrow
 
 import (
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
-	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/singnet/snet-daemon/blockchain"
 )
 
 type storageTestType struct {
@@ -45,7 +46,7 @@ var storageTest = func() storageTestType {
 			Recipient:        recipientAddress,
 			GroupId:          big.NewInt(0),
 			FullAmount:       big.NewInt(12345),
-			Expiration:       time.Now().Add(time.Hour),
+			Expiration:       big.NewInt(100),
 			AuthorizedAmount: big.NewInt(12300),
 			Signature:        getPaymentSignature(&mpeContractAddress, 42, 3, 12300, senderPrivateKey),
 		},
@@ -96,7 +97,7 @@ func TestCombinedStorageGetAlreadyInStorage(t *testing.T) {
 		Recipient:        storageTest.recipientAddress,
 		GroupId:          big.NewInt(0),
 		FullAmount:       big.NewInt(12345),
-		Expiration:       time.Now().Add(time.Hour),
+		Expiration:       big.NewInt(100),
 		AuthorizedAmount: big.NewInt(12300),
 		Signature:        getPaymentSignature(&storageTest.mpeContractAddress, 42, 3, 12300, storageTest.senderPrivateKey),
 	}
@@ -114,7 +115,7 @@ func TestCombinedStorageGetAlreadyInStorage(t *testing.T) {
 }
 
 func TestCombinedStorageGetReadFromBlockchain(t *testing.T) {
-	expiration := time.Unix(time.Now().Add(time.Hour).Unix(), 0)
+	expiration := int64(100)
 	expectedChannel := &PaymentChannelData{
 		Nonce:            big.NewInt(0),
 		State:            Open,
@@ -122,7 +123,7 @@ func TestCombinedStorageGetReadFromBlockchain(t *testing.T) {
 		Recipient:        storageTest.recipientAddress,
 		GroupId:          big.NewInt(0),
 		FullAmount:       big.NewInt(12345),
-		Expiration:       expiration,
+		Expiration:       big.NewInt(expiration),
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}

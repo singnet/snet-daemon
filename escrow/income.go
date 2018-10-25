@@ -3,7 +3,6 @@ package escrow
 import (
 	"math/big"
 
-	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 	"google.golang.org/grpc/codes"
@@ -35,13 +34,10 @@ type IncomeValidator interface {
 }
 
 type incomeValidator struct {
-	agent *blockchain.Agent
 }
 
-func NewIncomeValidator(processor *blockchain.Processor) (validator IncomeValidator) {
-	return &incomeValidator{
-		agent: processor.Agent(),
-	}
+func NewIncomeValidator() (validator IncomeValidator) {
+	return &incomeValidator{}
 }
 
 func (validator *incomeValidator) Validate(data *IncomeData) (err *status.Status) {

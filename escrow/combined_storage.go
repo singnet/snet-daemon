@@ -2,12 +2,13 @@ package escrow
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
-	"math/big"
-	"time"
 )
 
 type combinedStorage struct {
@@ -84,7 +85,7 @@ func (storage *combinedStorage) getChannelStateFromBlockchain(id *big.Int) (stat
 		Recipient:        channel.Recipient,
 		GroupId:          channel.ReplicaId,
 		FullAmount:       channel.Value,
-		Expiration:       time.Unix(channel.Expiration.Int64(), 0),
+		Expiration:       channel.Expiration,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}, true, nil

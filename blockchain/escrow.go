@@ -43,7 +43,11 @@ func (processor *Processor) ClaimFundsFromChannel(timeout time.Duration, channel
 	endTime := time.Now().Add(timeout)
 	isPending := true
 	for {
-		_, isPending, _ = processor.ethClient.TransactionByHash(context.Background(), txn.Hash())
+		_, isPending, err = processor.ethClient.TransactionByHash(context.Background(), txn.Hash())
+		if err != nil {
+			log.WithError(err).Error("Transaction error")
+			return fmt.Errorf("Error while committing blockchain transaction: %v", err)
+		}
 		if !isPending {
 			break
 		}

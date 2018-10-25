@@ -52,7 +52,12 @@ func (p Processor) processJobCompletions() {
 			isPending := true
 
 			for {
-				if _, isPending, _ = p.ethClient.TransactionByHash(context.Background(), txn.Hash()); !isPending {
+				_, isPending, err = p.ethClient.TransactionByHash(context.Background(), txn.Hash())
+				if err != nil {
+					log.WithError(err).Error("Transaction error")
+					return
+				}
+				if !isPending {
 					break
 				}
 				time.Sleep(time.Second * 1)

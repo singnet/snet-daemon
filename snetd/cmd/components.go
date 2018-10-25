@@ -40,7 +40,6 @@ func InitComponents(cmd *cobra.Command) (components *Components, err error) {
 	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
 
 	for _, init := range []func() error{
-		components.initBlockchain,
 		components.initPaymentChannelStorage,
 		components.initGrpcInterceptor,
 		components.initPaymentChannelStateService,
@@ -76,15 +75,6 @@ func isFileExist(fileName string) bool {
 	return !os.IsNotExist(err)
 }
 
-func (components *Components) initBlockchain() (err error) {
-	blockchain, err := blockchain.NewProcessor(components.DB())
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize blockchain processor")
-	}
-	components.blockchain = &blockchain
-	return
-}
-
 func (components *Components) initPaymentChannelStorage() (err error) {
 	var delegateStorage escrow.AtomicStorage
 	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
@@ -100,7 +90,7 @@ func (components *Components) initPaymentChannelStorage() (err error) {
 	}
 
 	components.paymentChannelStorage = escrow.NewCombinedStorage(
-		components.blockchain,
+		components.Blockchain(),
 		escrow.NewPaymentChannelStorage(delegateStorage),
 	)
 
@@ -108,7 +98,7 @@ func (components *Components) initPaymentChannelStorage() (err error) {
 }
 
 func (components *Components) initGrpcInterceptor() (err error) {
-	if !components.blockchain.Enabled() {
+	if !components.Blockchain().Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
 		components.grpcInterceptor = handler.NoOpInterceptor
 		return nil
@@ -116,11 +106,11 @@ func (components *Components) initGrpcInterceptor() (err error) {
 
 	log.Info("Blockchain is enabled: instantiate payment validation interceptor")
 	components.grpcInterceptor = handler.GrpcStreamInterceptor(
-		blockchain.NewJobPaymentHandler(components.blockchain),
+		blockchain.NewJobPaymentHandler(components.Blockchain()),
 		escrow.NewEscrowPaymentHandler(
-			components.blockchain,
+			components.Blockchain(),
 			components.paymentChannelStorage,
-			escrow.NewIncomeValidator(components.blockchain),
+			escrow.NewIncomeValidator(components.Blockchain()),
 		),
 	)
 	return nil
@@ -165,7 +155,7 @@ func (components *Components) Close() {
 	}
 }
 
-func (components *Components) DB() (database *bbolt.DB) {
+func (components *Components) DB() *bbolt.DB {
 	if components.db != nil {
 		return components.db
 	}
@@ -181,7 +171,17 @@ func (components *Components) DB() (database *bbolt.DB) {
 	return components.db
 }
 
-func (components *Components) Blockchain() (blockchain *blockchain.Processor) {
+func (components *Components) Blockchain() *blockchain.Processor {
+	if components.blockchain != nil {
+		return components.blockchain
+	}
+
+	processor, err := blockchain.NewProcessor(components.DB())
+	if err != nil {
+		log.WithError(err).Panic("unable to initialize blockchain processor")
+	}
+
+	components.blockchain = &processor
 	return components.blockchain
 }
 

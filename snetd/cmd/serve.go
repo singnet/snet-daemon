@@ -114,17 +114,7 @@ func newDaemon(components *Components) (daemon, error) {
 		d.sslCert = &cert
 	}
 
-	enabled, err := etcddb.IsEtcdServerEnabled()
-	if err != nil {
-		return d, errors.Wrap(err, "error during etcd config parsing")
-	}
-	if enabled {
-		etcdServer, err := etcddb.GetEtcdServer()
-		if err != nil {
-			return d, errors.Wrap(err, "error during etcd config parsing")
-		}
-		d.etcdServer = etcdServer
-	}
+	d.etcdServer = components.EtcdServer()
 
 	return d, nil
 }
@@ -222,10 +212,6 @@ func (d daemon) start() {
 }
 
 func (d daemon) stop() {
-
-	if d.etcdServer != nil {
-		d.etcdServer.Close()
-	}
 
 	if d.grpcServer != nil {
 		d.grpcServer.Stop()

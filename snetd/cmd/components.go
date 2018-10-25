@@ -22,6 +22,7 @@ type Components struct {
 	db                         *bbolt.DB
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
+	etcdServer                 *etcddb.EtcdServer
 	paymentChannelStorage      escrow.PaymentChannelStorage
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
@@ -142,6 +143,28 @@ func (components *Components) initPaymentChannelStateService() (err error) {
 	return nil
 }
 
+func (components *Components) EtcdServer() (server *etcddb.EtcdServer) {
+	if components.etcdServer != nil {
+		return components.etcdServer
+	}
+
+	enabled, err := etcddb.IsEtcdServerEnabled()
+	if err != nil {
+		log.WithError(err).Panic("error during etcd config parsing")
+	}
+	if !enabled {
+		return nil
+	}
+
+	server, err = etcddb.GetEtcdServer()
+	if err != nil {
+		log.WithError(err).Panic("error during etcd config parsing")
+	}
+
+	components.etcdServer = server
+	return server
+}
+
 func (components *Components) Close() {
 	if components.db != nil {
 		components.db.Close()
@@ -149,7 +172,9 @@ func (components *Components) Close() {
 	if components.etcdClient != nil {
 		components.etcdClient.Close()
 	}
-
+	if components.etcdServer != nil {
+		components.etcdServer.Close()
+	}
 }
 
 func (components *Components) DB() (db *bbolt.DB) {

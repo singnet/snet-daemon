@@ -3,6 +3,7 @@ package etcddb
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/singnet/snet-daemon/config"
 	"github.com/spf13/viper"
@@ -29,6 +30,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, 2380, conf.PeerPort)
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, "storage-1=http://127.0.0.1:2380", conf.Cluster)
+	assert.Equal(t, time.Minute, conf.StartupTimeout)
 	assert.Equal(t, true, conf.Enabled)
 
 	server, err := GetEtcdServer()
@@ -68,6 +70,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 			"peer_port": 2380,
 			"token": "unique-token",
 			"cluster": "storage-1=http://127.0.0.1:2380",
+			"startup_timeout": "15s",
 			"enabled": true
 		}
 	}`
@@ -88,6 +91,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.Equal(t, 2379, conf.ClientPort)
 	assert.Equal(t, 2380, conf.PeerPort)
 	assert.Equal(t, "unique-token", conf.Token)
+	assert.Equal(t, 15*time.Second, conf.StartupTimeout)
 	assert.Equal(t, true, conf.Enabled)
 
 	server, err := GetEtcdServerFromVip(vip)
@@ -106,8 +110,8 @@ func TestDefaultEtcdClientConf(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
 
-	assert.Equal(t, 5000, conf.ConnectionTimeout)
-	assert.Equal(t, 3000, conf.RequestTimeout)
+	assert.Equal(t, 5*time.Second, conf.ConnectionTimeout)
+	assert.Equal(t, 3*time.Second, conf.RequestTimeout)
 	assert.Equal(t, []string{"http://127.0.0.1:2379"}, conf.Endpoints)
 }
 
@@ -116,8 +120,8 @@ func TestEtcdClientConf(t *testing.T) {
 	const confJSON = `
 	{
 		"payment_channel_storage_client": {
-			"connection_timeout": 15000,
-			"request_timeout": 5000,
+			"connection_timeout": "15s",
+			"request_timeout": "5s",
 			"endpoints": ["http://127.0.0.1:2479"]
 		}
 	}`
@@ -128,8 +132,8 @@ func TestEtcdClientConf(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
-	assert.Equal(t, 15000, conf.ConnectionTimeout)
-	assert.Equal(t, 5000, conf.RequestTimeout)
+	assert.Equal(t, 15*time.Second, conf.ConnectionTimeout)
+	assert.Equal(t, 5*time.Second, conf.RequestTimeout)
 	assert.Equal(t, []string{"http://127.0.0.1:2479"}, conf.Endpoints)
 }
 

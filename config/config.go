@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -206,10 +205,6 @@ func GetBool(key string) bool {
 	return vip.GetBool(key)
 }
 
-func GetDefaultConfJSON() string {
-	return defaultConfigJson
-}
-
 // SubWithDefault returns sub-config by keys including configuration defaults
 // values. It returns nil if no such key. It is analog of the viper.Sub()
 // function. This is workaround for the issue
@@ -227,27 +222,6 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	}
 
 	return sub
-}
-
-// DefaultVip returns viper config that contains only values
-// from the defaultConfigJson string.
-// This is a workaround for the SubWithDefault(...) method
-// which returns only default key/value pairs for keys
-// which has been defined in a user config.
-func DefaultVip() (defaultVip *viper.Viper, err error) {
-
-	defaultVip = viper.New()
-	var defaultMap map[string]interface{}
-	err = json.Unmarshal([]byte(defaultConfigJson), &defaultMap)
-	if err != nil {
-		return
-	}
-
-	for key, value := range defaultMap {
-		defaultVip.Set(key, value)
-	}
-
-	return
 }
 
 var hiddenKeys = map[string]bool{

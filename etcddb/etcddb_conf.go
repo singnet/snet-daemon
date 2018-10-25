@@ -25,22 +25,8 @@ func GetEtcdClientConf(vip *viper.Viper) (conf *EtcdClientConf, err error) {
 
 	key := config.PaymentChannelStorageClientKey
 	conf = &EtcdClientConf{}
-
-	defaultVip, err := config.DefaultVip()
-	if err != nil {
-		return
-	}
-
-	err = defaultVip.UnmarshalKey(key, conf)
-	if err != nil {
-		return
-	}
-
-	if !vip.InConfig(strings.ToLower(key)) {
-		return
-	}
-
-	err = vip.UnmarshalKey(key, conf)
+	subVip := config.SubWithDefault(vip, key)
+	err = subVip.Unmarshal(conf)
 	return
 }
 
@@ -84,12 +70,8 @@ func GetEtcdServerConf(vip *viper.Viper) (conf *EtcdServerConf, err error) {
 	key := config.PaymentChannelStorageServerKey
 	conf = &EtcdServerConf{}
 
-	defaultVip, err := config.DefaultVip()
-	if err != nil {
-		return
-	}
-
-	err = defaultVip.UnmarshalKey(key, conf)
+	subVip := config.SubWithDefault(vip, key)
+	err = subVip.Unmarshal(conf)
 	if err != nil {
 		return
 	}

@@ -136,6 +136,25 @@ func TestEtcdClientConf(t *testing.T) {
 	assert.Equal(t, 5*time.Second, conf.RequestTimeout)
 	assert.Equal(t, []string{"http://127.0.0.1:2479"}, conf.Endpoints)
 }
+func TestEtcdClientConfWithDefault(t *testing.T) {
+
+	const confJSON = `
+	{
+		"payment_channel_storage_client": {
+			"connection_timeout": "15s"
+		}
+	}`
+
+	vip := readConfig(t, confJSON)
+
+	conf, err := GetEtcdClientConf(vip)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, conf)
+	assert.Equal(t, 15*time.Second, conf.ConnectionTimeout)
+	assert.Equal(t, 3*time.Second, conf.RequestTimeout)
+	assert.Equal(t, []string{"http://127.0.0.1:2379"}, conf.Endpoints)
+}
 
 func TestEtcdPutGet(t *testing.T) {
 
@@ -354,7 +373,7 @@ func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (ke
 }
 
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {
-	vip = viper.New()
+	vip = config.Vip()
 	err := config.ReadConfigFromJsonString(vip, configJSON)
 	assert.Nil(t, err)
 	return

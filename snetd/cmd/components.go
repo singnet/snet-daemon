@@ -139,7 +139,7 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	}
 
 	// start etcd server if enabled as client will try connecting to it
-	_ = components.EtcdServer()
+	components.EtcdServer()
 
 	client, err := etcddb.NewEtcdClient()
 	if err != nil {
@@ -160,9 +160,6 @@ func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStora
 		delegateStorage = components.EtcdClient()
 	} else {
 		delegateStorage = escrow.NewMemStorage()
-	}
-	if components.etcdServer != nil {
-		components.etcdServer.Close()
 	}
 
 	components.paymentChannelStorage = escrow.NewCombinedStorage(

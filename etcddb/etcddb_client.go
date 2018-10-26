@@ -13,14 +13,6 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 )
 
-const (
-	// DefaultConnectionTimeout default connection timeout in milliseconds
-	DefaultConnectionTimeout = 5000
-
-	// DefaultRequestTimeout default request timeout in milliseconds
-	DefaultRequestTimeout = 3000
-)
-
 // EtcdClient struct has some useful methods to wolrk with etcd client
 type EtcdClient struct {
 	timeout time.Duration
@@ -43,20 +35,16 @@ func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 
 	log.WithField("PaymentChannelStorageClient", fmt.Sprintf("%+v", conf)).Info()
 
-	connectionTimeout := time.Duration(conf.ConnectionTimeout) * time.Millisecond
-
 	etcdv3, err := clientv3.New(clientv3.Config{
 		Endpoints:   conf.Endpoints,
-		DialTimeout: connectionTimeout,
+		DialTimeout: conf.ConnectionTimeout,
 	})
 
 	if err != nil {
 		return
 	}
 
-	requestTimeout := time.Duration(conf.RequestTimeout) * time.Millisecond
-	client = &EtcdClient{timeout: requestTimeout, etcdv3: etcdv3}
-
+	client = &EtcdClient{timeout: conf.RequestTimeout, etcdv3: etcdv3}
 	return
 }
 

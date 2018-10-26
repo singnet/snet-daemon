@@ -73,9 +73,9 @@ func (storage *combinedStorage) getChannelStateFromBlockchain(id *big.Int) (stat
 	log.Debug("Channel found in blockchain")
 
 	configGroupId := config.GetBigInt(config.ReplicaGroupIDKey)
-	if channel.ReplicaId.Cmp(configGroupId) != 0 {
+	if channel.GroupId.Cmp(configGroupId) != 0 {
 		log.WithField("configGroupId", configGroupId).Warn("Channel received belongs to another group of replicas")
-		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupId, channel.ReplicaId)
+		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupId, channel.GroupId)
 	}
 
 	return &PaymentChannelData{
@@ -83,7 +83,7 @@ func (storage *combinedStorage) getChannelStateFromBlockchain(id *big.Int) (stat
 		State:            Open,
 		Sender:           channel.Sender,
 		Recipient:        channel.Recipient,
-		GroupId:          channel.ReplicaId,
+		GroupId:          channel.GroupId,
 		FullAmount:       channel.Value,
 		Expiration:       channel.Expiration,
 		AuthorizedAmount: big.NewInt(0),

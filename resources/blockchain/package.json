@@ -3,7 +3,7 @@
     "bip39": "2.5.0",
     "fs-extra": "5.0.0",
     "ganache-cli": "6.1.6",
-    "singularitynet-platform-contracts": "https://github.com/singnet/platform-contracts/releases/download/v0.2.2/singularitynet-platform-contracts-0.2.2.tgz",
+    "singularitynet-platform-contracts": "https://github.com/singnet/platform-contracts/releases/download/v0.2.3/singularitynet-platform-contracts-0.2.3.tgz",
     "singularitynet-token-contracts": "2.0.0",
     "truffle": "4.1.13",
     "truffle-contract": "3.0.6",

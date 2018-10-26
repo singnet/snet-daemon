@@ -14,34 +14,34 @@ import (
 )
 
 const (
-	AgentContractAddressKey            = "AGENT_CONTRACT_ADDRESS"
-	MultiPartyEscrowContractAddressKey = "MULTI_PARTY_ESCROW_CONTRACT_ADDRESS"
-	AutoSSLDomainKey                   = "AUTO_SSL_DOMAIN"
-	AutoSSLCacheDirKey                 = "AUTO_SSL_CACHE_DIR"
-	BlockchainEnabledKey               = "BLOCKCHAIN_ENABLED"
-	ConfigPathKey                      = "CONFIG_PATH"
-	DaemonListeningPortKey             = "DAEMON_LISTENING_PORT"
-	DaemonTypeKey                      = "DAEMON_TYPE"
-	DbPathKey                          = "DB_PATH"
-	EthereumJsonRpcEndpointKey         = "ETHEREUM_JSON_RPC_ENDPOINT"
-	ExecutablePathKey                  = "EXECUTABLE_PATH"
-	HdwalletIndexKey                   = "HDWALLET_INDEX"
-	HdwalletMnemonicKey                = "HDWALLET_MNEMONIC"
-	PricePerCallKey                    = "PRICE_PER_CALL"
-	LogKey                             = "LOG"
-	PassthroughEnabledKey              = "PASSTHROUGH_ENABLED"
-	PassthroughEndpointKey             = "PASSTHROUGH_ENDPOINT"
-	PollSleepKey                       = "POLL_SLEEP"
-	PrivateKeyKey                      = "PRIVATE_KEY"
-	ServiceTypeKey                     = "SERVICE_TYPE"
-	SSLCertPathKey                     = "SSL_CERT"
-	SSLKeyPathKey                      = "SSL_KEY"
-	WireEncodingKey                    = "WIRE_ENCODING"
-	ReplicaGroupIDKey                  = "REPLICA_GROUP_ID" // TODO: read replica group id from IPFS metadata
-	PaymentExpirationTresholdBlocksKey = "PAYMENT_EXPIRATION_TRESHOLD_BLOCKS"
-	PaymentChannelStorageTypeKey       = "PAYMENT_CHANNEL_STORAGE_TYPE"
-	PaymentChannelStorageClientKey     = "PAYMENT_CHANNEL_STORAGE_CLIENT"
-	PaymentChannelStorageServerKey     = "PAYMENT_CHANNEL_STORAGE_SERVER"
+	AgentContractAddressKey             = "AGENT_CONTRACT_ADDRESS"
+	MultiPartyEscrowContractAddressKey  = "MULTI_PARTY_ESCROW_CONTRACT_ADDRESS"
+	AutoSSLDomainKey                    = "AUTO_SSL_DOMAIN"
+	AutoSSLCacheDirKey                  = "AUTO_SSL_CACHE_DIR"
+	BlockchainEnabledKey                = "BLOCKCHAIN_ENABLED"
+	ConfigPathKey                       = "CONFIG_PATH"
+	DaemonListeningPortKey              = "DAEMON_LISTENING_PORT"
+	DaemonTypeKey                       = "DAEMON_TYPE"
+	DbPathKey                           = "DB_PATH"
+	EthereumJsonRpcEndpointKey          = "ETHEREUM_JSON_RPC_ENDPOINT"
+	ExecutablePathKey                   = "EXECUTABLE_PATH"
+	HdwalletIndexKey                    = "HDWALLET_INDEX"
+	HdwalletMnemonicKey                 = "HDWALLET_MNEMONIC"
+	PricePerCallKey                     = "PRICE_PER_CALL"
+	LogKey                              = "LOG"
+	PassthroughEnabledKey               = "PASSTHROUGH_ENABLED"
+	PassthroughEndpointKey              = "PASSTHROUGH_ENDPOINT"
+	PollSleepKey                        = "POLL_SLEEP"
+	PrivateKeyKey                       = "PRIVATE_KEY"
+	ServiceTypeKey                      = "SERVICE_TYPE"
+	SSLCertPathKey                      = "SSL_CERT"
+	SSLKeyPathKey                       = "SSL_KEY"
+	WireEncodingKey                     = "WIRE_ENCODING"
+	ReplicaGroupIDKey                   = "REPLICA_GROUP_ID" // TODO: read replica group id from IPFS metadata
+	PaymentExpirationThresholdBlocksKey = "PAYMENT_EXPIRATION_THRESHOLD_BLOCKS"
+	PaymentChannelStorageTypeKey        = "PAYMENT_CHANNEL_STORAGE_TYPE"
+	PaymentChannelStorageClientKey      = "PAYMENT_CHANNEL_STORAGE_CLIENT"
+	PaymentChannelStorageServerKey      = "PAYMENT_CHANNEL_STORAGE_SERVER"
 
 	defaultConfigJson string = `
 {
@@ -78,7 +78,7 @@ const (
 		"hooks": []
 	},
 	"replica_group_id": "0",
-	"payment_expiration_treshold_blocks": 5760,
+	"payment_expiration_threshold_blocks": 5760,
 	"payment_channel_storage_type": "etcd",
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",

@@ -67,7 +67,7 @@ var escrowTest = func() *escrowTestType {
 	var testEscrowContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	var configMock = viper.New()
-	configMock.Set(config.PaymentExpirationTresholdBlocksKey, 0)
+	configMock.Set(config.PaymentExpirationThresholdBlocksKey, 0)
 
 	var blockchainMock = &blockchainMockType{
 		escrowContractAddress: testEscrowContractAddress,
@@ -515,13 +515,13 @@ func TestValidatePaymentExpiredChannel(t *testing.T) {
 
 	err := handler.Validate(payment)
 
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 99, expiration treshold: 0"), err)
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 99, expiration threshold: 0"), err)
 }
 
-func TestValidatePaymentChannelExpirationTreshold(t *testing.T) {
+func TestValidatePaymentChannelExpirationThreshold(t *testing.T) {
 	handler := escrowTest.paymentHandler
 	handler.config = viper.New()
-	handler.config.Set(config.PaymentExpirationTresholdBlocksKey, 1)
+	handler.config.Set(config.PaymentExpirationThresholdBlocksKey, 1)
 	handler.blockchain = &blockchainMockType{
 		escrowContractAddress: escrowTest.testEscrowContractAddress,
 		currentBlock:          98,
@@ -532,7 +532,7 @@ func TestValidatePaymentChannelExpirationTreshold(t *testing.T) {
 
 	err := handler.Validate(payment)
 
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 98, expiration treshold: 1"), err)
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 98, expiration threshold: 1"), err)
 }
 
 func TestValidatePaymentAmountIsTooBig(t *testing.T) {

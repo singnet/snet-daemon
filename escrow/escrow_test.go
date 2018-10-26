@@ -38,6 +38,7 @@ type escrowTestType struct {
 type blockchainMockType struct {
 	escrowContractAddress common.Address
 	currentBlock          int64
+	err                   error
 }
 
 func (mock *blockchainMockType) EscrowContractAddress() common.Address {
@@ -45,6 +46,9 @@ func (mock *blockchainMockType) EscrowContractAddress() common.Address {
 }
 
 func (mock *blockchainMockType) CurrentBlock() (currentBlock *big.Int, err error) {
+	if mock.err != nil {
+		return nil, mock.err
+	}
 	return big.NewInt(mock.currentBlock), nil
 }
 
@@ -482,6 +486,21 @@ func TestValidatePaymentIncorrectSigner(t *testing.T) {
 	err := escrowTest.paymentHandler.Validate(payment)
 
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment is not signed by channel sender"), err)
+}
+
+func TestValidatePaymentChannelCannotGetCurrentBlock(t *testing.T) {
+	handler := escrowTest.paymentHandler
+	handler.blockchain = &blockchainMockType{
+		escrowContractAddress: escrowTest.testEscrowContractAddress,
+		err: errors.New("blockchain error"),
+	}
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.Expiration = 99
+	}))
+
+	err := handler.Validate(payment)
+
+	assert.Equal(t, status.New(codes.Internal, "cannot determine current block"), err)
 }
 
 func TestValidatePaymentExpiredChannel(t *testing.T) {

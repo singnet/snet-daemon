@@ -284,10 +284,10 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 		return status.Newf(codes.Internal, "cannot determine current block")
 	}
 	expirationTreshold := big.NewInt(h.config.GetInt64(config.PaymentExpirationTresholdBlocksKey))
-	numberOfBlocksToExpire := new(big.Int).Sub(payment.channel.Expiration, currentBlock)
-	if numberOfBlocksToExpire.Cmp(expirationTreshold) <= 0 {
+	currentBlockWithTreshold := new(big.Int).Add(currentBlock, expirationTreshold)
+	if currentBlockWithTreshold.Cmp(payment.channel.Expiration) >= 0 {
 		log.WithField("currentBlock", currentBlock).WithField("expirationTreshold", expirationTreshold).Warn("Channel expiration time is after expiration treshold")
-		return status.Newf(codes.Unauthenticated, "payment channel is expired since \"%v\" block", payment.channel.Expiration)
+		return status.Newf(codes.Unauthenticated, "payment channel is near to be expired, expiration time: %v, current block: %v, expiration treshold: %v", payment.channel.Expiration, currentBlock, expirationTreshold)
 	}
 
 	if payment.channel.FullAmount.Cmp(payment.amount) < 0 {

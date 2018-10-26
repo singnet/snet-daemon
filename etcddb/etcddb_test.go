@@ -4,12 +4,28 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/smartystreets/gunit"
 	"github.com/stretchr/testify/assert"
 )
 
 // TODO: initialize client and server only once to make test faster
 
-func TestEtcdPutGet(t *testing.T) {
+var testingEtcdDB *testing.T
+
+func TestEtcdWithGUnit(t *testing.T) {
+
+	testingEtcdDB = t
+	gunit.RunSequential(new(EtcdTestFixture), t)
+}
+
+type EtcdTestFixture struct {
+	*gunit.Fixture
+	client *EtcdClient
+	server *EtcdServer
+}
+
+func (fixture *EtcdTestFixture) SetupStuff() {
+	fmt.Println("SetupStuff")
 
 	const confJSON = `
 	{
@@ -30,23 +46,39 @@ func TestEtcdPutGet(t *testing.T) {
 		}
 	}`
 
+	t := testingEtcdDB
 	vip := readConfig(t, confJSON)
-
 	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
+	fixture.server = server
 	err = server.Start()
 	assert.Nil(t, err)
-
-	defer server.Close()
 
 	client, err := NewEtcdClientFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
-	defer client.Close()
+	fixture.client = client
+}
 
+func (fixture *EtcdTestFixture) TeardownStuff() {
+
+	if fixture.client != nil {
+		fixture.client.Close()
+	}
+
+	if fixture.server != nil {
+		fixture.server.Close()
+	}
+}
+
+func (fixture *EtcdTestFixture) TestEtcdPutGet() {
+
+	t := testingEtcdDB
+
+	client := fixture.client
 	missedValue, ok, err := client.Get("missed_key")
 	assert.Nil(t, err)
 	assert.False(t, ok)
@@ -96,41 +128,16 @@ func TestEtcdPutGet(t *testing.T) {
 	}
 }
 
-func TestEtcdCAS(t *testing.T) {
+func (fixture *EtcdTestFixture) TestEtcdCAS() {
 
-	const confJSON = `
-	{
-		"payment_channel_storage_server": {
-			"id": "storage-1",
-			"host" : "127.0.0.1",
-			"cluster": "storage-1=http://127.0.0.1:2380",
-			"token": "unique-token"
-		}
-	}`
-
-	vip := readConfig(t, confJSON)
-
-	server, err := GetEtcdServerFromVip(vip)
-
-	assert.Nil(t, err)
-	assert.NotNil(t, server)
-
-	err = server.Start()
-	assert.Nil(t, err)
-	defer server.Close()
-
-	client, err := NewEtcdClient()
-
-	assert.Nil(t, err)
-	assert.NotNil(t, client)
-
-	defer client.Close()
+	t := testingEtcdDB
+	client := fixture.client
 
 	key := "key"
 	expect := "expect"
 	update := "update"
 
-	err = client.Put(key, expect)
+	err := client.Put(key, expect)
 	assert.Nil(t, err)
 
 	ok, err := client.CompareAndSwap(
@@ -155,31 +162,14 @@ func TestEtcdCAS(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestEtcdNilValue(t *testing.T) {
+func (fixture *EtcdTestFixture) TestEtcdNilValue() {
 
-	const confJSON = `
-	{ "payment_channel_storage_server": {} }`
-
-	vip := readConfig(t, confJSON)
-
-	server, err := GetEtcdServerFromVip(vip)
-
-	assert.Nil(t, err)
-	assert.NotNil(t, server)
-
-	err = server.Start()
-	assert.Nil(t, err)
-	defer server.Close()
-
-	client, err := NewEtcdClient()
-
-	assert.Nil(t, err)
-	assert.NotNil(t, client)
-	defer client.Close()
+	t := testingEtcdDB
+	client := fixture.client
 
 	key := "key-for-nil-value"
 
-	err = client.Delete(key)
+	err := client.Delete(key)
 	assert.Nil(t, err)
 
 	missedValue, ok, err := client.Get(key)

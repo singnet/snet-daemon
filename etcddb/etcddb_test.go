@@ -2,6 +2,9 @@ package etcddb
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/smartystreets/gunit"
@@ -65,6 +68,8 @@ func (fixture *EtcdTestFixture) SetupStuff() {
 
 func (fixture *EtcdTestFixture) TeardownStuff() {
 
+	defer removeWorkDirs()
+
 	if fixture.client != nil {
 		fixture.client.Close()
 	}
@@ -72,6 +77,7 @@ func (fixture *EtcdTestFixture) TeardownStuff() {
 	if fixture.server != nil {
 		fixture.server.Close()
 	}
+
 }
 
 func (fixture *EtcdTestFixture) TestEtcdPutGet() {
@@ -213,4 +219,24 @@ func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (ke
 		keyValues = append(keyValues, keyValue)
 	}
 	return
+}
+
+func removeWorkDirs() {
+
+	t := testingEtcdDB
+
+	dir, err := os.Getwd()
+	assert.Nil(t, err)
+
+	files, err := ioutil.ReadDir(dir)
+	assert.Nil(t, err)
+
+	for _, f := range files {
+		name := f.Name()
+		if f.IsDir() && strings.HasPrefix(name, "storage-") {
+			fmt.Println(name)
+			err = os.RemoveAll(name)
+			assert.Nil(t, err)
+		}
+	}
 }

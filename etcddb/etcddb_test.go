@@ -2,9 +2,7 @@ package etcddb
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/smartystreets/gunit"
@@ -45,6 +43,7 @@ func (fixture *EtcdTestFixture) SetupStuff() {
 			"peer_port": 2380,
 			"token": "unique-token",
 			"cluster": "storage-1=http://127.0.0.1:2380",
+			"data_dir": "storage-data-dir-1.etcd",
 			"enabled": true
 		}
 	}`
@@ -56,6 +55,7 @@ func (fixture *EtcdTestFixture) SetupStuff() {
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
 	fixture.server = server
+
 	err = server.Start()
 	assert.Nil(t, err)
 
@@ -64,11 +64,13 @@ func (fixture *EtcdTestFixture) SetupStuff() {
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
 	fixture.client = client
+
 }
 
 func (fixture *EtcdTestFixture) TeardownStuff() {
 
-	defer removeWorkDirs()
+	workDir := fixture.server.conf.DataDir
+	defer removeWorkDir(testingEtcdDB, workDir)
 
 	if fixture.client != nil {
 		fixture.client.Close()
@@ -221,22 +223,11 @@ func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (ke
 	return
 }
 
-func removeWorkDirs() {
-
-	t := testingEtcdDB
+func removeWorkDir(t *testing.T, workDir string) {
 
 	dir, err := os.Getwd()
 	assert.Nil(t, err)
 
-	files, err := ioutil.ReadDir(dir)
+	err = os.RemoveAll(dir + "/" + workDir)
 	assert.Nil(t, err)
-
-	for _, f := range files {
-		name := f.Name()
-		if f.IsDir() && strings.HasPrefix(name, "storage-") {
-			fmt.Println(name)
-			err = os.RemoveAll(name)
-			assert.Nil(t, err)
-		}
-	}
 }

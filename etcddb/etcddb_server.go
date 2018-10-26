@@ -114,7 +114,7 @@ func getEtcdConf(conf *EtcdServerConf) *embed.Config {
 
 	etcdConf := embed.NewConfig()
 	etcdConf.Name = conf.ID
-	etcdConf.Dir = conf.ID + ".etcd"
+	etcdConf.Dir = conf.DataDir
 
 	// --listen-client-urls
 	etcdConf.LCUrls = []url.URL{*clientURL}

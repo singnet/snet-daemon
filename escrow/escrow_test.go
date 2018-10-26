@@ -13,12 +13,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 )
 
@@ -30,6 +32,7 @@ type escrowTestType struct {
 	testEscrowContractAddress common.Address
 	paymentHandler            *escrowPaymentHandler
 	defaultData               *testPaymentData
+	configMock                *viper.Viper
 }
 
 type blockchainMockType struct {
@@ -59,12 +62,16 @@ var escrowTest = func() *escrowTestType {
 
 	var testEscrowContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
+	var configMock = viper.New()
+	configMock.Set(config.PaymentExpirationTresholdBlocksKey, 0)
+
 	var blockchainMock = &blockchainMockType{
 		escrowContractAddress: testEscrowContractAddress,
 		currentBlock:          99,
 	}
 
 	var paymentHandler = &escrowPaymentHandler{
+		config:          configMock,
 		storage:         storageMock,
 		incomeValidator: incomeValidatorMock,
 		blockchain:      blockchainMock,
@@ -88,6 +95,7 @@ var escrowTest = func() *escrowTestType {
 		testEscrowContractAddress: testEscrowContractAddress,
 		paymentHandler:            paymentHandler,
 		defaultData:               defaultData,
+		configMock:                configMock,
 	}
 }()
 
@@ -432,7 +440,7 @@ func TestValidatePayment(t *testing.T) {
 
 	err := escrowTest.paymentHandler.Validate(payment)
 
-	assert.Nil(t, err)
+	assert.Nil(t, err, "Unexpected error: %v", err.Message())
 }
 
 func TestValidatePaymentChannelNonce(t *testing.T) {
@@ -505,6 +513,7 @@ func TestValidatePaymentIncorrectIncome(t *testing.T) {
 	payment := getTestPayment(escrowTest.defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	paymentHandler := escrowPaymentHandler{
+		config:          escrowTest.configMock,
 		storage:         escrowTest.storageMock,
 		incomeValidator: &incomeValidatorMockType{err: incomeErr},
 		blockchain:      &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress},

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -178,6 +179,7 @@ type EscrowBlockchainApi interface {
 
 // escrowPaymentHandler implements paymentHandlerType interface
 type escrowPaymentHandler struct {
+	config          *viper.Viper
 	storage         PaymentChannelStorage
 	incomeValidator IncomeValidator
 	blockchain      EscrowBlockchainApi
@@ -185,8 +187,14 @@ type escrowPaymentHandler struct {
 
 // NewEscrowPaymentHandler returns instance of handler.PaymentHandler to validate
 // payments via MultiPartyEscrow contract.
-func NewEscrowPaymentHandler(processor *blockchain.Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) handler.PaymentHandler {
+func NewEscrowPaymentHandler(
+	processor *blockchain.Processor,
+	storage PaymentChannelStorage,
+	incomeValidator IncomeValidator,
+	config *viper.Viper) handler.PaymentHandler {
+
 	return &escrowPaymentHandler{
+		config:          config,
 		storage:         storage,
 		incomeValidator: incomeValidator,
 		blockchain:      processor,
@@ -275,7 +283,7 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 	if e != nil {
 		return status.Newf(codes.Internal, "cannot determine current block")
 	}
-	expirationTreshold := config.GetBigInt(config.PaymentExpirationTresholdBlocksKey)
+	expirationTreshold := big.NewInt(h.config.GetInt64(config.PaymentExpirationTresholdBlocksKey))
 	numberOfBlocksToExpire := new(big.Int).Sub(payment.channel.Expiration, currentBlock)
 	if numberOfBlocksToExpire.Cmp(expirationTreshold) <= 0 {
 		log.WithField("currentBlock", currentBlock).WithField("expirationTreshold", expirationTreshold).Warn("Channel expiration time is after expiration treshold")

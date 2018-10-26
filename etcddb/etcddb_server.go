@@ -88,7 +88,7 @@ func startEtcdServer(conf *EtcdServerConf) (etcd *embed.Etcd, err error) {
 
 	select {
 	case <-etcd.Server.ReadyNotify():
-	case <-time.After(60 * time.Second):
+	case <-time.After(conf.StartupTimeout):
 		etcd.Server.Stop()
 		return nil, errors.New("etcd server took too long to start: " + conf.ID)
 	}

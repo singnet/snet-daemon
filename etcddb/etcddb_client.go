@@ -13,14 +13,6 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 )
 
-const (
-	// DefaultConnectionTimeout default connection timeout in milliseconds
-	DefaultConnectionTimeout = 5000
-
-	// DefaultRequestTimeout default request timeout in milliseconds
-	DefaultRequestTimeout = 3000
-)
-
 // EtcdClient struct has some useful methods to wolrk with etcd client
 type EtcdClient struct {
 	timeout time.Duration
@@ -43,25 +35,23 @@ func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 
 	log.WithField("PaymentChannelStorageClient", fmt.Sprintf("%+v", conf)).Info()
 
-	connectionTimeout := time.Duration(conf.ConnectionTimeout) * time.Millisecond
-
 	etcdv3, err := clientv3.New(clientv3.Config{
 		Endpoints:   conf.Endpoints,
-		DialTimeout: connectionTimeout,
+		DialTimeout: conf.ConnectionTimeout,
 	})
 
 	if err != nil {
 		return
 	}
 
-	requestTimeout := time.Duration(conf.RequestTimeout) * time.Millisecond
-	client = &EtcdClient{timeout: requestTimeout, etcdv3: etcdv3}
-
+	client = &EtcdClient{timeout: conf.RequestTimeout, etcdv3: etcdv3}
 	return
 }
 
 // Get gets value from etcd by key
 func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
+
+	log := log.WithField("func", "Get").WithField("key", key).WithField("client", client)
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
@@ -69,6 +59,7 @@ func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 	response, err := client.etcdv3.Get(ctx, key)
 
 	if err != nil {
+		log.WithError(err).Error("Unable to get value by key")
 		return
 	}
 
@@ -84,6 +75,8 @@ func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 // GetByKeyPrefix gets all values which have the same key prefix
 func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, ok bool, err error) {
 
+	log := log.WithField("func", "GetByKeyPrefix").WithField("key", key).WithField("client", client)
+
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
@@ -91,6 +84,7 @@ func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, ok bool, 
 	response, err := client.etcdv3.Get(ctx, key, clientv3.WithRange(keyEnd))
 
 	if err != nil {
+		log.WithError(err).Error("Unable to get value by key prefix")
 		return
 	}
 
@@ -105,30 +99,39 @@ func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, ok bool, 
 
 // Put puts key and value to etcd
 func (client *EtcdClient) Put(key string, value string) (err error) {
+	log := log.WithField("func", "Put").WithField("key", key).WithField("client", client)
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
 	_, err = etcdv3.Put(ctx, key, value)
+	if err != nil {
+		log.WithError(err).Error("Unable to put value by key")
+	}
 
 	return err
 }
 
 // Delete deletes the existing key and value from etcd
 func (client *EtcdClient) Delete(key string) error {
+	log := log.WithField("func", "Delete").WithField("key", key).WithField("client", client)
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
 	_, err := etcdv3.Delete(ctx, key)
+	if err != nil {
+		log.WithError(err).Error("Unable to delete value by key")
+	}
 
 	return err
 }
 
 // CompareAndSwap uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
+	log := log.WithField("func", "CompareAndSwap").WithField("key", key).WithField("client", client)
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
@@ -141,6 +144,7 @@ func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue 
 	).Commit()
 
 	if err != nil {
+		log.WithError(err).Error("Unable to compare and swap value by key")
 		return false, err
 	}
 
@@ -149,6 +153,7 @@ func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue 
 
 // PutIfAbsent puts value if absent
 func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err error) {
+	log := log.WithField("func", "PutIfAbsent").WithField("key", key).WithField("client", client)
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
@@ -157,6 +162,7 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 	session, err := concurrency.NewSession(etcdv3)
 
 	if err != nil {
+		log.WithError(err).Error("Unable to create new session")
 		return
 	}
 
@@ -165,6 +171,7 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 	err = mu.Lock(ctx)
 
 	if err != nil {
+		log.WithError(err).Error("Unable to lock mutex")
 		return
 	}
 
@@ -172,13 +179,18 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 
 	response, err := etcdv3.Get(ctx, key)
 
-	if err != nil || response.Count != 0 {
+	if err != nil {
+		log.WithError(err).Error("Unable to get value")
+		return
+	}
+	if response.Count != 0 {
 		return
 	}
 
 	_, err = etcdv3.Put(ctx, key, value)
 
 	if err != nil {
+		log.WithError(err).Error("Unable to put value")
 		return
 	}
 

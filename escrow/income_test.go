@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
@@ -19,8 +18,7 @@ func TestIncomeValidate(t *testing.T) {
 
 	one := big.NewInt(1)
 	income := big.NewInt(0)
-	processor := &blockchain.Processor{}
-	incomeValidator := NewIncomeValidator(processor)
+	incomeValidator := NewIncomeValidator()
 
 	income.Sub(price, one)
 	err := incomeValidator.Validate(&IncomeData{Income: income})

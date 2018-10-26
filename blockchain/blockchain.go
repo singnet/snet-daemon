@@ -138,10 +138,6 @@ func (processor *Processor) MultiPartyEscrow() *MultiPartyEscrow {
 	return processor.multiPartyEscrow
 }
 
-func (processor *Processor) Agent() *Agent {
-	return processor.agent
-}
-
 func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
 	// We have to do a raw call because the standard method of ethClient.HeaderByNumber(ctx, nil) errors on
 	// unmarshaling the response currently. See https://github.com/ethereum/go-ethereum/issues/3230

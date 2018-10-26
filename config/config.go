@@ -81,8 +81,8 @@ const (
 	"payment_expiration_treshold_blocks": 5760,
 	"payment_channel_storage_type": "etcd",
 	"payment_channel_storage_client": {
-		"connection_timeout": 5000,
-		"request_timeout": 3000,
+		"connection_timeout": "5s",
+		"request_timeout": "3s",
 		"endpoints": ["http://127.0.0.1:2379"]
 	},
 	"payment_channel_storage_server": {
@@ -93,6 +93,7 @@ const (
 		"peer_port": 2380,
 		"token": "unique-token",
 		"cluster": "storage-1=http://127.0.0.1:2380",
+		"startup_timeout": "1m",
 		"enabled": true
 	}
 }
@@ -204,10 +205,6 @@ func GetDuration(key string) time.Duration {
 
 func GetBool(key string) bool {
 	return vip.GetBool(key)
-}
-
-func GetDefaultConfJSON() string {
-	return defaultConfigJson
 }
 
 // SubWithDefault returns sub-config by keys including configuration defaults

@@ -115,8 +115,6 @@ func (d daemon) start() {
 
 	d.blockProc.StartLoop()
 
-	_ = d.components.EtcdServer() // start etcd server if enabled
-
 	var tlsConfig *tls.Config
 
 	if d.autoSSLDomain != "" {

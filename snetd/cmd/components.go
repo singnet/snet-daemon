@@ -186,6 +186,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 				components.Blockchain(),
 				components.PaymentChannelStorage(),
 				escrow.NewIncomeValidator(),
+				config.Vip(),
 			),
 		)
 	}

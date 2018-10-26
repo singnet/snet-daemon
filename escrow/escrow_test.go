@@ -13,12 +13,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 )
 
@@ -30,11 +32,13 @@ type escrowTestType struct {
 	testEscrowContractAddress common.Address
 	paymentHandler            *escrowPaymentHandler
 	defaultData               *testPaymentData
+	configMock                *viper.Viper
 }
 
 type blockchainMockType struct {
 	escrowContractAddress common.Address
 	currentBlock          int64
+	err                   error
 }
 
 func (mock *blockchainMockType) EscrowContractAddress() common.Address {
@@ -42,6 +46,9 @@ func (mock *blockchainMockType) EscrowContractAddress() common.Address {
 }
 
 func (mock *blockchainMockType) CurrentBlock() (currentBlock *big.Int, err error) {
+	if mock.err != nil {
+		return nil, mock.err
+	}
 	return big.NewInt(mock.currentBlock), nil
 }
 
@@ -59,12 +66,16 @@ var escrowTest = func() *escrowTestType {
 
 	var testEscrowContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
+	var configMock = viper.New()
+	configMock.Set(config.PaymentExpirationThresholdBlocksKey, 0)
+
 	var blockchainMock = &blockchainMockType{
 		escrowContractAddress: testEscrowContractAddress,
 		currentBlock:          99,
 	}
 
 	var paymentHandler = &escrowPaymentHandler{
+		config:          configMock,
 		storage:         storageMock,
 		incomeValidator: incomeValidatorMock,
 		blockchain:      blockchainMock,
@@ -88,6 +99,7 @@ var escrowTest = func() *escrowTestType {
 		testEscrowContractAddress: testEscrowContractAddress,
 		paymentHandler:            paymentHandler,
 		defaultData:               defaultData,
+		configMock:                configMock,
 	}
 }()
 
@@ -432,7 +444,7 @@ func TestValidatePayment(t *testing.T) {
 
 	err := escrowTest.paymentHandler.Validate(payment)
 
-	assert.Nil(t, err)
+	assert.Nil(t, err, "Unexpected error: %v", err.Message())
 }
 
 func TestValidatePaymentChannelNonce(t *testing.T) {
@@ -476,6 +488,21 @@ func TestValidatePaymentIncorrectSigner(t *testing.T) {
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment is not signed by channel sender"), err)
 }
 
+func TestValidatePaymentChannelCannotGetCurrentBlock(t *testing.T) {
+	handler := escrowTest.paymentHandler
+	handler.blockchain = &blockchainMockType{
+		escrowContractAddress: escrowTest.testEscrowContractAddress,
+		err: errors.New("blockchain error"),
+	}
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.Expiration = 99
+	}))
+
+	err := handler.Validate(payment)
+
+	assert.Equal(t, status.New(codes.Internal, "cannot determine current block"), err)
+}
+
 func TestValidatePaymentExpiredChannel(t *testing.T) {
 	handler := escrowTest.paymentHandler
 	handler.blockchain = &blockchainMockType{
@@ -488,7 +515,24 @@ func TestValidatePaymentExpiredChannel(t *testing.T) {
 
 	err := handler.Validate(payment)
 
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is expired since \"99\" block"), err)
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 99, expiration threshold: 0"), err)
+}
+
+func TestValidatePaymentChannelExpirationThreshold(t *testing.T) {
+	handler := escrowTest.paymentHandler
+	handler.config = viper.New()
+	handler.config.Set(config.PaymentExpirationThresholdBlocksKey, 1)
+	handler.blockchain = &blockchainMockType{
+		escrowContractAddress: escrowTest.testEscrowContractAddress,
+		currentBlock:          98,
+	}
+	payment := getTestPayment(patchDefaultData(func(d D) {
+		d.Expiration = 99
+	}))
+
+	err := handler.Validate(payment)
+
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 98, expiration threshold: 1"), err)
 }
 
 func TestValidatePaymentAmountIsTooBig(t *testing.T) {
@@ -505,6 +549,7 @@ func TestValidatePaymentIncorrectIncome(t *testing.T) {
 	payment := getTestPayment(escrowTest.defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	paymentHandler := escrowPaymentHandler{
+		config:          escrowTest.configMock,
 		storage:         escrowTest.storageMock,
 		incomeValidator: &incomeValidatorMockType{err: incomeErr},
 		blockchain:      &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress},

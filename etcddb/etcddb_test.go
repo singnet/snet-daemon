@@ -373,7 +373,9 @@ func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (ke
 }
 
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {
-	vip = config.Vip()
+	vip = viper.New()
+	config.SetDefaultFromConfig(vip, config.Vip())
+
 	err := config.ReadConfigFromJsonString(vip, configJSON)
 	assert.Nil(t, err)
 	return

@@ -55,7 +55,8 @@ func (p Processor) processJobCompletions() {
 				_, isPending, err = p.ethClient.TransactionByHash(context.Background(), txn.Hash())
 				if err != nil {
 					log.WithError(err).Error("Transaction error")
-					return
+					// TODO: fix properly
+					//return
 				}
 				if !isPending {
 					break

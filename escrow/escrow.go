@@ -11,10 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 )
 
@@ -177,6 +179,7 @@ type EscrowBlockchainApi interface {
 
 // escrowPaymentHandler implements paymentHandlerType interface
 type escrowPaymentHandler struct {
+	config          *viper.Viper
 	storage         PaymentChannelStorage
 	incomeValidator IncomeValidator
 	blockchain      EscrowBlockchainApi
@@ -184,8 +187,14 @@ type escrowPaymentHandler struct {
 
 // NewEscrowPaymentHandler returns instance of handler.PaymentHandler to validate
 // payments via MultiPartyEscrow contract.
-func NewEscrowPaymentHandler(processor *blockchain.Processor, storage PaymentChannelStorage, incomeValidator IncomeValidator) handler.PaymentHandler {
+func NewEscrowPaymentHandler(
+	processor *blockchain.Processor,
+	storage PaymentChannelStorage,
+	incomeValidator IncomeValidator,
+	config *viper.Viper) handler.PaymentHandler {
+
 	return &escrowPaymentHandler{
+		config:          config,
 		storage:         storage,
 		incomeValidator: incomeValidator,
 		blockchain:      processor,
@@ -274,9 +283,11 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 	if e != nil {
 		return status.Newf(codes.Internal, "cannot determine current block")
 	}
-	if currentBlock.Cmp(payment.channel.Expiration) >= 0 {
-		log.WithField("currentBlock", currentBlock).Warn("Channel is expired")
-		return status.Newf(codes.Unauthenticated, "payment channel is expired since \"%v\" block", payment.channel.Expiration)
+	expirationThreshold := big.NewInt(h.config.GetInt64(config.PaymentExpirationThresholdBlocksKey))
+	currentBlockWithThreshold := new(big.Int).Add(currentBlock, expirationThreshold)
+	if currentBlockWithThreshold.Cmp(payment.channel.Expiration) >= 0 {
+		log.WithField("currentBlock", currentBlock).WithField("expirationThreshold", expirationThreshold).Warn("Channel expiration time is after expiration threshold")
+		return status.Newf(codes.Unauthenticated, "payment channel is near to be expired, expiration time: %v, current block: %v, expiration threshold: %v", payment.channel.Expiration, currentBlock, expirationThreshold)
 	}
 
 	if payment.channel.FullAmount.Cmp(payment.amount) < 0 {

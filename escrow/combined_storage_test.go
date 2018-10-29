@@ -71,7 +71,7 @@ type multiPartyEscrowMock struct {
 	channels func(opts *bind.CallOpts, arg0 *big.Int) (struct {
 		Sender     common.Address
 		Recipient  common.Address
-		ReplicaId  *big.Int
+		GroupId    *big.Int
 		Value      *big.Int
 		Nonce      *big.Int
 		Expiration *big.Int
@@ -81,7 +81,7 @@ type multiPartyEscrowMock struct {
 func (mpe *multiPartyEscrowMock) Channels(opts *bind.CallOpts, arg0 *big.Int) (struct {
 	Sender     common.Address
 	Recipient  common.Address
-	ReplicaId  *big.Int
+	GroupId    *big.Int
 	Value      *big.Int
 	Nonce      *big.Int
 	Expiration *big.Int

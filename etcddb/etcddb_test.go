@@ -5,28 +5,23 @@ import (
 	"os"
 	"testing"
 
-	"github.com/smartystreets/gunit"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 // TODO: initialize client and server only once to make test faster
 
-var testingEtcdDB *testing.T
-
-func TestEtcdWithGUnit(t *testing.T) {
-
-	testingEtcdDB = t
-	gunit.RunSequential(new(EtcdTestFixture), t)
-}
-
-type EtcdTestFixture struct {
-	*gunit.Fixture
+type EtcdTestSuite struct {
+	suite.Suite
 	client *EtcdClient
 	server *EtcdServer
 }
 
-func (fixture *EtcdTestFixture) SetupStuff() {
-	fmt.Println("SetupStuff")
+func TestEtcdTestSuite(t *testing.T) {
+	suite.Run(t, new(EtcdTestSuite))
+}
+
+func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 
 	const confJSON = `
 	{
@@ -48,13 +43,13 @@ func (fixture *EtcdTestFixture) SetupStuff() {
 		}
 	}`
 
-	t := testingEtcdDB
+	t := suite.T()
 	vip := readConfig(t, confJSON)
 	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
-	fixture.server = server
+	suite.server = server
 
 	err = server.Start()
 	assert.Nil(t, err)
@@ -63,30 +58,30 @@ func (fixture *EtcdTestFixture) SetupStuff() {
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
-	fixture.client = client
+	suite.client = client
 
 }
 
-func (fixture *EtcdTestFixture) TeardownStuff() {
+func (suite *EtcdTestSuite) AfterTest(suiteName string, testName string) {
 
-	workDir := fixture.server.conf.DataDir
-	defer removeWorkDir(testingEtcdDB, workDir)
+	workDir := suite.server.conf.DataDir
+	defer removeWorkDir(suite.T(), workDir)
 
-	if fixture.client != nil {
-		fixture.client.Close()
+	if suite.client != nil {
+		suite.client.Close()
 	}
 
-	if fixture.server != nil {
-		fixture.server.Close()
+	if suite.server != nil {
+		suite.server.Close()
 	}
 
 }
 
-func (fixture *EtcdTestFixture) TestEtcdPutGet() {
+func (suite *EtcdTestSuite) TestEtcdPutGet() {
 
-	t := testingEtcdDB
+	t := suite.T()
 
-	client := fixture.client
+	client := suite.client
 	missedValue, ok, err := client.Get("missed_key")
 	assert.Nil(t, err)
 	assert.False(t, ok)
@@ -136,10 +131,10 @@ func (fixture *EtcdTestFixture) TestEtcdPutGet() {
 	}
 }
 
-func (fixture *EtcdTestFixture) TestEtcdCAS() {
+func (suite *EtcdTestSuite) TestEtcdCAS() {
 
-	t := testingEtcdDB
-	client := fixture.client
+	t := suite.T()
+	client := suite.client
 
 	key := "key"
 	expect := "expect"
@@ -170,10 +165,10 @@ func (fixture *EtcdTestFixture) TestEtcdCAS() {
 	assert.False(t, ok)
 }
 
-func (fixture *EtcdTestFixture) TestEtcdNilValue() {
+func (suite *EtcdTestSuite) TestEtcdNilValue() {
 
-	t := testingEtcdDB
-	client := fixture.client
+	t := suite.T()
+	client := suite.client
 
 	key := "key-for-nil-value"
 

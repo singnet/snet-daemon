@@ -60,6 +60,7 @@ type EtcdServerConf struct {
 	Cluster        string
 	StartupTimeout time.Duration `json:"startup_timeout" mapstructure:"startup_timeout"`
 	Enabled        bool
+	DataDir        string `json:"data_dir" mapstructure:"DATA_DIR"`
 }
 
 // GetEtcdServerConf gets EtcdServerConf from viper

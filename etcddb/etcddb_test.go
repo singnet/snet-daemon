@@ -2,14 +2,26 @@ package etcddb
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 // TODO: initialize client and server only once to make test faster
 
-func TestEtcdPutGet(t *testing.T) {
+type EtcdTestSuite struct {
+	suite.Suite
+	client *EtcdClient
+	server *EtcdServer
+}
+
+func TestEtcdTestSuite(t *testing.T) {
+	suite.Run(t, new(EtcdTestSuite))
+}
+
+func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 
 	const confJSON = `
 	{
@@ -26,27 +38,50 @@ func TestEtcdPutGet(t *testing.T) {
 			"peer_port": 2380,
 			"token": "unique-token",
 			"cluster": "storage-1=http://127.0.0.1:2380",
+			"data_dir": "storage-data-dir-1.etcd",
 			"enabled": true
 		}
 	}`
 
+	t := suite.T()
 	vip := readConfig(t, confJSON)
-
 	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
+	suite.server = server
+
 	err = server.Start()
 	assert.Nil(t, err)
-
-	defer server.Close()
 
 	client, err := NewEtcdClientFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
-	defer client.Close()
+	suite.client = client
 
+}
+
+func (suite *EtcdTestSuite) AfterTest(suiteName string, testName string) {
+
+	workDir := suite.server.conf.DataDir
+	defer removeWorkDir(suite.T(), workDir)
+
+	if suite.client != nil {
+		suite.client.Close()
+	}
+
+	if suite.server != nil {
+		suite.server.Close()
+	}
+
+}
+
+func (suite *EtcdTestSuite) TestEtcdPutGet() {
+
+	t := suite.T()
+
+	client := suite.client
 	missedValue, ok, err := client.Get("missed_key")
 	assert.Nil(t, err)
 	assert.False(t, ok)
@@ -96,41 +131,16 @@ func TestEtcdPutGet(t *testing.T) {
 	}
 }
 
-func TestEtcdCAS(t *testing.T) {
+func (suite *EtcdTestSuite) TestEtcdCAS() {
 
-	const confJSON = `
-	{
-		"payment_channel_storage_server": {
-			"id": "storage-1",
-			"host" : "127.0.0.1",
-			"cluster": "storage-1=http://127.0.0.1:2380",
-			"token": "unique-token"
-		}
-	}`
-
-	vip := readConfig(t, confJSON)
-
-	server, err := GetEtcdServerFromVip(vip)
-
-	assert.Nil(t, err)
-	assert.NotNil(t, server)
-
-	err = server.Start()
-	assert.Nil(t, err)
-	defer server.Close()
-
-	client, err := NewEtcdClient()
-
-	assert.Nil(t, err)
-	assert.NotNil(t, client)
-
-	defer client.Close()
+	t := suite.T()
+	client := suite.client
 
 	key := "key"
 	expect := "expect"
 	update := "update"
 
-	err = client.Put(key, expect)
+	err := client.Put(key, expect)
 	assert.Nil(t, err)
 
 	ok, err := client.CompareAndSwap(
@@ -155,31 +165,14 @@ func TestEtcdCAS(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestEtcdNilValue(t *testing.T) {
+func (suite *EtcdTestSuite) TestEtcdNilValue() {
 
-	const confJSON = `
-	{ "payment_channel_storage_server": {} }`
-
-	vip := readConfig(t, confJSON)
-
-	server, err := GetEtcdServerFromVip(vip)
-
-	assert.Nil(t, err)
-	assert.NotNil(t, server)
-
-	err = server.Start()
-	assert.Nil(t, err)
-	defer server.Close()
-
-	client, err := NewEtcdClient()
-
-	assert.Nil(t, err)
-	assert.NotNil(t, client)
-	defer client.Close()
+	t := suite.T()
+	client := suite.client
 
 	key := "key-for-nil-value"
 
-	err = client.Delete(key)
+	err := client.Delete(key)
 	assert.Nil(t, err)
 
 	missedValue, ok, err := client.Get(key)
@@ -223,4 +216,13 @@ func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (ke
 		keyValues = append(keyValues, keyValue)
 	}
 	return
+}
+
+func removeWorkDir(t *testing.T, workDir string) {
+
+	dir, err := os.Getwd()
+	assert.Nil(t, err)
+
+	err = os.RemoveAll(dir + "/" + workDir)
+	assert.Nil(t, err)
 }

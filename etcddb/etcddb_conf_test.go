@@ -81,6 +81,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, "storage-1=http://127.0.0.1:2380", conf.Cluster)
 	assert.Equal(t, time.Minute, conf.StartupTimeout)
+	assert.Equal(t, "storage-data-dir-1.etcd", conf.DataDir)
 	assert.Equal(t, true, conf.Enabled)
 
 	server, err := GetEtcdServer()
@@ -121,6 +122,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 			"token": "unique-token",
 			"cluster": "storage-1=http://127.0.0.1:2380",
 			"startup_timeout": "15s",
+			"data_dir": "custom-storage-data-dir-1.etcd",
 			"enabled": true
 		}
 	}`
@@ -143,6 +145,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.Equal(t, 2380, conf.PeerPort)
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, 15*time.Second, conf.StartupTimeout)
+	assert.Equal(t, "custom-storage-data-dir-1.etcd", conf.DataDir)
 	assert.Equal(t, true, conf.Enabled)
 
 	server, err := GetEtcdServerFromVip(vip)
@@ -152,6 +155,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	err = server.Start()
 	assert.Nil(t, err)
 	defer server.Close()
+	defer removeWorkDir(t, conf.DataDir)
 }
 
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {

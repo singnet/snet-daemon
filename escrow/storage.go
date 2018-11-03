@@ -90,48 +90,40 @@ func (data PaymentChannelData) String() string {
 }
 
 type paymentChannelStorageImpl struct {
-	AtomicStorage AtomicStorage
+	delegate *TypedAtomicStorage
 }
 
 func NewPaymentChannelStorage(atomicStorage AtomicStorage) PaymentChannelStorage {
-	return &paymentChannelStorageImpl{AtomicStorage: atomicStorage}
+	return &paymentChannelStorageImpl{
+		delegate: &TypedAtomicStorage{
+			atomicStorage: &PrefixedAtomicStorage{
+				delegate:  atomicStorage,
+				keyPrefix: "open-payment-",
+			},
+			keySerializer:     serialize,
+			valueSerializer:   serialize,
+			valueDeserializer: deserialize,
+		},
+	}
 }
 
 func (storage *paymentChannelStorageImpl) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
-	data, ok, err := storage.AtomicStorage.Get(key.String())
+	result := &PaymentChannelData{}
+	ok, err = storage.delegate.Get(key, result)
 	if err != nil || !ok {
 		return nil, ok, err
 	}
-	state = &PaymentChannelData{}
-	err = deserialize([]byte(data), state)
-	if err != nil {
-		return nil, false, err
-	}
-	return state, true, nil
+	return result, ok, err
 }
 
 func (storage *paymentChannelStorageImpl) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
-	data, err := serialize(state)
-	if err != nil {
-		return
-	}
-	return storage.AtomicStorage.Put(key.String(), string(data))
+	return storage.delegate.Put(key, state)
 }
 
 func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
-	newData, err := serialize(newState)
-	if err != nil {
-		return
-	}
-
 	if prevState == nil {
-		return storage.AtomicStorage.PutIfAbsent(key.String(), string(newData))
+		return storage.delegate.PutIfAbsent(key, newState)
 	}
 
-	prevData, err := serialize(prevState)
-	if err != nil {
-		return
-	}
-
-	return storage.AtomicStorage.CompareAndSwap(key.String(), string(prevData), string(newData))
+	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }

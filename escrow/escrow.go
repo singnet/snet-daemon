@@ -267,7 +267,7 @@ func (h *escrowPaymentHandler) CompleteAfterError(_payment handler.Payment, resu
 	return
 }
 
-func serialize(value interface{}) (slice []byte, err error) {
+func serialize(value interface{}) (slice string, err error) {
 
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
@@ -276,13 +276,13 @@ func serialize(value interface{}) (slice []byte, err error) {
 		return
 	}
 
-	slice = b.Bytes()
+	slice = string(b.Bytes())
 	return
 }
 
-func deserialize(slice []byte, value interface{}) (err error) {
+func deserialize(slice string, value interface{}) (err error) {
 
-	b := bytes.NewBuffer(slice)
+	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	err = d.Decode(value)
 	return

@@ -17,3 +17,24 @@ type AtomicStorage interface {
 	// value. err indicates storage error.
 	CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error)
 }
+
+type PrefixedAtomicStorage struct {
+	delegate  AtomicStorage
+	keyPrefix string
+}
+
+func (storage *PrefixedAtomicStorage) Get(key string) (value string, ok bool, err error) {
+	return storage.delegate.Get(storage.keyPrefix + "-" + key)
+}
+
+func (storage *PrefixedAtomicStorage) Put(key string, value string) (err error) {
+	return storage.delegate.Put(storage.keyPrefix+"-"+key, value)
+}
+
+func (storage *PrefixedAtomicStorage) PutIfAbsent(key string, value string) (ok bool, err error) {
+	return storage.delegate.PutIfAbsent(storage.keyPrefix+"-"+key, value)
+}
+
+func (storage *PrefixedAtomicStorage) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
+	return storage.delegate.CompareAndSwap(storage.keyPrefix+"-"+key, prevValue, newValue)
+}

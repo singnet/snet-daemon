@@ -202,6 +202,7 @@ func TestAddHookEmptyLevels(t *testing.T) {
 }
 
 func TestNewMailAuthHook(t *testing.T) {
+	t.Skip("depends on network")
 	var err error
 	const mailAuthHookConfigJson = `
 	{
@@ -233,6 +234,7 @@ func TestNewMailAuthHook(t *testing.T) {
 }
 
 func TestNewMailAuthHookError(t *testing.T) {
+	t.Skip("depends on network")
 	const mailAuthHookConfigJson = `
 	{
 		"application_name": "test-application-name",

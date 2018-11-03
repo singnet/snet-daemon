@@ -1,6 +1,8 @@
 package escrow
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"math/big"
 
@@ -110,6 +112,27 @@ func NewPaymentChannelStorage(atomicStorage AtomicStorage) PaymentChannelStorage
 			valueDeserializer: deserialize,
 		},
 	}
+}
+
+func serialize(value interface{}) (slice string, err error) {
+
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err = e.Encode(value)
+	if err != nil {
+		return
+	}
+
+	slice = string(b.Bytes())
+	return
+}
+
+func deserialize(slice string, value interface{}) (err error) {
+
+	b := bytes.NewBuffer([]byte(slice))
+	d := gob.NewDecoder(b)
+	err = d.Decode(value)
+	return
 }
 
 func (storage *paymentChannelStorageImpl) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {

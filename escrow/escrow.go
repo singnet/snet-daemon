@@ -2,7 +2,6 @@ package escrow
 
 import (
 	"bytes"
-	"encoding/gob"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -264,26 +263,5 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 }
 
 func (h *escrowPaymentHandler) CompleteAfterError(_payment handler.Payment, result error) (err *status.Status) {
-	return
-}
-
-func serialize(value interface{}) (slice string, err error) {
-
-	var b bytes.Buffer
-	e := gob.NewEncoder(&b)
-	err = e.Encode(value)
-	if err != nil {
-		return
-	}
-
-	slice = string(b.Bytes())
-	return
-}
-
-func deserialize(slice string, value interface{}) (err error) {
-
-	b := bytes.NewBuffer([]byte(slice))
-	d := gob.NewDecoder(b)
-	err = d.Decode(value)
 	return
 }

@@ -42,7 +42,7 @@ func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChann
 	log = log.WithField("state", state)
 	log.Info("Channel found in blockchain")
 
-	ok, err = storage.CompareAndSwap(key, nil, state)
+	ok, err = storage.PutIfAbsent(key, state)
 	if err != nil {
 		return nil, false, err
 	}
@@ -93,6 +93,10 @@ func (storage *combinedStorage) getChannelStateFromBlockchain(id *big.Int) (stat
 
 func (storage *combinedStorage) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
 	return storage.delegate.Put(key, state)
+}
+
+func (storage *combinedStorage) PutIfAbsent(key *PaymentChannelKey, state *PaymentChannelData) (ok bool, err error) {
+	return storage.delegate.PutIfAbsent(key, state)
 }
 
 func (storage *combinedStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {

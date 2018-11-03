@@ -131,6 +131,13 @@ func (storage *storageMockType) Get(_key *PaymentChannelKey) (channel *PaymentCh
 	return storage.delegate.Get(_key)
 }
 
+func (storage *storageMockType) PutIfAbsent(key *PaymentChannelKey, channel *PaymentChannelData) (ok bool, err error) {
+	if storage.err != nil {
+		return false, storage.err
+	}
+	return storage.delegate.PutIfAbsent(key, channel)
+}
+
 func (storage *storageMockType) CompareAndSwap(_key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
 	if storage.err != nil {
 		return false, storage.err
@@ -492,7 +499,7 @@ func TestValidatePaymentChannelCannotGetCurrentBlock(t *testing.T) {
 	handler := escrowTest.paymentHandler
 	handler.blockchain = &blockchainMockType{
 		escrowContractAddress: escrowTest.testEscrowContractAddress,
-		err: errors.New("blockchain error"),
+		err:                   errors.New("blockchain error"),
 	}
 	payment := getTestPayment(patchDefaultData(func(d D) {
 		d.Expiration = 99

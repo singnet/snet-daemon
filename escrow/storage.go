@@ -66,6 +66,9 @@ type PaymentChannelStorage interface {
 	Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error)
 	// Put writes channel information by channel id.
 	Put(key *PaymentChannelKey, state *PaymentChannelData) (err error)
+	// Put writes channel information by channel id but only when key is
+	// absent. ok is true if key was absent.
+	PutIfAbsent(key *PaymentChannelKey, state *PaymentChannelData) (ok bool, err error)
 	// CompareAndSwap atomically replaces old payment channel state by new
 	// state. If ok flag is true and err is nil then operation was successful.
 	// If err is nil and ok is false then operation failed because prevState is
@@ -120,10 +123,10 @@ func (storage *paymentChannelStorageImpl) Put(key *PaymentChannelKey, state *Pay
 	return storage.delegate.Put(key, state)
 }
 
-func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
-	if prevState == nil {
-		return storage.delegate.PutIfAbsent(key, newState)
-	}
+func (storage *paymentChannelStorageImpl) PutIfAbsent(key *PaymentChannelKey, state *PaymentChannelData) (ok bool, err error) {
+	return storage.delegate.PutIfAbsent(key, state)
+}
 
+func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }

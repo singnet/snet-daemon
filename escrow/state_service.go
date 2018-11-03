@@ -1,4 +1,5 @@
 //go:generate protoc -I . ./state_service.proto --go_out=plugins=grpc:.
+
 package escrow
 
 import (
@@ -8,16 +9,23 @@ import (
 	"golang.org/x/net/context"
 )
 
+// PaymentChannelStateService is an implementation of
+// PaymentChannelStateServiceServer gRPC interface
 type PaymentChannelStateService struct {
 	latest PaymentChannelStorage
 }
 
+// NewPaymentChannelStateService returns new instance of
+// PaymentChannelStateService
 func NewPaymentChannelStateService(storage PaymentChannelStorage) *PaymentChannelStateService {
 	return &PaymentChannelStateService{
 		latest: storage,
 	}
 }
 
+// GetChannelState returns the latest state of the channel which id is passed
+// in request. To authenticate sender request should also contain correct
+// signature of the channel id.
 func (service *PaymentChannelStateService) GetChannelState(context context.Context, request *ChannelStateRequest) (reply *ChannelStateReply, err error) {
 	log.WithFields(log.Fields{
 		"context": context,

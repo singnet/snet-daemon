@@ -9,6 +9,7 @@ type memoryStorage struct {
 	mutex *sync.RWMutex
 }
 
+// NewMemStorage returns new in-memory atomic storage implementation
 func NewMemStorage() (storage AtomicStorage) {
 	return &memoryStorage{
 		data:  make(map[string]string),

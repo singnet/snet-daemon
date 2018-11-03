@@ -96,6 +96,8 @@ type paymentChannelStorageImpl struct {
 	delegate TypedAtomicStorage
 }
 
+// NewPaymentChannelStorage returns new instance of PaymentChannelStorage
+// implementation
 func NewPaymentChannelStorage(atomicStorage AtomicStorage) PaymentChannelStorage {
 	return &paymentChannelStorageImpl{
 		delegate: &TypedAtomicStorageImpl{

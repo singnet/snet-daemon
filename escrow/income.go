@@ -36,6 +36,7 @@ type IncomeValidator interface {
 type incomeValidator struct {
 }
 
+// NewIncomeValidator returns new income validator instance
 func NewIncomeValidator() (validator IncomeValidator) {
 	return &incomeValidator{}
 }

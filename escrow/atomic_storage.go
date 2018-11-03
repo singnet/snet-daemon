@@ -38,3 +38,79 @@ func (storage *PrefixedAtomicStorage) PutIfAbsent(key string, value string) (ok 
 func (storage *PrefixedAtomicStorage) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(storage.keyPrefix+"-"+key, prevValue, newValue)
 }
+
+type TypedAtomicStorage struct {
+	atomicStorage     AtomicStorage
+	keySerializer     func(key interface{}) (serialized string, err error)
+	valueSerializer   func(value interface{}) (serialized string, err error)
+	valueDeserializer func(serialized string, value interface{}) (err error)
+}
+
+func (storage *TypedAtomicStorage) Get(key interface{}, value interface{}) (ok bool, err error) {
+	keyString, err := storage.keySerializer(key)
+	if err != nil {
+		return
+	}
+
+	valueString, ok, err := storage.atomicStorage.Get(keyString)
+	if err != nil {
+		return
+	}
+	if !ok {
+		return
+	}
+
+	err = storage.valueDeserializer(valueString, value)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (storage *TypedAtomicStorage) Put(key interface{}, value interface{}) (err error) {
+	keyString, err := storage.keySerializer(key)
+	if err != nil {
+		return
+	}
+
+	valueString, err := storage.valueSerializer(value)
+	if err != nil {
+		return
+	}
+
+	return storage.atomicStorage.Put(keyString, valueString)
+}
+
+func (storage *TypedAtomicStorage) PutIfAbsent(key interface{}, value interface{}) (ok bool, err error) {
+	keyString, err := storage.keySerializer(key)
+	if err != nil {
+		return
+	}
+
+	valueString, err := storage.valueSerializer(value)
+	if err != nil {
+		return
+	}
+
+	return storage.atomicStorage.PutIfAbsent(keyString, valueString)
+}
+
+func (storage *TypedAtomicStorage) CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error) {
+	keyString, err := storage.keySerializer(key)
+	if err != nil {
+		return
+	}
+
+	newValueString, err := storage.valueSerializer(newValue)
+	if err != nil {
+		return
+	}
+
+	prevValueString, err := storage.valueSerializer(prevValue)
+	if err != nil {
+		return
+	}
+
+	return storage.atomicStorage.CompareAndSwap(keyString, prevValueString, newValueString)
+}

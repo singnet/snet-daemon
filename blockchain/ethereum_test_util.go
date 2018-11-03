@@ -75,7 +75,7 @@ func GetSimulatedEthereumEnvironment() (env SimulatedEthereumEnvironment) {
 		env.ServerWallet.From:  {Balance: big.NewInt(10000000)},
 	}
 
-	env.Backend = backends.NewSimulatedBackend(alloc)
+	env.Backend = backends.NewSimulatedBackend(alloc, 0)
 	deployContracts(&env)
 
 	return

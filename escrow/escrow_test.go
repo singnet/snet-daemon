@@ -120,10 +120,6 @@ func (storage *storageMockType) Put(key *PaymentChannelKey, channel *PaymentChan
 	return storage.delegate.Put(key, channel)
 }
 
-func getMemoryStorageKey(key *PaymentChannelKey) string {
-	return key.String()
-}
-
 func (storage *storageMockType) Get(_key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	if storage.err != nil {
 		return nil, false, storage.err

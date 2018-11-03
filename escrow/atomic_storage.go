@@ -39,14 +39,21 @@ func (storage *PrefixedAtomicStorage) CompareAndSwap(key string, prevValue strin
 	return storage.delegate.CompareAndSwap(storage.keyPrefix+"-"+key, prevValue, newValue)
 }
 
-type TypedAtomicStorage struct {
+type TypedAtomicStorage interface {
+	Get(key interface{}, value interface{}) (ok bool, err error)
+	Put(key interface{}, value interface{}) (err error)
+	PutIfAbsent(key interface{}, value interface{}) (ok bool, err error)
+	CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error)
+}
+
+type TypedAtomicStorageImpl struct {
 	atomicStorage     AtomicStorage
 	keySerializer     func(key interface{}) (serialized string, err error)
 	valueSerializer   func(value interface{}) (serialized string, err error)
 	valueDeserializer func(serialized string, value interface{}) (err error)
 }
 
-func (storage *TypedAtomicStorage) Get(key interface{}, value interface{}) (ok bool, err error) {
+func (storage *TypedAtomicStorageImpl) Get(key interface{}, value interface{}) (ok bool, err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -68,7 +75,7 @@ func (storage *TypedAtomicStorage) Get(key interface{}, value interface{}) (ok b
 	return true, nil
 }
 
-func (storage *TypedAtomicStorage) Put(key interface{}, value interface{}) (err error) {
+func (storage *TypedAtomicStorageImpl) Put(key interface{}, value interface{}) (err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -82,7 +89,7 @@ func (storage *TypedAtomicStorage) Put(key interface{}, value interface{}) (err 
 	return storage.atomicStorage.Put(keyString, valueString)
 }
 
-func (storage *TypedAtomicStorage) PutIfAbsent(key interface{}, value interface{}) (ok bool, err error) {
+func (storage *TypedAtomicStorageImpl) PutIfAbsent(key interface{}, value interface{}) (ok bool, err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -96,7 +103,7 @@ func (storage *TypedAtomicStorage) PutIfAbsent(key interface{}, value interface{
 	return storage.atomicStorage.PutIfAbsent(keyString, valueString)
 }
 
-func (storage *TypedAtomicStorage) CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error) {
+func (storage *TypedAtomicStorageImpl) CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return

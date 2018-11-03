@@ -90,12 +90,12 @@ func (data PaymentChannelData) String() string {
 }
 
 type paymentChannelStorageImpl struct {
-	delegate *TypedAtomicStorage
+	delegate TypedAtomicStorage
 }
 
 func NewPaymentChannelStorage(atomicStorage AtomicStorage) PaymentChannelStorage {
 	return &paymentChannelStorageImpl{
-		delegate: &TypedAtomicStorage{
+		delegate: &TypedAtomicStorageImpl{
 			atomicStorage: &PrefixedAtomicStorage{
 				delegate:  atomicStorage,
 				keyPrefix: "open-payment-",

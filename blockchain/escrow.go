@@ -39,7 +39,7 @@ func (processor *Processor) ClaimFundsFromChannel(timeout time.Duration, channel
 		return fmt.Errorf("Error submitting transaction to claim funds from channel: %v", err)
 	}
 
-	log.Info("Transaction sent, waiting for %v till transaction is committed", timeout)
+	log.WithField("timeout", timeout).Info("Transaction sent, waiting for timeout till transaction is committed")
 	endTime := time.Now().Add(timeout)
 	isPending := true
 	for {

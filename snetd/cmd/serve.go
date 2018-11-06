@@ -36,7 +36,7 @@ var ServeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
-		components := InitComponents(cmd)
+		components := InitComponents(cmd, ServerMode)
 		defer components.Close()
 
 		err = logger.InitLogger(config.SubWithDefault(config.Vip(), config.LogKey))

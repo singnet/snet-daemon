@@ -36,8 +36,13 @@ var ServeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
-		components := InitComponents(cmd, ServerMode)
+		components := InitComponents(cmd)
 		defer components.Close()
+
+		etcdServer := components.EtcdServer()
+		if etcdServer == nil {
+			log.Info("Etcd server is disabled in the config file.")
+		}
 
 		err = logger.InitLogger(config.SubWithDefault(config.Vip(), config.LogKey))
 		if err != nil {

@@ -17,15 +17,7 @@ import (
 	"github.com/singnet/snet-daemon/handler"
 )
 
-type RunMode int
-
-const (
-	ClientMode RunMode = 0
-	ServerMode RunMode = 1
-)
-
 type Components struct {
-	mode                       RunMode
 	db                         *bbolt.DB
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
@@ -35,8 +27,8 @@ type Components struct {
 	paymentChannelStateService *escrow.PaymentChannelStateService
 }
 
-func InitComponents(cmd *cobra.Command, mode RunMode) (components *Components) {
-	components = &Components{mode: mode}
+func InitComponents(cmd *cobra.Command) (components *Components) {
+	components = &Components{}
 	defer func() {
 		err := recover()
 		if err != nil {
@@ -115,11 +107,6 @@ func (components *Components) Blockchain() *blockchain.Processor {
 }
 
 func (components *Components) EtcdServer() *etcddb.EtcdServer {
-
-	if components.mode != ServerMode {
-		return nil
-	}
-
 	if components.etcdServer != nil {
 		return components.etcdServer
 	}
@@ -150,9 +137,6 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	if components.etcdClient != nil {
 		return components.etcdClient
 	}
-
-	// start etcd server if enabled as client will try connecting to it
-	components.EtcdServer()
 
 	client, err := etcddb.NewEtcdClient()
 	if err != nil {

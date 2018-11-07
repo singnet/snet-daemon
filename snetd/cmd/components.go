@@ -138,9 +138,6 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 		return components.etcdClient
 	}
 
-	// start etcd server if enabled as client will try connecting to it
-	components.EtcdServer()
-
 	client, err := etcddb.NewEtcdClient()
 	if err != nil {
 		log.WithError(err).Panic("unable to create etcd client")

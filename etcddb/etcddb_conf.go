@@ -1,10 +1,13 @@
 package etcddb
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/coreos/pkg/capnslog"
 	"github.com/singnet/snet-daemon/config"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -61,6 +64,7 @@ type EtcdServerConf struct {
 	StartupTimeout time.Duration `json:"startup_timeout" mapstructure:"startup_timeout"`
 	Enabled        bool
 	DataDir        string `json:"data_dir" mapstructure:"DATA_DIR"`
+	LogLevel       string `json:"log_level" mapstructure:"LOG_LEVEL"`
 }
 
 // GetEtcdServerConf gets EtcdServerConf from viper
@@ -84,5 +88,66 @@ func GetEtcdServerConf(vip *viper.Viper) (conf *EtcdServerConf, err error) {
 	conf.Enabled = true
 
 	err = vip.UnmarshalKey(key, conf)
+
+	if err != nil {
+		return
+	}
+
+	err = initEtcdLogger(conf)
+
+	return
+}
+
+// capnslog to logrus formatter implementation
+// with methods Format and Flush
+type capnslogToLogrusLogFormatter struct {
+}
+
+func (formatter *capnslogToLogrusLogFormatter) Format(pkg string, level capnslog.LogLevel,
+	depth int, entries ...interface{}) {
+
+	l := log.WithFields(log.Fields{
+		"pkg": pkg,
+		"msg": fmt.Sprint(entries...),
+	})
+
+	switch level {
+	case capnslog.CRITICAL:
+		fallthrough
+	case capnslog.ERROR:
+		l.Error()
+	case capnslog.WARNING:
+		fallthrough
+	case capnslog.NOTICE:
+		l.Warning()
+	case capnslog.INFO:
+		l.Info()
+	case capnslog.DEBUG:
+		fallthrough
+	case capnslog.TRACE:
+		l.Debug()
+	default:
+		l.Warning("Unknown log level", level)
+	}
+}
+
+func (formatter *capnslogToLogrusLogFormatter) Flush() {
+}
+
+func initEtcdLogger(conf *EtcdServerConf) (err error) {
+
+	etcdLogger, err := capnslog.GetRepoLogger("github.com/coreos/etcd")
+	if err != nil {
+		return
+	}
+
+	logLevel, err := capnslog.ParseLevel(strings.ToUpper(conf.LogLevel))
+	if err != nil {
+		return
+	}
+
+	etcdLogger.SetRepoLogLevel(logLevel)
+	capnslog.SetFormatter(&capnslogToLogrusLogFormatter{})
+
 	return
 }

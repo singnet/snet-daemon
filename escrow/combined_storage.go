@@ -35,7 +35,7 @@ func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChann
 	}
 	log.Info("Channel key is not found in storage")
 
-	state, ok, err = storage.getChannelStateFromBlockchain(key.ID)
+	state, ok, err = getChannelStateFromBlockchain(storage.mpe, key.ID)
 	if !ok || err != nil {
 		return
 	}
@@ -57,10 +57,10 @@ func (storage *combinedStorage) Get(key *PaymentChannelKey) (state *PaymentChann
 
 var zeroAddress = common.Address{}
 
-func (storage *combinedStorage) getChannelStateFromBlockchain(id *big.Int) (state *PaymentChannelData, ok bool, err error) {
+func getChannelStateFromBlockchain(mpe *blockchain.MultiPartyEscrow, id *big.Int) (state *PaymentChannelData, ok bool, err error) {
 	log := log.WithField("id", id)
 
-	channel, err := storage.mpe.Channels(nil, id)
+	channel, err := mpe.Channels(nil, id)
 	if err != nil {
 		log.WithError(err).Warn("Error while looking up for channel id in blockchain")
 		return nil, false, err

@@ -1,9 +1,12 @@
 package etcddb
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -201,6 +204,52 @@ func (suite *EtcdTestSuite) TestEtcdNilValue() {
 	assert.Nil(t, err)
 	assert.False(t, ok)
 
+}
+
+func (suite *EtcdTestSuite) TestEtcdMutex() {
+
+	type Pair struct {
+		a int
+		b int
+	}
+
+	t := suite.T()
+	client := suite.client
+
+	pair := &Pair{a: 0, b: 0}
+	lockKey := "key-mutex"
+
+	n := 5
+	var start sync.WaitGroup
+	var end sync.WaitGroup
+	start.Add(n)
+	end.Add(n)
+
+	runWithLock := func(value int) {
+
+		mutex, err := client.NewMutex(lockKey)
+		assert.Nil(t, err)
+		defer mutex.Close()
+		defer mutex.Unlock(context.Background())
+		defer end.Done()
+		start.Done()
+		start.Wait()
+
+		err = mutex.Lock(context.Background())
+		assert.Nil(t, err)
+
+		pair.a = value
+		time.Sleep(200 * time.Millisecond)
+		pair.b = value
+
+	}
+
+	for i := 0; i < n; i++ {
+		go runWithLock(i)
+	}
+
+	end.Wait()
+	assert.Equal(t, pair.a, pair.b)
 }
 
 type keyValue struct {

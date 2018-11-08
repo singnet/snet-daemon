@@ -13,6 +13,27 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 )
 
+// EtcdClientMutex mutex struct for etcd client
+type EtcdClientMutex struct {
+	session *concurrency.Session
+	mutex   *concurrency.Mutex
+}
+
+// Lock lock etcd key
+func (mutex *EtcdClientMutex) Lock(ctx context.Context) (err error) {
+	return mutex.mutex.Lock(ctx)
+}
+
+// Unlock unlock etcd key
+func (mutex *EtcdClientMutex) Unlock(ctx context.Context) (err error) {
+	return mutex.mutex.Unlock(ctx)
+}
+
+// Close close etcd mutex
+func (mutex *EtcdClientMutex) Close() (err error) {
+	return mutex.session.Close()
+}
+
 // EtcdClient struct has some useful methods to wolrk with etcd client
 type EtcdClient struct {
 	timeout time.Duration
@@ -195,6 +216,19 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 	}
 
 	ok = true
+	return
+}
+
+// NewMutex Create a mutex for the given key
+func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err error) {
+
+	session, err := concurrency.NewSession(client.etcdv3)
+	if err != nil {
+		return
+	}
+
+	m := concurrency.NewMutex(session, key)
+	mutex = &EtcdClientMutex{session: session, mutex: m}
 	return
 }
 

@@ -1,7 +1,6 @@
 package etcddb
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -106,26 +105,19 @@ type capnslogToLogrusLogFormatter struct {
 func (formatter *capnslogToLogrusLogFormatter) Format(pkg string, level capnslog.LogLevel,
 	depth int, entries ...interface{}) {
 
-	l := log.WithFields(log.Fields{
-		"pkg": pkg,
-		"msg": fmt.Sprint(entries...),
-	})
+	l := log.WithField("pkg", pkg)
 
 	switch level {
-	case capnslog.CRITICAL:
-		fallthrough
-	case capnslog.ERROR:
-		l.Error()
-	case capnslog.WARNING:
-		fallthrough
-	case capnslog.NOTICE:
-		l.Warning()
+	case capnslog.CRITICAL, capnslog.ERROR:
+		l.Error(entries)
+	case capnslog.WARNING, capnslog.NOTICE:
+		l.Warning(entries)
 	case capnslog.INFO:
-		l.Info()
+		l.Info(entries)
 	case capnslog.DEBUG:
 		fallthrough
 	case capnslog.TRACE:
-		l.Debug()
+		l.Debug(entries)
 	default:
 		l.Warning("Unknown log level", level)
 	}

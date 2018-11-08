@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -208,27 +209,25 @@ func (suite *EtcdTestSuite) TestEtcdNilValue() {
 
 func (suite *EtcdTestSuite) TestEtcdMutex() {
 
-	type Pair struct {
-		a int
-		b int
-	}
-
 	t := suite.T()
 
-	pair := &Pair{a: 0, b: 0}
+	keyA := "key-a"
+	keyB := "key-b"
 	lockKey := "key-mutex"
 
-	n := 5
+	n := 7
 	var start sync.WaitGroup
 	var end sync.WaitGroup
 	start.Add(n)
 	end.Add(n)
 
-	runWithLock := func(value int) {
+	runWithLock := func(i int) {
 
 		client, err := NewEtcdClient()
 		assert.Nil(t, err)
 		defer client.Close()
+
+		value := strconv.Itoa(i)
 
 		mutex, err := client.NewMutex(lockKey)
 		assert.Nil(t, err)
@@ -240,18 +239,29 @@ func (suite *EtcdTestSuite) TestEtcdMutex() {
 		err = mutex.Lock(context.Background())
 		assert.Nil(t, err)
 
-		pair.a = value
-		time.Sleep(200 * time.Millisecond)
-		pair.b = value
+		err = client.Put(keyA, value)
+		assert.Nil(t, err)
 
+		time.Sleep(200 * time.Millisecond)
+
+		err = client.Put(keyB, value)
+		assert.Nil(t, err)
 	}
 
 	for i := 0; i < n; i++ {
 		go runWithLock(i)
 	}
 
+	client := suite.client
+
 	end.Wait()
-	assert.Equal(t, pair.a, pair.b)
+	res1, ok, err := client.Get(keyA)
+	assert.True(t, ok)
+	assert.Nil(t, err)
+	res2, ok, err := client.Get(keyB)
+	assert.True(t, ok)
+	assert.Nil(t, err)
+	assert.Equal(t, res1, res2)
 }
 
 type keyValue struct {

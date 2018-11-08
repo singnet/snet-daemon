@@ -90,7 +90,7 @@ func (state PaymentChannelState) String() string {
 }
 
 func (data PaymentChannelData) String() string {
-	return fmt.Sprintf("{Nonce: %v. State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
+	return fmt.Sprintf("{Nonce: %v, State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
 		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupId, data.FullAmount, data.Expiration, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
 }
 

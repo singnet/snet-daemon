@@ -82,6 +82,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "storage-1=http://127.0.0.1:2380", conf.Cluster)
 	assert.Equal(t, time.Minute, conf.StartupTimeout)
 	assert.Equal(t, "storage-data-dir-1.etcd", conf.DataDir)
+	assert.Equal(t, "info", conf.LogLevel)
 	assert.Equal(t, true, conf.Enabled)
 
 	server, err := GetEtcdServer()
@@ -123,6 +124,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 			"cluster": "storage-1=http://127.0.0.1:2380",
 			"startup_timeout": "15s",
 			"data_dir": "custom-storage-data-dir-1.etcd",
+			"log_level": "warning",
 			"enabled": true
 		}
 	}`
@@ -146,6 +148,7 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, 15*time.Second, conf.StartupTimeout)
 	assert.Equal(t, "custom-storage-data-dir-1.etcd", conf.DataDir)
+	assert.Equal(t, "warning", conf.LogLevel)
 	assert.Equal(t, true, conf.Enabled)
 
 	server, err := GetEtcdServerFromVip(vip)

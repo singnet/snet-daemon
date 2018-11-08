@@ -81,14 +81,16 @@ var escrowTest = func() *escrowTestType {
 		blockchain:      blockchainMock,
 	}
 	var defaultData = &testPaymentData{
-		ChannelID:    42,
-		ChannelNonce: 3,
-		Expiration:   100,
-		FullAmount:   12345,
-		NewAmount:    12345,
-		PrevAmount:   12300,
-		State:        Open,
-		GroupId:      1,
+		ChannelID:           42,
+		ChannelNonce:        3,
+		PaymentChannelNonce: 3,
+		Expiration:          100,
+		FullAmount:          12345,
+		NewAmount:           12345,
+		PrevAmount:          12300,
+		State:               Open,
+		GroupId:             1,
+		Signature:           getPaymentSignature(&testEscrowContractAddress, 42, 3, 12345, testPrivateKey),
 	}
 
 	return &escrowTestType{
@@ -189,7 +191,7 @@ func intToUint256(value int64) []byte {
 	return common.BytesToHash(bytes).Bytes()
 }
 
-func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
+func getEscrowMetadata(channelID, channelNonce, amount int64, signature []byte) metadata.MD {
 	md := metadata.New(map[string]string{})
 	if channelID != 0 {
 		md.Set(PaymentChannelIDHeader, strconv.FormatInt(channelID, 10))
@@ -200,15 +202,15 @@ func getEscrowMetadata(channelID, channelNonce, amount int64) metadata.MD {
 	if amount != 0 {
 		md.Set(PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
 	}
-	md.Set(PaymentChannelSignatureHeader, string(getPaymentSignature(&escrowTest.testEscrowContractAddress, channelID, channelNonce, amount, escrowTest.testPrivateKey)))
+	md.Set(PaymentChannelSignatureHeader, string(signature))
 	return md
 }
 
 type testPaymentData struct {
-	ChannelID, ChannelNonce, FullAmount, PrevAmount, NewAmount, GroupId int64
-	State                                                               PaymentChannelState
-	Expiration                                                          int64
-	Signature                                                           []byte
+	ChannelID, ChannelNonce, PaymentChannelNonce, FullAmount, PrevAmount, NewAmount, GroupId int64
+	State                                                                                    PaymentChannelState
+	Expiration                                                                               int64
+	Signature                                                                                []byte
 }
 
 func newPaymentChannelKey(ID, nonce int64) *PaymentChannelKey {
@@ -241,14 +243,13 @@ func patchDefaultData(patch func(d D)) (cpy *testPaymentData) {
 func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	signature := data.Signature
 	if signature == nil {
-		signature = getPaymentSignature(&escrowTest.testEscrowContractAddress, data.ChannelID, data.ChannelNonce, data.NewAmount, escrowTest.testPrivateKey)
+		signature = getPaymentSignature(&escrowTest.testEscrowContractAddress, data.ChannelID, data.PaymentChannelNonce, data.NewAmount, escrowTest.testPrivateKey)
 	}
 	return &escrowPaymentType{
-		grpcContext: &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
 		payment: Payment{
 			mpeContractAddress: escrowTest.testEscrowContractAddress,
 			channelID:          big.NewInt(data.ChannelID),
-			channelNonce:       big.NewInt(data.ChannelNonce),
+			channelNonce:       big.NewInt(data.PaymentChannelNonce),
 			amount:             big.NewInt(data.NewAmount),
 			signature:          signature,
 		},
@@ -281,7 +282,7 @@ func getTestContext(data *testPaymentData) *handler.GrpcStreamContext {
 			GroupId:          big.NewInt(data.GroupId),
 		},
 	)
-	md := getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)
+	md := getEscrowMetadata(data.ChannelID, data.PaymentChannelNonce, data.NewAmount, data.Signature)
 	return &handler.GrpcStreamContext{
 		MD: md,
 	}
@@ -356,13 +357,15 @@ func TestPaymentChannelToJSON(t *testing.T) {
 
 func TestGetPayment(t *testing.T) {
 	data := &testPaymentData{
-		ChannelID:    42,
-		ChannelNonce: 3,
-		Expiration:   100,
-		FullAmount:   12345,
-		NewAmount:    12345,
-		PrevAmount:   12300,
-		State:        Open,
+		ChannelID:           42,
+		ChannelNonce:        3,
+		PaymentChannelNonce: 3,
+		Expiration:          100,
+		FullAmount:          12345,
+		NewAmount:           12345,
+		PrevAmount:          12300,
+		State:               Open,
+		Signature:           getPaymentSignature(&escrowTest.testEscrowContractAddress, 42, 3, 12345, escrowTest.testPrivateKey),
 	}
 	context := getTestContext(data)
 	defer clearTestContext()
@@ -372,7 +375,6 @@ func TestGetPayment(t *testing.T) {
 	assert.Nil(t, err)
 	expected := getTestPayment(data)
 	actual := payment.(*escrowPaymentType)
-	assert.Equal(t, toJSON(expected.grpcContext), toJSON(actual.grpcContext))
 	assert.Equal(t, toJSON(expected.payment.channelID), toJSON(actual.payment.channelID))
 	assert.Equal(t, toJSON(expected.payment.channelNonce), toJSON(actual.payment.channelNonce))
 	assert.Equal(t, expected.payment.amount, actual.payment.amount)
@@ -393,7 +395,7 @@ func TestGetPaymentNoChannelId(t *testing.T) {
 
 func TestGetPaymentNoChannelNonce(t *testing.T) {
 	context := getTestContext(patchDefaultData(func(d D) {
-		d.ChannelNonce = 0
+		d.PaymentChannelNonce = 0
 	}))
 	defer clearTestContext()
 
@@ -433,61 +435,55 @@ func TestGetPaymentNoChannel(t *testing.T) {
 	assert.Equal(t, status.New(codes.InvalidArgument, "payment channel \"{ID: 42}\" not found"), err)
 }
 
-func TestValidatePayment(t *testing.T) {
-	payment := getTestPayment(&testPaymentData{
-		ChannelID:    42,
-		ChannelNonce: 3,
-		Expiration:   100,
-		FullAmount:   12345,
-		NewAmount:    12345,
-		PrevAmount:   12300,
-		State:        Open,
-	})
-
-	err := escrowTest.paymentHandler.Validate(payment)
-
-	assert.Nil(t, err, "Unexpected error: %v", err.Message())
-}
-
 func TestValidatePaymentChannelNonce(t *testing.T) {
-	payment := getTestPayment(patchDefaultData(func(d D) {
+	context := getTestContext(patchDefaultData(func(d D) {
 		d.ChannelNonce = 3
+		d.PaymentChannelNonce = 2
+		d.Signature = getPaymentSignature(
+			&escrowTest.testEscrowContractAddress,
+			escrowTest.defaultData.ChannelID,
+			2,
+			escrowTest.defaultData.NewAmount,
+			escrowTest.testPrivateKey)
 	}))
-	payment.payment.channelNonce = big.NewInt(2)
 
-	err := escrowTest.paymentHandler.Validate(payment)
+	payment, err := escrowTest.paymentHandler.Payment(context)
 
 	assert.Equal(t, status.New(codes.Unauthenticated, "incorrect payment channel nonce, latest: 3, sent: 2"), err)
+	assert.Nil(t, payment)
 }
 
 func TestValidatePaymentIncorrectSignatureLength(t *testing.T) {
-	payment := getTestPayment(patchDefaultData(func(d D) {
+	context := getTestContext(patchDefaultData(func(d D) {
 		d.Signature = blockchain.HexToBytes("0x0000")
 	}))
 
-	err := escrowTest.paymentHandler.Validate(payment)
+	payment, err := escrowTest.paymentHandler.Payment(context)
 
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment signature is not valid"), err)
+	assert.Nil(t, payment)
 }
 
 func TestValidatePaymentIncorrectSignatureChecksum(t *testing.T) {
-	payment := getTestPayment(patchDefaultData(func(d D) {
+	context := getTestContext(patchDefaultData(func(d D) {
 		d.Signature = blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef21")
 	}))
 
-	err := escrowTest.paymentHandler.Validate(payment)
+	payment, err := escrowTest.paymentHandler.Payment(context)
 
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment signature is not valid"), err)
+	assert.Nil(t, payment)
 }
 
 func TestValidatePaymentIncorrectSigner(t *testing.T) {
-	payment := getTestPayment(patchDefaultData(func(d D) {
+	context := getTestContext(patchDefaultData(func(d D) {
 		d.Signature = blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01")
 	}))
 
-	err := escrowTest.paymentHandler.Validate(payment)
+	payment, err := escrowTest.paymentHandler.Payment(context)
 
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment is not signed by channel sender"), err)
+	assert.Nil(t, payment)
 }
 
 func TestValidatePaymentChannelCannotGetCurrentBlock(t *testing.T) {
@@ -496,13 +492,14 @@ func TestValidatePaymentChannelCannotGetCurrentBlock(t *testing.T) {
 		escrowContractAddress: escrowTest.testEscrowContractAddress,
 		err: errors.New("blockchain error"),
 	}
-	payment := getTestPayment(patchDefaultData(func(d D) {
+	context := getTestContext(patchDefaultData(func(d D) {
 		d.Expiration = 99
 	}))
 
-	err := handler.Validate(payment)
+	payment, err := handler.Payment(context)
 
 	assert.Equal(t, status.New(codes.Internal, "cannot determine current block"), err)
+	assert.Nil(t, payment)
 }
 
 func TestValidatePaymentExpiredChannel(t *testing.T) {
@@ -511,13 +508,14 @@ func TestValidatePaymentExpiredChannel(t *testing.T) {
 		escrowContractAddress: escrowTest.testEscrowContractAddress,
 		currentBlock:          99,
 	}
-	payment := getTestPayment(patchDefaultData(func(d D) {
+	context := getTestContext(patchDefaultData(func(d D) {
 		d.Expiration = 99
 	}))
 
-	err := handler.Validate(payment)
+	payment, err := handler.Payment(context)
 
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 99, expiration threshold: 0"), err)
+	assert.Nil(t, payment)
 }
 
 func TestValidatePaymentChannelExpirationThreshold(t *testing.T) {
@@ -528,27 +526,35 @@ func TestValidatePaymentChannelExpirationThreshold(t *testing.T) {
 		escrowContractAddress: escrowTest.testEscrowContractAddress,
 		currentBlock:          98,
 	}
-	payment := getTestPayment(patchDefaultData(func(d D) {
+	context := getTestContext(patchDefaultData(func(d D) {
 		d.Expiration = 99
 	}))
 
-	err := handler.Validate(payment)
+	payment, err := handler.Payment(context)
 
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 98, expiration threshold: 1"), err)
+	assert.Nil(t, payment)
 }
 
 func TestValidatePaymentAmountIsTooBig(t *testing.T) {
-	payment := getTestPayment(patchDefaultData(func(d D) {
+	context := getTestContext(patchDefaultData(func(d D) {
 		d.NewAmount = 12346
+		d.Signature = getPaymentSignature(
+			&escrowTest.testEscrowContractAddress,
+			escrowTest.defaultData.ChannelID,
+			escrowTest.defaultData.PaymentChannelNonce,
+			12346,
+			escrowTest.testPrivateKey)
 	}))
 
-	err := escrowTest.paymentHandler.Validate(payment)
+	payment, err := escrowTest.paymentHandler.Payment(context)
 
 	assert.Equal(t, status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: 12345, payment amount: 12346"), err)
+	assert.Nil(t, payment)
 }
 
 func TestValidatePaymentIncorrectIncome(t *testing.T) {
-	payment := getTestPayment(escrowTest.defaultData)
+	context := getTestContext(escrowTest.defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	paymentHandler := escrowPaymentHandler{
 		config:          escrowTest.configMock,
@@ -557,15 +563,17 @@ func TestValidatePaymentIncorrectIncome(t *testing.T) {
 		blockchain:      &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress},
 	}
 
-	err := paymentHandler.Validate(payment)
+	payment, err := paymentHandler.Payment(context)
 
 	assert.Equal(t, incomeErr, err)
+	assert.Nil(t, payment)
 }
 
 func TestCompletePayment(t *testing.T) {
 	data := patchDefaultData(func(d D) {
 		d.ChannelID = 43
 		d.ChannelNonce = 4
+		d.PaymentChannelNonce = 4
 		d.FullAmount = 12346
 		d.NewAmount = 12345
 	})
@@ -596,6 +604,7 @@ func TestCompletePaymentCannotUpdateChannel(t *testing.T) {
 	data := patchDefaultData(func(d D) {
 		d.ChannelID = 43
 		d.ChannelNonce = 4
+		d.PaymentChannelNonce = 4
 		d.FullAmount = 12346
 		d.NewAmount = 12345
 	})
@@ -612,6 +621,7 @@ func TestCompletePaymentConcurrentUpdate(t *testing.T) {
 	data := patchDefaultData(func(d D) {
 		d.ChannelID = 43
 		d.ChannelNonce = 4
+		d.PaymentChannelNonce = 4
 		d.FullAmount = 12346
 		d.NewAmount = 12345
 	})

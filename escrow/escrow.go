@@ -82,9 +82,8 @@ type Payment struct {
 }
 
 type escrowPaymentType struct {
-	grpcContext *handler.GrpcStreamContext
-	payment     Payment
-	channel     *PaymentChannelData
+	payment Payment
+	channel *PaymentChannelData
 }
 
 func (p *Payment) String() string {
@@ -93,8 +92,7 @@ func (p *Payment) String() string {
 }
 
 func (p *escrowPaymentType) String() string {
-	return fmt.Sprintf("{grpcContext: %v, payment: %v, channel: %v}",
-		p.grpcContext, p.payment, p.channel)
+	return fmt.Sprintf("{payment: %v, channel: %v}", p.payment, p.channel)
 }
 
 func (h *escrowPaymentHandler) Type() (typ string) {
@@ -117,10 +115,21 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 		return nil, status.Newf(codes.InvalidArgument, "payment channel \"%v\" not found", channelKey)
 	}
 
+	err = validatePaymentUsingChannelState(h, internalPayment, channel)
+	if err != nil {
+		return nil, err
+	}
+
+	income := big.NewInt(0)
+	income.Sub(internalPayment.amount, channel.AuthorizedAmount)
+	err = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
+	if err != nil {
+		return
+	}
+
 	return &escrowPaymentType{
-		grpcContext: context,
-		payment:     *internalPayment,
-		channel:     channel,
+		payment: *internalPayment,
+		channel: channel,
 	}, nil
 }
 
@@ -155,21 +164,7 @@ func (h *escrowPaymentHandler) getPaymentFromContext(context *handler.GrpcStream
 }
 
 func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.Status) {
-	payment := _payment.(*escrowPaymentType)
-
-	err = validatePaymentUsingChannelState(h, &payment.payment, payment.channel)
-	if err != nil {
-		return
-	}
-
-	income := big.NewInt(0)
-	income.Sub(payment.payment.amount, payment.channel.AuthorizedAmount)
-	err = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: payment.grpcContext})
-	if err != nil {
-		return
-	}
-
-	return
+	return nil
 }
 
 type paymentValidationContext interface {

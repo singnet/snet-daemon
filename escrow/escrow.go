@@ -74,10 +74,11 @@ func NewEscrowPaymentHandler(
 }
 
 type Payment struct {
-	channelID    *big.Int
-	channelNonce *big.Int
-	amount       *big.Int
-	signature    []byte
+	mpeContractAddress common.Address
+	channelID          *big.Int
+	channelNonce       *big.Int
+	amount             *big.Int
+	signature          []byte
 }
 
 type escrowPaymentType struct {
@@ -134,48 +135,22 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 	return &escrowPaymentType{
 		grpcContext: context,
 		payment: Payment{
-			channelID:    channelID,
-			channelNonce: channelNonce,
-			amount:       amount,
-			signature:    signature,
+			mpeContractAddress: h.blockchain.EscrowContractAddress(),
+			channelID:          channelID,
+			channelNonce:       channelNonce,
+			amount:             amount,
+			signature:          signature,
 		},
 		channel: channel,
 	}, nil
 }
 
 func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.Status) {
-	var payment = _payment.(*escrowPaymentType)
-	var log = log.WithField("payment", payment)
+	payment := _payment.(*escrowPaymentType)
 
-	if payment.payment.channelNonce.Cmp(payment.channel.Nonce) != 0 {
-		log.Warn("Incorrect nonce is sent by client")
-		return status.Newf(codes.Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", payment.channel.Nonce, payment.payment.channelNonce)
-	}
-
-	signerAddress, err := h.getSignerAddressFromPayment(payment)
+	err = validatePaymentUsingChannelState(h, &payment.payment, payment.channel)
 	if err != nil {
 		return
-	}
-
-	if *signerAddress != payment.channel.Sender {
-		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
-		return status.New(codes.Unauthenticated, "payment is not signed by channel sender")
-	}
-
-	currentBlock, e := h.blockchain.CurrentBlock()
-	if e != nil {
-		return status.Newf(codes.Internal, "cannot determine current block")
-	}
-	expirationThreshold := big.NewInt(h.config.GetInt64(config.PaymentExpirationThresholdBlocksKey))
-	currentBlockWithThreshold := new(big.Int).Add(currentBlock, expirationThreshold)
-	if currentBlockWithThreshold.Cmp(payment.channel.Expiration) >= 0 {
-		log.WithField("currentBlock", currentBlock).WithField("expirationThreshold", expirationThreshold).Warn("Channel expiration time is after expiration threshold")
-		return status.Newf(codes.Unauthenticated, "payment channel is near to be expired, expiration time: %v, current block: %v, expiration threshold: %v", payment.channel.Expiration, currentBlock, expirationThreshold)
-	}
-
-	if payment.channel.FullAmount.Cmp(payment.payment.amount) < 0 {
-		log.Warn("Not enough tokens on payment channel")
-		return status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: %v, payment amount: %v", payment.channel.FullAmount, payment.payment.amount)
 	}
 
 	income := big.NewInt(0)
@@ -188,15 +163,65 @@ func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.S
 	return
 }
 
-func (h *escrowPaymentHandler) getSignerAddressFromPayment(payment *escrowPaymentType) (signer *common.Address, err *status.Status) {
+type paymentValidationContext interface {
+	CurrentBlock() (currentBlock *big.Int, err error)
+	PaymentExpirationThreshold() (threshold *big.Int)
+}
+
+func (h *escrowPaymentHandler) CurrentBlock() (currentBlock *big.Int, err error) {
+	return h.blockchain.CurrentBlock()
+}
+
+func (h *escrowPaymentHandler) PaymentExpirationThreshold() (threshold *big.Int) {
+	return big.NewInt(h.config.GetInt64(config.PaymentExpirationThresholdBlocksKey))
+}
+
+func validatePaymentUsingChannelState(context paymentValidationContext, payment *Payment, channel *PaymentChannelData) (err *status.Status) {
+	var log = log.WithField("payment", payment).WithField("channel", channel)
+
+	if payment.channelNonce.Cmp(channel.Nonce) != 0 {
+		log.Warn("Incorrect nonce is sent by client")
+		return status.Newf(codes.Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.channelNonce)
+	}
+
+	signerAddress, err := getSignerAddressFromPayment(payment)
+	if err != nil {
+		return
+	}
+
+	if *signerAddress != channel.Sender {
+		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
+		return status.New(codes.Unauthenticated, "payment is not signed by channel sender")
+	}
+
+	currentBlock, e := context.CurrentBlock()
+	if e != nil {
+		return status.Newf(codes.Internal, "cannot determine current block")
+	}
+	expirationThreshold := context.PaymentExpirationThreshold()
+	currentBlockWithThreshold := new(big.Int).Add(currentBlock, expirationThreshold)
+	if currentBlockWithThreshold.Cmp(channel.Expiration) >= 0 {
+		log.WithField("currentBlock", currentBlock).WithField("expirationThreshold", expirationThreshold).Warn("Channel expiration time is after expiration threshold")
+		return status.Newf(codes.Unauthenticated, "payment channel is near to be expired, expiration time: %v, current block: %v, expiration threshold: %v", channel.Expiration, currentBlock, expirationThreshold)
+	}
+
+	if channel.FullAmount.Cmp(payment.amount) < 0 {
+		log.Warn("Not enough tokens on payment channel")
+		return status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: %v, payment amount: %v", channel.FullAmount, payment.amount)
+	}
+
+	return
+}
+
+func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err *status.Status) {
 	message := bytes.Join([][]byte{
-		h.blockchain.EscrowContractAddress().Bytes(),
-		bigIntToBytes(payment.payment.channelID),
-		bigIntToBytes(payment.payment.channelNonce),
-		bigIntToBytes(payment.payment.amount),
+		payment.mpeContractAddress.Bytes(),
+		bigIntToBytes(payment.channelID),
+		bigIntToBytes(payment.channelNonce),
+		bigIntToBytes(payment.amount),
 	}, nil)
 
-	signer, e := getSignerAddressFromMessage(message, payment.payment.signature)
+	signer, e := getSignerAddressFromMessage(message, payment.signature)
 	if e != nil {
 		return nil, status.New(codes.Unauthenticated, "payment signature is not valid")
 	}

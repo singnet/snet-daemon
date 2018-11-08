@@ -246,10 +246,11 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	return &escrowPaymentType{
 		grpcContext: &handler.GrpcStreamContext{MD: getEscrowMetadata(data.ChannelID, data.ChannelNonce, data.NewAmount)},
 		payment: Payment{
-			channelID:    big.NewInt(data.ChannelID),
-			channelNonce: big.NewInt(data.ChannelNonce),
-			amount:       big.NewInt(data.NewAmount),
-			signature:    signature,
+			mpeContractAddress: escrowTest.testEscrowContractAddress,
+			channelID:          big.NewInt(data.ChannelID),
+			channelNonce:       big.NewInt(data.ChannelNonce),
+			amount:             big.NewInt(data.NewAmount),
+			signature:          signature,
 		},
 		channel: &PaymentChannelData{
 			Nonce:            big.NewInt(data.ChannelNonce),
@@ -302,39 +303,31 @@ func bytesErrorTupleToString(data []byte, err error) string {
 }
 
 func TestGetPublicKeyFromPayment(t *testing.T) {
-	handler := escrowPaymentHandler{
-		blockchain: &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress},
-	}
-	payment := escrowPaymentType{
-		payment: Payment{
-			channelID:    big.NewInt(1789),
-			channelNonce: big.NewInt(1917),
-			amount:       big.NewInt(31415),
-			// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
-			signature: blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
-		},
+	payment := Payment{
+		mpeContractAddress: escrowTest.testEscrowContractAddress,
+		channelID:          big.NewInt(1789),
+		channelNonce:       big.NewInt(1917),
+		amount:             big.NewInt(31415),
+		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
+		signature: blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
 
-	address, err := handler.getSignerAddressFromPayment(&payment)
+	address, err := getSignerAddressFromPayment(&payment)
 
 	assert.Nil(t, err)
 	assert.Equal(t, blockchain.HexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
 }
 
 func TestGetPublicKeyFromPayment2(t *testing.T) {
-	handler := escrowPaymentHandler{
-		blockchain: &blockchainMockType{escrowContractAddress: blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75")},
-	}
-	payment := escrowPaymentType{
-		payment: Payment{
-			channelID:    big.NewInt(1789),
-			channelNonce: big.NewInt(1917),
-			amount:       big.NewInt(31415),
-			signature:    blockchain.HexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
-		},
+	payment := Payment{
+		mpeContractAddress: blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75"),
+		channelID:          big.NewInt(1789),
+		channelNonce:       big.NewInt(1917),
+		amount:             big.NewInt(31415),
+		signature:          blockchain.HexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
 	}
 
-	address, err := handler.getSignerAddressFromPayment(&payment)
+	address, err := getSignerAddressFromPayment(&payment)
 
 	assert.Nil(t, err)
 	assert.Equal(t, blockchain.HexToAddress("0x592E3C0f3B038A0D673F19a18a773F993d4b2610"), *address)

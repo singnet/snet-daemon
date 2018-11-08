@@ -15,8 +15,7 @@ import (
 
 // EtcdClientMutex mutex struct for etcd client
 type EtcdClientMutex struct {
-	session *concurrency.Session
-	mutex   *concurrency.Mutex
+	mutex *concurrency.Mutex
 }
 
 // Lock lock etcd key
@@ -29,14 +28,10 @@ func (mutex *EtcdClientMutex) Unlock(ctx context.Context) (err error) {
 	return mutex.mutex.Unlock(ctx)
 }
 
-// Close close etcd mutex
-func (mutex *EtcdClientMutex) Close() (err error) {
-	return mutex.session.Close()
-}
-
 // EtcdClient struct has some useful methods to wolrk with etcd client
 type EtcdClient struct {
 	timeout time.Duration
+	session *concurrency.Session
 	etcdv3  *clientv3.Client
 }
 
@@ -65,7 +60,16 @@ func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 		return
 	}
 
-	client = &EtcdClient{timeout: conf.RequestTimeout, etcdv3: etcdv3}
+	session, err := concurrency.NewSession(etcdv3)
+	if err != nil {
+		return
+	}
+
+	client = &EtcdClient{
+		timeout: conf.RequestTimeout,
+		session: session,
+		etcdv3:  etcdv3,
+	}
 	return
 }
 
@@ -222,17 +226,13 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 // NewMutex Create a mutex for the given key
 func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err error) {
 
-	session, err := concurrency.NewSession(client.etcdv3)
-	if err != nil {
-		return
-	}
-
-	m := concurrency.NewMutex(session, key)
-	mutex = &EtcdClientMutex{session: session, mutex: m}
+	m := concurrency.NewMutex(client.session, key)
+	mutex = &EtcdClientMutex{mutex: m}
 	return
 }
 
 // Close closes etcd client
 func (client *EtcdClient) Close() {
-	client.etcdv3.Close()
+	defer client.session.Close()
+	defer client.etcdv3.Close()
 }

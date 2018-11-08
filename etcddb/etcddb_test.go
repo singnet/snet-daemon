@@ -214,7 +214,6 @@ func (suite *EtcdTestSuite) TestEtcdMutex() {
 	}
 
 	t := suite.T()
-	client := suite.client
 
 	pair := &Pair{a: 0, b: 0}
 	lockKey := "key-mutex"
@@ -227,9 +226,12 @@ func (suite *EtcdTestSuite) TestEtcdMutex() {
 
 	runWithLock := func(value int) {
 
+		client, err := NewEtcdClient()
+		assert.Nil(t, err)
+		defer client.Close()
+
 		mutex, err := client.NewMutex(lockKey)
 		assert.Nil(t, err)
-		defer mutex.Close()
 		defer mutex.Unlock(context.Background())
 		defer end.Done()
 		start.Done()

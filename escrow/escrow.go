@@ -102,6 +102,29 @@ func (h *escrowPaymentHandler) Type() (typ string) {
 }
 
 func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *status.Status) {
+	internalPayment, err := h.getPaymentFromContext(context)
+	if err != nil {
+		return
+	}
+
+	channelKey := &PaymentChannelKey{ID: internalPayment.channelID}
+	channel, ok, e := h.storage.Get(channelKey)
+	if e != nil {
+		return nil, status.Newf(codes.Internal, "payment channel storage error")
+	}
+	if !ok {
+		log.Warn("Payment channel not found")
+		return nil, status.Newf(codes.InvalidArgument, "payment channel \"%v\" not found", channelKey)
+	}
+
+	return &escrowPaymentType{
+		grpcContext: context,
+		payment:     *internalPayment,
+		channel:     channel,
+	}, nil
+}
+
+func (h *escrowPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *status.Status) {
 	channelID, err := handler.GetBigInt(context.MD, PaymentChannelIDHeader)
 	if err != nil {
 		return
@@ -110,16 +133,6 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 	channelNonce, err := handler.GetBigInt(context.MD, PaymentChannelNonceHeader)
 	if err != nil {
 		return
-	}
-
-	channelKey := &PaymentChannelKey{ID: channelID}
-	channel, ok, e := h.storage.Get(channelKey)
-	if e != nil {
-		return nil, status.Newf(codes.Internal, "payment channel storage error")
-	}
-	if !ok {
-		log.Warn("Payment channel not found")
-		return nil, status.Newf(codes.InvalidArgument, "payment channel \"%v\" not found", channelKey)
 	}
 
 	amount, err := handler.GetBigInt(context.MD, PaymentChannelAmountHeader)
@@ -132,16 +145,12 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 		return
 	}
 
-	return &escrowPaymentType{
-		grpcContext: context,
-		payment: Payment{
-			mpeContractAddress: h.blockchain.EscrowContractAddress(),
-			channelID:          channelID,
-			channelNonce:       channelNonce,
-			amount:             amount,
-			signature:          signature,
-		},
-		channel: channel,
+	return &Payment{
+		mpeContractAddress: h.blockchain.EscrowContractAddress(),
+		channelID:          channelID,
+		channelNonce:       channelNonce,
+		amount:             amount,
+		signature:          signature,
 	}, nil
 }
 

@@ -23,6 +23,7 @@ type Components struct {
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
 	paymentChannelStorage      escrow.PaymentChannelStorage
+	atomicStorage              escrow.AtomicStorage
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
 }
@@ -150,21 +151,28 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	return components.etcdClient
 }
 
+func (components *Components) AtomicStorage() escrow.AtomicStorage {
+	if components.atomicStorage != nil {
+		return components.atomicStorage
+	}
+
+	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
+		components.atomicStorage = components.EtcdClient()
+	} else {
+		components.atomicStorage = escrow.NewMemStorage()
+	}
+
+	return components.atomicStorage
+}
+
 func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStorage {
 	if components.paymentChannelStorage != nil {
 		return components.paymentChannelStorage
 	}
 
-	var delegateStorage escrow.AtomicStorage
-	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
-		delegateStorage = components.EtcdClient()
-	} else {
-		delegateStorage = escrow.NewMemStorage()
-	}
-
 	components.paymentChannelStorage = escrow.NewCombinedStorage(
 		components.Blockchain(),
-		escrow.NewPaymentChannelStorage(delegateStorage),
+		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
 	)
 
 	return components.paymentChannelStorage

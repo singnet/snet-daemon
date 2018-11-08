@@ -12,14 +12,14 @@ import (
 // PaymentChannelStateService is an implementation of
 // PaymentChannelStateServiceServer gRPC interface
 type PaymentChannelStateService struct {
-	latest PaymentChannelStorage
+	channelService PaymentChannelService
 }
 
 // NewPaymentChannelStateService returns new instance of
 // PaymentChannelStateService
-func NewPaymentChannelStateService(storage PaymentChannelStorage) *PaymentChannelStateService {
+func NewPaymentChannelStateService(channelService PaymentChannelService) *PaymentChannelStateService {
 	return &PaymentChannelStateService{
-		latest: storage,
+		channelService: channelService,
 	}
 }
 
@@ -39,7 +39,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		return nil, errors.New("incorrect signature")
 	}
 
-	channel, ok, err := service.latest.Get(&PaymentChannelKey{ID: channelId})
+	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelId})
 	if err != nil {
 		return nil, errors.New("channel storage error")
 	}

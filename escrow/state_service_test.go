@@ -12,10 +12,10 @@ import (
 )
 
 type stateServiceTestType struct {
-	service          PaymentChannelStateService
-	senderPrivateKey *ecdsa.PrivateKey
-	senderAddress    common.Address
-	storageMock      *storageMockType
+	service            PaymentChannelStateService
+	senderPrivateKey   *ecdsa.PrivateKey
+	senderAddress      common.Address
+	channelServiceMock *paymentChannelServiceMock
 
 	defaultChannelId   *big.Int
 	defaultChannelKey  *PaymentChannelKey
@@ -24,11 +24,41 @@ type stateServiceTestType struct {
 	defaultReply       *ChannelStateReply
 }
 
-var stateServiceTest = func() stateServiceTestType {
-	storageMock := &storageMockType{
-		delegate: NewPaymentChannelStorage(NewMemStorage()),
-		err:      nil,
+type paymentChannelServiceMock struct {
+	escrowPaymentHandler
+
+	err  error
+	key  *PaymentChannelKey
+	data *PaymentChannelData
+}
+
+func (p *paymentChannelServiceMock) PaymentChannel(key *PaymentChannelKey) (*PaymentChannelData, bool, error) {
+	if p.err != nil {
+		return nil, false, p.err
 	}
+	if p.key == nil || p.key.ID.Cmp(key.ID) != 0 {
+		return nil, false, nil
+	}
+	return p.data, true, nil
+}
+
+func (p *paymentChannelServiceMock) Put(key *PaymentChannelKey, data *PaymentChannelData) {
+	p.key = key
+	p.data = data
+}
+
+func (p *paymentChannelServiceMock) SetError(err error) {
+	p.err = err
+}
+
+func (p *paymentChannelServiceMock) Clear() {
+	p.key = nil
+	p.data = nil
+	p.err = nil
+}
+
+var stateServiceTest = func() stateServiceTestType {
+	channelServiceMock := &paymentChannelServiceMock{}
 	senderPrivateKey := generatePrivateKey()
 	senderAddress := crypto.PubkeyToAddress(senderPrivateKey.PublicKey)
 
@@ -40,11 +70,11 @@ var stateServiceTest = func() stateServiceTestType {
 
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
-			latest: storageMock,
+			channelService: channelServiceMock,
 		},
-		senderPrivateKey: senderPrivateKey,
-		senderAddress:    senderAddress,
-		storageMock:      storageMock,
+		senderPrivateKey:   senderPrivateKey,
+		senderAddress:      senderAddress,
+		channelServiceMock: channelServiceMock,
 
 		defaultChannelId:  defaultChannelId,
 		defaultChannelKey: &PaymentChannelKey{ID: defaultChannelId},
@@ -67,11 +97,11 @@ var stateServiceTest = func() stateServiceTestType {
 }()
 
 func TestGetChannelState(t *testing.T) {
-	stateServiceTest.storageMock.Put(
+	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
 	)
-	defer stateServiceTest.storageMock.Clear()
+	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -84,8 +114,8 @@ func TestGetChannelState(t *testing.T) {
 
 func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {
 	channelId := big.NewInt(255)
-	stateServiceTest.storageMock.Put(&PaymentChannelKey{ID: channelId}, stateServiceTest.defaultChannelData)
-	defer stateServiceTest.storageMock.Clear()
+	stateServiceTest.channelServiceMock.Put(&PaymentChannelKey{ID: channelId}, stateServiceTest.defaultChannelData)
+	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -113,8 +143,8 @@ func TestGetChannelStateChannelIdIncorrectSignature(t *testing.T) {
 }
 
 func TestGetChannelStateChannelStorageError(t *testing.T) {
-	stateServiceTest.storageMock.SetError(errors.New("storage error"))
-	defer stateServiceTest.storageMock.Clear()
+	stateServiceTest.channelServiceMock.SetError(errors.New("storage error"))
+	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(nil, stateServiceTest.defaultRequest)
 
@@ -124,7 +154,7 @@ func TestGetChannelStateChannelStorageError(t *testing.T) {
 
 func TestGetChannelStateChannelNotFound(t *testing.T) {
 	channelId := big.NewInt(42)
-	stateServiceTest.storageMock.Clear()
+	stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -139,11 +169,11 @@ func TestGetChannelStateChannelNotFound(t *testing.T) {
 }
 
 func TestGetChannelStateIncorrectSender(t *testing.T) {
-	stateServiceTest.storageMock.Put(
+	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
 	)
-	defer stateServiceTest.storageMock.Clear()
+	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -163,11 +193,11 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 	channelData := stateServiceTest.defaultChannelData
 	channelData.AuthorizedAmount = nil
 	channelData.Signature = nil
-	stateServiceTest.storageMock.Put(
+	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		channelData,
 	)
-	defer stateServiceTest.storageMock.Clear()
+	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,

@@ -85,12 +85,19 @@ func NewPaymentChannelService(
 	}
 }
 
+// Payment contains MultiPartyEscrow payment details
 type Payment struct {
-	mpeContractAddress common.Address
-	channelID          *big.Int
-	channelNonce       *big.Int
-	amount             *big.Int
-	signature          []byte
+	// MpeContractAddress is an address of the MultiPartyEscrow contract which
+	// were used to open the payment channel.
+	MpeContractAddress common.Address
+	// ChannelID is an id of the payment channel used.
+	ChannelID *big.Int
+	// ChannelNonce is a nonce of the payment channel.
+	ChannelNonce *big.Int
+	// Amount is an amount of the payment.
+	Amount *big.Int
+	// Signature is a signature of the payment.
+	Signature []byte
 }
 
 type escrowPaymentType struct {
@@ -99,8 +106,8 @@ type escrowPaymentType struct {
 }
 
 func (p *Payment) String() string {
-	return fmt.Sprintf("{channelID: %v, channelNonce: %v, amount: %v, signature: %v}",
-		p.channelID, p.channelNonce, p.amount, blockchain.BytesToBase64(p.signature))
+	return fmt.Sprintf("{MpeContractAddress: %v, ChannelID: %v, ChannelNonce: %v, Amount: %v, Signature: %v}",
+		p.MpeContractAddress, p.ChannelID, p.ChannelNonce, p.Amount, blockchain.BytesToBase64(p.Signature))
 }
 
 func (p *escrowPaymentType) String() string {
@@ -129,7 +136,7 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 		return
 	}
 
-	channelKey := &PaymentChannelKey{ID: internalPayment.channelID}
+	channelKey := &PaymentChannelKey{ID: internalPayment.ChannelID}
 	channel, ok, e := h.storage.Get(channelKey)
 	if e != nil {
 		return nil, status.Newf(codes.Internal, "payment channel storage error")
@@ -145,7 +152,7 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 	}
 
 	income := big.NewInt(0)
-	income.Sub(internalPayment.amount, channel.AuthorizedAmount)
+	income.Sub(internalPayment.Amount, channel.AuthorizedAmount)
 	err = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
 	if err != nil {
 		return
@@ -179,11 +186,11 @@ func (h *escrowPaymentHandler) getPaymentFromContext(context *handler.GrpcStream
 	}
 
 	return &Payment{
-		mpeContractAddress: h.blockchain.EscrowContractAddress(),
-		channelID:          channelID,
-		channelNonce:       channelNonce,
-		amount:             amount,
-		signature:          signature,
+		MpeContractAddress: h.blockchain.EscrowContractAddress(),
+		ChannelID:          channelID,
+		ChannelNonce:       channelNonce,
+		Amount:             amount,
+		Signature:          signature,
 	}, nil
 }
 
@@ -207,9 +214,9 @@ func (h *escrowPaymentHandler) PaymentExpirationThreshold() (threshold *big.Int)
 func validatePaymentUsingChannelState(context paymentValidationContext, payment *Payment, channel *PaymentChannelData) (err *status.Status) {
 	var log = log.WithField("payment", payment).WithField("channel", channel)
 
-	if payment.channelNonce.Cmp(channel.Nonce) != 0 {
+	if payment.ChannelNonce.Cmp(channel.Nonce) != 0 {
 		log.Warn("Incorrect nonce is sent by client")
-		return status.Newf(codes.Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.channelNonce)
+		return status.Newf(codes.Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.ChannelNonce)
 	}
 
 	signerAddress, err := getSignerAddressFromPayment(payment)
@@ -233,9 +240,9 @@ func validatePaymentUsingChannelState(context paymentValidationContext, payment 
 		return status.Newf(codes.Unauthenticated, "payment channel is near to be expired, expiration time: %v, current block: %v, expiration threshold: %v", channel.Expiration, currentBlock, expirationThreshold)
 	}
 
-	if channel.FullAmount.Cmp(payment.amount) < 0 {
+	if channel.FullAmount.Cmp(payment.Amount) < 0 {
 		log.Warn("Not enough tokens on payment channel")
-		return status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: %v, payment amount: %v", channel.FullAmount, payment.amount)
+		return status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: %v, payment amount: %v", channel.FullAmount, payment.Amount)
 	}
 
 	return
@@ -243,13 +250,13 @@ func validatePaymentUsingChannelState(context paymentValidationContext, payment 
 
 func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err *status.Status) {
 	message := bytes.Join([][]byte{
-		payment.mpeContractAddress.Bytes(),
-		bigIntToBytes(payment.channelID),
-		bigIntToBytes(payment.channelNonce),
-		bigIntToBytes(payment.amount),
+		payment.MpeContractAddress.Bytes(),
+		bigIntToBytes(payment.ChannelID),
+		bigIntToBytes(payment.ChannelNonce),
+		bigIntToBytes(payment.Amount),
 	}, nil)
 
-	signer, e := getSignerAddressFromMessage(message, payment.signature)
+	signer, e := getSignerAddressFromMessage(message, payment.Signature)
 	if e != nil {
 		return nil, status.New(codes.Unauthenticated, "payment signature is not valid")
 	}
@@ -300,7 +307,7 @@ func bytesToBigInt(bytes []byte) *big.Int {
 func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
 	ok, e := h.storage.CompareAndSwap(
-		&PaymentChannelKey{ID: payment.payment.channelID},
+		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		payment.channel,
 		&PaymentChannelData{
 			Nonce:            payment.channel.Nonce,
@@ -309,8 +316,8 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 			Recipient:        payment.channel.Recipient,
 			FullAmount:       payment.channel.FullAmount,
 			Expiration:       payment.channel.Expiration,
-			AuthorizedAmount: payment.payment.amount,
-			Signature:        payment.payment.signature,
+			AuthorizedAmount: payment.payment.Amount,
+			Signature:        payment.payment.Signature,
 			GroupId:          payment.channel.GroupId,
 		},
 	)
@@ -320,7 +327,7 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 	}
 	if !ok {
 		log.WithField("payment", payment).Warn("Channel state was changed concurrently")
-		return status.Newf(codes.Unauthenticated, "state of payment channel was concurrently updated, channel id: %v", payment.payment.channelID)
+		return status.Newf(codes.Unauthenticated, "state of payment channel was concurrently updated, channel id: %v", payment.payment.ChannelID)
 	}
 
 	return

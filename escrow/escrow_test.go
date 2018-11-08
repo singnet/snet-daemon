@@ -247,11 +247,11 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 	}
 	return &escrowPaymentType{
 		payment: Payment{
-			mpeContractAddress: escrowTest.testEscrowContractAddress,
-			channelID:          big.NewInt(data.ChannelID),
-			channelNonce:       big.NewInt(data.PaymentChannelNonce),
-			amount:             big.NewInt(data.NewAmount),
-			signature:          signature,
+			MpeContractAddress: escrowTest.testEscrowContractAddress,
+			ChannelID:          big.NewInt(data.ChannelID),
+			ChannelNonce:       big.NewInt(data.PaymentChannelNonce),
+			Amount:             big.NewInt(data.NewAmount),
+			Signature:          signature,
 		},
 		channel: &PaymentChannelData{
 			Nonce:            big.NewInt(data.ChannelNonce),
@@ -305,12 +305,12 @@ func bytesErrorTupleToString(data []byte, err error) string {
 
 func TestGetPublicKeyFromPayment(t *testing.T) {
 	payment := Payment{
-		mpeContractAddress: escrowTest.testEscrowContractAddress,
-		channelID:          big.NewInt(1789),
-		channelNonce:       big.NewInt(1917),
-		amount:             big.NewInt(31415),
+		MpeContractAddress: escrowTest.testEscrowContractAddress,
+		ChannelID:          big.NewInt(1789),
+		ChannelNonce:       big.NewInt(1917),
+		Amount:             big.NewInt(31415),
 		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
-		signature: blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+		Signature: blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
 
 	address, err := getSignerAddressFromPayment(&payment)
@@ -321,11 +321,11 @@ func TestGetPublicKeyFromPayment(t *testing.T) {
 
 func TestGetPublicKeyFromPayment2(t *testing.T) {
 	payment := Payment{
-		mpeContractAddress: blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75"),
-		channelID:          big.NewInt(1789),
-		channelNonce:       big.NewInt(1917),
-		amount:             big.NewInt(31415),
-		signature:          blockchain.HexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
+		MpeContractAddress: blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75"),
+		ChannelID:          big.NewInt(1789),
+		ChannelNonce:       big.NewInt(1917),
+		Amount:             big.NewInt(31415),
+		Signature:          blockchain.HexToBytes("0xde4e998341307b036e460b1cc1593ddefe2e9ea261bd6c3d75967b29b2c3d0a24969b4a32b099ae2eded90bbc213ad0a159a66af6d55be7e04f724ffa52ce3cc1b"),
 	}
 
 	address, err := getSignerAddressFromPayment(&payment)
@@ -375,10 +375,10 @@ func TestGetPayment(t *testing.T) {
 	assert.Nil(t, err)
 	expected := getTestPayment(data)
 	actual := payment.(*escrowPaymentType)
-	assert.Equal(t, toJSON(expected.payment.channelID), toJSON(actual.payment.channelID))
-	assert.Equal(t, toJSON(expected.payment.channelNonce), toJSON(actual.payment.channelNonce))
-	assert.Equal(t, expected.payment.amount, actual.payment.amount)
-	assert.Equal(t, expected.payment.signature, actual.payment.signature)
+	assert.Equal(t, toJSON(expected.payment.ChannelID), toJSON(actual.payment.ChannelID))
+	assert.Equal(t, toJSON(expected.payment.ChannelNonce), toJSON(actual.payment.ChannelNonce))
+	assert.Equal(t, expected.payment.Amount, actual.payment.Amount)
+	assert.Equal(t, expected.payment.Signature, actual.payment.Signature)
 	assert.Equal(t, toJSON(expected.channel), toJSON(actual.channel))
 }
 
@@ -595,7 +595,7 @@ func TestCompletePayment(t *testing.T) {
 		FullAmount:       big.NewInt(12346),
 		Expiration:       payment.channel.Expiration,
 		AuthorizedAmount: big.NewInt(12345),
-		Signature:        payment.payment.signature,
+		Signature:        payment.payment.Signature,
 		GroupId:          big.NewInt(1),
 	}), toJSON(channelState))
 }

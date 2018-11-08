@@ -49,12 +49,60 @@ type EscrowBlockchainApi interface {
 	CurrentBlock() (currentBlock *big.Int, err error)
 }
 
+// Claim is a handle of payment channel claim in progress. It is returned by
+// StartClaim method and provides caller information about payment to call
+// MultiPartyEscrow.channelClaim function. After transaction is written to
+// blockchain caller should call Finish() method to update payment repository
+// state.
+type Claim struct {
+	payment *Payment
+	finish  func() error
+}
+
+// Payment returns the payment which is being claimed, caller uses details of
+// the payment to start blockchain transaction.
+func (claim *Claim) Payment() *Payment {
+	return claim.payment
+}
+
+// Finish to be called after blockchain transaction is finished successfully.
+// Updates repository state.
+func (claim *Claim) Finish() error {
+	return claim.finish()
+}
+
+// ChannelUpdate is an type of channel update which should be applied when
+// StartClaim() method is called.
+type ChannelUpdate func(channel *PaymentChannelData)
+
+var (
+	// CloseChannel is an update which zeroes full amount of the channel to
+	// designate that channel sender should add funds to the channel before
+	// continue working.
+	CloseChannel ChannelUpdate = func(channel *PaymentChannelData) {
+		channel.FullAmount = big.NewInt(0)
+	}
+	// IncrementChannelNonce is an update which increments channel nonce and
+	// descreases full amount to allow channel sender continue working with
+	// remaining amount.
+	IncrementChannelNonce ChannelUpdate = func(channel *PaymentChannelData) {
+		channel.Nonce = (&big.Int{}).Add(channel.Nonce, big.NewInt(1))
+		channel.FullAmount = (&big.Int{}).Sub(channel.FullAmount, channel.AuthorizedAmount)
+		channel.AuthorizedAmount = big.NewInt(0)
+		channel.Signature = nil
+	}
+)
+
 // PaymentChannelService interface is API for payment channel functionality.
 type PaymentChannelService interface {
 	// PaymentChannel returns latest payment channel state. This method uses
 	// shared storage and blockchain to construct and return latest channel
 	// state.
 	PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
+
+	// StartClaim gets channel from storage, applies update on it and adds
+	// payment for claiming into the storage.
+	StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim *Claim, err error)
 
 	handler.PaymentHandler
 }
@@ -124,6 +172,43 @@ func (h *escrowPaymentHandler) PaymentChannel(key *PaymentChannelKey) (channel *
 	}
 
 	return getChannelStateFromBlockchain(h.mpe, key.ID)
+}
+
+func (h *escrowPaymentHandler) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim *Claim, err error) {
+	channel, ok, err := h.storage.Get(key)
+	if err != nil {
+		return
+	}
+	if !ok {
+		return nil, fmt.Errorf("Channel is not found by key: %v", key)
+	}
+
+	nextChannel := *channel
+	update(&nextChannel)
+
+	ok, err = h.storage.CompareAndSwap(key, channel, &nextChannel)
+	if err != nil {
+		return nil, fmt.Errorf("Channel storage error: %v", err)
+	}
+	if !ok {
+		return nil, fmt.Errorf("Channel was concurrently updated, channel key: %v", key)
+	}
+
+	return &Claim{
+		payment: getPaymentFromChannel(key, channel),
+		finish:  func() error { return nil },
+	}, nil
+}
+
+func getPaymentFromChannel(key *PaymentChannelKey, channel *PaymentChannelData) *Payment {
+	return &Payment{
+		// TODO: add MpeContractAddress to channel state
+		//MpeContractAddress: channel.MpeContractAddress,
+		ChannelID:    key.ID,
+		ChannelNonce: channel.Nonce,
+		Amount:       channel.AuthorizedAmount,
+		Signature:    channel.Signature,
+	}
 }
 
 func (h *escrowPaymentHandler) Type() (typ string) {

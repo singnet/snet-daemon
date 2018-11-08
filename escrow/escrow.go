@@ -49,27 +49,39 @@ type EscrowBlockchainApi interface {
 	CurrentBlock() (currentBlock *big.Int, err error)
 }
 
+// PaymentChannelService interface is API for payment channel functionality.
+type PaymentChannelService interface {
+	// PaymentChannel returns latest payment channel state. This method uses
+	// shared storage and blockchain to construct and return latest channel
+	// state.
+	PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
+
+	handler.PaymentHandler
+}
+
 // escrowPaymentHandler implements paymentHandlerType interface
 type escrowPaymentHandler struct {
 	config          *viper.Viper
 	storage         PaymentChannelStorage
 	incomeValidator IncomeValidator
 	blockchain      EscrowBlockchainApi
+	mpe             *blockchain.MultiPartyEscrow
 }
 
-// NewEscrowPaymentHandler returns instance of handler.PaymentHandler to validate
+// NewPaymentChannelService returns instance of handler.PaymentHandler to validate
 // payments via MultiPartyEscrow contract.
-func NewEscrowPaymentHandler(
+func NewPaymentChannelService(
 	processor *blockchain.Processor,
 	storage PaymentChannelStorage,
 	incomeValidator IncomeValidator,
-	config *viper.Viper) handler.PaymentHandler {
+	config *viper.Viper) PaymentChannelService {
 
 	return &escrowPaymentHandler{
 		config:          config,
 		storage:         storage,
 		incomeValidator: incomeValidator,
 		blockchain:      processor,
+		mpe:             processor.MultiPartyEscrow(),
 	}
 }
 
@@ -93,6 +105,18 @@ func (p *Payment) String() string {
 
 func (p *escrowPaymentType) String() string {
 	return fmt.Sprintf("{payment: %v, channel: %v}", p.payment, p.channel)
+}
+
+func (h *escrowPaymentHandler) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	channel, ok, err = h.storage.Get(key)
+	if err != nil {
+		return
+	}
+	if ok {
+		return
+	}
+
+	return getChannelStateFromBlockchain(h.mpe, key.ID)
 }
 
 func (h *escrowPaymentHandler) Type() (typ string) {

@@ -244,3 +244,9 @@ func LogConfig() {
 		}
 	}
 }
+
+func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err error) {
+	value = &big.Int{}
+	err = value.UnmarshalText([]byte(config.GetString(key)))
+	return
+}

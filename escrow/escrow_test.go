@@ -52,6 +52,10 @@ func (mock *blockchainMockType) CurrentBlock() (currentBlock *big.Int, err error
 	return big.NewInt(mock.currentBlock), nil
 }
 
+func (mock *blockchainMockType) MultiPartyEscrowChannel(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
+	return nil, false, nil
+}
+
 var escrowTest = func() *escrowTestType {
 
 	var testPrivateKey = generatePrivateKey()

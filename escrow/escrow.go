@@ -47,6 +47,8 @@ type EscrowBlockchainApi interface {
 	EscrowContractAddress() common.Address
 	// CurrentBlock returns current Ethereum blockchain block number
 	CurrentBlock() (currentBlock *big.Int, err error)
+	// MultiPartyEscrowChannel return MultiPartyEscrow channel by id
+	MultiPartyEscrowChannel(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
 }
 
 // Claim is a handle of payment channel claim in progress. It is returned by
@@ -113,7 +115,6 @@ type escrowPaymentHandler struct {
 	storage         PaymentChannelStorage
 	incomeValidator IncomeValidator
 	blockchain      EscrowBlockchainApi
-	mpe             *blockchain.MultiPartyEscrow
 }
 
 // NewPaymentChannelService returns instance of handler.PaymentHandler to validate
@@ -129,7 +130,6 @@ func NewPaymentChannelService(
 		storage:         storage,
 		incomeValidator: incomeValidator,
 		blockchain:      processor,
-		mpe:             processor.MultiPartyEscrow(),
 	}
 }
 
@@ -163,15 +163,67 @@ func (p *escrowPaymentType) String() string {
 }
 
 func (h *escrowPaymentHandler) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
-	channel, ok, err = h.storage.Get(key)
+	storageChannel, storageOk, err := h.storage.Get(key)
 	if err != nil {
 		return
 	}
-	if ok {
+
+	blockchainChannel, blockchainOk, err := h.getChannelStateFromBlockchain(key)
+	if !storageOk {
+		return blockchainChannel, blockchainOk, err
+	}
+	if err != nil || !blockchainOk {
+		return storageChannel, storageOk, nil
+	}
+
+	return mergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
+}
+
+func (h *escrowPaymentHandler) getChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	ch, ok, err := h.blockchain.MultiPartyEscrowChannel(key.ID)
+	if err != nil || !ok {
 		return
 	}
 
-	return getChannelStateFromBlockchain(h.mpe, key.ID)
+	configGroupId, err := config.GetBigIntFromViper(h.config, config.ReplicaGroupIDKey)
+	if err != nil {
+		return nil, false, err
+	}
+	if ch.GroupId.Cmp(configGroupId) != 0 {
+		log.WithField("configGroupId", configGroupId).Warn("Channel received belongs to another group of replicas")
+		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupId, ch.GroupId)
+	}
+
+	// TODO: check recipient
+
+	return &PaymentChannelData{
+		Nonce:            ch.Nonce,
+		State:            Open,
+		Sender:           ch.Sender,
+		Recipient:        ch.Recipient,
+		GroupId:          ch.GroupId,
+		FullAmount:       ch.Value,
+		Expiration:       ch.Expiration,
+		AuthorizedAmount: big.NewInt(0),
+		Signature:        nil,
+	}, true, nil
+}
+
+func mergeStorageAndBlockchainChannelState(storage, blockchain *PaymentChannelData) (merged *PaymentChannelData) {
+	cmp := storage.Nonce.Cmp(blockchain.Nonce)
+	if cmp > 0 {
+		return storage
+	}
+	if cmp < 0 {
+		return blockchain
+	}
+
+	tmp := *storage
+	merged = &tmp
+	merged.FullAmount = blockchain.FullAmount
+	merged.Expiration = blockchain.Expiration
+
+	return
 }
 
 func (h *escrowPaymentHandler) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim *Claim, err error) {
@@ -222,7 +274,7 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 	}
 
 	channelKey := &PaymentChannelKey{ID: internalPayment.ChannelID}
-	channel, ok, e := h.storage.Get(channelKey)
+	channel, ok, e := h.PaymentChannel(channelKey)
 	if e != nil {
 		return nil, status.Newf(codes.Internal, "payment channel storage error")
 	}

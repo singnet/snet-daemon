@@ -164,14 +164,14 @@ type EtcdKeyValue struct {
 // CompareAndSwap uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
 
-	return client.ExtendedCompareAndSwap(
+	return client.Transaction(
 		[]EtcdKeyValue{EtcdKeyValue{key: key, value: prevValue}},
 		[]EtcdKeyValue{EtcdKeyValue{key: key, value: newValue}},
 	)
 }
 
-// ExtendedCompareAndSwap uses CAS operation to compare and set multiple key values
-func (client *EtcdClient) ExtendedCompareAndSwap(compare []EtcdKeyValue, swap []EtcdKeyValue) (ok bool, err error) {
+// Transaction uses CAS operation to compare and set multiple key values
+func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValue) (ok bool, err error) {
 
 	log := log.WithField("func", "CompareAndSwap").WithField("client", client)
 

@@ -168,7 +168,7 @@ func (suite *EtcdTestSuite) TestEtcdCAS() {
 	assert.Nil(t, err)
 	assert.False(t, ok)
 }
-func (suite *EtcdTestSuite) TestEtcdExtendedCAS() {
+func (suite *EtcdTestSuite) TestEtcdTransaction() {
 
 	t := suite.T()
 	client := suite.client
@@ -192,7 +192,7 @@ func (suite *EtcdTestSuite) TestEtcdExtendedCAS() {
 	assertGet(suite, key1, expect1)
 	assertGet(suite, key2, expect2)
 
-	ok, err := client.ExtendedCompareAndSwap(
+	ok, err := client.Transaction(
 		[]EtcdKeyValue{
 			EtcdKeyValue{key: key1, value: expect1},
 			EtcdKeyValue{key: key2, value: expect2},
@@ -209,7 +209,7 @@ func (suite *EtcdTestSuite) TestEtcdExtendedCAS() {
 	assertGet(suite, key2, update2)
 	assertGet(suite, key3, update3)
 
-	ok, err = client.ExtendedCompareAndSwap(
+	ok, err = client.Transaction(
 		[]EtcdKeyValue{
 			EtcdKeyValue{key: key1, value: expect1},
 			EtcdKeyValue{key: key2, value: expect2},
@@ -226,7 +226,7 @@ func (suite *EtcdTestSuite) TestEtcdExtendedCAS() {
 	assertGet(suite, key2, update2)
 	assertGet(suite, key3, update3)
 
-	ok, err = client.ExtendedCompareAndSwap(
+	ok, err = client.Transaction(
 		[]EtcdKeyValue{
 			EtcdKeyValue{key: key1, value: expect1},
 			EtcdKeyValue{key: key2, value: update2},

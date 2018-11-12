@@ -25,7 +25,7 @@ type stateServiceTestType struct {
 }
 
 type paymentChannelServiceMock struct {
-	escrowPaymentHandler
+	paymentChannelService
 
 	err  error
 	key  *PaymentChannelKey

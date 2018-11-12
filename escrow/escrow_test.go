@@ -30,7 +30,7 @@ type escrowTestType struct {
 	recipientPublicKey        common.Address
 	storageMock               *storageMockType
 	testEscrowContractAddress common.Address
-	paymentHandler            *escrowPaymentHandler
+	paymentHandler            *paymentChannelService
 	defaultData               *testPaymentData
 	configMock                *viper.Viper
 }
@@ -78,7 +78,7 @@ var escrowTest = func() *escrowTestType {
 		currentBlock:          99,
 	}
 
-	var paymentHandler = &escrowPaymentHandler{
+	var paymentHandler = &paymentChannelService{
 		config:          configMock,
 		storage:         storageMock,
 		incomeValidator: incomeValidatorMock,
@@ -561,7 +561,7 @@ func TestValidatePaymentAmountIsTooBig(t *testing.T) {
 func TestValidatePaymentIncorrectIncome(t *testing.T) {
 	context := getTestContext(escrowTest.defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
-	paymentHandler := escrowPaymentHandler{
+	paymentHandler := paymentChannelService{
 		config:          escrowTest.configMock,
 		storage:         escrowTest.storageMock,
 		incomeValidator: &incomeValidatorMockType{err: incomeErr},

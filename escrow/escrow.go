@@ -51,8 +51,8 @@ type EscrowBlockchainApi interface {
 	MultiPartyEscrowChannel(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
 }
 
-// escrowPaymentHandler implements paymentHandlerType interface
-type escrowPaymentHandler struct {
+// paymentChannelService implements PaymentChannelService interface
+type paymentChannelService struct {
 	config          *viper.Viper
 	storage         PaymentChannelStorage
 	incomeValidator IncomeValidator
@@ -67,7 +67,7 @@ func NewPaymentChannelService(
 	incomeValidator IncomeValidator,
 	config *viper.Viper) PaymentChannelService {
 
-	return &escrowPaymentHandler{
+	return &paymentChannelService{
 		config:          config,
 		storage:         storage,
 		incomeValidator: incomeValidator,
@@ -79,7 +79,7 @@ func NewPaymentHandler(service PaymentChannelService) handler.PaymentHandler {
 	return service.(handler.PaymentHandler)
 }
 
-func (h *escrowPaymentHandler) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+func (h *paymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	storageChannel, storageOk, err := h.storage.Get(key)
 	if err != nil {
 		return
@@ -96,7 +96,7 @@ func (h *escrowPaymentHandler) PaymentChannel(key *PaymentChannelKey) (channel *
 	return mergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
 }
 
-func (h *escrowPaymentHandler) getChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+func (h *paymentChannelService) getChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	ch, ok, err := h.blockchain.MultiPartyEscrowChannel(key.ID)
 	if err != nil || !ok {
 		return
@@ -156,7 +156,7 @@ func (claim *claimImpl) Finish() error {
 	return claim.finish()
 }
 
-func (h *escrowPaymentHandler) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
+func (h *paymentChannelService) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
 	channel, ok, err := h.storage.Get(key)
 	if err != nil {
 		return
@@ -193,11 +193,11 @@ func getPaymentFromChannel(key *PaymentChannelKey, channel *PaymentChannelData) 
 	}
 }
 
-func (h *escrowPaymentHandler) Type() (typ string) {
+func (h *paymentChannelService) Type() (typ string) {
 	return EscrowPaymentType
 }
 
-func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *status.Status) {
+func (h *paymentChannelService) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *status.Status) {
 	internalPayment, err := h.getPaymentFromContext(context)
 	if err != nil {
 		return
@@ -221,7 +221,7 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 type escrowPaymentType struct {
 	payment Payment
 	channel *PaymentChannelData
-	service *escrowPaymentHandler
+	service *paymentChannelService
 }
 
 func (p *escrowPaymentType) String() string {
@@ -232,7 +232,7 @@ func (p *escrowPaymentType) Channel() *PaymentChannelData {
 	return p.channel
 }
 
-func (h *escrowPaymentHandler) StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error) {
+func (h *paymentChannelService) StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error) {
 	channelKey := &PaymentChannelKey{ID: payment.ChannelID}
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
@@ -254,7 +254,7 @@ func (h *escrowPaymentHandler) StartPaymentTransaction(payment *Payment) (transa
 	}, nil
 }
 
-func (h *escrowPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *status.Status) {
+func (h *paymentChannelService) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *status.Status) {
 	channelID, err := handler.GetBigInt(context.MD, PaymentChannelIDHeader)
 	if err != nil {
 		return
@@ -284,7 +284,7 @@ func (h *escrowPaymentHandler) getPaymentFromContext(context *handler.GrpcStream
 	}, nil
 }
 
-func (h *escrowPaymentHandler) Validate(_payment handler.Payment) (err *status.Status) {
+func (h *paymentChannelService) Validate(_payment handler.Payment) (err *status.Status) {
 	return nil
 }
 
@@ -293,11 +293,11 @@ type paymentValidationContext interface {
 	PaymentExpirationThreshold() (threshold *big.Int)
 }
 
-func (h *escrowPaymentHandler) CurrentBlock() (currentBlock *big.Int, err error) {
+func (h *paymentChannelService) CurrentBlock() (currentBlock *big.Int, err error) {
 	return h.blockchain.CurrentBlock()
 }
 
-func (h *escrowPaymentHandler) PaymentExpirationThreshold() (threshold *big.Int) {
+func (h *paymentChannelService) PaymentExpirationThreshold() (threshold *big.Int) {
 	return big.NewInt(h.config.GetInt64(config.PaymentExpirationThresholdBlocksKey))
 }
 
@@ -394,7 +394,7 @@ func bytesToBigInt(bytes []byte) *big.Int {
 	return (&big.Int{}).SetBytes(bytes)
 }
 
-func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.Status) {
+func (h *paymentChannelService) Complete(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
 	return paymentErrorToGrpcStatus(payment.Commit())
 }
@@ -448,7 +448,7 @@ func (payment *escrowPaymentType) Commit() error {
 	return nil
 }
 
-func (h *escrowPaymentHandler) CompleteAfterError(_payment handler.Payment, result error) (err *status.Status) {
+func (h *paymentChannelService) CompleteAfterError(_payment handler.Payment, result error) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
 	return paymentErrorToGrpcStatus(payment.Rollback())
 }

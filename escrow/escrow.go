@@ -1,14 +1,9 @@
 package escrow
 
 import (
-	"bytes"
-	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
@@ -210,7 +205,7 @@ func validatePaymentUsingChannelState(context paymentValidationContext, payment 
 
 	signerAddress, err := getSignerAddressFromPayment(payment)
 	if err != nil {
-		return
+		return NewPaymentError(Unauthenticated, "payment signature is not valid")
 	}
 
 	if *signerAddress != channel.Sender {
@@ -235,62 +230,6 @@ func validatePaymentUsingChannelState(context paymentValidationContext, payment 
 	}
 
 	return
-}
-
-func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err error) {
-	message := bytes.Join([][]byte{
-		payment.MpeContractAddress.Bytes(),
-		bigIntToBytes(payment.ChannelID),
-		bigIntToBytes(payment.ChannelNonce),
-		bigIntToBytes(payment.Amount),
-	}, nil)
-
-	signer, e := getSignerAddressFromMessage(message, payment.Signature)
-	if e != nil {
-		return nil, NewPaymentError(Unauthenticated, "payment signature is not valid")
-	}
-
-	return
-}
-
-func getSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
-	log := log.WithFields(log.Fields{
-		"message":   blockchain.BytesToBase64(message),
-		"signature": blockchain.BytesToBase64(signature),
-	})
-
-	messageHash := crypto.Keccak256(
-		blockchain.HashPrefix32Bytes,
-		crypto.Keccak256(message),
-	)
-	log = log.WithField("messageHash", hex.EncodeToString(messageHash))
-
-	v, _, _, e := blockchain.ParseSignature(signature)
-	if e != nil {
-		log.WithError(e).Warn("Error parsing signature")
-		return nil, errors.New("incorrect signature length")
-	}
-
-	modifiedSignature := bytes.Join([][]byte{signature[0:64], {v % 27}}, nil)
-	publicKey, e := crypto.SigToPub(messageHash, modifiedSignature)
-	if e != nil {
-		log.WithError(e).WithField("modifiedSignature", modifiedSignature).Warn("Incorrect signature")
-		return nil, errors.New("incorrect signature data")
-	}
-	log = log.WithField("publicKey", publicKey)
-
-	keyOwnerAddress := crypto.PubkeyToAddress(*publicKey)
-	log.WithField("keyOwnerAddress", keyOwnerAddress).Debug("Message signature parsed")
-
-	return &keyOwnerAddress, nil
-}
-
-func bigIntToBytes(value *big.Int) []byte {
-	return common.BigToHash(value).Bytes()
-}
-
-func bytesToBigInt(bytes []byte) *big.Int {
-	return (&big.Int{}).SetBytes(bytes)
 }
 
 func (payment *escrowPaymentType) Commit() error {

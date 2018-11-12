@@ -75,13 +75,8 @@ func NewPaymentChannelService(
 	}
 }
 
-type escrowPaymentType struct {
-	payment Payment
-	channel *PaymentChannelData
-}
-
-func (p *escrowPaymentType) String() string {
-	return fmt.Sprintf("{payment: %v, channel: %v}", p.payment, p.channel)
+func NewPaymentHandler(service PaymentChannelService) handler.PaymentHandler {
+	return service.(handler.PaymentHandler)
 }
 
 func (h *escrowPaymentHandler) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
@@ -208,30 +203,53 @@ func (h *escrowPaymentHandler) Payment(context *handler.GrpcStreamContext) (paym
 		return
 	}
 
-	channelKey := &PaymentChannelKey{ID: internalPayment.ChannelID}
-	channel, ok, e := h.PaymentChannel(channelKey)
+	transaction, e := h.StartPaymentTransaction(internalPayment)
 	if e != nil {
-		return nil, status.Newf(codes.Internal, "payment channel storage error")
-	}
-	if !ok {
-		log.Warn("Payment channel not found")
-		return nil, status.Newf(codes.InvalidArgument, "payment channel \"%v\" not found", channelKey)
-	}
-
-	err = validatePaymentUsingChannelState(h, internalPayment, channel)
-	if err != nil {
-		return nil, err
+		return nil, paymentErrorToGrpcStatus(e)
 	}
 
 	income := big.NewInt(0)
-	income.Sub(internalPayment.Amount, channel.AuthorizedAmount)
+	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
 	err = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
 	if err != nil {
 		return
 	}
 
+	return transaction, nil
+}
+
+type escrowPaymentType struct {
+	payment Payment
+	channel *PaymentChannelData
+	service *escrowPaymentHandler
+}
+
+func (p *escrowPaymentType) String() string {
+	return fmt.Sprintf("{payment: %v, channel: %v}", p.payment, p.channel)
+}
+
+func (p *escrowPaymentType) Channel() *PaymentChannelData {
+	return p.channel
+}
+
+func (h *escrowPaymentHandler) StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error) {
+	channelKey := &PaymentChannelKey{ID: payment.ChannelID}
+	channel, ok, err := h.PaymentChannel(channelKey)
+	if err != nil {
+		return nil, NewPaymentError(Internal, "payment channel storage error")
+	}
+	if !ok {
+		log.Warn("Payment channel not found")
+		return nil, NewPaymentError(Unauthenticated, "payment channel \"%v\" not found", channelKey)
+	}
+
+	err = validatePaymentUsingChannelState(h, payment, channel)
+	if err != nil {
+		return
+	}
+
 	return &escrowPaymentType{
-		payment: *internalPayment,
+		payment: *payment,
 		channel: channel,
 	}, nil
 }
@@ -283,12 +301,12 @@ func (h *escrowPaymentHandler) PaymentExpirationThreshold() (threshold *big.Int)
 	return big.NewInt(h.config.GetInt64(config.PaymentExpirationThresholdBlocksKey))
 }
 
-func validatePaymentUsingChannelState(context paymentValidationContext, payment *Payment, channel *PaymentChannelData) (err *status.Status) {
+func validatePaymentUsingChannelState(context paymentValidationContext, payment *Payment, channel *PaymentChannelData) (err error) {
 	var log = log.WithField("payment", payment).WithField("channel", channel)
 
 	if payment.ChannelNonce.Cmp(channel.Nonce) != 0 {
 		log.Warn("Incorrect nonce is sent by client")
-		return status.Newf(codes.Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.ChannelNonce)
+		return NewPaymentError(Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.ChannelNonce)
 	}
 
 	signerAddress, err := getSignerAddressFromPayment(payment)
@@ -298,29 +316,29 @@ func validatePaymentUsingChannelState(context paymentValidationContext, payment 
 
 	if *signerAddress != channel.Sender {
 		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
-		return status.New(codes.Unauthenticated, "payment is not signed by channel sender")
+		return NewPaymentError(Unauthenticated, "payment is not signed by channel sender")
 	}
 
 	currentBlock, e := context.CurrentBlock()
 	if e != nil {
-		return status.Newf(codes.Internal, "cannot determine current block")
+		return NewPaymentError(Internal, "cannot determine current block")
 	}
 	expirationThreshold := context.PaymentExpirationThreshold()
 	currentBlockWithThreshold := new(big.Int).Add(currentBlock, expirationThreshold)
 	if currentBlockWithThreshold.Cmp(channel.Expiration) >= 0 {
 		log.WithField("currentBlock", currentBlock).WithField("expirationThreshold", expirationThreshold).Warn("Channel expiration time is after expiration threshold")
-		return status.Newf(codes.Unauthenticated, "payment channel is near to be expired, expiration time: %v, current block: %v, expiration threshold: %v", channel.Expiration, currentBlock, expirationThreshold)
+		return NewPaymentError(Unauthenticated, "payment channel is near to be expired, expiration time: %v, current block: %v, expiration threshold: %v", channel.Expiration, currentBlock, expirationThreshold)
 	}
 
 	if channel.FullAmount.Cmp(payment.Amount) < 0 {
 		log.Warn("Not enough tokens on payment channel")
-		return status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: %v, payment amount: %v", channel.FullAmount, payment.Amount)
+		return NewPaymentError(Unauthenticated, "not enough tokens on payment channel, channel amount: %v, payment amount: %v", channel.FullAmount, payment.Amount)
 	}
 
 	return
 }
 
-func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err *status.Status) {
+func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err error) {
 	message := bytes.Join([][]byte{
 		payment.MpeContractAddress.Bytes(),
 		bigIntToBytes(payment.ChannelID),
@@ -330,7 +348,7 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 
 	signer, e := getSignerAddressFromMessage(message, payment.Signature)
 	if e != nil {
-		return nil, status.New(codes.Unauthenticated, "payment signature is not valid")
+		return nil, NewPaymentError(Unauthenticated, "payment signature is not valid")
 	}
 
 	return
@@ -378,7 +396,32 @@ func bytesToBigInt(bytes []byte) *big.Int {
 
 func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.Status) {
 	var payment = _payment.(*escrowPaymentType)
-	ok, e := h.storage.CompareAndSwap(
+	return paymentErrorToGrpcStatus(payment.Commit())
+}
+
+func paymentErrorToGrpcStatus(err error) *status.Status {
+	if err == nil {
+		return nil
+	}
+
+	if _, ok := err.(*PaymentError); !ok {
+		return status.Newf(codes.Internal, "internal error: %v", err)
+	}
+
+	var grpcCode codes.Code
+	switch err.(*PaymentError).Code {
+	case Internal:
+		grpcCode = codes.Internal
+	case Unauthenticated:
+		grpcCode = codes.Unauthenticated
+	default:
+		grpcCode = codes.Internal
+	}
+	return status.Newf(grpcCode, err.(*PaymentError).Message)
+}
+
+func (payment *escrowPaymentType) Commit() error {
+	ok, e := payment.service.storage.CompareAndSwap(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		payment.channel,
 		&PaymentChannelData{
@@ -395,16 +438,21 @@ func (h *escrowPaymentHandler) Complete(_payment handler.Payment) (err *status.S
 	)
 	if e != nil {
 		log.WithError(e).Error("Unable to store new payment channel state")
-		return status.New(codes.Internal, "unable to store new payment channel state")
+		return NewPaymentError(Internal, "unable to store new payment channel state")
 	}
 	if !ok {
 		log.WithField("payment", payment).Warn("Channel state was changed concurrently")
-		return status.Newf(codes.Unauthenticated, "state of payment channel was concurrently updated, channel id: %v", payment.payment.ChannelID)
+		return NewPaymentError(Unauthenticated, "state of payment channel was concurrently updated, channel id: %v", payment.payment.ChannelID)
 	}
 
-	return
+	return nil
 }
 
 func (h *escrowPaymentHandler) CompleteAfterError(_payment handler.Payment, result error) (err *status.Status) {
-	return
+	var payment = _payment.(*escrowPaymentType)
+	return paymentErrorToGrpcStatus(payment.Rollback())
+}
+
+func (payment *escrowPaymentType) Rollback() error {
+	return nil
 }

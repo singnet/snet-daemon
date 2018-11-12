@@ -24,6 +24,7 @@ type Components struct {
 	etcdServer                 *etcddb.EtcdServer
 	atomicStorage              escrow.AtomicStorage
 	paymentChannelService      escrow.PaymentChannelService
+	escrowPaymentHandler       handler.PaymentHandler
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
 }
@@ -177,6 +178,16 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	return components.paymentChannelService
 }
 
+func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
+	if components.escrowPaymentHandler != nil {
+		return components.escrowPaymentHandler
+	}
+
+	components.escrowPaymentHandler = escrow.NewPaymentHandler(components.PaymentChannelService())
+
+	return components.escrowPaymentHandler
+}
+
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
@@ -189,7 +200,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
 		components.grpcInterceptor = handler.GrpcStreamInterceptor(
 			blockchain.NewJobPaymentHandler(components.Blockchain()),
-			components.PaymentChannelService(),
+			components.EscrowPaymentHandler(),
 		)
 	}
 

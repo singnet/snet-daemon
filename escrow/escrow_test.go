@@ -268,6 +268,7 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 			Signature:        nil,
 			GroupId:          big.NewInt(data.GroupId),
 		},
+		service: escrowTest.paymentHandler,
 	}
 }
 
@@ -436,7 +437,7 @@ func TestGetPaymentNoChannel(t *testing.T) {
 
 	_, err := escrowTest.paymentHandler.Payment(context)
 
-	assert.Equal(t, status.New(codes.InvalidArgument, "payment channel \"{ID: 42}\" not found"), err)
+	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel \"{ID: 42}\" not found"), err)
 }
 
 func TestValidatePaymentChannelNonce(t *testing.T) {

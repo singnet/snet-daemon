@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/handler"
 )
 
 // Payment contains MultiPartyEscrow payment details
@@ -81,7 +80,7 @@ type PaymentChannelData struct {
 	// expressed in Ethereum block number. Since this block is added to
 	// blockchain Sender can withdraw tokens from channel.
 	Expiration *big.Int
-	// AuthorizedAmount is current amount which Sender authorized to withdraw by
+
 	// service provider. This amount increments on price after each successful
 	// RPC call.
 	AuthorizedAmount *big.Int
@@ -106,7 +105,49 @@ type PaymentChannelService interface {
 	// payment for claiming into the storage.
 	StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error)
 
-	handler.PaymentHandler
+	// StartPaymentTransaction validates payment and starts payment transaction
+	StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error)
+}
+
+// PaymentErrorCode contains all types of errors which we need to handle on the
+// client side.
+type PaymentErrorCode int
+
+const (
+	// Internal error code means that error is caused by improper daemon
+	// configuration or functioning. Client cannot do anything with it.
+	Internal PaymentErrorCode = 1
+	// Unauthenticated error code means that client sent payment which cannot
+	// be applied to the channel.
+	Unauthenticated PaymentErrorCode = 2
+)
+
+// PaymentError contains error code and message and implements Error interface.
+type PaymentError struct {
+	// Code is error code
+	Code PaymentErrorCode
+	// Message is message
+	Message string
+}
+
+// NewPaymentError constructs new PaymentError instance with given error code
+// and message.
+func NewPaymentError(code PaymentErrorCode, format string, msg ...interface{}) *PaymentError {
+	return &PaymentError{Code: code, Message: fmt.Sprintf(format, msg...)}
+}
+
+func (err *PaymentError) Error() string {
+	return err.Message
+}
+
+// PaymentTransaction is a payment transaction in progress.
+type PaymentTransaction interface {
+	// Channel returns the channel which is used to apply the payment
+	Channel() *PaymentChannelData
+	// Commit finishes transaction and applies payment.
+	Commit() error
+	// Rollback rolls transaction back.
+	Rollback() error
 }
 
 // Claim is a handle of payment channel claim in progress. It is returned by

@@ -30,7 +30,8 @@ type escrowTestType struct {
 	recipientPublicKey        common.Address
 	storageMock               *storageMockType
 	testEscrowContractAddress common.Address
-	paymentHandler            *paymentChannelService
+	paymentChannelService     *paymentChannelService
+	paymentHandler            *paymentChannelPaymentHandler
 	defaultData               *testPaymentData
 	configMock                *viper.Viper
 }
@@ -78,11 +79,15 @@ var escrowTest = func() *escrowTestType {
 		currentBlock:          99,
 	}
 
-	var paymentHandler = &paymentChannelService{
-		config:          configMock,
-		storage:         storageMock,
-		incomeValidator: incomeValidatorMock,
+	var paymentChannelService = &paymentChannelService{
+		config:     configMock,
+		storage:    storageMock,
+		blockchain: blockchainMock,
+	}
+	var paymentHandler = &paymentChannelPaymentHandler{
+		service:         paymentChannelService,
 		blockchain:      blockchainMock,
+		incomeValidator: incomeValidatorMock,
 	}
 	var defaultData = &testPaymentData{
 		ChannelID:           42,
@@ -103,6 +108,7 @@ var escrowTest = func() *escrowTestType {
 		recipientPublicKey:        recipientPublicKey,
 		storageMock:               storageMock,
 		testEscrowContractAddress: testEscrowContractAddress,
+		paymentChannelService:     paymentChannelService,
 		paymentHandler:            paymentHandler,
 		defaultData:               defaultData,
 		configMock:                configMock,
@@ -268,7 +274,7 @@ func getTestPayment(data *testPaymentData) *escrowPaymentType {
 			Signature:        nil,
 			GroupId:          big.NewInt(data.GroupId),
 		},
-		service: escrowTest.paymentHandler,
+		service: escrowTest.paymentChannelService,
 	}
 }
 
@@ -492,11 +498,13 @@ func TestValidatePaymentIncorrectSigner(t *testing.T) {
 }
 
 func TestValidatePaymentChannelCannotGetCurrentBlock(t *testing.T) {
-	handler := escrowTest.paymentHandler
-	handler.blockchain = &blockchainMockType{
+	service := escrowTest.paymentChannelService
+	service.blockchain = &blockchainMockType{
 		escrowContractAddress: escrowTest.testEscrowContractAddress,
 		err: errors.New("blockchain error"),
 	}
+	handler := escrowTest.paymentHandler
+	handler.service = service
 	context := getTestContext(patchDefaultData(func(d D) {
 		d.Expiration = 99
 	}))
@@ -508,11 +516,13 @@ func TestValidatePaymentChannelCannotGetCurrentBlock(t *testing.T) {
 }
 
 func TestValidatePaymentExpiredChannel(t *testing.T) {
-	handler := escrowTest.paymentHandler
-	handler.blockchain = &blockchainMockType{
+	service := escrowTest.paymentChannelService
+	service.blockchain = &blockchainMockType{
 		escrowContractAddress: escrowTest.testEscrowContractAddress,
 		currentBlock:          99,
 	}
+	handler := escrowTest.paymentHandler
+	handler.service = service
 	context := getTestContext(patchDefaultData(func(d D) {
 		d.Expiration = 99
 	}))
@@ -524,13 +534,15 @@ func TestValidatePaymentExpiredChannel(t *testing.T) {
 }
 
 func TestValidatePaymentChannelExpirationThreshold(t *testing.T) {
-	handler := escrowTest.paymentHandler
-	handler.config = viper.New()
-	handler.config.Set(config.PaymentExpirationThresholdBlocksKey, 1)
-	handler.blockchain = &blockchainMockType{
+	service := escrowTest.paymentChannelService
+	service.config = viper.New()
+	service.config.Set(config.PaymentExpirationThresholdBlocksKey, 1)
+	service.blockchain = &blockchainMockType{
 		escrowContractAddress: escrowTest.testEscrowContractAddress,
 		currentBlock:          98,
 	}
+	handler := escrowTest.paymentHandler
+	handler.service = service
 	context := getTestContext(patchDefaultData(func(d D) {
 		d.Expiration = 99
 	}))
@@ -561,11 +573,15 @@ func TestValidatePaymentAmountIsTooBig(t *testing.T) {
 func TestValidatePaymentIncorrectIncome(t *testing.T) {
 	context := getTestContext(escrowTest.defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
-	paymentHandler := paymentChannelService{
-		config:          escrowTest.configMock,
-		storage:         escrowTest.storageMock,
+	blockchain := &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress}
+	paymentHandler := paymentChannelPaymentHandler{
+		service: &paymentChannelService{
+			config:     escrowTest.configMock,
+			storage:    escrowTest.storageMock,
+			blockchain: blockchain,
+		},
 		incomeValidator: &incomeValidatorMockType{err: incomeErr},
-		blockchain:      &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress},
+		blockchain:      blockchain,
 	}
 
 	payment, err := paymentHandler.Payment(context)

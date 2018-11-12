@@ -185,3 +185,15 @@ var (
 		channel.Signature = nil
 	}
 )
+
+// EscrowBlockchainApi is an interface implemented by blockchain.Processor to
+// provide blockchain operations related to MultiPartyEscrow contract
+// processing.
+type EscrowBlockchainApi interface {
+	// EscrowContractAddress returns address of the MultiPartyEscrowContract
+	EscrowContractAddress() common.Address
+	// CurrentBlock returns current Ethereum blockchain block number
+	CurrentBlock() (currentBlock *big.Int, err error)
+	// MultiPartyEscrowChannel return MultiPartyEscrow channel by id
+	MultiPartyEscrowChannel(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
+}

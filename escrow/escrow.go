@@ -11,72 +11,30 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/handler"
 )
-
-const (
-	// PaymentChannelIDHeader is a MultiPartyEscrow contract payment channel
-	// id. Value is a string containing a decimal number.
-	PaymentChannelIDHeader = "snet-payment-channel-id"
-	// PaymentChannelNonceHeader is a payment channel nonce value. Value is a
-	// string containing a decimal number.
-	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
-	// PaymentChannelAmountHeader is an amount of payment channel value
-	// which server is authorized to withdraw after handling the RPC call.
-	// Value is a string containing a decimal number.
-	PaymentChannelAmountHeader = "snet-payment-channel-amount"
-	// PaymentChannelSignatureHeader is a signature of the client to confirm
-	// amount withdrawing authorization. Value is an array of bytes.
-	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
-
-	// EscrowPaymentType each call should have id and nonce of payment channel
-	// in metadata.
-	EscrowPaymentType = "escrow"
-)
-
-// EscrowBlockchainApi is an interface implemented by blockchain.Processor to
-// provide blockchain operations related to MultiPartyEscrow contract
-// processing.
-type EscrowBlockchainApi interface {
-	// EscrowContractAddress returns address of the MultiPartyEscrowContract
-	EscrowContractAddress() common.Address
-	// CurrentBlock returns current Ethereum blockchain block number
-	CurrentBlock() (currentBlock *big.Int, err error)
-	// MultiPartyEscrowChannel return MultiPartyEscrow channel by id
-	MultiPartyEscrowChannel(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
-}
 
 // paymentChannelService implements PaymentChannelService interface
 type paymentChannelService struct {
-	config          *viper.Viper
-	storage         PaymentChannelStorage
-	incomeValidator IncomeValidator
-	blockchain      EscrowBlockchainApi
+	config     *viper.Viper
+	storage    PaymentChannelStorage
+	blockchain EscrowBlockchainApi
 }
 
-// NewPaymentChannelService returns instance of handler.PaymentHandler to validate
-// payments via MultiPartyEscrow contract.
+// NewPaymentChannelService returns instance of PaymentChannelService to work
+// with payments via MultiPartyEscrow contract.
 func NewPaymentChannelService(
 	processor *blockchain.Processor,
 	storage PaymentChannelStorage,
-	incomeValidator IncomeValidator,
 	config *viper.Viper) PaymentChannelService {
 
 	return &paymentChannelService{
-		config:          config,
-		storage:         storage,
-		incomeValidator: incomeValidator,
-		blockchain:      processor,
+		config:     config,
+		storage:    storage,
+		blockchain: processor,
 	}
-}
-
-func NewPaymentHandler(service PaymentChannelService) handler.PaymentHandler {
-	return service.(handler.PaymentHandler)
 }
 
 func (h *paymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
@@ -193,31 +151,6 @@ func getPaymentFromChannel(key *PaymentChannelKey, channel *PaymentChannelData) 
 	}
 }
 
-func (h *paymentChannelService) Type() (typ string) {
-	return EscrowPaymentType
-}
-
-func (h *paymentChannelService) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *status.Status) {
-	internalPayment, err := h.getPaymentFromContext(context)
-	if err != nil {
-		return
-	}
-
-	transaction, e := h.StartPaymentTransaction(internalPayment)
-	if e != nil {
-		return nil, paymentErrorToGrpcStatus(e)
-	}
-
-	income := big.NewInt(0)
-	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
-	err = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
-	if err != nil {
-		return
-	}
-
-	return transaction, nil
-}
-
 type escrowPaymentType struct {
 	payment Payment
 	channel *PaymentChannelData
@@ -252,40 +185,6 @@ func (h *paymentChannelService) StartPaymentTransaction(payment *Payment) (trans
 		payment: *payment,
 		channel: channel,
 	}, nil
-}
-
-func (h *paymentChannelService) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *status.Status) {
-	channelID, err := handler.GetBigInt(context.MD, PaymentChannelIDHeader)
-	if err != nil {
-		return
-	}
-
-	channelNonce, err := handler.GetBigInt(context.MD, PaymentChannelNonceHeader)
-	if err != nil {
-		return
-	}
-
-	amount, err := handler.GetBigInt(context.MD, PaymentChannelAmountHeader)
-	if err != nil {
-		return
-	}
-
-	signature, err := handler.GetBytes(context.MD, PaymentChannelSignatureHeader)
-	if err != nil {
-		return
-	}
-
-	return &Payment{
-		MpeContractAddress: h.blockchain.EscrowContractAddress(),
-		ChannelID:          channelID,
-		ChannelNonce:       channelNonce,
-		Amount:             amount,
-		Signature:          signature,
-	}, nil
-}
-
-func (h *paymentChannelService) Validate(_payment handler.Payment) (err *status.Status) {
-	return nil
 }
 
 type paymentValidationContext interface {
@@ -394,32 +293,6 @@ func bytesToBigInt(bytes []byte) *big.Int {
 	return (&big.Int{}).SetBytes(bytes)
 }
 
-func (h *paymentChannelService) Complete(_payment handler.Payment) (err *status.Status) {
-	var payment = _payment.(*escrowPaymentType)
-	return paymentErrorToGrpcStatus(payment.Commit())
-}
-
-func paymentErrorToGrpcStatus(err error) *status.Status {
-	if err == nil {
-		return nil
-	}
-
-	if _, ok := err.(*PaymentError); !ok {
-		return status.Newf(codes.Internal, "internal error: %v", err)
-	}
-
-	var grpcCode codes.Code
-	switch err.(*PaymentError).Code {
-	case Internal:
-		grpcCode = codes.Internal
-	case Unauthenticated:
-		grpcCode = codes.Unauthenticated
-	default:
-		grpcCode = codes.Internal
-	}
-	return status.Newf(grpcCode, err.(*PaymentError).Message)
-}
-
 func (payment *escrowPaymentType) Commit() error {
 	ok, e := payment.service.storage.CompareAndSwap(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
@@ -446,11 +319,6 @@ func (payment *escrowPaymentType) Commit() error {
 	}
 
 	return nil
-}
-
-func (h *paymentChannelService) CompleteAfterError(_payment handler.Payment, result error) (err *status.Status) {
-	var payment = _payment.(*escrowPaymentType)
-	return paymentErrorToGrpcStatus(payment.Rollback())
 }
 
 func (payment *escrowPaymentType) Rollback() error {

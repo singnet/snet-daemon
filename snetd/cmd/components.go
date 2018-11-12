@@ -171,7 +171,6 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		components.Blockchain(),
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
-		escrow.NewIncomeValidator(),
 		config.Vip(),
 	)
 
@@ -183,7 +182,11 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 		return components.escrowPaymentHandler
 	}
 
-	components.escrowPaymentHandler = escrow.NewPaymentHandler(components.PaymentChannelService())
+	components.escrowPaymentHandler = escrow.NewPaymentHandler(
+		components.PaymentChannelService(),
+		components.Blockchain(),
+		escrow.NewIncomeValidator(),
+	)
 
 	return components.escrowPaymentHandler
 }

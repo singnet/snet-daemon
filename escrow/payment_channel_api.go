@@ -120,6 +120,9 @@ const (
 	// Unauthenticated error code means that client sent payment which cannot
 	// be applied to the channel.
 	Unauthenticated PaymentErrorCode = 2
+	// FailedPrecondition means that request cannot be handled because system
+	// is not in appropriate state.
+	FailedPrecondition PaymentErrorCode = 3
 )
 
 // PaymentError contains error code and message and implements Error interface.

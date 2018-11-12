@@ -128,6 +128,8 @@ func paymentErrorToGrpcStatus(err error) *status.Status {
 		grpcCode = codes.Internal
 	case Unauthenticated:
 		grpcCode = codes.Unauthenticated
+	case FailedPrecondition:
+		grpcCode = codes.FailedPrecondition
 	default:
 		grpcCode = codes.Internal
 	}

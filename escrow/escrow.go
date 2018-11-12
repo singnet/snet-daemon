@@ -11,11 +11,14 @@ import (
 	"github.com/singnet/snet-daemon/config"
 )
 
-// paymentChannelService implements PaymentChannelService interface
-type paymentChannelService struct {
+// lockingPaymentChannelService implements PaymentChannelService interface
+// using locks around proxied service call to guarantee that only one payment
+// at time is applied to channel
+type lockingPaymentChannelService struct {
 	config     *viper.Viper
 	storage    PaymentChannelStorage
 	blockchain EscrowBlockchainApi
+	locker     Locker
 }
 
 // NewPaymentChannelService returns instance of PaymentChannelService to work
@@ -25,14 +28,14 @@ func NewPaymentChannelService(
 	storage PaymentChannelStorage,
 	config *viper.Viper) PaymentChannelService {
 
-	return &paymentChannelService{
+	return &lockingPaymentChannelService{
 		config:     config,
 		storage:    storage,
 		blockchain: processor,
 	}
 }
 
-func (h *paymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	storageChannel, storageOk, err := h.storage.Get(key)
 	if err != nil {
 		return
@@ -49,7 +52,7 @@ func (h *paymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel 
 	return mergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
 }
 
-func (h *paymentChannelService) getChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+func (h *lockingPaymentChannelService) getChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	ch, ok, err := h.blockchain.MultiPartyEscrowChannel(key.ID)
 	if err != nil || !ok {
 		return
@@ -98,18 +101,39 @@ func mergeStorageAndBlockchainChannelState(storage, blockchain *PaymentChannelDa
 
 type claimImpl struct {
 	payment *Payment
-	finish  func() error
+	lock    Lock
 }
 
 func (claim *claimImpl) Payment() *Payment {
 	return claim.payment
 }
 
-func (claim *claimImpl) Finish() error {
-	return claim.finish()
+func (claim *claimImpl) Finish() (err error) {
+	err = claim.lock.Unlock()
+	if err != nil {
+		log.WithError(err).WithField("claim.payment", claim.payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+		return
+	}
+	return
 }
 
-func (h *paymentChannelService) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
+func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
+	lock, ok, err := h.locker.Lock(key.String())
+	if err != nil {
+		return nil, fmt.Errorf("cannot get mutex for channel: %v", key)
+	}
+	if !ok {
+		return nil, fmt.Errorf("another transaction on channel: %v is in progress", key)
+	}
+	defer func(lock Lock) {
+		if err != nil {
+			e := lock.Unlock()
+			if e != nil {
+				log.WithError(e).WithField("key", key).WithField("err", err).Error("Transaction is cancelled because of err, but channel cannot be unlocked. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+			}
+		}
+	}(lock)
+
 	channel, ok, err := h.storage.Get(key)
 	if err != nil {
 		return
@@ -131,7 +155,6 @@ func (h *paymentChannelService) StartClaim(key *PaymentChannelKey, update Channe
 
 	return &claimImpl{
 		payment: getPaymentFromChannel(key, channel),
-		finish:  func() error { return nil },
 	}, nil
 }
 
@@ -149,7 +172,8 @@ func getPaymentFromChannel(key *PaymentChannelKey, channel *PaymentChannelData) 
 type paymentTransaction struct {
 	payment Payment
 	channel *PaymentChannelData
-	service *paymentChannelService
+	service *lockingPaymentChannelService
+	lock    Lock
 }
 
 func (p *paymentTransaction) String() string {
@@ -160,8 +184,25 @@ func (p *paymentTransaction) Channel() *PaymentChannelData {
 	return p.channel
 }
 
-func (h *paymentChannelService) StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error) {
+func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error) {
 	channelKey := &PaymentChannelKey{ID: payment.ChannelID}
+
+	lock, ok, err := h.locker.Lock(channelKey.String())
+	if err != nil {
+		return nil, NewPaymentError(FailedPrecondition, "cannot get mutex for channel: %v", channelKey)
+	}
+	if !ok {
+		return nil, NewPaymentError(FailedPrecondition, "another transaction on channel: %v is in progress", channelKey)
+	}
+	defer func(lock Lock) {
+		if err != nil {
+			e := lock.Unlock()
+			if e != nil {
+				log.WithError(e).WithField("channelKey", channelKey).WithField("err", err).Error("Transaction is cancelled because of err, but channel cannot be unlocked. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+			}
+		}
+	}(lock)
+
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
 		return nil, NewPaymentError(Internal, "payment channel storage error")
@@ -179,18 +220,25 @@ func (h *paymentChannelService) StartPaymentTransaction(payment *Payment) (trans
 	return &paymentTransaction{
 		payment: *payment,
 		channel: channel,
+		lock:    lock,
 	}, nil
 }
 
-func (h *paymentChannelService) CurrentBlock() (currentBlock *big.Int, err error) {
+func (h *lockingPaymentChannelService) CurrentBlock() (currentBlock *big.Int, err error) {
 	return h.blockchain.CurrentBlock()
 }
 
-func (h *paymentChannelService) PaymentExpirationThreshold() (threshold *big.Int) {
+func (h *lockingPaymentChannelService) PaymentExpirationThreshold() (threshold *big.Int) {
 	return big.NewInt(h.config.GetInt64(config.PaymentExpirationThresholdBlocksKey))
 }
 
 func (payment *paymentTransaction) Commit() error {
+	defer func(payment *paymentTransaction) {
+		err := payment.lock.Unlock()
+		if err != nil {
+			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+		}
+	}(payment)
 	ok, e := payment.service.storage.CompareAndSwap(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		payment.channel,

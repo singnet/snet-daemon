@@ -30,7 +30,7 @@ type escrowTestType struct {
 	recipientPublicKey        common.Address
 	storageMock               *storageMockType
 	testEscrowContractAddress common.Address
-	paymentChannelService     *paymentChannelService
+	paymentChannelService     *lockingPaymentChannelService
 	paymentHandler            *paymentChannelPaymentHandler
 	defaultData               *testPaymentData
 	configMock                *viper.Viper
@@ -79,10 +79,11 @@ var escrowTest = func() *escrowTestType {
 		currentBlock:          99,
 	}
 
-	var paymentChannelService = &paymentChannelService{
+	var paymentChannelService = &lockingPaymentChannelService{
 		config:     configMock,
 		storage:    storageMock,
 		blockchain: blockchainMock,
+		locker:     &lockerMock{},
 	}
 	var paymentHandler = &paymentChannelPaymentHandler{
 		service:         paymentChannelService,
@@ -275,6 +276,7 @@ func getTestPayment(data *testPaymentData) *paymentTransaction {
 			GroupId:          big.NewInt(data.GroupId),
 		},
 		service: escrowTest.paymentChannelService,
+		lock:    &lockMock{},
 	}
 }
 
@@ -575,10 +577,11 @@ func TestValidatePaymentIncorrectIncome(t *testing.T) {
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	blockchain := &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress}
 	paymentHandler := paymentChannelPaymentHandler{
-		service: &paymentChannelService{
+		service: &lockingPaymentChannelService{
 			config:     escrowTest.configMock,
 			storage:    escrowTest.storageMock,
 			blockchain: blockchain,
+			locker:     &lockerMock{},
 		},
 		incomeValidator: &incomeValidatorMockType{err: incomeErr},
 		blockchain:      blockchain,

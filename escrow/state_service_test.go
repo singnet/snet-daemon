@@ -25,7 +25,7 @@ type stateServiceTestType struct {
 }
 
 type paymentChannelServiceMock struct {
-	paymentChannelService
+	lockingPaymentChannelService
 
 	err  error
 	key  *PaymentChannelKey

@@ -51,64 +51,6 @@ type EscrowBlockchainApi interface {
 	MultiPartyEscrowChannel(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
 }
 
-// Claim is a handle of payment channel claim in progress. It is returned by
-// StartClaim method and provides caller information about payment to call
-// MultiPartyEscrow.channelClaim function. After transaction is written to
-// blockchain caller should call Finish() method to update payment repository
-// state.
-type Claim struct {
-	payment *Payment
-	finish  func() error
-}
-
-// Payment returns the payment which is being claimed, caller uses details of
-// the payment to start blockchain transaction.
-func (claim *Claim) Payment() *Payment {
-	return claim.payment
-}
-
-// Finish to be called after blockchain transaction is finished successfully.
-// Updates repository state.
-func (claim *Claim) Finish() error {
-	return claim.finish()
-}
-
-// ChannelUpdate is an type of channel update which should be applied when
-// StartClaim() method is called.
-type ChannelUpdate func(channel *PaymentChannelData)
-
-var (
-	// CloseChannel is an update which zeroes full amount of the channel to
-	// designate that channel sender should add funds to the channel before
-	// continue working.
-	CloseChannel ChannelUpdate = func(channel *PaymentChannelData) {
-		channel.FullAmount = big.NewInt(0)
-	}
-	// IncrementChannelNonce is an update which increments channel nonce and
-	// descreases full amount to allow channel sender continue working with
-	// remaining amount.
-	IncrementChannelNonce ChannelUpdate = func(channel *PaymentChannelData) {
-		channel.Nonce = (&big.Int{}).Add(channel.Nonce, big.NewInt(1))
-		channel.FullAmount = (&big.Int{}).Sub(channel.FullAmount, channel.AuthorizedAmount)
-		channel.AuthorizedAmount = big.NewInt(0)
-		channel.Signature = nil
-	}
-)
-
-// PaymentChannelService interface is API for payment channel functionality.
-type PaymentChannelService interface {
-	// PaymentChannel returns latest payment channel state. This method uses
-	// shared storage and blockchain to construct and return latest channel
-	// state.
-	PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
-
-	// StartClaim gets channel from storage, applies update on it and adds
-	// payment for claiming into the storage.
-	StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim *Claim, err error)
-
-	handler.PaymentHandler
-}
-
 // escrowPaymentHandler implements paymentHandlerType interface
 type escrowPaymentHandler struct {
 	config          *viper.Viper
@@ -133,29 +75,9 @@ func NewPaymentChannelService(
 	}
 }
 
-// Payment contains MultiPartyEscrow payment details
-type Payment struct {
-	// MpeContractAddress is an address of the MultiPartyEscrow contract which
-	// were used to open the payment channel.
-	MpeContractAddress common.Address
-	// ChannelID is an id of the payment channel used.
-	ChannelID *big.Int
-	// ChannelNonce is a nonce of the payment channel.
-	ChannelNonce *big.Int
-	// Amount is an amount of the payment.
-	Amount *big.Int
-	// Signature is a signature of the payment.
-	Signature []byte
-}
-
 type escrowPaymentType struct {
 	payment Payment
 	channel *PaymentChannelData
-}
-
-func (p *Payment) String() string {
-	return fmt.Sprintf("{MpeContractAddress: %v, ChannelID: %v, ChannelNonce: %v, Amount: %v, Signature: %v}",
-		p.MpeContractAddress, p.ChannelID, p.ChannelNonce, p.Amount, blockchain.BytesToBase64(p.Signature))
 }
 
 func (p *escrowPaymentType) String() string {

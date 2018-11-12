@@ -146,17 +146,17 @@ func getPaymentFromChannel(key *PaymentChannelKey, channel *PaymentChannelData) 
 	}
 }
 
-type escrowPaymentType struct {
+type paymentTransaction struct {
 	payment Payment
 	channel *PaymentChannelData
 	service *paymentChannelService
 }
 
-func (p *escrowPaymentType) String() string {
+func (p *paymentTransaction) String() string {
 	return fmt.Sprintf("{payment: %v, channel: %v}", p.payment, p.channel)
 }
 
-func (p *escrowPaymentType) Channel() *PaymentChannelData {
+func (p *paymentTransaction) Channel() *PaymentChannelData {
 	return p.channel
 }
 
@@ -176,7 +176,7 @@ func (h *paymentChannelService) StartPaymentTransaction(payment *Payment) (trans
 		return
 	}
 
-	return &escrowPaymentType{
+	return &paymentTransaction{
 		payment: *payment,
 		channel: channel,
 	}, nil
@@ -232,7 +232,7 @@ func validatePaymentUsingChannelState(context paymentValidationContext, payment 
 	return
 }
 
-func (payment *escrowPaymentType) Commit() error {
+func (payment *paymentTransaction) Commit() error {
 	ok, e := payment.service.storage.CompareAndSwap(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		payment.channel,
@@ -260,6 +260,6 @@ func (payment *escrowPaymentType) Commit() error {
 	return nil
 }
 
-func (payment *escrowPaymentType) Rollback() error {
+func (payment *paymentTransaction) Rollback() error {
 	return nil
 }

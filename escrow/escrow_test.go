@@ -250,12 +250,12 @@ func patchDefaultData(patch func(d D)) (cpy *testPaymentData) {
 	return cpy
 }
 
-func getTestPayment(data *testPaymentData) *escrowPaymentType {
+func getTestPayment(data *testPaymentData) *paymentTransaction {
 	signature := data.Signature
 	if signature == nil {
 		signature = getPaymentSignature(&escrowTest.testEscrowContractAddress, data.ChannelID, data.PaymentChannelNonce, data.NewAmount, escrowTest.testPrivateKey)
 	}
-	return &escrowPaymentType{
+	return &paymentTransaction{
 		payment: Payment{
 			MpeContractAddress: escrowTest.testEscrowContractAddress,
 			ChannelID:          big.NewInt(data.ChannelID),
@@ -385,7 +385,7 @@ func TestGetPayment(t *testing.T) {
 
 	assert.Nil(t, err)
 	expected := getTestPayment(data)
-	actual := payment.(*escrowPaymentType)
+	actual := payment.(*paymentTransaction)
 	assert.Equal(t, toJSON(expected.payment.ChannelID), toJSON(actual.payment.ChannelID))
 	assert.Equal(t, toJSON(expected.payment.ChannelNonce), toJSON(actual.payment.ChannelNonce))
 	assert.Equal(t, expected.payment.Amount, actual.payment.Amount)

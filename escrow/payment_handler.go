@@ -106,11 +106,11 @@ func (h *paymentChannelPaymentHandler) Validate(_payment handler.Payment) (err *
 }
 
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *status.Status) {
-	return paymentErrorToGrpcStatus(payment.(*escrowPaymentType).Commit())
+	return paymentErrorToGrpcStatus(payment.(*paymentTransaction).Commit())
 }
 
 func (h *paymentChannelPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *status.Status) {
-	return paymentErrorToGrpcStatus(payment.(*escrowPaymentType).Rollback())
+	return paymentErrorToGrpcStatus(payment.(*paymentTransaction).Rollback())
 }
 
 func paymentErrorToGrpcStatus(err error) *status.Status {

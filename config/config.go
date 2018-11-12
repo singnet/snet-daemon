@@ -95,6 +95,7 @@ const (
 		"cluster": "storage-1=http://127.0.0.1:2380",
 		"startup_timeout": "1m",
 		"data_dir": "storage-data-dir-1.etcd",
+		"log_level": "info",
 		"enabled": true
 	}
 }

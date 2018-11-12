@@ -39,6 +39,11 @@ var ServeCmd = &cobra.Command{
 		components := InitComponents(cmd)
 		defer components.Close()
 
+		etcdServer := components.EtcdServer()
+		if etcdServer == nil {
+			log.Info("Etcd server is disabled in the config file.")
+		}
+
 		err = logger.InitLogger(config.SubWithDefault(config.Vip(), config.LogKey))
 		if err != nil {
 			log.WithError(err).Fatal("Unable to initialize logger")

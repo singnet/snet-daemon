@@ -104,7 +104,7 @@ type PaymentChannelService interface {
 
 	// StartClaim gets channel from storage, applies update on it and adds
 	// payment for claiming into the storage.
-	StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim *Claim, err error)
+	StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error)
 
 	handler.PaymentHandler
 }
@@ -114,21 +114,13 @@ type PaymentChannelService interface {
 // MultiPartyEscrow.channelClaim function. After transaction is written to
 // blockchain caller should call Finish() method to update payment repository
 // state.
-type Claim struct {
-	payment *Payment
-	finish  func() error
-}
-
-// Payment returns the payment which is being claimed, caller uses details of
-// the payment to start blockchain transaction.
-func (claim *Claim) Payment() *Payment {
-	return claim.payment
-}
-
-// Finish to be called after blockchain transaction is finished successfully.
-// Updates repository state.
-func (claim *Claim) Finish() error {
-	return claim.finish()
+type Claim interface {
+	// Payment returns the payment which is being claimed, caller uses details of
+	// the payment to start blockchain transaction.
+	Payment() *Payment
+	// Finish to be called after blockchain transaction is finished successfully.
+	// Updates repository state.
+	Finish() error
 }
 
 // ChannelUpdate is an type of channel update which should be applied when

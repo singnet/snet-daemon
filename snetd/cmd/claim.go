@@ -101,7 +101,7 @@ func (command *claimCommand) Run() (err error) {
 	return
 }
 
-func (command *claimCommand) claimPaymentFromChannel(claim *escrow.Claim) (err error) {
+func (command *claimCommand) claimPaymentFromChannel(claim escrow.Claim) (err error) {
 	payment := claim.Payment()
 
 	err = command.blockchain.ClaimFundsFromChannel(

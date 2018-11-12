@@ -148,7 +148,20 @@ func mergeStorageAndBlockchainChannelState(storage, blockchain *PaymentChannelDa
 	return
 }
 
-func (h *escrowPaymentHandler) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim *Claim, err error) {
+type claimImpl struct {
+	payment *Payment
+	finish  func() error
+}
+
+func (claim *claimImpl) Payment() *Payment {
+	return claim.payment
+}
+
+func (claim *claimImpl) Finish() error {
+	return claim.finish()
+}
+
+func (h *escrowPaymentHandler) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
 	channel, ok, err := h.storage.Get(key)
 	if err != nil {
 		return
@@ -168,7 +181,7 @@ func (h *escrowPaymentHandler) StartClaim(key *PaymentChannelKey, update Channel
 		return nil, fmt.Errorf("Channel was concurrently updated, channel key: %v", key)
 	}
 
-	return &Claim{
+	return &claimImpl{
 		payment: getPaymentFromChannel(key, channel),
 		finish:  func() error { return nil },
 	}, nil

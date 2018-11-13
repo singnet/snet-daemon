@@ -2,41 +2,33 @@ package escrow
 
 import (
 	"fmt"
-	"math/big"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
 )
 
 // lockingPaymentChannelService implements PaymentChannelService interface
 // using locks around proxied service call to guarantee that only one payment
 // at time is applied to channel
 type lockingPaymentChannelService struct {
-	config     *viper.Viper
-	storage    PaymentChannelStorage
-	blockchain EscrowBlockchainApi
-	locker     Locker
-	validator  *ChannelPaymentValidator
+	storage          PaymentChannelStorage
+	blockchainReader *BlockchainChannelReader
+	locker           Locker
+	validator        *ChannelPaymentValidator
 }
 
 // NewPaymentChannelService returns instance of PaymentChannelService to work
 // with payments via MultiPartyEscrow contract.
 func NewPaymentChannelService(
-	processor *blockchain.Processor,
 	storage PaymentChannelStorage,
-	config *viper.Viper,
+	blockchainReader *BlockchainChannelReader,
 	locker Locker,
 	channelPaymentValidator *ChannelPaymentValidator) PaymentChannelService {
 
 	return &lockingPaymentChannelService{
-		config:     config,
-		storage:    storage,
-		blockchain: processor,
-		locker:     locker,
-		validator:  channelPaymentValidator,
+		storage:          storage,
+		blockchainReader: blockchainReader,
+		locker:           locker,
+		validator:        channelPaymentValidator,
 	}
 }
 
@@ -46,7 +38,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 		return
 	}
 
-	blockchainChannel, blockchainOk, err := h.getChannelStateFromBlockchain(key)
+	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
 	if !storageOk {
 		return blockchainChannel, blockchainOk, err
 	}
@@ -54,54 +46,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 		return storageChannel, storageOk, nil
 	}
 
-	return mergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
-}
-
-func (h *lockingPaymentChannelService) getChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
-	ch, ok, err := h.blockchain.MultiPartyEscrowChannel(key.ID)
-	if err != nil || !ok {
-		return
-	}
-
-	configGroupId, err := config.GetBigIntFromViper(h.config, config.ReplicaGroupIDKey)
-	if err != nil {
-		return nil, false, err
-	}
-	if ch.GroupId.Cmp(configGroupId) != 0 {
-		log.WithField("configGroupId", configGroupId).Warn("Channel received belongs to another group of replicas")
-		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupId, ch.GroupId)
-	}
-
-	// TODO: check recipient
-
-	return &PaymentChannelData{
-		Nonce:            ch.Nonce,
-		State:            Open,
-		Sender:           ch.Sender,
-		Recipient:        ch.Recipient,
-		GroupId:          ch.GroupId,
-		FullAmount:       ch.Value,
-		Expiration:       ch.Expiration,
-		AuthorizedAmount: big.NewInt(0),
-		Signature:        nil,
-	}, true, nil
-}
-
-func mergeStorageAndBlockchainChannelState(storage, blockchain *PaymentChannelData) (merged *PaymentChannelData) {
-	cmp := storage.Nonce.Cmp(blockchain.Nonce)
-	if cmp > 0 {
-		return storage
-	}
-	if cmp < 0 {
-		return blockchain
-	}
-
-	tmp := *storage
-	merged = &tmp
-	merged.FullAmount = blockchain.FullAmount
-	merged.Expiration = blockchain.Expiration
-
-	return
+	return MergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
 }
 
 type claimImpl struct {

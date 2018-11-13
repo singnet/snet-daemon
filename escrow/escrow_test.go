@@ -135,17 +135,11 @@ var escrowTest = func() *escrowTestType {
 	var configMock = viper.New()
 	configMock.Set(config.PaymentExpirationThresholdBlocksKey, 0)
 
-	var blockchainMock = &blockchainMockType{
-		escrowContractAddress: testEscrowContractAddress,
-		currentBlock:          99,
-	}
-
 	var paymentChannelService = &lockingPaymentChannelService{
-		config:     configMock,
-		storage:    storageMock,
-		blockchain: blockchainMock,
-		locker:     &lockerMock{},
-		validator:  ChannelPaymentValidatorMock(),
+		storage:          storageMock,
+		blockchainReader: NewBlockchainChannelReaderMock(),
+		locker:           &lockerMock{},
+		validator:        ChannelPaymentValidatorMock(),
 	}
 	var paymentHandler = &paymentChannelPaymentHandler{
 		service:            paymentChannelService,

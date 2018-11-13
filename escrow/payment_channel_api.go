@@ -26,7 +26,7 @@ type Payment struct {
 
 func (p *Payment) String() string {
 	return fmt.Sprintf("{MpeContractAddress: %v, ChannelID: %v, ChannelNonce: %v, Amount: %v, Signature: %v}",
-		p.MpeContractAddress, p.ChannelID, p.ChannelNonce, p.Amount, blockchain.BytesToBase64(p.Signature))
+		blockchain.AddressToHex(&p.MpeContractAddress), p.ChannelID, p.ChannelNonce, p.Amount, blockchain.BytesToBase64(p.Signature))
 }
 
 // PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It

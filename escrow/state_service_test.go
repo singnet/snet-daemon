@@ -26,7 +26,7 @@ type stateServiceTestType struct {
 
 var stateServiceTest = func() stateServiceTestType {
 	channelServiceMock := &paymentChannelServiceMock{}
-	senderPrivateKey := generatePrivateKey()
+	senderPrivateKey := GenerateTestPrivateKey()
 	senderAddress := crypto.PubkeyToAddress(senderPrivateKey.PublicKey)
 
 	defaultChannelId := big.NewInt(42)
@@ -148,7 +148,7 @@ func TestGetChannelStateIncorrectSender(t *testing.T) {
 			ChannelId: bigIntToBytes(stateServiceTest.defaultChannelId),
 			Signature: getSignature(
 				bigIntToBytes(stateServiceTest.defaultChannelId),
-				generatePrivateKey()),
+				GenerateTestPrivateKey()),
 		},
 	)
 

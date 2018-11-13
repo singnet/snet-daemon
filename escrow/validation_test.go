@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -22,6 +23,39 @@ func ChannelPaymentValidatorMock() *ChannelPaymentValidator {
 	}
 }
 
+func SignTestPayment(payment *Payment, privateKey *ecdsa.PrivateKey) {
+	message := bytes.Join([][]byte{
+		payment.MpeContractAddress.Bytes(),
+		bigIntToBytes(payment.ChannelID),
+		bigIntToBytes(payment.ChannelNonce),
+		bigIntToBytes(payment.Amount),
+	}, nil)
+
+	payment.Signature = getSignature(message, privateKey)
+}
+
+func getSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
+	hash := crypto.Keccak256(
+		blockchain.HashPrefix32Bytes,
+		crypto.Keccak256(message),
+	)
+
+	signature, err := crypto.Sign(hash, privateKey)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot sign test message: %v", err))
+	}
+
+	return signature
+}
+
+func GenerateTestPrivateKey() (privateKey *ecdsa.PrivateKey) {
+	privateKey, err := crypto.GenerateKey()
+	if err != nil {
+		panic(fmt.Sprintf("Cannot generate private key for test: %v", err))
+	}
+	return
+}
+
 type ValidationTestSuite struct {
 	suite.Suite
 
@@ -38,9 +72,9 @@ func TestValidationTestSuite(t *testing.T) {
 }
 
 func (suite *ValidationTestSuite) SetupSuite() {
-	suite.senderPrivateKey = generatePrivateKey()
+	suite.senderPrivateKey = GenerateTestPrivateKey()
 	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPrivateKey.PublicKey)
-	suite.recipientAddress = crypto.PubkeyToAddress(generatePrivateKey().PublicKey)
+	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	suite.validator = ChannelPaymentValidator{
@@ -56,7 +90,7 @@ func (suite *ValidationTestSuite) payment() *Payment {
 		ChannelNonce:       big.NewInt(3),
 		MpeContractAddress: suite.mpeContractAddress,
 	}
-	suite.sign(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.senderPrivateKey)
 	return payment
 }
 
@@ -73,17 +107,6 @@ func (suite *ValidationTestSuite) channel() *PaymentChannelData {
 	}
 }
 
-func (suite *ValidationTestSuite) sign(payment *Payment, privateKey *ecdsa.PrivateKey) {
-	message := bytes.Join([][]byte{
-		payment.MpeContractAddress.Bytes(),
-		bigIntToBytes(payment.ChannelID),
-		bigIntToBytes(payment.ChannelNonce),
-		bigIntToBytes(payment.Amount),
-	}, nil)
-
-	payment.Signature = getSignature(message, privateKey)
-}
-
 func (suite *ValidationTestSuite) TestPaymentIsValid() {
 	payment := suite.payment()
 	channel := suite.channel()
@@ -96,7 +119,7 @@ func (suite *ValidationTestSuite) TestPaymentIsValid() {
 func (suite *ValidationTestSuite) TestValidatePaymentChannelNonce() {
 	payment := suite.payment()
 	payment.ChannelNonce = big.NewInt(2)
-	suite.sign(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.senderPrivateKey)
 	channel := suite.channel()
 	channel.Nonce = big.NewInt(3)
 
@@ -171,7 +194,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentChannelExpirationThreshold(
 func (suite *ValidationTestSuite) TestValidatePaymentAmountIsTooBig() {
 	payment := suite.payment()
 	payment.Amount = big.NewInt(12346)
-	suite.sign(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.senderPrivateKey)
 	channel := suite.channel()
 	channel.FullAmount = big.NewInt(12345)
 

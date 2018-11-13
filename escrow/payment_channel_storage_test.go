@@ -32,8 +32,8 @@ type BlockchainChannelReaderSuite struct {
 }
 
 func (suite *BlockchainChannelReaderSuite) SetupSuite() {
-	suite.senderAddress = crypto.PubkeyToAddress(generatePrivateKey().PublicKey)
-	suite.recipientAddress = crypto.PubkeyToAddress(generatePrivateKey().PublicKey)
+	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
+	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 
 	suite.reader = BlockchainChannelReader{
 		replicaGroupID: func() (*big.Int, error) { return big.NewInt(123), nil },

@@ -171,6 +171,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 		payment: *payment,
 		channel: channel,
 		lock:    lock,
+		service: h,
 	}, nil
 }
 
@@ -181,9 +182,8 @@ func (payment *paymentTransaction) Commit() error {
 			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
 		}
 	}(payment)
-	ok, e := payment.service.storage.CompareAndSwap(
+	e := payment.service.storage.Put(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
-		payment.channel,
 		&PaymentChannelData{
 			Nonce:            payment.channel.Nonce,
 			State:            payment.channel.State,
@@ -199,10 +199,6 @@ func (payment *paymentTransaction) Commit() error {
 	if e != nil {
 		log.WithError(e).Error("Unable to store new payment channel state")
 		return NewPaymentError(Internal, "unable to store new payment channel state")
-	}
-	if !ok {
-		log.WithField("payment", payment).Warn("Channel state was changed concurrently")
-		return NewPaymentError(Unauthenticated, "state of payment channel was concurrently updated, channel id: %v", payment.payment.ChannelID)
 	}
 
 	return nil

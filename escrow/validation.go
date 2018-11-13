@@ -46,6 +46,7 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 		return NewPaymentError(Unauthenticated, "payment signature is not valid")
 	}
 
+	log = log.WithField("signerAddress", blockchain.AddressToHex(signerAddress))
 	if *signerAddress != channel.Sender {
 		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
 		return NewPaymentError(Unauthenticated, "payment is not signed by channel sender")

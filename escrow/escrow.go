@@ -28,12 +28,14 @@ func NewPaymentChannelService(
 	processor *blockchain.Processor,
 	storage PaymentChannelStorage,
 	config *viper.Viper,
+	locker Locker,
 	channelPaymentValidator *ChannelPaymentValidator) PaymentChannelService {
 
 	return &lockingPaymentChannelService{
 		config:     config,
 		storage:    storage,
 		blockchain: processor,
+		locker:     locker,
 		validator:  channelPaymentValidator,
 	}
 }

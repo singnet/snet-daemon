@@ -24,39 +24,6 @@ type stateServiceTestType struct {
 	defaultReply       *ChannelStateReply
 }
 
-type paymentChannelServiceMock struct {
-	lockingPaymentChannelService
-
-	err  error
-	key  *PaymentChannelKey
-	data *PaymentChannelData
-}
-
-func (p *paymentChannelServiceMock) PaymentChannel(key *PaymentChannelKey) (*PaymentChannelData, bool, error) {
-	if p.err != nil {
-		return nil, false, p.err
-	}
-	if p.key == nil || p.key.ID.Cmp(key.ID) != 0 {
-		return nil, false, nil
-	}
-	return p.data, true, nil
-}
-
-func (p *paymentChannelServiceMock) Put(key *PaymentChannelKey, data *PaymentChannelData) {
-	p.key = key
-	p.data = data
-}
-
-func (p *paymentChannelServiceMock) SetError(err error) {
-	p.err = err
-}
-
-func (p *paymentChannelServiceMock) Clear() {
-	p.key = nil
-	p.data = nil
-	p.err = nil
-}
-
 var stateServiceTest = func() stateServiceTestType {
 	channelServiceMock := &paymentChannelServiceMock{}
 	senderPrivateKey := generatePrivateKey()

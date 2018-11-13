@@ -3,6 +3,7 @@ package escrow
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -30,9 +31,9 @@ const (
 )
 
 type paymentChannelPaymentHandler struct {
-	service         PaymentChannelService
-	blockchain      EscrowBlockchainApi
-	incomeValidator IncomeValidator
+	service            PaymentChannelService
+	mpeContractAddress func() common.Address
+	incomeValidator    IncomeValidator
 }
 
 func NewPaymentHandler(
@@ -40,9 +41,9 @@ func NewPaymentHandler(
 	blockchain EscrowBlockchainApi,
 	incomeValidator IncomeValidator) handler.PaymentHandler {
 	return &paymentChannelPaymentHandler{
-		service:         service,
-		blockchain:      blockchain,
-		incomeValidator: incomeValidator,
+		service:            service,
+		mpeContractAddress: blockchain.EscrowContractAddress,
+		incomeValidator:    incomeValidator,
 	}
 }
 
@@ -93,7 +94,7 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 	}
 
 	return &Payment{
-		MpeContractAddress: h.blockchain.EscrowContractAddress(),
+		MpeContractAddress: h.mpeContractAddress(),
 		ChannelID:          channelID,
 		ChannelNonce:       channelNonce,
 		Amount:             amount,

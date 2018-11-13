@@ -11,6 +11,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type incomeValidatorMockType struct {
+	err *status.Status
+}
+
+func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (err *status.Status) {
+	return incomeValidator.err
+}
+
 func TestIncomeValidate(t *testing.T) {
 
 	price := config.GetBigInt(config.PricePerCallKey)

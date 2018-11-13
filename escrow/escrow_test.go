@@ -24,6 +24,67 @@ import (
 	"github.com/singnet/snet-daemon/handler"
 )
 
+type paymentChannelServiceMock struct {
+	lockingPaymentChannelService
+
+	err  error
+	key  *PaymentChannelKey
+	data *PaymentChannelData
+}
+
+func (p *paymentChannelServiceMock) PaymentChannel(key *PaymentChannelKey) (*PaymentChannelData, bool, error) {
+	if p.err != nil {
+		return nil, false, p.err
+	}
+	if p.key == nil || p.key.ID.Cmp(key.ID) != 0 {
+		return nil, false, nil
+	}
+	return p.data, true, nil
+}
+
+func (p *paymentChannelServiceMock) Put(key *PaymentChannelKey, data *PaymentChannelData) {
+	p.key = key
+	p.data = data
+}
+
+func (p *paymentChannelServiceMock) SetError(err error) {
+	p.err = err
+}
+
+func (p *paymentChannelServiceMock) Clear() {
+	p.key = nil
+	p.data = nil
+	p.err = nil
+}
+
+func (service *paymentChannelServiceMock) StartPaymentTransaction(payment *Payment) (PaymentTransaction, error) {
+	if service.err != nil {
+		return nil, service.err
+	}
+
+	return &paymentTransactionMock{
+		channel: service.data,
+		err:     service.err,
+	}, nil
+}
+
+type paymentTransactionMock struct {
+	channel *PaymentChannelData
+	err     error
+}
+
+func (transaction *paymentTransactionMock) Channel() *PaymentChannelData {
+	return transaction.channel
+}
+
+func (transaction *paymentTransactionMock) Commit() error {
+	return transaction.err
+}
+
+func (transaction *paymentTransactionMock) Rollback() error {
+	return transaction.err
+}
+
 type escrowTestType struct {
 	testPrivateKey            *ecdsa.PrivateKey
 	testPublicKey             common.Address
@@ -87,9 +148,9 @@ var escrowTest = func() *escrowTestType {
 		validator:  ChannelPaymentValidatorMock(),
 	}
 	var paymentHandler = &paymentChannelPaymentHandler{
-		service:         paymentChannelService,
-		blockchain:      blockchainMock,
-		incomeValidator: incomeValidatorMock,
+		service:            paymentChannelService,
+		mpeContractAddress: func() common.Address { return testEscrowContractAddress },
+		incomeValidator:    incomeValidatorMock,
 	}
 	var defaultData = &testPaymentData{
 		ChannelID:           42,
@@ -162,14 +223,6 @@ func (storage *storageMockType) Clear() {
 
 func (storage *storageMockType) SetError(err error) {
 	storage.err = err
-}
-
-type incomeValidatorMockType struct {
-	err *status.Status
-}
-
-func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (err *status.Status) {
-	return incomeValidator.err
 }
 
 func getPaymentSignature(contractAddress *common.Address, channelID, channelNonce, amount int64, privateKey *ecdsa.PrivateKey) (signature []byte) {
@@ -338,66 +391,6 @@ func TestPaymentChannelToJSON(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestGetPayment(t *testing.T) {
-	data := &testPaymentData{
-		ChannelID:           42,
-		ChannelNonce:        3,
-		PaymentChannelNonce: 3,
-		Expiration:          100,
-		FullAmount:          12345,
-		NewAmount:           12345,
-		PrevAmount:          12300,
-		State:               Open,
-		Signature:           getPaymentSignature(&escrowTest.testEscrowContractAddress, 42, 3, 12345, escrowTest.testPrivateKey),
-	}
-	context := getTestContext(data)
-	defer clearTestContext()
-
-	payment, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Nil(t, err, "Unexpected error: %v", err.Message())
-	expected := getTestPayment(data)
-	actual := payment.(*paymentTransaction)
-	assert.Equal(t, toJSON(expected.payment.ChannelID), toJSON(actual.payment.ChannelID))
-	assert.Equal(t, toJSON(expected.payment.ChannelNonce), toJSON(actual.payment.ChannelNonce))
-	assert.Equal(t, expected.payment.Amount, actual.payment.Amount)
-	assert.Equal(t, expected.payment.Signature, actual.payment.Signature)
-	assert.Equal(t, toJSON(expected.channel), toJSON(actual.channel))
-}
-
-func TestGetPaymentNoChannelId(t *testing.T) {
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.ChannelID = 0
-	}))
-	defer clearTestContext()
-
-	_, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Equal(t, status.New(codes.InvalidArgument, "missing \"snet-payment-channel-id\""), err)
-}
-
-func TestGetPaymentNoChannelNonce(t *testing.T) {
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.PaymentChannelNonce = 0
-	}))
-	defer clearTestContext()
-
-	_, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Equal(t, status.New(codes.InvalidArgument, "missing \"snet-payment-channel-nonce\""), err)
-}
-
-func TestGetPaymentNoChannelAmount(t *testing.T) {
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.NewAmount = 0
-	}))
-	defer clearTestContext()
-
-	_, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Equal(t, status.New(codes.InvalidArgument, "missing \"snet-payment-channel-amount\""), err)
-}
-
 func TestGetPaymentStorageError(t *testing.T) {
 	context := getTestContext(escrowTest.defaultData)
 	escrowTest.storageMock.SetError(errors.New("storage error"))
@@ -416,28 +409,6 @@ func TestGetPaymentNoChannel(t *testing.T) {
 	_, err := escrowTest.paymentHandler.Payment(context)
 
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel \"{ID: 42}\" not found"), err)
-}
-
-func TestValidatePaymentIncorrectIncome(t *testing.T) {
-	context := getTestContext(escrowTest.defaultData)
-	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
-	blockchain := &blockchainMockType{escrowContractAddress: escrowTest.testEscrowContractAddress}
-	paymentHandler := paymentChannelPaymentHandler{
-		service: &lockingPaymentChannelService{
-			config:     escrowTest.configMock,
-			storage:    escrowTest.storageMock,
-			blockchain: blockchain,
-			locker:     &lockerMock{},
-			validator:  ChannelPaymentValidatorMock(),
-		},
-		incomeValidator: &incomeValidatorMockType{err: incomeErr},
-		blockchain:      blockchain,
-	}
-
-	payment, err := paymentHandler.Payment(context)
-
-	assert.Equal(t, incomeErr, err)
-	assert.Nil(t, payment)
 }
 
 func TestCompletePayment(t *testing.T) {

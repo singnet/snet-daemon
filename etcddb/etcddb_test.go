@@ -168,6 +168,81 @@ func (suite *EtcdTestSuite) TestEtcdCAS() {
 	assert.Nil(t, err)
 	assert.False(t, ok)
 }
+func (suite *EtcdTestSuite) TestEtcdTransaction() {
+
+	t := suite.T()
+	client := suite.client
+
+	key1 := "key1"
+	expect1 := "expect1"
+
+	key2 := "key2"
+	expect2 := "expect2"
+	update2 := "update2"
+
+	key3 := "key3"
+	update3 := "update3"
+
+	err := client.Put(key1, expect1)
+	assert.Nil(t, err)
+
+	err = client.Put(key2, expect2)
+	assert.Nil(t, err)
+
+	assertGet(suite, key1, expect1)
+	assertGet(suite, key2, expect2)
+
+	ok, err := client.Transaction(
+		[]EtcdKeyValue{
+			EtcdKeyValue{key: key1, value: expect1},
+			EtcdKeyValue{key: key2, value: expect2},
+		},
+		[]EtcdKeyValue{
+			EtcdKeyValue{key: key2, value: update2},
+			EtcdKeyValue{key: key3, value: update3},
+		},
+	)
+	assert.Nil(t, err)
+	assert.True(t, ok)
+
+	assertGet(suite, key1, expect1)
+	assertGet(suite, key2, update2)
+	assertGet(suite, key3, update3)
+
+	ok, err = client.Transaction(
+		[]EtcdKeyValue{
+			EtcdKeyValue{key: key1, value: expect1},
+			EtcdKeyValue{key: key2, value: expect2},
+		},
+		[]EtcdKeyValue{
+			EtcdKeyValue{key: key2, value: update2},
+			EtcdKeyValue{key: key3, value: update3},
+		},
+	)
+	assert.Nil(t, err)
+	assert.False(t, ok)
+
+	assertGet(suite, key1, expect1)
+	assertGet(suite, key2, update2)
+	assertGet(suite, key3, update3)
+
+	ok, err = client.Transaction(
+		[]EtcdKeyValue{
+			EtcdKeyValue{key: key1, value: expect1},
+			EtcdKeyValue{key: key2, value: update2},
+			EtcdKeyValue{key: key3, value: update3},
+		},
+		[]EtcdKeyValue{
+			EtcdKeyValue{key: key2, value: expect2},
+		},
+	)
+	assert.Nil(t, err)
+	assert.True(t, ok)
+
+	assertGet(suite, key1, expect1)
+	assertGet(suite, key2, expect2)
+	assertGet(suite, key3, update3)
+}
 
 func (suite *EtcdTestSuite) TestEtcdNilValue() {
 
@@ -262,6 +337,14 @@ func (suite *EtcdTestSuite) TestEtcdMutex() {
 	assert.True(t, ok)
 	assert.Nil(t, err)
 	assert.Equal(t, res1, res2)
+}
+
+func assertGet(suite *EtcdTestSuite, key string, value string) {
+	t := suite.T()
+	updateResult, ok, err := suite.client.Get(key)
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value, updateResult)
 }
 
 type keyValue struct {

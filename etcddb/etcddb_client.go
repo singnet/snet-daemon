@@ -3,6 +3,7 @@ package etcddb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/singnet/snet-daemon/config"
@@ -154,22 +155,50 @@ func (client *EtcdClient) Delete(key string) error {
 	return err
 }
 
+// EtcdKeyValue contains key and value
+type EtcdKeyValue struct {
+	key   string
+	value string
+}
+
 // CompareAndSwap uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
-	log := log.WithField("func", "CompareAndSwap").WithField("key", key).WithField("client", client)
+
+	return client.Transaction(
+		[]EtcdKeyValue{EtcdKeyValue{key: key, value: prevValue}},
+		[]EtcdKeyValue{EtcdKeyValue{key: key, value: newValue}},
+	)
+}
+
+// Transaction uses CAS operation to compare and set multiple key values
+func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValue) (ok bool, err error) {
+
+	log := log.WithField("func", "CompareAndSwap").WithField("client", client)
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
-	response, err := etcdv3.KV.Txn(ctx).If(
-		clientv3.Compare(clientv3.Value(key), "=", prevValue),
-	).Then(
-		clientv3.OpPut(key, newValue),
-	).Commit()
+	cmps := make([]clientv3.Cmp, len(compare))
+
+	for index, cmp := range compare {
+		cmps[index] = clientv3.Compare(clientv3.Value(cmp.key), "=", cmp.value)
+	}
+
+	ops := make([]clientv3.Op, len(swap))
+	for index, op := range swap {
+		ops[index] = clientv3.OpPut(op.key, op.value)
+	}
+
+	response, err := etcdv3.KV.Txn(ctx).If(cmps...).Then(ops...).Commit()
 
 	if err != nil {
-		log.WithError(err).Error("Unable to compare and swap value by key")
+		keys := []string{}
+		for _, keyValue := range compare {
+			keys = append(keys, keyValue.key)
+		}
+		log = log.WithField("keys", strings.Join(keys, ", "))
+		log.WithError(err).Error("Unable to compare and swap value by keys")
 		return false, err
 	}
 

@@ -49,7 +49,7 @@ func (suite *PaymentHandlerTestSuite) channel() *PaymentChannelData {
 	}
 }
 
-func (suite *PaymentHandlerTestSuite) generateMetadata(channelID, channelNonce, amount int64, signature []byte) metadata.MD {
+func (suite *PaymentHandlerTestSuite) grpcMetadata(channelID, channelNonce, amount int64, signature []byte) metadata.MD {
 	md := metadata.New(map[string]string{})
 
 	md.Set(PaymentChannelIDHeader, strconv.FormatInt(channelID, 10))
@@ -61,7 +61,7 @@ func (suite *PaymentHandlerTestSuite) generateMetadata(channelID, channelNonce, 
 }
 
 func (suite *PaymentHandlerTestSuite) grpcContext(patch func(*metadata.MD)) *handler.GrpcStreamContext {
-	md := suite.generateMetadata(42, 3, 12345, []byte{0x1, 0x2, 0xFE, 0xFF})
+	md := suite.grpcMetadata(42, 3, 12345, []byte{0x1, 0x2, 0xFE, 0xFF})
 	patch(&md)
 	return &handler.GrpcStreamContext{
 		MD: md,

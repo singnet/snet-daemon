@@ -4,14 +4,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Lock is an aquired lock.
 type Lock interface {
+	// Unlock frees lock
 	Unlock() (err error)
 }
 
+// Locker is an interface to aquire lock
 type Locker interface {
+	// Lock aquires and returns lock. ok is false if lock cannot be aquired.
 	Lock(name string) (lock Lock, ok bool, err error)
 }
 
+// NewEtcdLocker returns new lock which is based on etcd storage.
 func NewEtcdLocker(storage AtomicStorage) Locker {
 	return &etcdLocker{
 		storage: &PrefixedAtomicStorage{

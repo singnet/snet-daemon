@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/handler"
 )
 
@@ -36,13 +37,14 @@ type paymentChannelPaymentHandler struct {
 	incomeValidator    IncomeValidator
 }
 
+// NewPaymentHandler retuns new MultiPartyEscrow contract payment handler.
 func NewPaymentHandler(
 	service PaymentChannelService,
-	blockchain EscrowBlockchainApi,
+	processor *blockchain.Processor,
 	incomeValidator IncomeValidator) handler.PaymentHandler {
 	return &paymentChannelPaymentHandler{
 		service:            service,
-		mpeContractAddress: blockchain.EscrowContractAddress,
+		mpeContractAddress: processor.EscrowContractAddress,
 		incomeValidator:    incomeValidator,
 	}
 }

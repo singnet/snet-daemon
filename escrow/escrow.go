@@ -126,12 +126,12 @@ type paymentTransaction struct {
 	lock    Lock
 }
 
-func (p *paymentTransaction) String() string {
-	return fmt.Sprintf("{payment: %v, channel: %v}", p.payment, p.channel)
+func (payment *paymentTransaction) String() string {
+	return fmt.Sprintf("{payment: %v, channel: %v}", payment.payment, payment.channel)
 }
 
-func (p *paymentTransaction) Channel() *PaymentChannelData {
-	return p.channel
+func (payment *paymentTransaction) Channel() *PaymentChannelData {
+	return payment.channel
 }
 
 func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error) {
@@ -193,7 +193,7 @@ func (payment *paymentTransaction) Commit() error {
 			Expiration:       payment.channel.Expiration,
 			AuthorizedAmount: payment.payment.Amount,
 			Signature:        payment.payment.Signature,
-			GroupId:          payment.channel.GroupId,
+			GroupID:          payment.channel.GroupID,
 		},
 	)
 	if e != nil {

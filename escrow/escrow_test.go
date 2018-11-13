@@ -57,14 +57,14 @@ func (p *paymentChannelServiceMock) Clear() {
 	p.err = nil
 }
 
-func (service *paymentChannelServiceMock) StartPaymentTransaction(payment *Payment) (PaymentTransaction, error) {
-	if service.err != nil {
-		return nil, service.err
+func (p *paymentChannelServiceMock) StartPaymentTransaction(payment *Payment) (PaymentTransaction, error) {
+	if p.err != nil {
+		return nil, p.err
 	}
 
 	return &paymentTransactionMock{
-		channel: service.data,
-		err:     service.err,
+		channel: p.data,
+		err:     p.err,
 	}, nil
 }
 
@@ -155,7 +155,7 @@ var escrowTest = func() *escrowTestType {
 		NewAmount:           12345,
 		PrevAmount:          12300,
 		State:               Open,
-		GroupId:             1,
+		GroupID:             1,
 		Signature:           getPaymentSignature(&testEscrowContractAddress, 42, 3, 12345, testPrivateKey),
 	}
 
@@ -266,7 +266,7 @@ func getEscrowMetadata(channelID, channelNonce, amount int64, signature []byte) 
 }
 
 type testPaymentData struct {
-	ChannelID, ChannelNonce, PaymentChannelNonce, FullAmount, PrevAmount, NewAmount, GroupId int64
+	ChannelID, ChannelNonce, PaymentChannelNonce, FullAmount, PrevAmount, NewAmount, GroupID int64
 	State                                                                                    PaymentChannelState
 	Expiration                                                                               int64
 	Signature                                                                                []byte
@@ -321,7 +321,7 @@ func getTestPayment(data *testPaymentData) *paymentTransaction {
 			Expiration:       big.NewInt(data.Expiration),
 			AuthorizedAmount: big.NewInt(data.PrevAmount),
 			Signature:        nil,
-			GroupId:          big.NewInt(data.GroupId),
+			GroupID:          big.NewInt(data.GroupID),
 		},
 		service: escrowTest.paymentChannelService,
 		lock:    &lockMock{},
@@ -340,7 +340,7 @@ func getTestContext(data *testPaymentData) *handler.GrpcStreamContext {
 			Expiration:       big.NewInt(data.Expiration),
 			AuthorizedAmount: big.NewInt(data.PrevAmount),
 			Signature:        nil,
-			GroupId:          big.NewInt(data.GroupId),
+			GroupID:          big.NewInt(data.GroupID),
 		},
 	)
 	md := getEscrowMetadata(data.ChannelID, data.PaymentChannelNonce, data.NewAmount, data.Signature)
@@ -374,7 +374,7 @@ func TestPaymentChannelToJSON(t *testing.T) {
 		Expiration:       big.NewInt(100),
 		AuthorizedAmount: big.NewInt(12300),
 		Signature:        blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
-		GroupId:          big.NewInt(1),
+		GroupID:          big.NewInt(1),
 	}
 
 	bytes, err := json.Marshal(channel)
@@ -432,7 +432,7 @@ func TestCompletePayment(t *testing.T) {
 		Expiration:       payment.channel.Expiration,
 		AuthorizedAmount: big.NewInt(12345),
 		Signature:        payment.payment.Signature,
-		GroupId:          big.NewInt(1),
+		GroupID:          big.NewInt(1),
 	}), toJSON(channelState))
 }
 

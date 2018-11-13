@@ -71,9 +71,9 @@ type PaymentChannelData struct {
 	// Recipient is an address which can claim funds from channel using
 	// signature. It is an address of service provider.
 	Recipient common.Address
-	// GroupId is an id of the group of service replicas which share the same
+	// GroupID is an id of the group of service replicas which share the same
 	// payment channel.
-	GroupId *big.Int
+	GroupID *big.Int
 	// FullAmount is an amount which is deposited in channel by Sender.
 	FullAmount *big.Int
 	// Expiration is a time at which channel will be expired. This time is
@@ -91,7 +91,7 @@ type PaymentChannelData struct {
 
 func (data *PaymentChannelData) String() string {
 	return fmt.Sprintf("{Nonce: %v, State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupId, data.FullAmount, data.Expiration, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
+		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupID, data.FullAmount, data.Expiration, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
 }
 
 // PaymentChannelService interface is API for payment channel functionality.
@@ -188,15 +188,3 @@ var (
 		channel.Signature = nil
 	}
 )
-
-// EscrowBlockchainApi is an interface implemented by blockchain.Processor to
-// provide blockchain operations related to MultiPartyEscrow contract
-// processing.
-type EscrowBlockchainApi interface {
-	// EscrowContractAddress returns address of the MultiPartyEscrowContract
-	EscrowContractAddress() common.Address
-	// CurrentBlock returns current Ethereum blockchain block number
-	CurrentBlock() (currentBlock *big.Int, err error)
-	// MultiPartyEscrowChannel return MultiPartyEscrow channel by id
-	MultiPartyEscrowChannel(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
-}

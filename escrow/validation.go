@@ -15,11 +15,13 @@ import (
 	"github.com/singnet/snet-daemon/config"
 )
 
+// ChannelPaymentValidator validates payment using payment channel state.
 type ChannelPaymentValidator struct {
 	currentBlock               func() (currentBlock *big.Int, err error)
 	paymentExpirationThreshold func() (threshold *big.Int)
 }
 
+// NewChannelPaymentValidator returns new payment validator instance
 func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Viper) *ChannelPaymentValidator {
 	return &ChannelPaymentValidator{
 		currentBlock: processor.CurrentBlock,
@@ -29,6 +31,8 @@ func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Vipe
 	}
 }
 
+// Validate returns instance of PaymentError as error if validation fails, nil
+// otherwise.
 func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *PaymentChannelData) (err error) {
 	var log = log.WithField("payment", payment).WithField("channel", channel)
 

@@ -32,19 +32,19 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		"request": request,
 	}).Debug("GetChannelState called")
 
-	channelId := bytesToBigInt(request.GetChannelId())
+	channelID := bytesToBigInt(request.GetChannelId())
 	signature := request.GetSignature()
-	sender, err := getSignerAddressFromMessage(bigIntToBytes(channelId), signature)
+	sender, err := getSignerAddressFromMessage(bigIntToBytes(channelID), signature)
 	if err != nil {
 		return nil, errors.New("incorrect signature")
 	}
 
-	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelId})
+	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelID})
 	if err != nil {
 		return nil, errors.New("channel storage error")
 	}
 	if !ok {
-		return nil, fmt.Errorf("channel is not found, channelId: %v", channelId)
+		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
 	}
 
 	if channel.Sender != *sender {

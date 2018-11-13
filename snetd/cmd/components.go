@@ -172,6 +172,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 		components.Blockchain(),
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
 		config.Vip(),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip()),
 	)
 
 	return components.paymentChannelService

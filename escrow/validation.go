@@ -9,16 +9,27 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 )
 
-type paymentValidationContext interface {
-	CurrentBlock() (currentBlock *big.Int, err error)
-	PaymentExpirationThreshold() (threshold *big.Int)
+type ChannelPaymentValidator struct {
+	currentBlock               func() (currentBlock *big.Int, err error)
+	paymentExpirationThreshold func() (threshold *big.Int)
 }
 
-func validatePaymentUsingChannelState(context paymentValidationContext, payment *Payment, channel *PaymentChannelData) (err error) {
+func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Viper) *ChannelPaymentValidator {
+	return &ChannelPaymentValidator{
+		currentBlock: processor.CurrentBlock,
+		paymentExpirationThreshold: func() *big.Int {
+			return big.NewInt(cfg.GetInt64(config.PaymentExpirationThresholdBlocksKey))
+		},
+	}
+}
+
+func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *PaymentChannelData) (err error) {
 	var log = log.WithField("payment", payment).WithField("channel", channel)
 
 	if payment.ChannelNonce.Cmp(channel.Nonce) != 0 {
@@ -36,11 +47,11 @@ func validatePaymentUsingChannelState(context paymentValidationContext, payment 
 		return NewPaymentError(Unauthenticated, "payment is not signed by channel sender")
 	}
 
-	currentBlock, e := context.CurrentBlock()
+	currentBlock, e := validator.currentBlock()
 	if e != nil {
 		return NewPaymentError(Internal, "cannot determine current block")
 	}
-	expirationThreshold := context.PaymentExpirationThreshold()
+	expirationThreshold := validator.paymentExpirationThreshold()
 	currentBlockWithThreshold := new(big.Int).Add(currentBlock, expirationThreshold)
 	if currentBlockWithThreshold.Cmp(channel.Expiration) >= 0 {
 		log.WithField("currentBlock", currentBlock).WithField("expirationThreshold", expirationThreshold).Warn("Channel expiration time is after expiration threshold")

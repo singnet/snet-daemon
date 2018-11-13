@@ -19,6 +19,7 @@ type lockingPaymentChannelService struct {
 	storage    PaymentChannelStorage
 	blockchain EscrowBlockchainApi
 	locker     Locker
+	validator  *ChannelPaymentValidator
 }
 
 // NewPaymentChannelService returns instance of PaymentChannelService to work
@@ -26,12 +27,14 @@ type lockingPaymentChannelService struct {
 func NewPaymentChannelService(
 	processor *blockchain.Processor,
 	storage PaymentChannelStorage,
-	config *viper.Viper) PaymentChannelService {
+	config *viper.Viper,
+	channelPaymentValidator *ChannelPaymentValidator) PaymentChannelService {
 
 	return &lockingPaymentChannelService{
 		config:     config,
 		storage:    storage,
 		blockchain: processor,
+		validator:  channelPaymentValidator,
 	}
 }
 
@@ -212,7 +215,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 		return nil, NewPaymentError(Unauthenticated, "payment channel \"%v\" not found", channelKey)
 	}
 
-	err = validatePaymentUsingChannelState(h, payment, channel)
+	err = h.validator.Validate(payment, channel)
 	if err != nil {
 		return
 	}
@@ -222,14 +225,6 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 		channel: channel,
 		lock:    lock,
 	}, nil
-}
-
-func (h *lockingPaymentChannelService) CurrentBlock() (currentBlock *big.Int, err error) {
-	return h.blockchain.CurrentBlock()
-}
-
-func (h *lockingPaymentChannelService) PaymentExpirationThreshold() (threshold *big.Int) {
-	return big.NewInt(h.config.GetInt64(config.PaymentExpirationThresholdBlocksKey))
 }
 
 func (payment *paymentTransaction) Commit() error {

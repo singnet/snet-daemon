@@ -84,6 +84,7 @@ var escrowTest = func() *escrowTestType {
 		storage:    storageMock,
 		blockchain: blockchainMock,
 		locker:     &lockerMock{},
+		validator:  ChannelPaymentValidatorMock(),
 	}
 	var paymentHandler = &paymentChannelPaymentHandler{
 		service:         paymentChannelService,
@@ -385,7 +386,7 @@ func TestGetPayment(t *testing.T) {
 
 	payment, err := escrowTest.paymentHandler.Payment(context)
 
-	assert.Nil(t, err)
+	assert.Nil(t, err, "Unexpected error: %v", err.Message())
 	expected := getTestPayment(data)
 	actual := payment.(*paymentTransaction)
 	assert.Equal(t, toJSON(expected.payment.ChannelID), toJSON(actual.payment.ChannelID))
@@ -448,130 +449,6 @@ func TestGetPaymentNoChannel(t *testing.T) {
 	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel \"{ID: 42}\" not found"), err)
 }
 
-func TestValidatePaymentChannelNonce(t *testing.T) {
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.ChannelNonce = 3
-		d.PaymentChannelNonce = 2
-		d.Signature = getPaymentSignature(
-			&escrowTest.testEscrowContractAddress,
-			escrowTest.defaultData.ChannelID,
-			2,
-			escrowTest.defaultData.NewAmount,
-			escrowTest.testPrivateKey)
-	}))
-
-	payment, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Equal(t, status.New(codes.Unauthenticated, "incorrect payment channel nonce, latest: 3, sent: 2"), err)
-	assert.Nil(t, payment)
-}
-
-func TestValidatePaymentIncorrectSignatureLength(t *testing.T) {
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.Signature = blockchain.HexToBytes("0x0000")
-	}))
-
-	payment, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment signature is not valid"), err)
-	assert.Nil(t, payment)
-}
-
-func TestValidatePaymentIncorrectSignatureChecksum(t *testing.T) {
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.Signature = blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef21")
-	}))
-
-	payment, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment signature is not valid"), err)
-	assert.Nil(t, payment)
-}
-
-func TestValidatePaymentIncorrectSigner(t *testing.T) {
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.Signature = blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01")
-	}))
-
-	payment, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment is not signed by channel sender"), err)
-	assert.Nil(t, payment)
-}
-
-func TestValidatePaymentChannelCannotGetCurrentBlock(t *testing.T) {
-	service := escrowTest.paymentChannelService
-	service.blockchain = &blockchainMockType{
-		escrowContractAddress: escrowTest.testEscrowContractAddress,
-		err: errors.New("blockchain error"),
-	}
-	handler := escrowTest.paymentHandler
-	handler.service = service
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.Expiration = 99
-	}))
-
-	payment, err := handler.Payment(context)
-
-	assert.Equal(t, status.New(codes.Internal, "cannot determine current block"), err)
-	assert.Nil(t, payment)
-}
-
-func TestValidatePaymentExpiredChannel(t *testing.T) {
-	service := escrowTest.paymentChannelService
-	service.blockchain = &blockchainMockType{
-		escrowContractAddress: escrowTest.testEscrowContractAddress,
-		currentBlock:          99,
-	}
-	handler := escrowTest.paymentHandler
-	handler.service = service
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.Expiration = 99
-	}))
-
-	payment, err := handler.Payment(context)
-
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 99, expiration threshold: 0"), err)
-	assert.Nil(t, payment)
-}
-
-func TestValidatePaymentChannelExpirationThreshold(t *testing.T) {
-	service := escrowTest.paymentChannelService
-	service.config = viper.New()
-	service.config.Set(config.PaymentExpirationThresholdBlocksKey, 1)
-	service.blockchain = &blockchainMockType{
-		escrowContractAddress: escrowTest.testEscrowContractAddress,
-		currentBlock:          98,
-	}
-	handler := escrowTest.paymentHandler
-	handler.service = service
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.Expiration = 99
-	}))
-
-	payment, err := handler.Payment(context)
-
-	assert.Equal(t, status.New(codes.Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 98, expiration threshold: 1"), err)
-	assert.Nil(t, payment)
-}
-
-func TestValidatePaymentAmountIsTooBig(t *testing.T) {
-	context := getTestContext(patchDefaultData(func(d D) {
-		d.NewAmount = 12346
-		d.Signature = getPaymentSignature(
-			&escrowTest.testEscrowContractAddress,
-			escrowTest.defaultData.ChannelID,
-			escrowTest.defaultData.PaymentChannelNonce,
-			12346,
-			escrowTest.testPrivateKey)
-	}))
-
-	payment, err := escrowTest.paymentHandler.Payment(context)
-
-	assert.Equal(t, status.Newf(codes.Unauthenticated, "not enough tokens on payment channel, channel amount: 12345, payment amount: 12346"), err)
-	assert.Nil(t, payment)
-}
-
 func TestValidatePaymentIncorrectIncome(t *testing.T) {
 	context := getTestContext(escrowTest.defaultData)
 	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
@@ -582,6 +459,7 @@ func TestValidatePaymentIncorrectIncome(t *testing.T) {
 			storage:    escrowTest.storageMock,
 			blockchain: blockchain,
 			locker:     &lockerMock{},
+			validator:  ChannelPaymentValidatorMock(),
 		},
 		incomeValidator: &incomeValidatorMockType{err: incomeErr},
 		blockchain:      blockchain,

@@ -33,26 +33,26 @@ type PrefixedAtomicStorage struct {
 
 // Get is implementation of AtomicStorage.Get
 func (storage *PrefixedAtomicStorage) Get(key string) (value string, ok bool, err error) {
-	return storage.delegate.Get(storage.keyPrefix + "-" + key)
+	return storage.delegate.Get(storage.keyPrefix + "/" + key)
 }
 
 func (storage *PrefixedAtomicStorage) GetByKeyPrefix(prefix string) (values []string, err error) {
-	return storage.delegate.GetByKeyPrefix(storage.keyPrefix + "-" + prefix)
+	return storage.delegate.GetByKeyPrefix(storage.keyPrefix + "/" + prefix)
 }
 
 // Put is implementation of AtomicStorage.Put
 func (storage *PrefixedAtomicStorage) Put(key string, value string) (err error) {
-	return storage.delegate.Put(storage.keyPrefix+"-"+key, value)
+	return storage.delegate.Put(storage.keyPrefix+"/"+key, value)
 }
 
 // PutIfAbsent is implementation of AtomicStorage.PutIfAbsent
 func (storage *PrefixedAtomicStorage) PutIfAbsent(key string, value string) (ok bool, err error) {
-	return storage.delegate.PutIfAbsent(storage.keyPrefix+"-"+key, value)
+	return storage.delegate.PutIfAbsent(storage.keyPrefix+"/"+key, value)
 }
 
 // CompareAndSwap is implementation of AtomicStorage.CompareAndSwap
 func (storage *PrefixedAtomicStorage) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
-	return storage.delegate.CompareAndSwap(storage.keyPrefix+"-"+key, prevValue, newValue)
+	return storage.delegate.CompareAndSwap(storage.keyPrefix+"/"+key, prevValue, newValue)
 }
 
 // TypedAtomicStorage is an atomic storage which automatically

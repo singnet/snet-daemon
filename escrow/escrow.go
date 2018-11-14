@@ -10,7 +10,7 @@ import (
 // using locks around proxied service call to guarantee that only one payment
 // at time is applied to channel
 type lockingPaymentChannelService struct {
-	storage          PaymentChannelStorage
+	storage          *PaymentChannelStorage
 	blockchainReader *BlockchainChannelReader
 	locker           Locker
 	validator        *ChannelPaymentValidator
@@ -19,7 +19,7 @@ type lockingPaymentChannelService struct {
 // NewPaymentChannelService returns instance of PaymentChannelService to work
 // with payments via MultiPartyEscrow contract.
 func NewPaymentChannelService(
-	storage PaymentChannelStorage,
+	storage *PaymentChannelStorage,
 	blockchainReader *BlockchainChannelReader,
 	locker Locker,
 	channelPaymentValidator *ChannelPaymentValidator) PaymentChannelService {

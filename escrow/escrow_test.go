@@ -83,7 +83,7 @@ type PaymentChannelServiceSuite struct {
 	recipientAddress   common.Address
 	mpeContractAddress common.Address
 	atomicStorage      AtomicStorage
-	storage            PaymentChannelStorage
+	storage            *PaymentChannelStorage
 
 	service PaymentChannelService
 }

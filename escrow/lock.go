@@ -36,11 +36,14 @@ const (
 )
 
 func (locker *etcdLocker) Lock(name string) (lock Lock, ok bool, err error) {
-	_, ok, err = locker.storage.Get(name)
+	value, ok, err := locker.storage.Get(name)
 	if err != nil {
 		return
 	}
 	if ok {
+		if value == locked {
+			return nil, false, nil
+		}
 		ok, err = locker.storage.CompareAndSwap(name, unlocked, locked)
 	} else {
 		ok, err = locker.storage.PutIfAbsent(name, locked)

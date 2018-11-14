@@ -29,7 +29,7 @@ type claimCommand struct {
 	timeout   time.Duration
 }
 
-func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command Runnable, err error) {
+func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command Command, err error) {
 	channelId, err := getChannelId(cmd)
 	if err != nil {
 		return

@@ -6,6 +6,7 @@ import (
 	"github.com/singnet/snet-daemon/escrow"
 )
 
+// ListChannelsCmd shows list of channels from shared storage
 var ListChannelsCmd = &cobra.Command{
 	Use:   "channels",
 	Short: "List payment channels from the shared storage",
@@ -18,7 +19,7 @@ type listChannelsCommand struct {
 	channelService escrow.PaymentChannelService
 }
 
-func newListChannelsCommand(cmd *cobra.Command, args []string, components *Components) (command Runnable, err error) {
+func newListChannelsCommand(cmd *cobra.Command, args []string, components *Components) (command Command, err error) {
 	command = &listChannelsCommand{
 		channelService: components.PaymentChannelService(),
 	}

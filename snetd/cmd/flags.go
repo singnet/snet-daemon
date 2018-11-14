@@ -7,12 +7,17 @@ import (
 	"os"
 )
 
-type Runnable interface {
+// Command is an CLI command abstraction
+type Command interface {
 	Run() error
 }
 
-type CommandConstructor func(cmd *cobra.Command, args []string, components *Components) (command Runnable, err error)
+// CommandConstructor creates new command using command line arguments,
+// cobra context and initialized components
+type CommandConstructor func(cmd *cobra.Command, args []string, components *Components) (command Command, err error)
 
+// RunAndCleanup initializes components, constructs command, runs it, cleanups
+// components and returns results
 func RunAndCleanup(cmd *cobra.Command, args []string, constructor CommandConstructor) (err error) {
 	components := InitComponents(cmd)
 	defer components.Close()
@@ -36,6 +41,7 @@ var RootCmd = &cobra.Command{
 	},
 }
 
+// ListCmd command to list channels, claims, etc
 var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List channels, claims in progress, etc",

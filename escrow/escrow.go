@@ -11,6 +11,7 @@ import (
 // at time is applied to channel
 type lockingPaymentChannelService struct {
 	storage          *PaymentChannelStorage
+	paymentStorage   *PaymentStorage
 	blockchainReader *BlockchainChannelReader
 	locker           Locker
 	validator        *ChannelPaymentValidator
@@ -20,12 +21,14 @@ type lockingPaymentChannelService struct {
 // with payments via MultiPartyEscrow contract.
 func NewPaymentChannelService(
 	storage *PaymentChannelStorage,
+	paymentStorage *PaymentStorage,
 	blockchainReader *BlockchainChannelReader,
 	locker Locker,
 	channelPaymentValidator *ChannelPaymentValidator) PaymentChannelService {
 
 	return &lockingPaymentChannelService{
 		storage:          storage,
+		paymentStorage:   paymentStorage,
 		blockchainReader: blockchainReader,
 		locker:           locker,
 		validator:        channelPaymentValidator,
@@ -54,7 +57,8 @@ func (h *lockingPaymentChannelService) ListChannels() (channels []*PaymentChanne
 }
 
 type claimImpl struct {
-	payment *Payment
+	paymentStorage *PaymentStorage
+	payment        *Payment
 }
 
 func (claim *claimImpl) Payment() *Payment {
@@ -62,7 +66,7 @@ func (claim *claimImpl) Payment() *Payment {
 }
 
 func (claim *claimImpl) Finish() (err error) {
-	return
+	return claim.paymentStorage.Delete(claim.payment)
 }
 
 func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
@@ -91,24 +95,30 @@ func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update
 	nextChannel := *channel
 	update(&nextChannel)
 
-	ok, err = h.storage.CompareAndSwap(key, channel, &nextChannel)
+	err = h.storage.Put(key, &nextChannel)
 	if err != nil {
 		return nil, fmt.Errorf("Channel storage error: %v", err)
 	}
-	if !ok {
-		return nil, fmt.Errorf("Channel was concurrently updated, channel key: %v", key)
+
+	payment := getPaymentFromChannel(channel)
+
+	err = h.paymentStorage.Put(payment)
+	if err != nil {
+		log.WithField("payment", payment).Error("Cannot write payment into payment storage. Channel storage is already updated. Payment should be handled manually.")
+		return
 	}
 
 	return &claimImpl{
-		payment: getPaymentFromChannel(key, channel),
+		paymentStorage: h.paymentStorage,
+		payment:        payment,
 	}, nil
 }
 
-func getPaymentFromChannel(key *PaymentChannelKey, channel *PaymentChannelData) *Payment {
+func getPaymentFromChannel(channel *PaymentChannelData) *Payment {
 	return &Payment{
 		// TODO: add MpeContractAddress to channel state
 		//MpeContractAddress: channel.MpeContractAddress,
-		ChannelID:    key.ID,
+		ChannelID:    channel.ChannelID,
 		ChannelNonce: channel.Nonce,
 		Amount:       channel.AuthorizedAmount,
 		Signature:    channel.Signature,

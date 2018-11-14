@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"math/big"
+	"reflect"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -13,32 +14,16 @@ import (
 	"github.com/singnet/snet-daemon/config"
 )
 
-// PaymentChannelStorage is an interface to get channel information by channel
-// id.
-type PaymentChannelStorage interface {
-	// Get returns channel information by channel id. ok value indicates
-	// whether passed key was found. err indicates storage error.
-	Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error)
-	// Put writes channel information by channel id.
-	Put(key *PaymentChannelKey, state *PaymentChannelData) (err error)
-	// Put writes channel information by channel id but only when key is
-	// absent. ok is true if key was absent.
-	PutIfAbsent(key *PaymentChannelKey, state *PaymentChannelData) (ok bool, err error)
-	// CompareAndSwap atomically replaces old payment channel state by new
-	// state. If ok flag is true and err is nil then operation was successful.
-	// If err is nil and ok is false then operation failed because prevState is
-	// not equal to current state. err indicates storage error.
-	CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error)
-}
-
-type paymentChannelStorageImpl struct {
+// PaymentChannelStorage is a storage for PaymentChannelData by
+// PaymentChannelKey based on TypedAtomicStorage implementation
+type PaymentChannelStorage struct {
 	delegate TypedAtomicStorage
 }
 
 // NewPaymentChannelStorage returns new instance of PaymentChannelStorage
 // implementation
-func NewPaymentChannelStorage(atomicStorage AtomicStorage) PaymentChannelStorage {
-	return &paymentChannelStorageImpl{
+func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorage {
+	return &PaymentChannelStorage{
 		delegate: &TypedAtomicStorageImpl{
 			atomicStorage: &PrefixedAtomicStorage{
 				delegate:  atomicStorage,
@@ -47,12 +32,12 @@ func NewPaymentChannelStorage(atomicStorage AtomicStorage) PaymentChannelStorage
 			keySerializer:     serialize,
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,
+			valueType:         reflect.TypeOf(PaymentChannelData{}),
 		},
 	}
 }
 
 func serialize(value interface{}) (slice string, err error) {
-
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
 	err = e.Encode(value)
@@ -65,31 +50,43 @@ func serialize(value interface{}) (slice string, err error) {
 }
 
 func deserialize(slice string, value interface{}) (err error) {
-
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	err = d.Decode(value)
 	return
 }
 
-func (storage *paymentChannelStorageImpl) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
-	result := &PaymentChannelData{}
-	ok, err = storage.delegate.Get(key, result)
+// Get returns payment channel by key
+func (storage *PaymentChannelStorage) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
+	value, ok, err := storage.delegate.Get(key)
 	if err != nil || !ok {
 		return nil, ok, err
 	}
-	return result, ok, err
+	return value.(*PaymentChannelData), ok, err
 }
 
-func (storage *paymentChannelStorageImpl) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
+// GetAll returns all channels from the storage
+func (storage *PaymentChannelStorage) GetAll() (states []*PaymentChannelData, err error) {
+	values, err := storage.delegate.GetAll()
+	if err != nil {
+		return
+	}
+
+	return values.([]*PaymentChannelData), nil
+}
+
+// Put stores payment channel by key
+func (storage *PaymentChannelStorage) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
 	return storage.delegate.Put(key, state)
 }
 
-func (storage *paymentChannelStorageImpl) PutIfAbsent(key *PaymentChannelKey, state *PaymentChannelData) (ok bool, err error) {
+// PutIfAbsent storage payment channel by key if key is absent
+func (storage *PaymentChannelStorage) PutIfAbsent(key *PaymentChannelKey, state *PaymentChannelData) (ok bool, err error) {
 	return storage.delegate.PutIfAbsent(key, state)
 }
 
-func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
+// CompareAndSwap compares previous storage value and set new value by key
+func (storage *PaymentChannelStorage) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }
 
@@ -129,6 +126,7 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 	// TODO: check recipient
 
 	return &PaymentChannelData{
+		ChannelID:        key.ID,
 		Nonce:            ch.Nonce,
 		State:            Open,
 		Sender:           ch.Sender,

@@ -83,7 +83,7 @@ type PaymentChannelServiceSuite struct {
 	recipientAddress   common.Address
 	mpeContractAddress common.Address
 	atomicStorage      AtomicStorage
-	storage            PaymentChannelStorage
+	storage            *PaymentChannelStorage
 
 	service PaymentChannelService
 }
@@ -151,6 +151,7 @@ func (suite *PaymentChannelServiceSuite) channelKey() *PaymentChannelKey {
 
 func (suite *PaymentChannelServiceSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
+		ChannelID:        big.NewInt(42),
 		Nonce:            big.NewInt(3),
 		Sender:           suite.senderAddress,
 		Recipient:        suite.recipientAddress,

@@ -22,6 +22,56 @@ func NewBlockchainChannelReaderMock() *BlockchainChannelReader {
 	}
 }
 
+type PaymentChannelStorageSuite struct {
+	suite.Suite
+
+	senderAddress    common.Address
+	recipientAddress common.Address
+
+	storage *PaymentChannelStorage
+}
+
+func (suite *PaymentChannelStorageSuite) SetupSuite() {
+	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
+	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
+
+	suite.storage = NewPaymentChannelStorage(NewMemStorage())
+}
+
+func TestPaymentChannelStorageSuite(t *testing.T) {
+	suite.Run(t, new(PaymentChannelStorageSuite))
+}
+
+func (suite *PaymentChannelStorageSuite) key(channelID int64) *PaymentChannelKey {
+	return &PaymentChannelKey{ID: big.NewInt(channelID)}
+}
+
+func (suite *PaymentChannelStorageSuite) channel() *PaymentChannelData {
+	return &PaymentChannelData{
+		ChannelID:        big.NewInt(42),
+		Nonce:            big.NewInt(3),
+		Sender:           suite.senderAddress,
+		Recipient:        suite.recipientAddress,
+		GroupID:          big.NewInt(123),
+		FullAmount:       big.NewInt(12345),
+		Expiration:       big.NewInt(100),
+		AuthorizedAmount: big.NewInt(0),
+		Signature:        nil,
+	}
+}
+
+func (suite *PaymentChannelStorageSuite) TestGetAll() {
+	channelA := suite.channel()
+	suite.storage.Put(suite.key(41), channelA)
+	channelB := suite.channel()
+	suite.storage.Put(suite.key(42), channelB)
+
+	channels, err := suite.storage.GetAll()
+
+	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
+	assert.Equal(suite.T(), []*PaymentChannelData{channelA, channelB}, channels)
+}
+
 type BlockchainChannelReaderSuite struct {
 	suite.Suite
 
@@ -60,6 +110,7 @@ func (suite *BlockchainChannelReaderSuite) mpeChannel() *blockchain.MultiPartyEs
 
 func (suite *BlockchainChannelReaderSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
+		ChannelID:        big.NewInt(42),
 		Nonce:            big.NewInt(3),
 		Sender:           suite.senderAddress,
 		Recipient:        suite.recipientAddress,

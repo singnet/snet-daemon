@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/singnet/snet-daemon/blockchain"
@@ -16,24 +15,9 @@ var ClaimCmd = &cobra.Command{
 	Use:   "claim",
 	Short: "Claim money from payment channel",
 	Long:  "Increment payment channel nonce and send blockchain transaction to claim money from channel",
-	Run: func(cmd *cobra.Command, args []string) {
-		err := runAndCleanup(cmd, args)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return RunAndCleanup(cmd, args, newClaimCommand)
 	},
-}
-
-func runAndCleanup(cmd *cobra.Command, args []string) (err error) {
-	components := InitComponents(cmd)
-	defer components.Close()
-
-	command, err := newClaimCommand(cmd, args, components)
-	if err != nil {
-		return
-	}
-
-	return command.Run()
 }
 
 type claimCommand struct {
@@ -45,7 +29,7 @@ type claimCommand struct {
 	timeout   time.Duration
 }
 
-func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command *claimCommand, err error) {
+func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command Command, err error) {
 	channelId, err := getChannelId(cmd)
 	if err != nil {
 		return

@@ -7,6 +7,29 @@ import (
 	"os"
 )
 
+// Command is an CLI command abstraction
+type Command interface {
+	Run() error
+}
+
+// CommandConstructor creates new command using command line arguments,
+// cobra context and initialized components
+type CommandConstructor func(cmd *cobra.Command, args []string, components *Components) (command Command, err error)
+
+// RunAndCleanup initializes components, constructs command, runs it, cleanups
+// components and returns results
+func RunAndCleanup(cmd *cobra.Command, args []string, constructor CommandConstructor) (err error) {
+	components := InitComponents(cmd)
+	defer components.Close()
+
+	command, err := constructor(cmd, args, components)
+	if err != nil {
+		return
+	}
+
+	return command.Run()
+}
+
 var RootCmd = &cobra.Command{
 	Use: "snetd",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -16,6 +39,13 @@ var RootCmd = &cobra.Command{
 			ServeCmd.Run(cmd, args)
 		}
 	},
+}
+
+// ListCmd command to list channels, claims, etc
+var ListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List channels, claims in progress, etc",
+	Long:  "List command prints lists of objects from the shared storage; each object type has separate subcommand",
 }
 
 const (
@@ -55,6 +85,9 @@ func init() {
 	RootCmd.AddCommand(InitCmd)
 	RootCmd.AddCommand(ServeCmd)
 	RootCmd.AddCommand(ClaimCmd)
+	RootCmd.AddCommand(ListCmd)
+
+	ListCmd.AddCommand(ListChannelsCmd)
 
 	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money")
 	ClaimCmd.MarkFlagRequired(ClaimChannelIdFlag)

@@ -10,7 +10,7 @@ import (
 // using locks around proxied service call to guarantee that only one payment
 // at time is applied to channel
 type lockingPaymentChannelService struct {
-	storage          PaymentChannelStorage
+	storage          *PaymentChannelStorage
 	blockchainReader *BlockchainChannelReader
 	locker           Locker
 	validator        *ChannelPaymentValidator
@@ -19,7 +19,7 @@ type lockingPaymentChannelService struct {
 // NewPaymentChannelService returns instance of PaymentChannelService to work
 // with payments via MultiPartyEscrow contract.
 func NewPaymentChannelService(
-	storage PaymentChannelStorage,
+	storage *PaymentChannelStorage,
 	blockchainReader *BlockchainChannelReader,
 	locker Locker,
 	channelPaymentValidator *ChannelPaymentValidator) PaymentChannelService {
@@ -47,6 +47,10 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	}
 
 	return MergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
+}
+
+func (h *lockingPaymentChannelService) ListChannels() (channels []*PaymentChannelData, err error) {
+	return h.storage.GetAll()
 }
 
 type claimImpl struct {
@@ -177,6 +181,7 @@ func (payment *paymentTransaction) Commit() error {
 	e := payment.service.storage.Put(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		&PaymentChannelData{
+			ChannelID:        payment.channel.ChannelID,
 			Nonce:            payment.channel.Nonce,
 			State:            payment.channel.State,
 			Sender:           payment.channel.Sender,

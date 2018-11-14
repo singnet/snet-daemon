@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"strings"
 	"sync"
 )
 
@@ -34,6 +35,19 @@ func (storage *memoryStorage) Get(key string) (value string, ok bool, err error)
 	defer storage.mutex.RUnlock()
 
 	return storage.unsafeGet(key)
+}
+
+func (storage *memoryStorage) GetByKeyPrefix(prefix string) (values []string, err error) {
+	storage.mutex.RLock()
+	defer storage.mutex.RUnlock()
+
+	for key, value := range storage.data {
+		if strings.HasPrefix(key, prefix) {
+			values = append(values, value)
+		}
+	}
+
+	return
 }
 
 func (storage *memoryStorage) unsafeGet(key string) (value string, ok bool, err error) {

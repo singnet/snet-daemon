@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/singnet/snet-daemon/blockchain"
@@ -16,12 +15,7 @@ var ClaimCmd = &cobra.Command{
 	Use:   "claim",
 	Short: "Claim money from payment channel",
 	Long:  "Increment payment channel nonce and send blockchain transaction to claim money from channel",
-	Run: func(cmd *cobra.Command, args []string) {
-		err := runAndCleanup(cmd, args)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-	},
+	RunE:  runAndCleanup,
 }
 
 func runAndCleanup(cmd *cobra.Command, args []string) (err error) {

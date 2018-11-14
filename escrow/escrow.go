@@ -50,7 +50,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 }
 
 func (h *lockingPaymentChannelService) ListChannels() (channels []*PaymentChannelData, err error) {
-	return []*PaymentChannelData{}, nil
+	return h.storage.GetAll()
 }
 
 type claimImpl struct {

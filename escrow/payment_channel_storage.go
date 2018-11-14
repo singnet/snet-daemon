@@ -66,6 +66,10 @@ func (storage *PaymentChannelStorage) Get(key *PaymentChannelKey) (state *Paymen
 	return result, ok, err
 }
 
+func (storage *PaymentChannelStorage) GetAll() (states []*PaymentChannelData, err error) {
+	return []*PaymentChannelData{}, nil
+}
+
 // Put stores payment channel by key
 func (storage *PaymentChannelStorage) Put(key *PaymentChannelKey, state *PaymentChannelData) (err error) {
 	return storage.delegate.Put(key, state)

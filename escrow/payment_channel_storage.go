@@ -27,7 +27,7 @@ func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorag
 		delegate: &TypedAtomicStorageImpl{
 			atomicStorage: &PrefixedAtomicStorage{
 				delegate:  atomicStorage,
-				keyPrefix: "open-payment-",
+				keyPrefix: "/payment-channel/storage",
 			},
 			keySerializer:     serialize,
 			valueSerializer:   serialize,

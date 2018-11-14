@@ -21,7 +21,7 @@ func NewEtcdLocker(storage AtomicStorage) Locker {
 	return &etcdLocker{
 		storage: &PrefixedAtomicStorage{
 			delegate:  storage,
-			keyPrefix: "lock",
+			keyPrefix: "/payment-channel/lock",
 		},
 	}
 }

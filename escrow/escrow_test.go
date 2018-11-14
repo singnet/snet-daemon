@@ -103,6 +103,7 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 
 	suite.service = NewPaymentChannelService(
 		suite.storage,
+		NewPaymentStorage(suite.atomicStorage),
 		&BlockchainChannelReader{
 			replicaGroupID: func() (*big.Int, error) { return big.NewInt(123), nil },
 			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {

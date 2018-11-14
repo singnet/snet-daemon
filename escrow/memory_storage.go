@@ -89,3 +89,12 @@ func (storage *memoryStorage) CompareAndSwap(key, prevValue, newValue string) (o
 
 	return true, storage.unsafePut(key, newValue)
 }
+
+func (storage *memoryStorage) Delete(key string) (err error) {
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
+	delete(storage.data, key)
+
+	return
+}

@@ -1,5 +1,9 @@
 package escrow
 
+import (
+	"reflect"
+)
+
 // AtomicStorage is an interface to key-value storage with atomic operations.
 type AtomicStorage interface {
 	// Get returns value by key. ok value indicates whether passed key is
@@ -56,6 +60,8 @@ func (storage *PrefixedAtomicStorage) CompareAndSwap(key string, prevValue strin
 type TypedAtomicStorage interface {
 	// Get returns value by key
 	Get(key interface{}) (value interface{}, ok bool, err error)
+	// GetAll returns an array which contains all values from storage
+	GetAll() (array interface{}, err error)
 	// Put puts value by key unconditionally
 	Put(key interface{}, value interface{}) (err error)
 	// PutIfAbsent puts value by key if and only if key is absent in storage
@@ -70,7 +76,8 @@ type TypedAtomicStorageImpl struct {
 	atomicStorage     AtomicStorage
 	keySerializer     func(key interface{}) (serialized string, err error)
 	valueSerializer   func(value interface{}) (serialized string, err error)
-	valueDeserializer func(serialized string) (value interface{}, err error)
+	valueDeserializer func(serialized string, value interface{}) (err error)
+	valueType         reflect.Type
 }
 
 // Get implements TypedAtomicStorage.Get
@@ -88,12 +95,35 @@ func (storage *TypedAtomicStorageImpl) Get(key interface{}) (value interface{}, 
 		return
 	}
 
-	value, err = storage.valueDeserializer(valueString)
+	value = reflect.New(storage.valueType).Interface()
+	err = storage.valueDeserializer(valueString, value)
 	if err != nil {
 		return nil, false, err
 	}
 
 	return value, true, nil
+}
+
+func (storage *TypedAtomicStorageImpl) GetAll() (array interface{}, err error) {
+	stringValues, err := storage.atomicStorage.GetByKeyPrefix("")
+	if err != nil {
+		return
+	}
+
+	values := reflect.MakeSlice(
+		reflect.SliceOf(reflect.PtrTo(storage.valueType)),
+		len(stringValues), len(stringValues))
+
+	for _, stringValue := range stringValues {
+		value := reflect.New(storage.valueType)
+		err = storage.valueDeserializer(stringValue, value.Interface())
+		if err != nil {
+			return nil, err
+		}
+		values = reflect.Append(values, value)
+	}
+
+	return values.Interface(), nil
 }
 
 // Put implementor TypedAtomicStorage.Put

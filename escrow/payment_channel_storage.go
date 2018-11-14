@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"math/big"
+	"reflect"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -30,7 +31,8 @@ func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorag
 			},
 			keySerializer:     serialize,
 			valueSerializer:   serialize,
-			valueDeserializer: deserializePaymentChannelData,
+			valueDeserializer: deserialize,
+			valueType:         reflect.TypeOf(PaymentChannelData{}),
 		},
 	}
 }
@@ -54,15 +56,6 @@ func deserialize(slice string, value interface{}) (err error) {
 	return
 }
 
-func deserializePaymentChannelData(slice string) (value interface{}, err error) {
-	value = &PaymentChannelData{}
-	err = deserialize(slice, value)
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
-}
-
 // Get returns payment channel by key
 func (storage *PaymentChannelStorage) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
 	value, ok, err := storage.delegate.Get(key)
@@ -72,8 +65,14 @@ func (storage *PaymentChannelStorage) Get(key *PaymentChannelKey) (state *Paymen
 	return value.(*PaymentChannelData), ok, err
 }
 
+// GetAll returns all channels from the storage
 func (storage *PaymentChannelStorage) GetAll() (states []*PaymentChannelData, err error) {
-	return []*PaymentChannelData{}, nil
+	values, err := storage.delegate.GetAll()
+	if err != nil {
+		return
+	}
+
+	return values.([]*PaymentChannelData), nil
 }
 
 // Put stores payment channel by key

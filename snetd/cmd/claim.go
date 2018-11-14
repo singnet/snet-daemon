@@ -15,19 +15,9 @@ var ClaimCmd = &cobra.Command{
 	Use:   "claim",
 	Short: "Claim money from payment channel",
 	Long:  "Increment payment channel nonce and send blockchain transaction to claim money from channel",
-	RunE:  runAndCleanup,
-}
-
-func runAndCleanup(cmd *cobra.Command, args []string) (err error) {
-	components := InitComponents(cmd)
-	defer components.Close()
-
-	command, err := newClaimCommand(cmd, args, components)
-	if err != nil {
-		return
-	}
-
-	return command.Run()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return RunAndCleanup(cmd, args, newClaimCommand)
+	},
 }
 
 type claimCommand struct {
@@ -39,7 +29,7 @@ type claimCommand struct {
 	timeout   time.Duration
 }
 
-func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command *claimCommand, err error) {
+func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command Runnable, err error) {
 	channelId, err := getChannelId(cmd)
 	if err != nil {
 		return

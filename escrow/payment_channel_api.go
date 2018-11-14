@@ -109,6 +109,8 @@ type PaymentChannelService interface {
 	// StartClaim gets channel from storage, applies update on it and adds
 	// payment for claiming into the storage.
 	StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error)
+	// ListClaims returns list of payment claims in progress
+	ListClaims() (claim []Claim, err error)
 
 	// StartPaymentTransaction validates payment and starts payment transaction
 	StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error)

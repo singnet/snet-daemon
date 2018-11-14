@@ -181,6 +181,7 @@ func (payment *paymentTransaction) Commit() error {
 	e := payment.service.storage.Put(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		&PaymentChannelData{
+			ChannelID:        payment.channel.ChannelID,
 			Nonce:            payment.channel.Nonce,
 			State:            payment.channel.State,
 			Sender:           payment.channel.Sender,

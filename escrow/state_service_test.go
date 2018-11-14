@@ -46,6 +46,7 @@ var stateServiceTest = func() stateServiceTestType {
 		defaultChannelId:  defaultChannelId,
 		defaultChannelKey: &PaymentChannelKey{ID: defaultChannelId},
 		defaultChannelData: &PaymentChannelData{
+			ChannelID:        defaultChannelId,
 			Sender:           senderAddress,
 			Signature:        defaultSignature,
 			Nonce:            big.NewInt(3),

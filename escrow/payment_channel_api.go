@@ -61,6 +61,8 @@ func (state PaymentChannelState) String() string {
 
 // PaymentChannelData is to keep all channel related information.
 type PaymentChannelData struct {
+	// ChannelID is an id of the channel
+	ChannelID *big.Int
 	// Nonce is a nonce of this channel state
 	Nonce *big.Int
 	// State is a payment channel state: Open or Closed.
@@ -90,8 +92,8 @@ type PaymentChannelData struct {
 }
 
 func (data *PaymentChannelData) String() string {
-	return fmt.Sprintf("{Nonce: %v, State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupID, data.FullAmount, data.Expiration, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
+	return fmt.Sprintf("{ChannelID: %v, Nonce: %v, State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
+		data.ChannelID, data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupID, data.FullAmount, data.Expiration, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
 }
 
 // PaymentChannelService interface is API for payment channel functionality.

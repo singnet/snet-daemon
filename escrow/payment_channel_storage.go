@@ -126,6 +126,7 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 	// TODO: check recipient
 
 	return &PaymentChannelData{
+		ChannelID:        key.ID,
 		Nonce:            ch.Nonce,
 		State:            Open,
 		Sender:           ch.Sender,

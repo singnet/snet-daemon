@@ -48,6 +48,7 @@ func (suite *PaymentChannelStorageSuite) key(channelID int64) *PaymentChannelKey
 
 func (suite *PaymentChannelStorageSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
+		ChannelID:        big.NewInt(42),
 		Nonce:            big.NewInt(3),
 		Sender:           suite.senderAddress,
 		Recipient:        suite.recipientAddress,
@@ -109,6 +110,7 @@ func (suite *BlockchainChannelReaderSuite) mpeChannel() *blockchain.MultiPartyEs
 
 func (suite *BlockchainChannelReaderSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
+		ChannelID:        big.NewInt(42),
 		Nonce:            big.NewInt(3),
 		Sender:           suite.senderAddress,
 		Recipient:        suite.recipientAddress,

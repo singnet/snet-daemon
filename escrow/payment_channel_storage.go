@@ -6,59 +6,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 )
-
-// PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
-// consists of two parts: channel id and channel nonce. Channel nonce is
-// incremented each time when amount of tokens in channel descreases. Nonce
-// allows reusing channel id without risk of overexpenditure.
-type PaymentChannelKey struct {
-	ID *big.Int
-}
-
-// PaymentChannelState is a current state of a payment channel. Payment
-// channel may be in Open or Closed state.
-type PaymentChannelState int
-
-const (
-	// Open means that channel is open and can be used to pay for calls.
-	Open PaymentChannelState = 0
-	// Closed means that channel is closed cannot be used to pay for calls.
-	Closed PaymentChannelState = 1
-)
-
-// PaymentChannelData is to keep all channel related information.
-type PaymentChannelData struct {
-	// Nonce is a nonce of this channel state
-	Nonce *big.Int
-	// State is a payment channel state: Open or Closed.
-	State PaymentChannelState
-	// Sender is an Ethereum address of the client which created the channel.
-	// It is and address to be charged for RPC call.
-	Sender common.Address
-	// Recipient is an address which can claim funds from channel using
-	// signature. It is an address of service provider.
-	Recipient common.Address
-	// GroupId is an id of the group of service replicas which share the same
-	// payment channel.
-	GroupId *big.Int
-	// FullAmount is an amount which is deposited in channel by Sender.
-	FullAmount *big.Int
-	// Expiration is a time at which channel will be expired. This time is
-	// expressed in Ethereum block number. Since this block is added to
-	// blockchain Sender can withdraw tokens from channel.
-	Expiration *big.Int
-	// AuthorizedAmount is current amount which Sender authorized to withdraw by
-	// service provider. This amount increments on price after each successful
-	// RPC call.
-	AuthorizedAmount *big.Int
-	// Signature is a signature of last message containing Authorized amount.
-	// It is required to claim tokens from channel.
-	Signature []byte
-}
 
 // PaymentChannelStorage is an interface to get channel information by channel
 // id.
@@ -76,22 +29,6 @@ type PaymentChannelStorage interface {
 	// If err is nil and ok is false then operation failed because prevState is
 	// not equal to current state. err indicates storage error.
 	CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error)
-}
-
-func (key PaymentChannelKey) String() string {
-	return fmt.Sprintf("{ID: %v}", key.ID)
-}
-
-func (state PaymentChannelState) String() string {
-	return [...]string{
-		"Open",
-		"Closed",
-	}[state]
-}
-
-func (data PaymentChannelData) String() string {
-	return fmt.Sprintf("{Nonce: %v. State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupId, data.FullAmount, data.Expiration, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
 }
 
 type paymentChannelStorageImpl struct {
@@ -154,4 +91,71 @@ func (storage *paymentChannelStorageImpl) PutIfAbsent(key *PaymentChannelKey, st
 
 func (storage *paymentChannelStorageImpl) CompareAndSwap(key *PaymentChannelKey, prevState *PaymentChannelData, newState *PaymentChannelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
+}
+
+// BlockchainChannelReader reads channel state from blockchain
+type BlockchainChannelReader struct {
+	replicaGroupID            func() (*big.Int, error)
+	readChannelFromBlockchain func(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
+}
+
+// NewBlockchainChannelReader returns new instance of blockchain channel reader
+func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Viper) *BlockchainChannelReader {
+	return &BlockchainChannelReader{
+		replicaGroupID: func() (*big.Int, error) {
+			return config.GetBigIntFromViper(cfg, config.ReplicaGroupIDKey)
+		},
+		readChannelFromBlockchain: processor.MultiPartyEscrowChannel,
+	}
+}
+
+// GetChannelStateFromBlockchain returns channel state from Ethereum
+// blockchain. ok is false if channel was not found.
+func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	ch, ok, err := reader.readChannelFromBlockchain(key.ID)
+	if err != nil || !ok {
+		return
+	}
+
+	configGroupID, err := reader.replicaGroupID()
+	if err != nil {
+		return nil, false, err
+	}
+	if ch.GroupId.Cmp(configGroupID) != 0 {
+		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
+		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, ch.GroupId)
+	}
+
+	// TODO: check recipient
+
+	return &PaymentChannelData{
+		Nonce:            ch.Nonce,
+		State:            Open,
+		Sender:           ch.Sender,
+		Recipient:        ch.Recipient,
+		GroupID:          ch.GroupId,
+		FullAmount:       ch.Value,
+		Expiration:       ch.Expiration,
+		AuthorizedAmount: big.NewInt(0),
+		Signature:        nil,
+	}, true, nil
+}
+
+// MergeStorageAndBlockchainChannelState merges two instances of payment
+// channel: one read from storage, one from blockchain.
+func MergeStorageAndBlockchainChannelState(storage, blockchain *PaymentChannelData) (merged *PaymentChannelData) {
+	cmp := storage.Nonce.Cmp(blockchain.Nonce)
+	if cmp > 0 {
+		return storage
+	}
+	if cmp < 0 {
+		return blockchain
+	}
+
+	tmp := *storage
+	merged = &tmp
+	merged.FullAmount = blockchain.FullAmount
+	merged.Expiration = blockchain.Expiration
+
+	return
 }

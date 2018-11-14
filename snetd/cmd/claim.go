@@ -37,14 +37,12 @@ func runAndCleanup(cmd *cobra.Command, args []string) (err error) {
 }
 
 type claimCommand struct {
-	storage    escrow.PaymentChannelStorage
-	blockchain *blockchain.Processor
+	channelService escrow.PaymentChannelService
+	blockchain     *blockchain.Processor
 
 	channelId *big.Int
 	sendBack  bool
 	timeout   time.Duration
-
-	channel *escrow.PaymentChannelData
 }
 
 func newClaimCommand(cmd *cobra.Command, args []string, components *Components) (command *claimCommand, err error) {
@@ -58,8 +56,8 @@ func newClaimCommand(cmd *cobra.Command, args []string, components *Components) 
 	}
 
 	command = &claimCommand{
-		storage:    components.PaymentChannelStorage(),
-		blockchain: components.Blockchain(),
+		channelService: components.PaymentChannelService(),
+		blockchain:     components.Blockchain(),
 
 		channelId: channelId,
 		sendBack:  claimSendBack,
@@ -83,17 +81,19 @@ func (command *claimCommand) Run() (err error) {
 		return fmt.Errorf("blockchain should be enabled to claim money from channel")
 	}
 
-	err = command.getChannel()
+	var update escrow.ChannelUpdate
+	if command.sendBack {
+		update = escrow.CloseChannel
+	} else {
+		update = escrow.IncrementChannelNonce
+	}
+
+	claim, err := command.channelService.StartClaim(&escrow.PaymentChannelKey{ID: command.channelId}, update)
 	if err != nil {
 		return
 	}
 
-	err = command.incrementChannelNonce()
-	if err != nil {
-		return
-	}
-
-	err = command.claimMoneyFromChannel()
+	err = command.claimPaymentFromChannel(claim)
 	if err != nil {
 		return
 	}
@@ -101,47 +101,20 @@ func (command *claimCommand) Run() (err error) {
 	return
 }
 
-func (command *claimCommand) getChannel() (err error) {
-	var ok bool
-	command.channel, ok, err = command.storage.Get(&escrow.PaymentChannelKey{ID: command.channelId})
-	if err != nil {
-		return fmt.Errorf("Channel storage error: %v", err)
-	}
-	if !ok {
-		return fmt.Errorf("Channel is not found, channel id: %v", command.channelId)
-	}
-	return nil
-}
+func (command *claimCommand) claimPaymentFromChannel(claim escrow.Claim) (err error) {
+	payment := claim.Payment()
 
-func (command *claimCommand) incrementChannelNonce() (err error) {
-	nextChannel := *command.channel
-
-	if command.sendBack {
-		nextChannel.State = escrow.Closed
-		nextChannel.FullAmount = nextChannel.AuthorizedAmount
-	} else {
-		nextChannel.Nonce = (&big.Int{}).Add(nextChannel.Nonce, big.NewInt(1))
-		nextChannel.FullAmount = (&big.Int{}).Sub(nextChannel.FullAmount, nextChannel.AuthorizedAmount)
-		nextChannel.AuthorizedAmount = big.NewInt(0)
-		nextChannel.Signature = nil
-	}
-
-	ok, err := command.storage.CompareAndSwap(&escrow.PaymentChannelKey{ID: command.channelId}, command.channel, &nextChannel)
-	if err != nil {
-		return fmt.Errorf("Channel storage error: %v", err)
-	}
-	if !ok {
-		return fmt.Errorf("Channel was concurrently updated, channel id: %v", command.channelId)
-	}
-	return nil
-}
-
-func (command *claimCommand) claimMoneyFromChannel() (err error) {
-	return command.blockchain.ClaimFundsFromChannel(
+	err = command.blockchain.ClaimFundsFromChannel(
 		command.timeout,
-		command.channelId,
-		command.channel.AuthorizedAmount,
-		command.channel.Signature,
+		payment.ChannelID,
+		payment.Amount,
+		payment.Signature,
 		command.sendBack,
 	)
+
+	if err == nil {
+		claim.Finish()
+	}
+
+	return
 }

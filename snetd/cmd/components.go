@@ -22,7 +22,9 @@ type Components struct {
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
-	paymentChannelStorage      escrow.PaymentChannelStorage
+	atomicStorage              escrow.AtomicStorage
+	paymentChannelService      escrow.PaymentChannelService
+	escrowPaymentHandler       handler.PaymentHandler
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
 }
@@ -147,24 +149,47 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	return components.etcdClient
 }
 
-func (components *Components) PaymentChannelStorage() escrow.PaymentChannelStorage {
-	if components.paymentChannelStorage != nil {
-		return components.paymentChannelStorage
+func (components *Components) AtomicStorage() escrow.AtomicStorage {
+	if components.atomicStorage != nil {
+		return components.atomicStorage
 	}
 
-	var delegateStorage escrow.AtomicStorage
 	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
-		delegateStorage = components.EtcdClient()
+		components.atomicStorage = components.EtcdClient()
 	} else {
-		delegateStorage = escrow.NewMemStorage()
+		components.atomicStorage = escrow.NewMemStorage()
 	}
 
-	components.paymentChannelStorage = escrow.NewCombinedStorage(
-		components.Blockchain(),
-		escrow.NewPaymentChannelStorage(delegateStorage),
+	return components.atomicStorage
+}
+
+func (components *Components) PaymentChannelService() escrow.PaymentChannelService {
+	if components.paymentChannelService != nil {
+		return components.paymentChannelService
+	}
+
+	components.paymentChannelService = escrow.NewPaymentChannelService(
+		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip()),
+		escrow.NewEtcdLocker(components.AtomicStorage()),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip()),
 	)
 
-	return components.paymentChannelStorage
+	return components.paymentChannelService
+}
+
+func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
+	if components.escrowPaymentHandler != nil {
+		return components.escrowPaymentHandler
+	}
+
+	components.escrowPaymentHandler = escrow.NewPaymentHandler(
+		components.PaymentChannelService(),
+		components.Blockchain(),
+		escrow.NewIncomeValidator(),
+	)
+
+	return components.escrowPaymentHandler
 }
 
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
@@ -179,12 +204,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
 		components.grpcInterceptor = handler.GrpcStreamInterceptor(
 			blockchain.NewJobPaymentHandler(components.Blockchain()),
-			escrow.NewEscrowPaymentHandler(
-				components.Blockchain(),
-				components.PaymentChannelStorage(),
-				escrow.NewIncomeValidator(),
-				config.Vip(),
-			),
+			components.EscrowPaymentHandler(),
 		)
 	}
 
@@ -196,7 +216,7 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 		return components.paymentChannelStateService
 	}
 
-	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelStorage())
+	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelService())
 
 	return components.paymentChannelStateService
 }

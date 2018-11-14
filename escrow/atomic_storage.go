@@ -5,6 +5,8 @@ type AtomicStorage interface {
 	// Get returns value by key. ok value indicates whether passed key is
 	// present in the storage. err indicates storage error.
 	Get(key string) (value string, ok bool, err error)
+	// GetByKeyPrefix returns list of values which keys has given prefix.
+	GetByKeyPrefix(prefix string) (values []string, err error)
 	// Put uncoditionally writes value by key in storage, err is not nil in
 	// case of storage error.
 	Put(key string, value string) (err error)
@@ -28,6 +30,10 @@ type PrefixedAtomicStorage struct {
 // Get is implementation of AtomicStorage.Get
 func (storage *PrefixedAtomicStorage) Get(key string) (value string, ok bool, err error) {
 	return storage.delegate.Get(storage.keyPrefix + "-" + key)
+}
+
+func (storage *PrefixedAtomicStorage) GetByKeyPrefix(prefix string) (values []string, err error) {
+	return storage.delegate.GetByKeyPrefix(storage.keyPrefix + "-" + prefix)
 }
 
 // Put is implementation of AtomicStorage.Put

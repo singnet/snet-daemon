@@ -22,6 +22,8 @@ type AtomicStorage interface {
 	// is false then operation failed because prevValue is not equal to current
 	// value. err indicates storage error.
 	CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error)
+	// Delete removes value by key
+	Delete(key string) (err error)
 }
 
 // PrefixedAtomicStorage is decorator for atomic storage which adds a prefix to
@@ -55,6 +57,10 @@ func (storage *PrefixedAtomicStorage) CompareAndSwap(key string, prevValue strin
 	return storage.delegate.CompareAndSwap(storage.keyPrefix+"/"+key, prevValue, newValue)
 }
 
+func (storage *PrefixedAtomicStorage) Delete(key string) (err error) {
+	return storage.delegate.Delete(storage.keyPrefix + "/" + key)
+}
+
 // TypedAtomicStorage is an atomic storage which automatically
 // serializes/deserializes values and keys
 type TypedAtomicStorage interface {
@@ -69,6 +75,8 @@ type TypedAtomicStorage interface {
 	// CompareAndSwap puts newValue by key if and only if previous value is equal
 	// to prevValue
 	CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error)
+	// Delete removes value by key
+	Delete(key interface{}) (err error)
 }
 
 // TypedAtomicStorageImpl is an implementation of TypedAtomicStorage interface
@@ -174,4 +182,13 @@ func (storage *TypedAtomicStorageImpl) CompareAndSwap(key interface{}, prevValue
 	}
 
 	return storage.atomicStorage.CompareAndSwap(keyString, prevValueString, newValueString)
+}
+
+func (storage *TypedAtomicStorageImpl) Delete(key interface{}) (err error) {
+	keyString, err := storage.keySerializer(key)
+	if err != nil {
+		return
+	}
+
+	return storage.atomicStorage.Delete(keyString)
 }

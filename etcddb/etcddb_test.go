@@ -125,9 +125,8 @@ func (suite *EtcdTestSuite) TestEtcdPutGet() {
 	err = client.Put("key-range-bbc", "value-range-after")
 	assert.Nil(t, err)
 
-	values, ok, err := client.GetByKeyPrefix("key-range-bbb-")
+	values, err := client.GetByKeyPrefix("key-range-bbb-")
 	assert.Nil(t, err)
-	assert.True(t, ok)
 	assert.Equal(t, count, len(values))
 
 	for index, value := range values {

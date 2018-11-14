@@ -98,7 +98,7 @@ func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 }
 
 // GetByKeyPrefix gets all values which have the same key prefix
-func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, ok bool, err error) {
+func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, err error) {
 
 	log := log.WithField("func", "GetByKeyPrefix").WithField("key", key).WithField("client", client)
 
@@ -114,7 +114,6 @@ func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, ok bool, 
 	}
 
 	for _, kv := range response.Kvs {
-		ok = true
 		value := string(kv.Value)
 		values = append(values, value)
 	}

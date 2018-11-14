@@ -112,7 +112,7 @@ func (storage *TypedAtomicStorageImpl) GetAll() (array interface{}, err error) {
 
 	values := reflect.MakeSlice(
 		reflect.SliceOf(reflect.PtrTo(storage.valueType)),
-		len(stringValues), len(stringValues))
+		0, len(stringValues))
 
 	for _, stringValue := range stringValues {
 		value := reflect.New(storage.valueType)

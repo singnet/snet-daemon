@@ -30,13 +30,12 @@ func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorag
 			},
 			keySerializer:     serialize,
 			valueSerializer:   serialize,
-			valueDeserializer: deserialize,
+			valueDeserializer: deserializePaymentChannelData,
 		},
 	}
 }
 
 func serialize(value interface{}) (slice string, err error) {
-
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
 	err = e.Encode(value)
@@ -49,21 +48,28 @@ func serialize(value interface{}) (slice string, err error) {
 }
 
 func deserialize(slice string, value interface{}) (err error) {
-
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	err = d.Decode(value)
 	return
 }
 
+func deserializePaymentChannelData(slice string) (value interface{}, err error) {
+	value = &PaymentChannelData{}
+	err = deserialize(slice, value)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
 // Get returns payment channel by key
 func (storage *PaymentChannelStorage) Get(key *PaymentChannelKey) (state *PaymentChannelData, ok bool, err error) {
-	result := &PaymentChannelData{}
-	ok, err = storage.delegate.Get(key, result)
+	value, ok, err := storage.delegate.Get(key)
 	if err != nil || !ok {
 		return nil, ok, err
 	}
-	return result, ok, err
+	return value.(*PaymentChannelData), ok, err
 }
 
 func (storage *PaymentChannelStorage) GetAll() (states []*PaymentChannelData, err error) {

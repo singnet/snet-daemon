@@ -49,7 +49,7 @@ func (storage *PrefixedAtomicStorage) CompareAndSwap(key string, prevValue strin
 // serializes/deserializes values and keys
 type TypedAtomicStorage interface {
 	// Get returns value by key
-	Get(key interface{}, value interface{}) (ok bool, err error)
+	Get(key interface{}) (value interface{}, ok bool, err error)
 	// Put puts value by key unconditionally
 	Put(key interface{}, value interface{}) (err error)
 	// PutIfAbsent puts value by key if and only if key is absent in storage
@@ -64,11 +64,11 @@ type TypedAtomicStorageImpl struct {
 	atomicStorage     AtomicStorage
 	keySerializer     func(key interface{}) (serialized string, err error)
 	valueSerializer   func(value interface{}) (serialized string, err error)
-	valueDeserializer func(serialized string, value interface{}) (err error)
+	valueDeserializer func(serialized string) (value interface{}, err error)
 }
 
 // Get implements TypedAtomicStorage.Get
-func (storage *TypedAtomicStorageImpl) Get(key interface{}, value interface{}) (ok bool, err error) {
+func (storage *TypedAtomicStorageImpl) Get(key interface{}) (value interface{}, ok bool, err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -82,12 +82,12 @@ func (storage *TypedAtomicStorageImpl) Get(key interface{}, value interface{}) (
 		return
 	}
 
-	err = storage.valueDeserializer(valueString, value)
+	value, err = storage.valueDeserializer(valueString)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 
-	return true, nil
+	return value, true, nil
 }
 
 // Put implementor TypedAtomicStorage.Put

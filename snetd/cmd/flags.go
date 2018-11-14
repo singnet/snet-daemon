@@ -7,6 +7,24 @@ import (
 	"os"
 )
 
+type Runnable interface {
+	Run() error
+}
+
+type CommandConstructor func(cmd *cobra.Command, args []string, components *Components) (command Runnable, err error)
+
+func RunAndCleanup(cmd *cobra.Command, args []string, constructor CommandConstructor) (err error) {
+	components := InitComponents(cmd)
+	defer components.Close()
+
+	command, err := constructor(cmd, args, components)
+	if err != nil {
+		return
+	}
+
+	return command.Run()
+}
+
 var RootCmd = &cobra.Command{
 	Use: "snetd",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -16,6 +34,12 @@ var RootCmd = &cobra.Command{
 			ServeCmd.Run(cmd, args)
 		}
 	},
+}
+
+var ListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List channels, claims in progress, etc",
+	Long:  "List command prints lists of objects from the shared storage; each object type has separate subcommand",
 }
 
 const (
@@ -55,6 +79,9 @@ func init() {
 	RootCmd.AddCommand(InitCmd)
 	RootCmd.AddCommand(ServeCmd)
 	RootCmd.AddCommand(ClaimCmd)
+	RootCmd.AddCommand(ListCmd)
+
+	ListCmd.AddCommand(ListChannelsCmd)
 
 	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money")
 	ClaimCmd.MarkFlagRequired(ClaimChannelIdFlag)

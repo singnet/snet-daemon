@@ -49,6 +49,10 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	return MergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
 }
 
+func (h *lockingPaymentChannelService) ListChannels() (channels []*PaymentChannelData, err error) {
+	return []*PaymentChannelData{}, nil
+}
+
 type claimImpl struct {
 	payment *Payment
 	lock    Lock

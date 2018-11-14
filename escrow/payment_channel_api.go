@@ -100,6 +100,9 @@ type PaymentChannelService interface {
 	// shared storage and blockchain to construct and return latest channel
 	// state.
 	PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
+	// ListChannels returns list of payment channels from payment channel
+	// storage.
+	ListChannels() (channels []*PaymentChannelData, err error)
 
 	// StartClaim gets channel from storage, applies update on it and adds
 	// payment for claiming into the storage.

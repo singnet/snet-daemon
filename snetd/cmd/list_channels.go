@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/singnet/snet-daemon/escrow"
@@ -27,6 +29,19 @@ func newListChannelsCommand(cmd *cobra.Command, args []string, components *Compo
 	return
 }
 
-func (command *listChannelsCommand) Run() error {
+func (command *listChannelsCommand) Run() (err error) {
+	channels, err := command.channelService.ListChannels()
+	if err != nil {
+		return
+	}
+
+	if len(channels) == 0 {
+		fmt.Println("no channels in shared storage")
+	}
+
+	for _, channel := range channels {
+		fmt.Println(channel.String())
+	}
+
 	return nil
 }

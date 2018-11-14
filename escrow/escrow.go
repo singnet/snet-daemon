@@ -55,7 +55,6 @@ func (h *lockingPaymentChannelService) ListChannels() (channels []*PaymentChanne
 
 type claimImpl struct {
 	payment *Payment
-	lock    Lock
 }
 
 func (claim *claimImpl) Payment() *Payment {
@@ -63,11 +62,6 @@ func (claim *claimImpl) Payment() *Payment {
 }
 
 func (claim *claimImpl) Finish() (err error) {
-	err = claim.lock.Unlock()
-	if err != nil {
-		log.WithError(err).WithField("claim.payment", claim.payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
-		return
-	}
 	return
 }
 
@@ -79,14 +73,12 @@ func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update
 	if !ok {
 		return nil, fmt.Errorf("another transaction on channel: %v is in progress", key)
 	}
-	defer func(lock Lock) {
-		if err != nil {
-			e := lock.Unlock()
-			if e != nil {
-				log.WithError(e).WithField("key", key).WithField("err", err).Error("Transaction is cancelled because of err, but channel cannot be unlocked. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
-			}
+	defer func() {
+		e := lock.Unlock()
+		if e != nil {
+			log.WithError(e).WithField("key", key).WithField("err", err).Error("Transaction is cancelled because of err, but channel cannot be unlocked. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
 		}
-	}(lock)
+	}()
 
 	channel, ok, err := h.storage.Get(key)
 	if err != nil {

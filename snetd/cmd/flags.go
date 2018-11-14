@@ -88,6 +88,7 @@ func init() {
 	RootCmd.AddCommand(ListCmd)
 
 	ListCmd.AddCommand(ListChannelsCmd)
+	ListCmd.AddCommand(ListClaimsCmd)
 
 	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money")
 	ClaimCmd.MarkFlagRequired(ClaimChannelIdFlag)

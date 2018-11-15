@@ -11,7 +11,7 @@ type memoryStorage struct {
 }
 
 // NewMemStorage returns new in-memory atomic storage implementation
-func NewMemStorage() (storage AtomicStorage) {
+func NewMemStorage() (storage *memoryStorage) {
 	return &memoryStorage{
 		data:  make(map[string]string),
 		mutex: &sync.RWMutex{},
@@ -95,6 +95,15 @@ func (storage *memoryStorage) Delete(key string) (err error) {
 	defer storage.mutex.Unlock()
 
 	delete(storage.data, key)
+
+	return
+}
+
+func (storage *memoryStorage) Clear() (err error) {
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
+	storage.data = make(map[string]string)
 
 	return
 }

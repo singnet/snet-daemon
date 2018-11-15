@@ -1,7 +1,6 @@
 package escrow
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -38,13 +37,9 @@ func (storage *PaymentStorage) GetAll() (states []*Payment, err error) {
 }
 
 func (storage *PaymentStorage) Put(payment *Payment) (err error) {
-	return storage.delegate.Put(paymentKey(payment), payment)
+	return storage.delegate.Put(payment.ID(), payment)
 }
 
 func (storage *PaymentStorage) Delete(payment *Payment) (err error) {
-	return storage.delegate.Delete(paymentKey(payment))
-}
-
-func paymentKey(payment *Payment) string {
-	return fmt.Sprintf("%v/%v", payment.ChannelID, payment.ChannelNonce)
+	return storage.delegate.Delete(payment.ID())
 }

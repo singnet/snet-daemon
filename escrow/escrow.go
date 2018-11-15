@@ -114,6 +114,24 @@ func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update
 	}, nil
 }
 
+func (h *lockingPaymentChannelService) ListClaims() (claims []Claim, err error) {
+	payments, err := h.paymentStorage.GetAll()
+	if err != nil {
+		return
+	}
+
+	claims = make([]Claim, 0, len(payments))
+	for _, payment := range payments {
+		claim := &claimImpl{
+			paymentStorage: h.paymentStorage,
+			payment:        payment,
+		}
+		claims = append(claims, claim)
+	}
+
+	return
+}
+
 func getPaymentFromChannel(channel *PaymentChannelData) *Payment {
 	return &Payment{
 		// TODO: add MpeContractAddress to channel state

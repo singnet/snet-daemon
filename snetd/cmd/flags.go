@@ -50,6 +50,7 @@ var ListCmd = &cobra.Command{
 
 const (
 	ClaimChannelIdFlag = "channel-id"
+	ClaimPaymentIdFlag = "payment-id"
 	ClaimSendBackFlag  = "send-back"
 	ClaimTimeoutFlag   = "timeout"
 )
@@ -74,6 +75,7 @@ var (
 	pollSleep          = ServeCmd.PersistentFlags().String("poll-sleep", "5s", "blockchain poll sleep time")
 
 	claimChannelId string
+	claimPaymentId string
 	claimSendBack  bool
 	claimTimeout   string
 )
@@ -88,9 +90,10 @@ func init() {
 	RootCmd.AddCommand(ListCmd)
 
 	ListCmd.AddCommand(ListChannelsCmd)
+	ListCmd.AddCommand(ListClaimsCmd)
 
-	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money")
-	ClaimCmd.MarkFlagRequired(ClaimChannelIdFlag)
+	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money, see \"list channels\"")
+	ClaimCmd.Flags().StringVar(&claimPaymentId, ClaimPaymentIdFlag, "", "id of the payment to claim money, see \"list payments\"")
 	ClaimCmd.Flags().BoolVar(&claimSendBack, ClaimSendBackFlag, false, "send the rest of the channel value back to channel sender")
 	ClaimCmd.Flags().StringVar(&claimTimeout, ClaimTimeoutFlag, "5s", "timeout for blockchain transaction")
 

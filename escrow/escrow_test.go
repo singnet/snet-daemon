@@ -84,6 +84,7 @@ type PaymentChannelServiceSuite struct {
 	mpeContractAddress common.Address
 	memoryStorage      *memoryStorage
 	storage            *PaymentChannelStorage
+	paymentStorage     *PaymentStorage
 
 	service PaymentChannelService
 }
@@ -95,6 +96,7 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	suite.memoryStorage = NewMemStorage()
 	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
+	suite.paymentStorage = NewPaymentStorage(suite.memoryStorage)
 
 	err := suite.storage.Put(suite.channelKey(), suite.channel())
 	if err != nil {
@@ -103,7 +105,7 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 
 	suite.service = NewPaymentChannelService(
 		suite.storage,
-		NewPaymentStorage(suite.memoryStorage),
+		suite.paymentStorage,
 		&BlockchainChannelReader{
 			replicaGroupID: func() (*big.Int, error) { return big.NewInt(123), nil },
 			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
@@ -139,10 +141,10 @@ func (suite *PaymentChannelServiceSuite) mpeChannel() *blockchain.MultiPartyEscr
 
 func (suite *PaymentChannelServiceSuite) payment() *Payment {
 	payment := &Payment{
-		Amount:             big.NewInt(12300),
-		ChannelID:          big.NewInt(42),
-		ChannelNonce:       big.NewInt(3),
-		MpeContractAddress: suite.mpeContractAddress,
+		Amount:       big.NewInt(12300),
+		ChannelID:    big.NewInt(42),
+		ChannelNonce: big.NewInt(3),
+		//MpeContractAddress: suite.mpeContractAddress,
 	}
 	SignTestPayment(payment, suite.senderPrivateKey)
 	return payment
@@ -232,4 +234,17 @@ func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransaction() {
 	assert.Nil(suite.T(), errD, "Unexpected error: %v", errD)
 	assert.True(suite.T(), ok)
 	assert.Equal(suite.T(), suite.channelPlusPayment(paymentB), channel)
+}
+
+func (suite *PaymentChannelServiceSuite) TestStartClaim() {
+	transaction, _ := suite.service.StartPaymentTransaction(suite.payment())
+	transaction.Commit()
+
+	claim, errA := suite.service.StartClaim(suite.channelKey(), IncrementChannelNonce)
+	claims, errB := suite.paymentStorage.GetAll()
+
+	assert.Nil(suite.T(), errA, "Unexpected error: %v", errA)
+	assert.Nil(suite.T(), errB, "Unexpected error: %v", errB)
+	assert.Equal(suite.T(), suite.payment(), claim.Payment())
+	assert.Equal(suite.T(), []*Payment{suite.payment()}, claims)
 }

@@ -1,4 +1,3 @@
-//go:generate abigen --abi ../resources/blockchain/node_modules/singularitynet-platform-contracts/abi/Agent.json --pkg blockchain --type Agent --out agent.go
 //go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name MultiPartyEscrow --go-package blockchain --output-file multi_party_escrow.go
 
 package blockchain
@@ -36,8 +35,7 @@ type jobInfo struct {
 type Processor struct {
 	enabled               bool
 	ethClient             *ethclient.Client
-	rawClient             *rpc.Client
-	agent                 *Agent
+	rawClient             *rpc.Client 
 	sigHasher             func([]byte) []byte
 	privateKey            *ecdsa.PrivateKey
 	address               string
@@ -78,32 +76,9 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 		p.multiPartyEscrow = mpe
 	}
 
-	agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
-
-	// Setup agent
-	if a, err := NewAgent(agentAddress, p.ethClient); err != nil {
-		return p, errors.Wrap(err, "error instantiating agent")
-	} else {
-		p.agent = a
-	}
-
-	// Determine "version" of agent contract and set local signature hash creator
-	if bytecode, err := p.ethClient.CodeAt(context.Background(), agentAddress, nil); err != nil {
-		return p, errors.Wrap(err, "error retrieving agent bytecode")
-	} else {
-		bcSum := md5.Sum(bytecode)
-
-		// Compare checksum of agent with known checksum of the first version of the agent contract, which signed
-		// the raw bytes of the address rather than the hex-encoded string
-		if bytes.Equal(bcSum[:], []byte{244, 176, 168, 6, 74, 56, 171, 175, 38, 48, 245, 246, 189, 0, 67, 200}) {
-			p.sigHasher = func(i []byte) []byte {
-				return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
-			}
-		} else {
-			p.sigHasher = func(i []byte) []byte {
-				return crypto.Keccak256(hashPrefix42Bytes, []byte(hex.EncodeToString(i)))
-			}
-		}
+	// set local signature hash creator
+	p.sigHasher = func(i []byte) []byte {
+		return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 	}
 
 	// Setup identity

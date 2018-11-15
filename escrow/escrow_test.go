@@ -82,7 +82,7 @@ type PaymentChannelServiceSuite struct {
 	senderAddress      common.Address
 	recipientAddress   common.Address
 	mpeContractAddress common.Address
-	atomicStorage      AtomicStorage
+	memoryStorage      *memoryStorage
 	storage            *PaymentChannelStorage
 
 	service PaymentChannelService
@@ -93,8 +93,8 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
-	suite.atomicStorage = NewMemStorage()
-	suite.storage = NewPaymentChannelStorage(suite.atomicStorage)
+	suite.memoryStorage = NewMemStorage()
+	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
 
 	err := suite.storage.Put(suite.channelKey(), suite.channel())
 	if err != nil {
@@ -103,19 +103,23 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 
 	suite.service = NewPaymentChannelService(
 		suite.storage,
-		NewPaymentStorage(suite.atomicStorage),
+		NewPaymentStorage(suite.memoryStorage),
 		&BlockchainChannelReader{
 			replicaGroupID: func() (*big.Int, error) { return big.NewInt(123), nil },
 			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 				return suite.mpeChannel(), true, nil
 			},
 		},
-		NewEtcdLocker(suite.atomicStorage),
+		NewEtcdLocker(suite.memoryStorage),
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 		},
 	)
+}
+
+func (suite *PaymentChannelServiceSuite) SetupTest() {
+	suite.memoryStorage.Clear()
 }
 
 func TestPaymentChannelServiceSuite(t *testing.T) {

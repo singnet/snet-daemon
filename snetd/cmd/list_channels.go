@@ -40,7 +40,7 @@ func (command *listChannelsCommand) Run() (err error) {
 	}
 
 	for _, channel := range channels {
-		fmt.Println(channel.String())
+		fmt.Printf("%v: %v\n", channel.ChannelID, channel)
 	}
 
 	return nil

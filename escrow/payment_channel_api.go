@@ -29,6 +29,10 @@ func (p *Payment) String() string {
 		blockchain.AddressToHex(&p.MpeContractAddress), p.ChannelID, p.ChannelNonce, p.Amount, blockchain.BytesToBase64(p.Signature))
 }
 
+func (p *Payment) ID() string {
+	return fmt.Sprintf("%v/%v", p.ChannelID, p.ChannelNonce)
+}
+
 // PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
 // consists of two parts: channel id and channel nonce. Channel nonce is
 // incremented each time when amount of tokens in channel descreases. Nonce

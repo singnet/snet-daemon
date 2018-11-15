@@ -40,7 +40,8 @@ func (command *listClaimsCommand) Run() (err error) {
 	}
 
 	for _, claim := range claims {
-		fmt.Println(claim.Payment().String())
+		payment := claim.Payment()
+		fmt.Printf("%v: %v\n", payment.ID(), payment)
 	}
 
 	return nil

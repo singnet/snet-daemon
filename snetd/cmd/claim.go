@@ -25,6 +25,7 @@ type claimCommand struct {
 	blockchain     *blockchain.Processor
 
 	channelId *big.Int
+	paymentId string
 	sendBack  bool
 	timeout   time.Duration
 }
@@ -44,6 +45,7 @@ func newClaimCommand(cmd *cobra.Command, args []string, components *Components) 
 		blockchain:     components.Blockchain(),
 
 		channelId: channelId,
+		paymentId: claimPaymentId,
 		sendBack:  claimSendBack,
 		timeout:   timeout,
 	}
@@ -52,6 +54,9 @@ func newClaimCommand(cmd *cobra.Command, args []string, components *Components) 
 }
 
 func getChannelId(cmd *cobra.Command) (id *big.Int, err error) {
+	if claimChannelId == "" {
+		return nil, nil
+	}
 	value := &big.Int{}
 	err = value.UnmarshalText([]byte(claimChannelId))
 	if err != nil {
@@ -64,7 +69,24 @@ func (command *claimCommand) Run() (err error) {
 	if !command.blockchain.Enabled() {
 		return fmt.Errorf("blockchain should be enabled to claim money from channel")
 	}
+	if command.channelId == nil && command.paymentId == "" {
+		return fmt.Errorf("either --channel-id or --payment-id flag should be set")
+	}
+	if command.channelId != nil && command.paymentId != "" {
+		return fmt.Errorf("only one of --channel-id and --payment-id flags should be set")
+	}
 
+	if command.channelId != nil {
+		return command.claimChannel()
+	}
+	if command.paymentId != "" {
+		return command.claimPayment()
+	}
+
+	return
+}
+
+func (command *claimCommand) claimChannel() (err error) {
 	var update escrow.ChannelUpdate
 	if command.sendBack {
 		update = escrow.CloseChannel
@@ -77,12 +99,31 @@ func (command *claimCommand) Run() (err error) {
 		return
 	}
 
-	err = command.claimPaymentFromChannel(claim)
+	return command.claimPaymentFromChannel(claim)
+}
+
+func (command *claimCommand) claimPayment() (err error) {
+	claim, err := command.findClaim()
 	if err != nil {
 		return
 	}
 
-	return
+	return command.claimPaymentFromChannel(claim)
+}
+
+func (command *claimCommand) findClaim() (claim escrow.Claim, err error) {
+	claims, err := command.channelService.ListClaims()
+	if err != nil {
+		return
+	}
+
+	for _, claim = range claims {
+		if claim.Payment().ID() == command.paymentId {
+			return
+		}
+	}
+
+	return nil, fmt.Errorf("payment id is not found, id: %v", command.paymentId)
 }
 
 func (command *claimCommand) claimPaymentFromChannel(claim escrow.Claim) (err error) {
@@ -95,10 +136,9 @@ func (command *claimCommand) claimPaymentFromChannel(claim escrow.Claim) (err er
 		payment.Signature,
 		command.sendBack,
 	)
-
-	if err == nil {
-		claim.Finish()
+	if err != nil {
+		return
 	}
 
-	return
+	return claim.Finish()
 }

@@ -204,7 +204,6 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
 		components.grpcInterceptor = handler.GrpcStreamInterceptor(
-			blockchain.NewJobPaymentHandler(components.Blockchain()),
 			components.EscrowPaymentHandler(),
 		)
 	}

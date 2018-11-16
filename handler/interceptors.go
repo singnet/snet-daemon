@@ -14,7 +14,8 @@ import (
 
 const (
 	// PaymentTypeHeader is a type of payment used to pay for a RPC call.
-	// Supported types are: "job", "escrow".
+	// Supported types are: "escrow".
+	// Note: "job" Payment type is deprecated 
 	PaymentTypeHeader = "snet-payment-type"
 )
 
@@ -35,7 +36,7 @@ type Payment interface{}
 
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
-// jobPaymentHandler and escrowPaymentHandler.
+// jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted. 
 type PaymentHandler interface {
 	// Type is a content of PaymentTypeHeader field which triggers usage of the
 	// payment handler.

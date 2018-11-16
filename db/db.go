@@ -5,14 +5,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Job struct {
-	JobAddress   []byte
-	JobSignature []byte
-	JobState     string
-	Consumer     []byte
-	Completed    bool
-}
-
 var (
 	JobBucketName   = []byte("job")
 	ChainBucketName = []byte("chain")

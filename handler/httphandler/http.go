@@ -12,62 +12,20 @@ import (
 )
 
 type httpHandler struct {
-	bp                  blockchain.Processor
-	blockchainEnabled   bool
+	bp                  blockchain.Processor 
 	passthroughEnabled  bool
 	passthroughEndpoint string
 }
 
 func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
 	return httpHandler{
-		bp:                  blockProc,
-		blockchainEnabled:   config.GetBool(config.BlockchainEnabledKey),
+		bp:                  blockProc, 
 		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 	}
 }
 
 func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	var jobAddress, jobSignature string
-	var jobAddressBytes, jobSignatureBytes []byte
-
-	if h.blockchainEnabled {
-		jobAddress, jobSignature = req.Header.Get(blockchain.JobAddressHeader),
-			req.Header.Get(blockchain.JobSignatureHeader)
-
-		// Backward-compatibility for old auth embedded in JSON-RPC request params object
-		if jobAddress == "" && jobSignature == "" {
-			if bodyBytes, err := ioutil.ReadAll(req.Body); err == nil {
-				b := new(interface{})
-				json.Unmarshal(bodyBytes, b)
-				if bMap, ok := (*b).(map[string]interface{}); ok {
-					if p, ok := bMap["params"]; ok {
-						if pMap, ok := p.(map[string]interface{}); ok {
-							if jA, ok := pMap["job_address"]; ok {
-								if jS, ok := pMap["job_signature"]; ok {
-									jobAddress, _ = jA.(string)
-									jobSignature, _ = jS.(string)
-									delete(pMap, "job_address")
-									delete(pMap, "job_signature")
-								}
-							}
-							bMap["params"] = pMap
-							bodyBytes, _ = json.Marshal(bMap)
-						}
-					}
-				}
-				req.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-			}
-		}
-
-		jobAddressBytes, jobSignatureBytes = common.FromHex(jobAddress), common.FromHex(jobSignature)
-
-		if !h.bp.IsValidJobInvocation(jobAddressBytes, jobSignatureBytes) {
-			http.Error(resp, "job invocation not valid", http.StatusUnauthorized)
-			return
-		}
-	}
-
 	if h.passthroughEnabled {
 		req2, err := http.NewRequest(req.Method, h.passthroughEndpoint, req.Body)
 		if err != nil {
@@ -98,9 +56,5 @@ func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, err.Error(), http.StatusInternalServerError)
 			return
 		}
-	}
-
-	if h.blockchainEnabled {
-		h.bp.CompleteJob(jobAddressBytes, jobSignatureBytes)
-	}
+	} 
 }

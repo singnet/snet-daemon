@@ -11,15 +11,13 @@ import (
 	"github.com/singnet/snet-daemon/config"
 )
 
-type httpHandler struct {
-	bp                  blockchain.Processor 
+type httpHandler struct { 
 	passthroughEnabled  bool
 	passthroughEndpoint string
 }
 
 func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
-	return httpHandler{
-		bp:                  blockProc, 
+	return httpHandler{ 
 		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 	}

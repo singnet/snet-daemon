@@ -11,7 +11,9 @@ import (
 // ListChannelsCmd shows list of channels from shared storage
 var ListChannelsCmd = &cobra.Command{
 	Use:   "channels",
-	Short: "List payment channels from the shared storage",
+	Short: "List payment channels",
+	Long: "List payment channels for which at least on payment was received.\n" +
+		"User can use 'snetd claim --channel-id' command to claim funds from channel.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunAndCleanup(cmd, args, newListChannelsCommand)
 	},

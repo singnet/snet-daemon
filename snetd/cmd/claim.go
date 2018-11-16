@@ -14,7 +14,12 @@ import (
 var ClaimCmd = &cobra.Command{
 	Use:   "claim",
 	Short: "Claim money from payment channel",
-	Long:  "Increment payment channel nonce and send blockchain transaction to claim money from channel",
+	Long: "Command gets latest payment from channel, moves payment to in-progress state\n" +
+		"and writes payment transaction to the blockchain. Channel nonce is\n" +
+		"updated and client should start using new nonce. User can specify --timeout\n" +
+		"for blockchain writing. If payment was not written before timeout then writing\n" +
+		"operation can be restarted using --payment-id option. See 'snetd list claims' to\n" +
+		"list payments in progress.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunAndCleanup(cmd, args, newClaimCommand)
 	},

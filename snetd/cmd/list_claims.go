@@ -12,6 +12,9 @@ import (
 var ListClaimsCmd = &cobra.Command{
 	Use:   "claims",
 	Short: "List payments which are not written to blockchain yet",
+	Long: "List payments which are in progress state and not written\n" +
+		"to the blockchain. 'snetd claim --payment-id' command can be\n" +
+		"used to retry writing to the blockchain.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunAndCleanup(cmd, args, newListClaimsCommand)
 	},

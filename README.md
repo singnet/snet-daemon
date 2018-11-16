@@ -57,14 +57,30 @@ $ ./scripts/test
 
 ### Main commands
 
-* Save default configuration to ```snetd.config.json``` file
-```bash
-$ ./snetd-linux-amd64 init --config snetd.config.json
-```
-
 * Start ```snet-daemon```
 ```bash
 $ ./snetd-linux-amd64 serve
+```
+
+* Full list of commands, use --help to get more information.
+```bash
+$ ./build/snetd-linux-amd64 --help
+Usage:
+  snetd [flags]
+  snetd [command]
+
+Available Commands:
+  claim       Claim money from payment channel
+  help        Help about any command
+  init        Write default configuration to file
+  list        List channels, claims in progress, etc
+  serve       
+
+Flags:
+  -c, --config string   config file (default "snetd.config.json")
+  -h, --help            help for snetd
+
+Use "snetd [command] --help" for more information about a command.
 ```
 
 ### Configuration

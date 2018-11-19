@@ -12,8 +12,8 @@ import (
 var ListChannelsCmd = &cobra.Command{
 	Use:   "channels",
 	Short: "List payment channels",
-	Long: "List payment channels for which at least on payment was received.\n" +
-		"User can use 'snetd claim --channel-id' command to claim funds from channel.",
+	Long: "List payment channels for which at least on payment was received." +
+		" User can use 'snetd claim --channel-id' command to claim funds from channel.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunAndCleanup(cmd, args, newListChannelsCommand)
 	},

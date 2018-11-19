@@ -100,7 +100,7 @@ func (suite *ValidationTestSuite) channel() *PaymentChannelData {
 		Nonce:            big.NewInt(3),
 		Sender:           suite.senderAddress,
 		Recipient:        suite.recipientAddress,
-		GroupID:          big.NewInt(1),
+		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
 		AuthorizedAmount: big.NewInt(12300),

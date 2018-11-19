@@ -1,16 +1,12 @@
 //go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name MultiPartyEscrow --go-package blockchain --output-file multi_party_escrow.go
-
+//go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name Registry --go-package blockchain --output-file registry.go
 package blockchain
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"math/big"
-
 	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -18,7 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/ipfsutils"
 	log "github.com/sirupsen/logrus"
+	"math/big"
 )
 
 var (
@@ -33,16 +31,18 @@ type jobInfo struct {
 }
 
 type Processor struct {
-	enabled               bool
-	ethClient             *ethclient.Client
-	rawClient             *rpc.Client 
-	sigHasher             func([]byte) []byte
-	privateKey            *ecdsa.PrivateKey
-	address               string
-	jobCompletionQueue    chan *jobInfo
-	boltDB                *bolt.DB
-	escrowContractAddress common.Address
-	multiPartyEscrow      *MultiPartyEscrow
+	enabled                 bool
+	ethClient               *ethclient.Client
+	rawClient               *rpc.Client
+	sigHasher               func([]byte) []byte
+	privateKey              *ecdsa.PrivateKey
+	address                 string
+	jobCompletionQueue      chan *jobInfo
+	boltDB                  *bolt.DB
+	escrowContractAddress   common.Address
+	registryContractAddress common.Address
+	multiPartyEscrow        *MultiPartyEscrow
+	regsitry                *Registry
 }
 
 // NewProcessor creates a new blockchain processor
@@ -68,8 +68,27 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 	}
 
 	// TODO: if address is not in config, try to load it using network
-	// configuration
-	p.escrowContractAddress = common.HexToAddress(config.GetString(config.MultiPartyEscrowContractAddressKey))
+
+	orgName := StringToBytes32(config.GetString(config.OrganizationName))
+	serviceName := StringToBytes32(config.GetString(config.ServiceName))
+
+	//TODO: Read this from github
+	p.registryContractAddress = common.HexToAddress(config.GetString(config.RegistryAddressKey))
+	reg, err := NewRegistryCaller(p.registryContractAddress, p.ethClient)
+	if err != nil {
+		return p, errors.Wrap(err, "error instantiating Registry contract")
+	}
+	serviceRegistration, err := reg.GetServiceRegistrationByName(nil, orgName, serviceName)
+	if err != nil {
+		return p, errors.Wrap(err, "Error retriving from registry  service ")
+	}
+
+	var hashcode []byte
+	hashcode, err = hex.DecodeString(string(serviceRegistration.MetadataURI[:]))
+	strHashcode := string(hashcode)
+	ipfsutils.SetServiceMetaData(strHashcode)
+	p.escrowContractAddress = common.HexToAddress(ipfsutils.GetmpeAddress())
+
 	if mpe, err := NewMultiPartyEscrow(p.escrowContractAddress, p.ethClient); err != nil {
 		return p, errors.Wrap(err, "error instantiating MultiPartyEscrow contract")
 	} else {

@@ -15,19 +15,24 @@ import (
 
 const (
 	MultiPartyEscrowContractAddressKey  = "MULTI_PARTY_ESCROW_CONTRACT_ADDRESS"
+	RegistryAddressKey                  = "REGISTRY_ADDRESS_KEY" //to be read from github
 	AutoSSLDomainKey                    = "AUTO_SSL_DOMAIN"
 	AutoSSLCacheDirKey                  = "AUTO_SSL_CACHE_DIR"
 	BlockchainEnabledKey                = "BLOCKCHAIN_ENABLED"
 	ConfigPathKey                       = "CONFIG_PATH"
 	DaemonListeningPortKey              = "DAEMON_LISTENING_PORT"
 	DaemonTypeKey                       = "DAEMON_TYPE"
+	DaemonEndPoint                      = "DAEMON_END_POINT"
 	DbPathKey                           = "DB_PATH"
 	EthereumJsonRpcEndpointKey          = "ETHEREUM_JSON_RPC_ENDPOINT"
 	ExecutablePathKey                   = "EXECUTABLE_PATH"
 	HdwalletIndexKey                    = "HDWALLET_INDEX"
 	HdwalletMnemonicKey                 = "HDWALLET_MNEMONIC"
+	IpfsEndPoint                        = "IPFS_END_POINT"
 	PricePerCallKey                     = "PRICE_PER_CALL"
 	LogKey                              = "LOG"
+	OrganizationName                    = "ORGANIZATION_NAME"
+	ServiceName                         = "SERVICE_NAME"
 	PassthroughEnabledKey               = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey              = "PASSTHROUGH_ENDPOINT"
 	PollSleepKey                        = "POLL_SLEEP"
@@ -45,6 +50,11 @@ const (
 	defaultConfigJson string = `
 {
 	"auto_ssl_cache_dir": ".certs",
+    "ipfs": {
+        "ipfs_endpoint": "localhost",
+	    "ipfs_scheme": "http",
+        "ipfs_port": 5051
+    },
 	"auto_ssl_domain": "",
 	"blockchain_enabled": true,
 	"daemon_listening_port": 5000,

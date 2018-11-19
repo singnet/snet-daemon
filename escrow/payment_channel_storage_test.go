@@ -15,7 +15,7 @@ import (
 
 func NewBlockchainChannelReaderMock() *BlockchainChannelReader {
 	return &BlockchainChannelReader{
-		replicaGroupID: func() (*big.Int, error) { return big.NewInt(123), nil },
+		replicaGroupID: func() ([32]byte, error) { return [32]byte{123}, nil },
 		readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 			return nil, false, nil
 		},
@@ -58,7 +58,7 @@ func (suite *PaymentChannelStorageSuite) channel() *PaymentChannelData {
 		Nonce:            big.NewInt(3),
 		Sender:           suite.senderAddress,
 		Recipient:        suite.recipientAddress,
-		GroupID:          big.NewInt(123),
+		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
 		AuthorizedAmount: big.NewInt(0),
@@ -92,7 +92,7 @@ func (suite *BlockchainChannelReaderSuite) SetupSuite() {
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 
 	suite.reader = BlockchainChannelReader{
-		replicaGroupID: func() (*big.Int, error) { return big.NewInt(123), nil },
+		replicaGroupID: func() ([32]byte, error) { return [32]byte{123}, nil },
 		readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 			return suite.mpeChannel(), true, nil
 		},
@@ -107,7 +107,7 @@ func (suite *BlockchainChannelReaderSuite) mpeChannel() *blockchain.MultiPartyEs
 	return &blockchain.MultiPartyEscrowChannel{
 		Sender:     suite.senderAddress,
 		Recipient:  suite.recipientAddress,
-		GroupId:    big.NewInt(123),
+		GroupId:    [32]byte{123},
 		Value:      big.NewInt(12345),
 		Nonce:      big.NewInt(3),
 		Expiration: big.NewInt(100),
@@ -120,7 +120,7 @@ func (suite *BlockchainChannelReaderSuite) channel() *PaymentChannelData {
 		Nonce:            big.NewInt(3),
 		Sender:           suite.senderAddress,
 		Recipient:        suite.recipientAddress,
-		GroupID:          big.NewInt(123),
+		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
 		AuthorizedAmount: big.NewInt(0),
@@ -144,7 +144,7 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelState() {
 
 func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectGroupId() {
 	reader := suite.reader
-	reader.replicaGroupID = func() (*big.Int, error) { return big.NewInt(321), nil }
+	reader.replicaGroupID = func() ([32]byte, error) { return [32]byte{123}, nil }
 
 	channel, ok, err := reader.GetChannelStateFromBlockchain(suite.channelKey())
 

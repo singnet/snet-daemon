@@ -107,7 +107,9 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 		suite.storage,
 		suite.paymentStorage,
 		&BlockchainChannelReader{
-			replicaGroupID: func() (*big.Int, error) { return big.NewInt(123), nil },
+			replicaGroupID: func() ([32]byte, error) {
+				return [32]byte{123}, nil
+			},
 			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 				return suite.mpeChannel(), true, nil
 			},
@@ -132,7 +134,7 @@ func (suite *PaymentChannelServiceSuite) mpeChannel() *blockchain.MultiPartyEscr
 	return &blockchain.MultiPartyEscrowChannel{
 		Sender:     suite.senderAddress,
 		Recipient:  suite.recipientAddress,
-		GroupId:    big.NewInt(123),
+		GroupId:    [32]byte{123},
 		Value:      big.NewInt(12345),
 		Nonce:      big.NewInt(3),
 		Expiration: big.NewInt(100),
@@ -162,7 +164,7 @@ func (suite *PaymentChannelServiceSuite) channel() *PaymentChannelData {
 		Nonce:            big.NewInt(3),
 		Sender:           suite.senderAddress,
 		Recipient:        suite.recipientAddress,
-		GroupID:          big.NewInt(123),
+		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
 		AuthorizedAmount: big.NewInt(0),

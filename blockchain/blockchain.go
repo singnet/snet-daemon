@@ -42,7 +42,6 @@ type Processor struct {
 	escrowContractAddress   common.Address
 	registryContractAddress common.Address
 	multiPartyEscrow        *MultiPartyEscrow
-	regsitry                *Registry
 }
 
 // NewProcessor creates a new blockchain processor

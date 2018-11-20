@@ -236,6 +236,29 @@ func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransaction() {
 	assert.Equal(suite.T(), suite.channelPlusPayment(paymentB), channel)
 }
 
+func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransactionAfterRollback() {
+	paymentA := suite.payment()
+	paymentA.Amount = big.NewInt(13)
+	SignTestPayment(paymentA, suite.senderPrivateKey)
+	paymentB := suite.payment()
+	paymentB.Amount = big.NewInt(13)
+	SignTestPayment(paymentB, suite.senderPrivateKey)
+
+	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
+	errAC := transactionA.Rollback()
+	transactionB, errB := suite.service.StartPaymentTransaction(paymentB)
+	errBC := transactionB.Commit()
+	channel, ok, errD := suite.storage.Get(suite.channelKey())
+
+	assert.Nil(suite.T(), errA, "Unexpected error: %v", errA)
+	assert.Nil(suite.T(), errAC, "Unexpected error: %v", errAC)
+	assert.Nil(suite.T(), errB, "Unexpected error: %v", errB)
+	assert.Nil(suite.T(), errBC, "Unexpected error: %v", errBC)
+	assert.Nil(suite.T(), errD, "Unexpected error: %v", errD)
+	assert.True(suite.T(), ok)
+	assert.Equal(suite.T(), suite.channelPlusPayment(paymentB), channel)
+}
+
 func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 	transaction, _ := suite.service.StartPaymentTransaction(suite.payment())
 	transaction.Commit()

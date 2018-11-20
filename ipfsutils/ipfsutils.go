@@ -38,7 +38,7 @@ func GetIpfsFile(hash string) string {
 		log.WithError(err).Panic("error: in Reading the meta data file %s", err)
 
 	}
-	log.Debug(string(blob))
+	log.WithField("hash", hash).WithField("blob", string(blob)).Debug("Blob of IPFS file with hash")
 
 	jsondata = string(blob)
 	re = regexp.MustCompile("\\n")

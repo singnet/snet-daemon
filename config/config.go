@@ -50,17 +50,13 @@ const (
 	defaultConfigJson string = `
 {
 	"auto_ssl_cache_dir": ".certs",
-    "ipfs": {
-        "ipfs_endpoint": "localhost",
-	    "ipfs_scheme": "http",
-        "ipfs_port": 5051
-    },
 	"auto_ssl_domain": "",
 	"blockchain_enabled": true,
 	"daemon_listening_port": 5000,
 	"daemon_type": "grpc",
 	"db_path": "snetd.db",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
+    "IPFS_END_POINT": "http://localhost:5002/",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"price_per_call": 10,

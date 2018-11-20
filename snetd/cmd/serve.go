@@ -180,8 +180,7 @@ func (d daemon) start() {
 			} else {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					//fmt.Fprintln(resp, config.GetString(config.WireEncodingKey))
-					blockchain.GetWireEncoding()
+					fmt.Fprintln(resp, blockchain.GetWireEncoding())
 				} else {
 					http.NotFound(resp, req)
 				}

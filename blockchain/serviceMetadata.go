@@ -3,10 +3,12 @@ package blockchain
 import (
 	"encoding/base64"
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
 	"math/big"
 	"strings"
+
 )
 
 type ServiceMetadata struct {
@@ -51,7 +53,7 @@ func GetDaemonGroupID() [32]byte {
 
 	data, err := base64.StdEncoding.DecodeString(groupID)
 	if err != nil {
-
+		log.WithError(err).Panic("Error trying to base64.StdEncoding.DecodeString")
 	}
 	var byte32 [32]byte
 	copy(byte32[:], data[:])

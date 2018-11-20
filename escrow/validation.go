@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-
 	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
@@ -26,7 +24,6 @@ func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Vipe
 	return &ChannelPaymentValidator{
 		currentBlock: processor.CurrentBlock,
 		paymentExpirationThreshold: func() *big.Int {
-			//return big.NewInt(cfg.GetInt64(config.PaymentExpirationThresholdBlocksKey))
 			return big.NewInt(blockchain.GetPaymentExpirationThreshold())
 		},
 	}
@@ -52,7 +49,6 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
 		return NewPaymentError(Unauthenticated, "payment is not signed by channel sender")
 	}
-	//UNCOMMENT
 	currentBlock, e := validator.currentBlock()
 	if e != nil {
 		return NewPaymentError(Internal, "cannot determine current block")
@@ -82,6 +78,7 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 
 	signer, err = getSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
+		log.WithError(err).Panic("error deriving private key")
 		return
 	}
 

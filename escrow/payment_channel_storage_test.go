@@ -144,11 +144,11 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelState() {
 
 func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectGroupId() {
 	reader := suite.reader
-	reader.replicaGroupID = func() ([32]byte, error) { return [32]byte{123}, nil }
+	reader.replicaGroupID = func() ([32]byte, error) { return [32]byte{32}, nil }
 
 	channel, ok, err := reader.GetChannelStateFromBlockchain(suite.channelKey())
 
-	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: 321, channel group: 123"), err)
+	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: [32 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
 }

@@ -118,8 +118,6 @@ func newDaemon(components *Components) (daemon, error) {
 
 func (d daemon) start() {
 
-	//d.blockProc.StartLoop()
-
 	var tlsConfig *tls.Config
 
 	if d.autoSSLDomain != "" {

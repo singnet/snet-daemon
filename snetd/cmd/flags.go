@@ -95,7 +95,9 @@ func init() {
 	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money, see \"list channels\"")
 	ClaimCmd.Flags().StringVar(&claimPaymentId, ClaimPaymentIdFlag, "", "id of the payment to claim money, see \"list payments\"")
 	ClaimCmd.Flags().BoolVar(&claimSendBack, ClaimSendBackFlag, false, "send the rest of the channel value back to channel sender")
-	ClaimCmd.Flags().StringVar(&claimTimeout, ClaimTimeoutFlag, "5s", "timeout for blockchain transaction")
+	ClaimCmd.Flags().StringVar(&claimTimeout, ClaimTimeoutFlag, "5s", "timeout for blockchain transaction;"+
+		" timeout is specified as a sequence of decimal number with unit suffix;"+
+		" valid time units are \"ns\", \"us\", \"ms\", \"s\", \"m\", \"h\"")
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))

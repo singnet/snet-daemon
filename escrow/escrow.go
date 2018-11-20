@@ -230,5 +230,11 @@ func (payment *paymentTransaction) Commit() error {
 }
 
 func (payment *paymentTransaction) Rollback() error {
+	defer func(payment *paymentTransaction) {
+		err := payment.lock.Unlock()
+		if err != nil {
+			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+		}
+	}(payment)
 	return nil
 }

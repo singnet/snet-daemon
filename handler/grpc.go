@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/singnet/snet-daemon/blockchain"
 	"io"
 	"net/http"
 	"net/url"
@@ -37,12 +38,13 @@ func NewGrpcHandler() grpc.StreamHandler {
 	}
 
 	h := grpcHandler{
-		enc:                 config.GetString(config.WireEncodingKey),
+		//enc:                 config.GetString(config.WireEncodingKey),
+		enc:                 blockchain.GetWireEncoding(),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 		executable:          config.GetString(config.ExecutablePathKey),
 	}
 
-	switch config.GetString(config.ServiceTypeKey) {
+	switch blockchain.GetServiceType() {
 	case "grpc":
 		passthroughURL, err := url.Parse(h.passthroughEndpoint)
 		if err != nil {

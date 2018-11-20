@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/singnet/snet-daemon/ipfsutils"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"math/big"
@@ -99,8 +99,7 @@ type BlockchainChannelReader struct {
 func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Viper) *BlockchainChannelReader {
 	return &BlockchainChannelReader{
 		replicaGroupID: func() ([32]byte, error) {
-			//s := config.GetString(config.ReplicaGroupIDKey)
-			s := ipfsutils.GetDaemonGroupID()
+			s := blockchain.GetDaemonGroupID()
 
 			return s, nil
 		},
@@ -120,13 +119,13 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 	if err != nil {
 		return nil, false, err
 	}
+
 	if ch.GroupId != configGroupID {
 		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
 		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, ch.GroupId)
 	}
 
 	// TODO: check recipient
-
 	return &PaymentChannelData{
 		ChannelID:        key.ID,
 		Nonce:            ch.Nonce,

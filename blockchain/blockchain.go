@@ -5,7 +5,6 @@ package blockchain
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/ipfsutils"
 	log "github.com/sirupsen/logrus"
 	"math/big"
 )
@@ -82,11 +80,8 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 		return p, errors.Wrap(err, "Error retriving from registry  service ")
 	}
 
-	var hashcode []byte
-	hashcode, err = hex.DecodeString(string(serviceRegistration.MetadataURI[:]))
-	strHashcode := string(hashcode)
-	ipfsutils.SetServiceMetaData(strHashcode)
-	p.escrowContractAddress = common.HexToAddress(ipfsutils.GetmpeAddress())
+	SetServiceMetaData(string(serviceRegistration.MetadataURI[:]))
+	p.escrowContractAddress = common.HexToAddress(GetmpeAddress())
 
 	if mpe, err := NewMultiPartyEscrow(p.escrowContractAddress, p.ethClient); err != nil {
 		return p, errors.Wrap(err, "error instantiating MultiPartyEscrow contract")

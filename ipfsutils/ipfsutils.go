@@ -2,6 +2,7 @@ package ipfsutils
 
 import (
 	"github.com/ipfs/go-ipfs-api"
+	"github.com/singnet/snet-daemon/config"
 
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
@@ -10,6 +11,22 @@ import (
 )
 
 func GetIpfsFile(hash string) string {
+
+	reg, err := regexp.Compile("ipfs://")
+	if err != nil {
+		log.Fatal(err)
+	}
+	hash = reg.ReplaceAllString(hash, "")
+
+	reg, err = regexp.Compile("[^a-zA-Z0-9=]+")
+	if err != nil {
+		log.Fatal(err)
+	}
+	hash = reg.ReplaceAllString(hash, "")
+
+	jsondata := string(hash)
+
+	re := regexp.MustCompile("\\n")
 	sh := GetIpfsShell()
 	cid, err := sh.Cat(hash)
 	if err != nil {
@@ -23,8 +40,8 @@ func GetIpfsFile(hash string) string {
 	}
 	log.Debug(string(blob))
 
-	jsondata := string(blob)
-	re := regexp.MustCompile("\\n")
+	jsondata = string(blob)
+	re = regexp.MustCompile("\\n")
 	jsondata = re.ReplaceAllString(jsondata, " ")
 	cid.Close()
 	return jsondata
@@ -32,10 +49,6 @@ func GetIpfsFile(hash string) string {
 
 func GetIpfsShell() *shell.Shell {
 	//Read from Configuration file
-	sh := shell.NewShell("http://localhost:5002/")
+	sh := shell.NewShell(config.GetString(config.IpfsEndPoint))
 	return sh
-}
-
-func GetmpeAddress() string {
-	return metaData.MpeAddress
 }

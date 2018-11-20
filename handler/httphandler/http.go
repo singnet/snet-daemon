@@ -1,23 +1,20 @@
 package httphandler
 
 import (
-	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 )
 
-type httpHandler struct { 
+type httpHandler struct {
 	passthroughEnabled  bool
 	passthroughEndpoint string
 }
 
 func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
-	return httpHandler{ 
+	return httpHandler{
 		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 	}
@@ -54,5 +51,5 @@ func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			http.Error(resp, err.Error(), http.StatusInternalServerError)
 			return
 		}
-	} 
+	}
 }

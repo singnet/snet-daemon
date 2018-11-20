@@ -1,9 +1,9 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/blockchain"
 	"math/big"
 
-	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -43,7 +43,7 @@ func NewIncomeValidator() (validator IncomeValidator) {
 
 func (validator *incomeValidator) Validate(data *IncomeData) (err *status.Status) {
 
-	price := config.GetBigInt(config.PricePerCallKey)
+	price := blockchain.GetPriceinCogs()
 
 	if data.Income.Cmp(price) != 0 {
 		err = status.Newf(codes.Unauthenticated, "income %d does not equal to price %d", data.Income, price)

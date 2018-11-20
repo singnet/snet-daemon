@@ -22,7 +22,8 @@ func (processor *Processor) ClaimFundsFromChannel(timeout time.Duration, channel
 
 	v, r, s, err := ParseSignature(signature)
 	if err != nil {
-		return
+		log.WithError(err).Error("Error in Parsing the Signature.")
+		return fmt.Errorf("Error in Parsing the Signature: %v", err)
 	}
 
 	auth := bind.NewKeyedTransactor(processor.privateKey)

@@ -78,7 +78,7 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 
 	signer, err = getSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
-		log.WithError(err)
+		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
 		return nil,err
 	}
 

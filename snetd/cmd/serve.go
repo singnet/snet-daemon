@@ -118,8 +118,6 @@ func newDaemon(components *Components) (daemon, error) {
 
 func (d daemon) start() {
 
-	d.blockProc.StartLoop()
-
 	var tlsConfig *tls.Config
 
 	if d.autoSSLDomain != "" {
@@ -182,7 +180,7 @@ func (d daemon) start() {
 			} else {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprintln(resp, config.GetString(config.WireEncodingKey))
+					fmt.Fprintln(resp, blockchain.GetWireEncoding())
 				} else {
 					http.NotFound(resp, req)
 				}

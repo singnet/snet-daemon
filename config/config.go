@@ -14,21 +14,25 @@ import (
 )
 
 const (
-	AgentContractAddressKey             = "AGENT_CONTRACT_ADDRESS"
 	MultiPartyEscrowContractAddressKey  = "MULTI_PARTY_ESCROW_CONTRACT_ADDRESS"
+	RegistryAddressKey                  = "REGISTRY_ADDRESS_KEY" //to be read from github
 	AutoSSLDomainKey                    = "AUTO_SSL_DOMAIN"
 	AutoSSLCacheDirKey                  = "AUTO_SSL_CACHE_DIR"
 	BlockchainEnabledKey                = "BLOCKCHAIN_ENABLED"
 	ConfigPathKey                       = "CONFIG_PATH"
 	DaemonListeningPortKey              = "DAEMON_LISTENING_PORT"
 	DaemonTypeKey                       = "DAEMON_TYPE"
+	DaemonEndPoint                      = "DAEMON_END_POINT"
 	DbPathKey                           = "DB_PATH"
 	EthereumJsonRpcEndpointKey          = "ETHEREUM_JSON_RPC_ENDPOINT"
 	ExecutablePathKey                   = "EXECUTABLE_PATH"
 	HdwalletIndexKey                    = "HDWALLET_INDEX"
 	HdwalletMnemonicKey                 = "HDWALLET_MNEMONIC"
+	IpfsEndPoint                        = "IPFS_END_POINT"
 	PricePerCallKey                     = "PRICE_PER_CALL"
 	LogKey                              = "LOG"
+	OrganizationName                    = "ORGANIZATION_NAME"
+	ServiceName                         = "SERVICE_NAME"
 	PassthroughEnabledKey               = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey              = "PASSTHROUGH_ENDPOINT"
 	PollSleepKey                        = "POLL_SLEEP"
@@ -52,6 +56,7 @@ const (
 	"daemon_type": "grpc",
 	"db_path": "snetd.db",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
+    "IPFS_END_POINT": "http://localhost:5002/",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"price_per_call": 10,

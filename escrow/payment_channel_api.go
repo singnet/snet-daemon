@@ -79,7 +79,7 @@ type PaymentChannelData struct {
 	Recipient common.Address
 	// GroupID is an id of the group of service replicas which share the same
 	// payment channel.
-	GroupID *big.Int
+	GroupID [32]byte
 	// FullAmount is an amount which is deposited in channel by Sender.
 	FullAmount *big.Int
 	// Expiration is a time at which channel will be expired. This time is

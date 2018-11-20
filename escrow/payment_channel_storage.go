@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"math/big"
-	"reflect"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"math/big"
+	"reflect"
 
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
 )
 
 // PaymentChannelStorage is a storage for PaymentChannelData by
@@ -92,15 +91,17 @@ func (storage *PaymentChannelStorage) CompareAndSwap(key *PaymentChannelKey, pre
 
 // BlockchainChannelReader reads channel state from blockchain
 type BlockchainChannelReader struct {
-	replicaGroupID            func() (*big.Int, error)
+	replicaGroupID            func() ([32]byte, error)
 	readChannelFromBlockchain func(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
 }
 
 // NewBlockchainChannelReader returns new instance of blockchain channel reader
 func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Viper) *BlockchainChannelReader {
 	return &BlockchainChannelReader{
-		replicaGroupID: func() (*big.Int, error) {
-			return config.GetBigIntFromViper(cfg, config.ReplicaGroupIDKey)
+		replicaGroupID: func() ([32]byte, error) {
+			s := blockchain.GetDaemonGroupID()
+
+			return s, nil
 		},
 		readChannelFromBlockchain: processor.MultiPartyEscrowChannel,
 	}
@@ -118,13 +119,13 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 	if err != nil {
 		return nil, false, err
 	}
-	if ch.GroupId.Cmp(configGroupID) != 0 {
+
+	if ch.GroupId != configGroupID {
 		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
 		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, ch.GroupId)
 	}
 
 	// TODO: check recipient
-
 	return &PaymentChannelData{
 		ChannelID:        key.ID,
 		Nonce:            ch.Nonce,

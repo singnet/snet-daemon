@@ -20,6 +20,12 @@ func (processor *Processor) ClaimFundsFromChannel(timeout time.Duration, channel
 		"isSendBack": sendBack,
 	})
 
+	v, r, s, err := ParseSignature(signature)
+	if err != nil {
+		log.WithError(err).Error("Error in Parsing the Signature.")
+		return fmt.Errorf("Error in Parsing the Signature: %v", err)
+	}
+
 	auth := bind.NewKeyedTransactor(processor.privateKey)
 
 	log.Info("Submitting transaction to claim funds from channel")
@@ -31,7 +37,9 @@ func (processor *Processor) ClaimFundsFromChannel(timeout time.Duration, channel
 		},
 		channelId,
 		amount,
-		signature,
+		v,
+		r,
+		s,
 		sendBack,
 	)
 	if err != nil {
@@ -66,7 +74,7 @@ func (processor *Processor) ClaimFundsFromChannel(timeout time.Duration, channel
 type MultiPartyEscrowChannel struct {
 	Sender     common.Address
 	Recipient  common.Address
-	GroupId    *big.Int
+	GroupId    [32]byte
 	Value      *big.Int
 	Nonce      *big.Int
 	Expiration *big.Int

@@ -1,17 +1,11 @@
-//go:generate abigen --abi ../resources/blockchain/node_modules/singularitynet-platform-contracts/abi/Agent.json --pkg blockchain --type Agent --out agent.go
 //go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name MultiPartyEscrow --go-package blockchain --output-file multi_party_escrow.go
-
+//go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name Registry --go-package blockchain --output-file registry.go
 package blockchain
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
-	"math/big"
-
 	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -20,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
+	"math/big"
 )
 
 var (
@@ -34,17 +29,17 @@ type jobInfo struct {
 }
 
 type Processor struct {
-	enabled               bool
-	ethClient             *ethclient.Client
-	rawClient             *rpc.Client
-	agent                 *Agent
-	sigHasher             func([]byte) []byte
-	privateKey            *ecdsa.PrivateKey
-	address               string
-	jobCompletionQueue    chan *jobInfo
-	boltDB                *bolt.DB
-	escrowContractAddress common.Address
-	multiPartyEscrow      *MultiPartyEscrow
+	enabled                 bool
+	ethClient               *ethclient.Client
+	rawClient               *rpc.Client
+	sigHasher               func([]byte) []byte
+	privateKey              *ecdsa.PrivateKey
+	address                 string
+	jobCompletionQueue      chan *jobInfo
+	boltDB                  *bolt.DB
+	escrowContractAddress   common.Address
+	registryContractAddress common.Address
+	multiPartyEscrow        *MultiPartyEscrow
 }
 
 // NewProcessor creates a new blockchain processor
@@ -70,40 +65,33 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 	}
 
 	// TODO: if address is not in config, try to load it using network
-	// configuration
-	p.escrowContractAddress = common.HexToAddress(config.GetString(config.MultiPartyEscrowContractAddressKey))
+
+	orgName := StringToBytes32(config.GetString(config.OrganizationName))
+	serviceName := StringToBytes32(config.GetString(config.ServiceName))
+
+	//TODO: Read this from github
+	p.registryContractAddress = common.HexToAddress(config.GetString(config.RegistryAddressKey))
+	reg, err := NewRegistryCaller(p.registryContractAddress, p.ethClient)
+	if err != nil {
+		return p, errors.Wrap(err, "error instantiating Registry contract")
+	}
+	serviceRegistration, err := reg.GetServiceRegistrationByName(nil, orgName, serviceName)
+	if err != nil {
+		return p, errors.Wrap(err, "Error retriving from registry  service ")
+	}
+
+	SetServiceMetaData(string(serviceRegistration.MetadataURI[:]))
+	p.escrowContractAddress = common.HexToAddress(GetmpeAddress())
+
 	if mpe, err := NewMultiPartyEscrow(p.escrowContractAddress, p.ethClient); err != nil {
 		return p, errors.Wrap(err, "error instantiating MultiPartyEscrow contract")
 	} else {
 		p.multiPartyEscrow = mpe
 	}
 
-	agentAddress := common.HexToAddress(config.GetString(config.AgentContractAddressKey))
-
-	// Setup agent
-	if a, err := NewAgent(agentAddress, p.ethClient); err != nil {
-		return p, errors.Wrap(err, "error instantiating agent")
-	} else {
-		p.agent = a
-	}
-
-	// Determine "version" of agent contract and set local signature hash creator
-	if bytecode, err := p.ethClient.CodeAt(context.Background(), agentAddress, nil); err != nil {
-		return p, errors.Wrap(err, "error retrieving agent bytecode")
-	} else {
-		bcSum := md5.Sum(bytecode)
-
-		// Compare checksum of agent with known checksum of the first version of the agent contract, which signed
-		// the raw bytes of the address rather than the hex-encoded string
-		if bytes.Equal(bcSum[:], []byte{244, 176, 168, 6, 74, 56, 171, 175, 38, 48, 245, 246, 189, 0, 67, 200}) {
-			p.sigHasher = func(i []byte) []byte {
-				return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
-			}
-		} else {
-			p.sigHasher = func(i []byte) []byte {
-				return crypto.Keccak256(hashPrefix42Bytes, []byte(hex.EncodeToString(i)))
-			}
-		}
+	// set local signature hash creator
+	p.sigHasher = func(i []byte) []byte {
+		return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 	}
 
 	// Setup identity

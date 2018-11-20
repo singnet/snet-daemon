@@ -5,14 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
 )
 
 // ChannelPaymentValidator validates payment using payment channel state.
@@ -26,7 +24,7 @@ func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Vipe
 	return &ChannelPaymentValidator{
 		currentBlock: processor.CurrentBlock,
 		paymentExpirationThreshold: func() *big.Int {
-			return big.NewInt(cfg.GetInt64(config.PaymentExpirationThresholdBlocksKey))
+			return big.NewInt(blockchain.GetPaymentExpirationThreshold())
 		},
 	}
 }
@@ -51,7 +49,6 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
 		return NewPaymentError(Unauthenticated, "payment is not signed by channel sender")
 	}
-
 	currentBlock, e := validator.currentBlock()
 	if e != nil {
 		return NewPaymentError(Internal, "cannot determine current block")
@@ -81,10 +78,11 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 
 	signer, err = getSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
-		return
+		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
+		return nil,err
 	}
 
-	return
+	return signer, err
 }
 
 func getSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {

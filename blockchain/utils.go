@@ -68,3 +68,10 @@ func HexToBytes(str string) []byte {
 func HexToAddress(str string) common.Address {
 	return common.Address(common.BytesToAddress(HexToBytes(str)))
 }
+
+func StringToBytes32(str string) [32]byte {
+
+	var byte32 [32]byte
+	copy(byte32[:], []byte(str))
+	return byte32
+}

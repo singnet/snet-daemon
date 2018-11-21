@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	MultiPartyEscrowContractAddressKey  = "MULTI_PARTY_ESCROW_CONTRACT_ADDRESS"
 	RegistryAddressKey                  = "REGISTRY_ADDRESS_KEY" //to be read from github
 	AutoSSLDomainKey                    = "AUTO_SSL_DOMAIN"
 	AutoSSLCacheDirKey                  = "AUTO_SSL_CACHE_DIR"
@@ -29,7 +28,6 @@ const (
 	HdwalletIndexKey                    = "HDWALLET_INDEX"
 	HdwalletMnemonicKey                 = "HDWALLET_MNEMONIC"
 	IpfsEndPoint                        = "IPFS_END_POINT"
-	PricePerCallKey                     = "PRICE_PER_CALL"
 	LogKey                              = "LOG"
 	OrganizationName                    = "ORGANIZATION_NAME"
 	ServiceName                         = "SERVICE_NAME"
@@ -41,27 +39,28 @@ const (
 	SSLCertPathKey                      = "SSL_CERT"
 	SSLKeyPathKey                       = "SSL_KEY"
 	WireEncodingKey                     = "WIRE_ENCODING"
-	ReplicaGroupIDKey                   = "REPLICA_GROUP_ID" // TODO: read replica group id from IPFS metadata
-	PaymentExpirationThresholdBlocksKey = "PAYMENT_EXPIRATION_THRESHOLD_BLOCKS"
 	PaymentChannelStorageTypeKey        = "PAYMENT_CHANNEL_STORAGE_TYPE"
 	PaymentChannelStorageClientKey      = "PAYMENT_CHANNEL_STORAGE_CLIENT"
 	PaymentChannelStorageServerKey      = "PAYMENT_CHANNEL_STORAGE_SERVER"
 
 	defaultConfigJson string = `
 {
-	"auto_ssl_cache_dir": ".certs",
 	"auto_ssl_domain": "",
 	"blockchain_enabled": true,
 	"daemon_listening_port": 5000,
 	"daemon_type": "grpc",
+    "daemon_end_point": "http://localhost:8080",
 	"db_path": "snetd.db",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
-    "IPFS_END_POINT": "http://localhost:5002/",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
+    "ipfs_end_point": "http://localhost:5002/", 
+    "organization_name": "exampleorganization", 
 	"price_per_call": 10,
 	"passthrough_enabled": false,
 	"poll_sleep": "5s",
+    "registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
+    "service_name": "dnndisplay", 
 	"service_type": "grpc",
 	"ssl_cert": "",
 	"ssl_key": "",

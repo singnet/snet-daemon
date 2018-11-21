@@ -39,46 +39,34 @@ type ServiceMetadata struct {
 var metaData *ServiceMetadata
 
 func GetDaemonGroupID() [32]byte {
-	var byte32 [32]byte
+	groupID := "0"
 	groupName := GetDaemonGroupName()
 	for _, group := range metaData.Groups {
 		if strings.Compare(groupName, group.GroupName) == 0 {
-			groupID := group.GroupID
+			groupID = group.GroupID
 			metaData.DeamonReplicaGroupID = groupID
 			metaData.DeamonGroupName = group.GroupName
-			return getbase64Encoding(groupID)
+			break
 		}
 	}
-	log.WithField("GetDaemonGroupID",
-		"Group ID could not be retrieved, check if the daemon end point in config " +
-			"matches the end point from metadata").Panic("serviceMetadata.GetDaemonGroupID")
 
-	return byte32
-}
-
-func getbase64Encoding(str string) [32]byte {
-	data, err := base64.StdEncoding.DecodeString(str)
+	data, err := base64.StdEncoding.DecodeString(groupID)
 	if err != nil {
 		log.WithError(err).Panic("Error trying to base64.StdEncoding.DecodeString")
 	}
 	var byte32 [32]byte
 	copy(byte32[:], data[:])
 	return byte32
-
 }
 
 func GetPaymentAddress() string {
-	var paymentAddress string
+	paymentAddress := "0" //to continue with current testing
 	groupName := GetDaemonGroupName()
 	for _, group := range metaData.Groups {
 		if strings.Compare(groupName, group.GroupName) == 0 {
 			paymentAddress = group.PaymentAddress
-			return paymentAddress
 		}
 	}
-	log.WithField("GetPaymentAddress",
-		"Payment Address could not be retrieved, check if the daemon end point in config matches " +
-			"the end point from metadata").Panic("serviceMetadata.GetPaymentAddress")
 	return paymentAddress
 }
 
@@ -111,18 +99,18 @@ func GetDaemonGroupName() string {
 	for _, endpoints := range metaData.Endpoints {
 		if strings.Compare(config.GetString(config.DaemonEndPoint), endpoints.Endpoint) == 0 {
 			groupName = endpoints.GroupName
-
-			return groupName
 		}
 	}
-	log.WithField("GetDaemonGroupName",
-		"Daemon group name could not be determined"+
-			", check if the daemon end point in config matches the end point from metadata").Panic("serviceMetadata.GetPaymentAddress")
-
 	return groupName
 }
 
 func GetWireEncoding() string {
+
+	return metaData.Encoding
+
+}
+
+func GetVersion() string {
 
 	return metaData.Encoding
 

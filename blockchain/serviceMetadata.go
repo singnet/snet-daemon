@@ -3,9 +3,9 @@ package blockchain
 import (
 	"encoding/base64"
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
-	log "github.com/sirupsen/logrus"
 	"math/big"
 	"strings"
 )

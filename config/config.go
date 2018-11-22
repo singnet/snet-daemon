@@ -47,7 +47,7 @@ const (
 {
 	"auto_ssl_domain": "",
 	"blockchain_enabled": true,
-	"daemon_listening_port": 5000,
+	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
 	"daemon_end_point": "http://localhost:8080",
 	"db_path": "snetd.db",

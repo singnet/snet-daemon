@@ -55,7 +55,7 @@ const (
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
-	"organization_name": "exampleorganization", 
+	"organization_name": "ExampleOrganization", 
 	"price_per_call": 10,
 	"passthrough_enabled": false,
 	"poll_sleep": "5s",

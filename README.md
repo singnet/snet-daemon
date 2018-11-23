@@ -91,7 +91,7 @@ Available Commands:
   help        Help about any command
   init        Write default configuration to file
   list        List channels, claims in progress, etc
-  serve       (default) option
+  serve       Is the default option which starts the Daemon.
 
 Flags:
   -c, --config string   config file (default "snetd.config.json")

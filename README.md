@@ -3,6 +3,17 @@
 [![CircleCI](https://circleci.com/gh/singnet/snet-daemon.svg?style=svg)](https://circleci.com/gh/singnet/snet-daemon)
 
 SingularityNET Daemon
+The daemon is the adapter with which an otherwise SingularityNET-unaware service implementation can be exposed to the SingularityNET platform. It is designed to be deployed as a sidecar proxy alongside the service on a given host.
+The daemon abstracts the blockchain components away from the clients.
+The SNET Daemon interacts with the Multi Party Escrow to facilitate authorization and payment for services and acts as a passthrough for making API calls to the service.The daemon is the endpoint a client will submit requests to, and they are then passed to the service after validation by the daemon.
+
+
+## Treasure Server
+The treasurer server does the below
+Gets the latest channel state of the Channel updated in ETCD  by the daemons of the same group and then increments the nonce of the channel.
+It then sends and ON-Chain transaction to claim funds.
+The daemons can continue their work independently without any confirmation from the treasurer on the blockchain.
+
 
 ## Development
 
@@ -34,32 +45,38 @@ $ ./scripts/install
 $ ./scripts/build linux amd64
 ```
 
-### Testing
-
-A simple test script has been setup that does the following
-1. Generates a [bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) mnemonic
-2. Runs a [ganache-cli](https://github.com/trufflesuite/ganache-cli) test RPC with the generated mnemonic
-3. Deploys the required network singleton contracts (SingularityNetToken, AgentFactory, Registry) and
-creates an Agent contract instance
-4. Writes a daemon configuration file with the Agent contract address, generated mnemonic, and test RPC endpoint
-5. Runs an instance of snetd
-6. Creates and funds a Job contract instance
-7. Signs the job invocation
-8. Calls the daemon using the predetermined job address and job signature
-9. Cleans up
-
-* Invoke all of the unit tests and the test script
+* Generate default config file  snet-daemon (on Linux amd64 platform)
 ```bash
-$ ./scripts/test
+$ ./build/snetd-linux-amd64 init 
+```
+**** Please update the registry address in daemon config based on the test network used 
+
+#### Run Deamon
+```bash
+$ ../build/snetd-linux-amd64
 ```
 
-## Usage
+
+
 
 ### Main commands
+
+
 
 * Start ```snet-daemon```
 ```bash
 $ ./snetd-linux-amd64 serve
+```
+
+* Claim funds from the channel
+ 
+  Refer to the link below on an end to end [Example of MPE](https://github.com/singnet/wiki/blob/master/multiPartyEscrowContract/MPE_fronttoback_example1.md)
+
+  At the moment treasurer server is a part of snet-daemon command line interface.
+
+```bash
+$ ./snetd-linux-amd64 claim --channel-id 0
+
 ```
 
 * Full list of commands, use --help to get more information.
@@ -74,13 +91,19 @@ Available Commands:
   help        Help about any command
   init        Write default configuration to file
   list        List channels, claims in progress, etc
-  serve       
+  serve       (default) option
 
 Flags:
   -c, --config string   config file (default "snetd.config.json")
   -h, --help            help for snetd
 
 Use "snetd [command] --help" for more information about a command.
+```
+
+
+* Unit Testing
+```bash
+$ ./scripts/test
 ```
 
 ### Configuration

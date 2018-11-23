@@ -65,7 +65,7 @@ $ ../build/snetd-linux-amd64
 
 * Start ```snet-daemon```
 ```bash
-$ ./snetd-linux-amd64 serve
+$ ./snetd-linux-amd64
 ```
 
 * Claim funds from the channel

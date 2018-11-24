@@ -60,7 +60,6 @@ $ ../build/snetd-linux-amd64
 ### Main commands
 
 
-
 * Start ```snet-daemon```
 ```bash
 $ ./snetd-linux-amd64

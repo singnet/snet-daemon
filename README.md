@@ -16,9 +16,28 @@ deploying SingularityNET services using SingularityNET Daemon should install the
 * [Dep 0.4.1+](https://github.com/golang/dep#installation)
 * [Node 8+ w/npm](https://nodejs.org/en/download/)
 
+### Dependencies
+
+* install [Protoc 3.0+](https://askubuntu.com/questions/1072683/how-can-i-install-protoc-on-ubuntu-16-04) 
+
+* install [protoc-gen-go] 
+``` bash
+$ go get -u github.com/golang/protobuf/protoc-gen-go
+```
+
+* install [grpc]
+```bash
+$ go get -u google.golang.org/grpc
+```
+
+* install [golint]
+```bash
+$ sudo apt-get install golint
+```
+
 ### Installing
 
-* Clone the git repository
+* Clone the git repository to the following path $GOPATH/src/github.com/singnet/
 ```bash
 $ git clone git@github.com:singnet/snet-daemon.git
 $ cd snet-daemon

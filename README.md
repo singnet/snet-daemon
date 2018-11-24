@@ -8,11 +8,9 @@ The daemon abstracts the blockchain components away from the clients.
 The SNET Daemon interacts with the Multi Party Escrow to facilitate authorization and payment for services and acts as a passthrough for making API calls to the service.The daemon is the endpoint a client will submit requests to, and they are then passed to the service after validation by the daemon.
 
 
-## Treasure Server
-The treasurer server does the below
-Gets the latest channel state of the Channel updated in ETCD  by the daemons of the same group and then increments the nonce of the channel.
-It then sends and ON-Chain transaction to claim funds.
-The daemons can continue their work independently without any confirmation from the treasurer on the blockchain.
+## Channel Claim command
+Gets the latest channel state of the Channel updated in ETCD by the daemons of the same group and then increments the nonce of the channel.
+It then sends and ON-Chain transaction to claim funds.The daemons continue their work independently without any confirmation from the treasurer on the blockchain.
 
 
 ## Development

@@ -12,11 +12,8 @@ type EthereumClient struct {
 	RawClient *rpc.Client
 }
 
-var ethereumClient EthereumClient
-
 func GetEthereumClient() (EthereumClient, error) {
-
-	ethereumClient = *new(EthereumClient)
+	ethereumClient := *new(EthereumClient)
 	if client, err := rpc.Dial(config.GetString(config.EthereumJsonRpcEndpointKey)); err != nil {
 		return ethereumClient, errors.Wrap(err, "error creating RPC client")
 	} else {

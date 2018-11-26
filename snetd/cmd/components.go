@@ -19,6 +19,7 @@ import (
 
 type Components struct {
 	db                         *bbolt.DB
+	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
@@ -99,13 +100,21 @@ func (components *Components) Blockchain() *blockchain.Processor {
 		return components.blockchain
 	}
 
-	processor, err := blockchain.NewProcessor(components.DB())
+	processor, err := blockchain.NewProcessor(components.DB(), components.ServiceMetaData())
 	if err != nil {
 		log.WithError(err).Panic("unable to initialize blockchain processor")
 	}
 
 	components.blockchain = &processor
 	return components.blockchain
+}
+
+func (components *Components) ServiceMetaData() *blockchain.ServiceMetadata {
+	if components.serviceMetadata != nil {
+		return components.serviceMetadata
+	}
+	components.serviceMetadata = blockchain.ServiceMetaData()
+	return components.serviceMetadata
 }
 
 func (components *Components) EtcdServer() *etcddb.EtcdServer {
@@ -171,9 +180,9 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
 		escrow.NewPaymentStorage(components.AtomicStorage()),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip()),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.serviceMetadata),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip()),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.serviceMetadata),
 	)
 
 	return components.paymentChannelService
@@ -187,7 +196,7 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	components.escrowPaymentHandler = escrow.NewPaymentHandler(
 		components.PaymentChannelService(),
 		components.Blockchain(),
-		escrow.NewIncomeValidator(),
+		escrow.NewIncomeValidator(components.ServiceMetaData().GetPriceInCogs()),
 	)
 
 	return components.escrowPaymentHandler

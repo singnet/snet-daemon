@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -88,7 +89,7 @@ func newDaemon(components *Components) (daemon, error) {
 
 	var err error
 	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v",
-		config.GetInt(config.DaemonListeningPortKey)))
+		deriveDaemonPort(config.GetString(config.DaemonEndPoint))))
 	if err != nil {
 		return d, errors.Wrap(err, "error listening")
 	}
@@ -114,6 +115,20 @@ func newDaemon(components *Components) (daemon, error) {
 	}
 
 	return d, nil
+}
+
+func deriveDaemonPort(daemonEndpoint string) string {
+	if len(daemonEndpoint) != 0 {
+		splitString := strings.Split(daemonEndpoint, ":")
+		if len(splitString) > 0 {
+			port := splitString[len(splitString)-1]
+			_, err := strconv.ParseInt(port, 0, 16)
+			if err == nil {
+				return port
+			}
+		}
+	}
+	return "8080"
 }
 
 func (d daemon) start() {
@@ -160,7 +175,7 @@ func (d daemon) start() {
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
-			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
+			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.serviceMetadata)),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
@@ -180,7 +195,7 @@ func (d daemon) start() {
 			} else {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprintln(resp, blockchain.GetWireEncoding())
+					fmt.Fprintln(resp, d.components.serviceMetadata.GetWireEncoding())
 				} else {
 					http.NotFound(resp, req)
 				}

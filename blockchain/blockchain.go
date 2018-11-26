@@ -43,7 +43,7 @@ type Processor struct {
 }
 
 // NewProcessor creates a new blockchain processor
-func NewProcessor(boltDB *bolt.DB) (Processor, error) {
+func NewProcessor(boltDB *bolt.DB, metadata *ServiceMetadata) (Processor, error) {
 	// TODO(aiden) accept configuration as a parameter
 
 	p := Processor{
@@ -57,31 +57,19 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 	}
 
 	// Setup ethereum client
-	if client, err := rpc.Dial(config.GetString(config.EthereumJsonRpcEndpointKey)); err != nil {
+
+	if ethclients, err := GetEthereumClient(); err != nil {
 		return p, errors.Wrap(err, "error creating RPC client")
 	} else {
-		p.rawClient = client
-		p.ethClient = ethclient.NewClient(client)
+		p.rawClient = ethclients.RawClient
+		p.ethClient = ethclients.EthClient
 	}
 
 	// TODO: if address is not in config, try to load it using network
 
-	orgName := StringToBytes32(config.GetString(config.OrganizationName))
-	serviceName := StringToBytes32(config.GetString(config.ServiceName))
-
 	//TODO: Read this from github
-	p.registryContractAddress = common.HexToAddress(config.GetString(config.RegistryAddressKey))
-	reg, err := NewRegistryCaller(p.registryContractAddress, p.ethClient)
-	if err != nil {
-		return p, errors.Wrap(err, "error instantiating Registry contract")
-	}
-	serviceRegistration, err := reg.GetServiceRegistrationByName(nil, orgName, serviceName)
-	if err != nil {
-		return p, errors.Wrap(err, "Error retriving from registry  service ")
-	}
 
-	SetServiceMetaData(string(serviceRegistration.MetadataURI[:]))
-	p.escrowContractAddress = common.HexToAddress(GetmpeAddress())
+	p.escrowContractAddress = metadata.GetMpeAddress()
 
 	if mpe, err := NewMultiPartyEscrow(p.escrowContractAddress, p.ethClient); err != nil {
 		return p, errors.Wrap(err, "error instantiating MultiPartyEscrow contract")

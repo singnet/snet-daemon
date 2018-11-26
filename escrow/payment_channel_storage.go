@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -93,17 +94,22 @@ func (storage *PaymentChannelStorage) CompareAndSwap(key *PaymentChannelKey, pre
 type BlockchainChannelReader struct {
 	replicaGroupID            func() ([32]byte, error)
 	readChannelFromBlockchain func(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
+	recipientPaymentAddress   func() common.Address
 }
 
 // NewBlockchainChannelReader returns new instance of blockchain channel reader
-func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Viper) *BlockchainChannelReader {
+func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Viper, metadata *blockchain.ServiceMetadata) *BlockchainChannelReader {
 	return &BlockchainChannelReader{
 		replicaGroupID: func() ([32]byte, error) {
-			s := blockchain.GetDaemonGroupID()
+			s := metadata.GetDaemonGroupID()
 
 			return s, nil
 		},
 		readChannelFromBlockchain: processor.MultiPartyEscrowChannel,
+		recipientPaymentAddress: func() common.Address {
+			address := metadata.GetPaymentAddress()
+			return address
+		},
 	}
 }
 
@@ -119,13 +125,19 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 	if err != nil {
 		return nil, false, err
 	}
+	recipientPaymentAddress := reader.recipientPaymentAddress()
 
 	if ch.GroupId != configGroupID {
 		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
 		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, ch.GroupId)
 	}
 
-	// TODO: check recipient
+	if recipientPaymentAddress != ch.Recipient {
+		log.WithField("recipientPaymentAddress", recipientPaymentAddress).
+			WithField("ch.Recipient", ch.Recipient).
+			Warn("Recipient Address from service metadata not Match on what was retrieved from Channel")
+		return nil, false, fmt.Errorf("Recipient Address from service metadata not Match on what was retrieved from Channel")
+	}
 	return &PaymentChannelData{
 		ChannelID:        key.ID,
 		Nonce:            ch.Nonce,

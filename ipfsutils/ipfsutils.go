@@ -5,28 +5,13 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-
-	"regexp"
+	"strings"
 )
 
 func GetIpfsFile(hash string) string {
 
-	log.WithField("hash", hash).Debug("Hash Retrieved from Contract")
-	reg, err := regexp.Compile("ipfs://")
-	if err != nil {
-		log.Fatal(err)
-	}
-	hash = reg.ReplaceAllString(hash, "")
-
-	reg, err = regexp.Compile("[^a-zA-Z0-9=+]+")
-	if err != nil {
-		log.Fatal(err)
-	}
-	hash = reg.ReplaceAllString(hash, "")
-
-	jsondata := string(hash)
 	log.WithField("hash", hash).Debug("Hash Used to retrieve from IPFS")
-	re := regexp.MustCompile("\\n")
+
 	sh := GetIpfsShell()
 	cid, err := sh.Cat(hash)
 	if err != nil {
@@ -40,9 +25,9 @@ func GetIpfsFile(hash string) string {
 	}
 	log.WithField("hash", hash).WithField("blob", string(blob)).Debug("Blob of IPFS file with hash")
 
-	jsondata = string(blob)
-	re = regexp.MustCompile("\\n")
-	jsondata = re.ReplaceAllString(jsondata, " ")
+	jsondata := string(blob)
+
+	jsondata = strings.Replace(jsondata, "\\n", " ", -1)
 	cid.Close()
 	return jsondata
 }

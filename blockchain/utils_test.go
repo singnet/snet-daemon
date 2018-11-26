@@ -10,3 +10,10 @@ func TestBytesToBase64(t *testing.T) {
 
 	assert.Equal(t, "AQL+/w==", base64)
 }
+
+func TestFormatHash(t *testing.T) {
+	s2 := []byte("ipfs://Here is a string....+=")
+	hash := FormatHash(string(s2))
+	assert.Equal(t, hash, "Hereisastring=")
+
+}

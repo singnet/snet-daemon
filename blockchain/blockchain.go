@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -36,20 +35,18 @@ type Processor struct {
 	privateKey              *ecdsa.PrivateKey
 	address                 string
 	jobCompletionQueue      chan *jobInfo
-	boltDB                  *bolt.DB
 	escrowContractAddress   common.Address
 	registryContractAddress common.Address
 	multiPartyEscrow        *MultiPartyEscrow
 }
 
 // NewProcessor creates a new blockchain processor
-func NewProcessor(boltDB *bolt.DB) (Processor, error) {
+func NewProcessor() (Processor, error) {
 	// TODO(aiden) accept configuration as a parameter
 
 	p := Processor{
 		jobCompletionQueue: make(chan *jobInfo, 1000),
 		enabled:            config.GetBool(config.BlockchainEnabledKey),
-		boltDB:             boltDB,
 	}
 
 	if !p.enabled {

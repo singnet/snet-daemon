@@ -38,7 +38,6 @@ func NewGrpcHandler() grpc.StreamHandler {
 	}
 
 	h := grpcHandler{
-		//enc:                 config.GetString(config.WireEncodingKey),
 		enc:                 blockchain.GetWireEncoding(),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 		executable:          config.GetString(config.ExecutablePathKey),

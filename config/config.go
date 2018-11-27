@@ -33,12 +33,9 @@ const (
 	ServiceName                    = "SERVICE_NAME"
 	PassthroughEnabledKey          = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey         = "PASSTHROUGH_ENDPOINT"
-	PollSleepKey                   = "POLL_SLEEP"
 	PrivateKeyKey                  = "PRIVATE_KEY"
-	ServiceTypeKey                 = "SERVICE_TYPE"
 	SSLCertPathKey                 = "SSL_CERT"
 	SSLKeyPathKey                  = "SSL_KEY"
-	WireEncodingKey                = "WIRE_ENCODING"
 	PaymentChannelStorageTypeKey   = "PAYMENT_CHANNEL_STORAGE_TYPE"
 	PaymentChannelStorageClientKey = "PAYMENT_CHANNEL_STORAGE_CLIENT"
 	PaymentChannelStorageServerKey = "PAYMENT_CHANNEL_STORAGE_SERVER"
@@ -56,15 +53,11 @@ const (
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
 	"organization_name": "ExampleOrganization", 
-	
-	"passthrough_enabled": true,
-	"poll_sleep": "5s",
+	"passthrough_enabled": false,
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_name": "ExampleService", 
-	"service_type": "grpc",
 	"ssl_cert": "",
 	"ssl_key": "",
-	"wire_encoding": "proto",
 	"log":  {
 		"level": "info",
 		"timezone": "UTC",
@@ -81,8 +74,6 @@ const (
 		},
 		"hooks": []
 	},
-	
-	
 	"payment_channel_storage_type": "etcd",
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
@@ -147,23 +138,6 @@ func Vip() *viper.Viper {
 func Validate() error {
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
-		switch sType := vip.GetString(ServiceTypeKey); sType {
-		case "grpc":
-		case "jsonrpc":
-		case "process":
-			if vip.GetString(ExecutablePathKey) == "" {
-				return errors.New("EXECUTABLE required with SERVICE_TYPE 'process'")
-			}
-		default:
-			return fmt.Errorf("unrecognized SERVICE_TYPE '%+v'", sType)
-		}
-
-		switch enc := vip.GetString(WireEncodingKey); enc {
-		case "proto":
-		case "json":
-		default:
-			return fmt.Errorf("unrecognized WIRE_ENCODING '%+v'", enc)
-		}
 	case "http":
 	default:
 		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)

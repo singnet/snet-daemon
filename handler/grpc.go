@@ -38,7 +38,6 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	}
 
 	h := grpcHandler{
-		//enc:                 config.GetString(config.WireEncodingKey),
 		enc:                 serviceMetadata.GetWireEncoding(),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 		executable:          config.GetString(config.ExecutablePathKey),

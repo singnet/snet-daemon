@@ -109,11 +109,8 @@ func init() {
 	vip.BindPFlag(config.HdwalletIndexKey, serveCmdFlags.Lookup("wallet-index"))
 	vip.BindPFlag(config.DbPathKey, serveCmdFlags.Lookup("db-path"))
 	vip.BindPFlag(config.PassthroughEnabledKey, serveCmdFlags.Lookup("passthrough"))
-	vip.BindPFlag(config.ServiceTypeKey, serveCmdFlags.Lookup("service-type"))
 	vip.BindPFlag(config.SSLCertPathKey, serveCmdFlags.Lookup("ssl-cert"))
 	vip.BindPFlag(config.SSLKeyPathKey, serveCmdFlags.Lookup("ssl-key"))
-	vip.BindPFlag(config.WireEncodingKey, serveCmdFlags.Lookup("wire-encoding"))
-	vip.BindPFlag(config.PollSleepKey, serveCmdFlags.Lookup("poll-sleep"))
 
 	cobra.OnInitialize(func() {
 

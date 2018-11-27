@@ -140,3 +140,7 @@ func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
 
 	return
 }
+
+func (processor *Processor) HasIdentity() bool {
+	return processor.address != ""
+}

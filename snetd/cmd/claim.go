@@ -74,6 +74,9 @@ func (command *claimCommand) Run() (err error) {
 	if !command.blockchain.Enabled() {
 		return fmt.Errorf("blockchain should be enabled to claim money from channel")
 	}
+	if !command.blockchain.HasIdentity() {
+		return fmt.Errorf("Either private key or HD wallet should be specified in order to claim funds")
+	}
 	if command.channelId == nil && command.paymentId == "" {
 		return fmt.Errorf("either --channel-id or --payment-id flag should be set")
 	}

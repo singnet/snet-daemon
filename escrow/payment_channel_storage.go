@@ -136,7 +136,7 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		log.WithField("recipientPaymentAddress", recipientPaymentAddress).
 			WithField("ch.Recipient", ch.Recipient).
 			Warn("Recipient Address from service metadata not Match on what was retrieved from Channel")
-		return nil, false, fmt.Errorf("Recipient Address from service metadata not Match on what was retrieved from Channel")
+		return nil, false, fmt.Errorf("recipient Address from service metadata does not Match on what was retrieved from Channel")
 	}
 	return &PaymentChannelData{
 		ChannelID:        key.ID,

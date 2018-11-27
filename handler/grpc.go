@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/singnet/snet-daemon/blockchain"
-	"google.golang.org/grpc/metadata"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,7 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 

@@ -5,7 +5,6 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"strings"
 )
 
 func GetIpfsFile(hash string) string {
@@ -27,13 +26,11 @@ func GetIpfsFile(hash string) string {
 
 	jsondata := string(blob)
 
-	jsondata = strings.Replace(jsondata, "\\n", " ", -1)
 	cid.Close()
 	return jsondata
 }
 
 func GetIpfsShell() *shell.Shell {
-	//Read from Configuration file
 	sh := shell.NewShell(config.GetString(config.IpfsEndPoint))
 	return sh
 }

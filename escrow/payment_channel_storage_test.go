@@ -163,7 +163,7 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeint
 	reader.replicaGroupID = func() ([32]byte, error) { return [32]byte{123}, nil }
 	reader.recipientPaymentAddress = func() common.Address { return crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey) }
 	channel, ok, err := reader.GetChannelStateFromBlockchain(suite.channelKey())
-	assert.Equal(suite.T(), errors.New("Recipient Address from service metadata not Match on what was retrieved from Channel"), err)
+	assert.Equal(suite.T(), errors.New("recipient Address from service metadata does not Match on what was retrieved from Channel"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
 }

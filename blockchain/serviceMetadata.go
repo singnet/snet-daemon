@@ -7,11 +7,12 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"math/big"
 	"strings"
 )
 
-const IpfsPrefix = "ipfs"
+const IpfsPrefix = "ipfs://"
 
 type ServiceMetadata struct {
 	Version                    int    `json:"version"`
@@ -38,6 +39,7 @@ type ServiceMetadata struct {
 	daemonGroupName         string
 	daemonEndPoint          string
 	recipientPaymentAddress common.Address
+	multiPartyEscrowAddress common.Address
 }
 
 func getRegistryAddressKey() common.Address {
@@ -52,20 +54,29 @@ func ServiceMetaData() *ServiceMetadata {
 	if config.GetBool(config.BlockchainEnabledKey) {
 		ipfsHash := string(getMetaDataUrifromRegistry())
 		metadata, err = GetServiceMetaDataFromIPFS(FormatHash(ipfsHash))
-		if err != nil {
-			log.WithError(err).WithField("IPFSHashOfFile", ipfsHash).
-				Panic("error On Retrieving service metadata file from IPFS")
-		}
 	} else {
-		//TO DO Load the metaData from a test JSON configuration here
-		strJson := ""
-		metadata, err = InitServiceMetaDataFromJson(strJson)
-		if err != nil {
-			log.WithError(err).Panic("error on parsing service metadata configured")
-		}
+		//TO DO, have a snetd command to create a default metadata json file, for now just read from a local file
+		// when block chain reading is disabled
+		metadata, err = readServiceMetaDataFromLocalFile("service_metadata.json")
 	}
-
+	if err != nil {
+		log.WithError(err).
+			Panic("error on determining service metadata from file")
+	}
 	return metadata
+}
+
+func readServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {
+	file, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	strJson := string(file)
+	metadata, err := InitServiceMetaDataFromJson(strJson)
+	if err != nil {
+		return nil, fmt.Errorf("error reading local file service_metadata.json ")
+	}
+	return metadata, nil
 }
 
 func getMetaDataUrifromRegistry() []byte {
@@ -98,33 +109,34 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 	metaData := new(ServiceMetadata)
 	err := json.Unmarshal([]byte(jsonData), &metaData)
 	if err != nil {
-		log.WithError(err).WithField("jsondata", jsonData).
-			Panic("Parsing the service metadata JSON failed")
-	}
-	err = setDaemonEndPoint(metaData)
-	if err != nil {
+		log.WithError(err).WithField("jsondata", jsonData)
 		return nil, err
 	}
-	err = setDaemonGroupName(metaData)
-	if err != nil {
-		return nil, err
-	}
-	err = setDaemonGroupIDAndPaymentAddress(metaData)
-	if err != nil {
-		return nil, err
-	}
+	err = setDerivedFields(metaData)
 	return metaData, err
 }
 
-func (metaData *ServiceMetadata) SetServiceMetaData(hash string) *ServiceMetadata {
-	jsondata := ipfsutils.GetIpfsFile(hash)
-	return SetServiceMetaDataThroughJSON(jsondata)
+func setDerivedFields(metaData *ServiceMetadata) error {
+	err := setDaemonEndPoint(metaData)
+	if err != nil {
+		return err
+	}
+	err = setDaemonGroupName(metaData)
+	if err != nil {
+		return err
+	}
+	err = setDaemonGroupIDAndPaymentAddress(metaData)
+	if err != nil {
+		return err
+	}
+	setMultiPartyEscrowAddress(metaData)
+	return nil
+
 }
 
-func SetServiceMetaDataThroughJSON(jsondata string) *ServiceMetadata {
-	metaData := new(ServiceMetadata)
-	json.Unmarshal([]byte(jsondata), &metaData)
-	return metaData
+func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
+	metaData.multiPartyEscrowAddress = common.HexToAddress(metaData.MpeAddress)
+
 }
 
 func setDaemonEndPoint(metaData *ServiceMetadata) error {
@@ -151,13 +163,13 @@ func setDaemonGroupIDAndPaymentAddress(metaData *ServiceMetadata) error {
 	groupName := metaData.GetDaemonGroupName()
 	for _, group := range metaData.Groups {
 		if strings.Compare(groupName, group.GroupName) == 0 {
-			metaData.daemonReplicaGroupID = convertBase64Encoding(group.GroupID)
+			metaData.daemonReplicaGroupID = ConvertBase64Encoding(group.GroupID)
 			metaData.recipientPaymentAddress = common.HexToAddress(group.PaymentAddress)
 			return nil
 		}
 	}
 	log.WithField("groupName", groupName)
-	return fmt.Errorf("unable to determine the Daemon Group ID or the Recipient Payment Address, Daemon Group Name")
+	return fmt.Errorf("unable to determine the Daemon Group ID or the Recipient Payment Address, Daemon Group Name %s", groupName)
 
 }
 
@@ -166,7 +178,7 @@ func (metaData *ServiceMetadata) GetDaemonEndPoint() string {
 }
 
 func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
-	return common.HexToAddress(metaData.MpeAddress)
+	return metaData.multiPartyEscrowAddress
 }
 
 func (metaData *ServiceMetadata) GetPaymentExpirationThreshold() int64 {
@@ -194,7 +206,6 @@ func (metaData *ServiceMetadata) GetServiceType() string {
 
 func (metaData *ServiceMetadata) GetDisplayName() string {
 	return metaData.DisplayName
-
 }
 
 func (metaData *ServiceMetadata) GetDaemonGroupID() [32]byte {

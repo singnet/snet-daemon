@@ -88,8 +88,13 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v",
-		deriveDaemonPort(config.GetString(config.DaemonEndPoint))))
+	port, portErr := deriveDaemonPort(config.GetString(config.DaemonEndPoint))
+
+	if portErr != nil {
+		return d, errors.Wrap(err, "error determining port")
+	}
+
+	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v", port))
 	if err != nil {
 		return d, errors.Wrap(err, "error listening")
 	}
@@ -117,18 +122,23 @@ func newDaemon(components *Components) (daemon, error) {
 	return d, nil
 }
 
-func deriveDaemonPort(daemonEndpoint string) string {
-	if len(daemonEndpoint) != 0 {
-		splitString := strings.Split(daemonEndpoint, ":")
-		if len(splitString) > 0 {
-			port := splitString[len(splitString)-1]
-			_, err := strconv.ParseInt(port, 0, 16)
-			if err == nil {
-				return port
-			}
+func deriveDaemonPort(daemonEndpoint string) (string, error) {
+	port := "8080"
+	var err error = nil
+
+	splitString := strings.Split(daemonEndpoint, ":")
+	length := len(splitString)
+	if length == 2 {
+		port = splitString[len(splitString)-1]
+		_, err = strconv.ParseInt(port, 0, 16)
+		if err != nil {
+			log.WithField("daemonEndPoint", daemonEndpoint).Error(err)
+			err = fmt.Errorf("port number <%s> is not valid ,the daemon End point  %s", port, daemonEndpoint)
 		}
+	} else if length > 2 {
+		err = fmt.Errorf("daemon end point should have a single ':' ,the daemon End point %s", daemonEndpoint)
 	}
-	return "8080"
+	return port, err
 }
 
 func (d daemon) start() {

@@ -86,10 +86,10 @@ func RemoveSpecialCharactersfromHash(pString string) string {
 	return reg.ReplaceAllString(pString, "")
 }
 
-func convertBase64Encoding(groupID string) [32]byte {
-	data, err := base64.StdEncoding.DecodeString(groupID)
+func ConvertBase64Encoding(str string) [32]byte {
+	data, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		log.WithError(err).WithField("groupID", groupID).Panic("Error trying to base64.StdEncoding.DecodeString")
+		log.WithError(err).WithField("String Passed:", str).Panic("Error trying to base64.StdEncoding.DecodeString")
 	}
 	var byte32 [32]byte
 	copy(byte32[:], data[:])
@@ -98,8 +98,8 @@ func convertBase64Encoding(groupID string) [32]byte {
 
 func FormatHash(ipfsHash string) string {
 	log.WithField("metadataHash", ipfsHash).Debug("Before Formatting")
-	ipfsHash = RemoveSpecialCharactersfromHash(ipfsHash)
 	ipfsHash = strings.Replace(ipfsHash, IpfsPrefix, "", -1)
+	ipfsHash = RemoveSpecialCharactersfromHash(ipfsHash)
 	log.WithField("metadataUri", ipfsHash).Debug("After Formatting")
 	return ipfsHash
 }

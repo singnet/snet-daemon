@@ -57,7 +57,7 @@ const (
 	"ipfs_end_point": "http://localhost:5002/", 
 	"organization_name": "ExampleOrganization", 
 	
-	"passthrough_enabled": false,
+	"passthrough_enabled": true,
 	"poll_sleep": "5s",
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_name": "ExampleService", 

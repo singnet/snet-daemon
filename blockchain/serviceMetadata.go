@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
 	log "github.com/sirupsen/logrus"
@@ -69,7 +70,7 @@ func ServiceMetaData() *ServiceMetadata {
 func readServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {
 	file, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Fatal(err)
+		return nil, errors.Wrapf(err, "could not read file: %v", filename)
 	}
 	strJson := string(file)
 	metadata, err := InitServiceMetaDataFromJson(strJson)
@@ -96,6 +97,7 @@ func getMetaDataUrifromRegistry() []byte {
 			WithField("ServiceName", config.GetString(config.ServiceName)).
 			Panic("Error Retrieving contract details for the Given Organization and Service Name ")
 	}
+	defer ethClient.Close()
 	return serviceRegistration.MetadataURI[:]
 
 }

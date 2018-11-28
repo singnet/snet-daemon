@@ -15,9 +15,9 @@ func TestFormatHash(t *testing.T) {
 	s2 := []byte("ipfs://Here is a string....+=")
 	hash := FormatHash(string(s2))
 	assert.Equal(t, hash, "Hereisastring=")
+	s2 = []byte("QmaGnQ3iVZPuPwdam2rEeQcCSoCYRpxjnZhQ6Z2oeeRSrp")
 
-	s2 = []byte("ipfs://ipfs is a string....+=")
-	hash = FormatHash(string(s2))
-	assert.Equal(t, hash, "ipfsisastring=")
-
+	b4 := append(s2, make([]byte, 3)...)
+	assert.NotEqual(t, "QmaGnQ3iVZPuPwdam2rEeQcCSoCYRpxjnZhQ6Z2oeeRSrp", string(b4))
+	assert.Equal(t, "QmaGnQ3iVZPuPwdam2rEeQcCSoCYRpxjnZhQ6Z2oeeRSrp", FormatHash(string(b4)))
 }

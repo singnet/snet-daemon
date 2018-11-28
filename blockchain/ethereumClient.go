@@ -18,7 +18,7 @@ func GetEthereumClient() (*EthereumClient, error) {
 	if ethereumClient == nil {
 		ethereumClient = new(EthereumClient)
 		if client, err := rpc.Dial(config.GetString(config.EthereumJsonRpcEndpointKey)); err != nil {
-			return ethereumClient, errors.Wrap(err, "error creating RPC client")
+			return nil, errors.Wrap(err, "error creating RPC client")
 		} else {
 			ethereumClient.RawClient = client
 			ethereumClient.EthClient = ethclient.NewClient(client)
@@ -26,4 +26,10 @@ func GetEthereumClient() (*EthereumClient, error) {
 	}
 	return ethereumClient, nil
 
+}
+func (ethereumClient *EthereumClient) Close() {
+	if ethereumClient != nil {
+		ethereumClient.EthClient.Close()
+		ethereumClient.RawClient.Close()
+	}
 }

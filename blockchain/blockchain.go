@@ -98,7 +98,7 @@ func NewProcessor(boltDB *bolt.DB, metadata *ServiceMetadata) (Processor, error)
 			p.address = crypto.PubkeyToAddress(p.privateKey.PublicKey).Hex()
 		}
 	}
-
+	defer ethereumClient.Close()
 	return p, nil
 }
 

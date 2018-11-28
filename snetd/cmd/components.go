@@ -180,9 +180,9 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
 		escrow.NewPaymentStorage(components.AtomicStorage()),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.serviceMetadata),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.serviceMetadata),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 	)
 
 	return components.paymentChannelService

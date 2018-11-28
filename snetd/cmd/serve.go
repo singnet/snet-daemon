@@ -185,7 +185,7 @@ func (d daemon) start() {
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
-			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.serviceMetadata)),
+			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
@@ -205,7 +205,7 @@ func (d daemon) start() {
 			} else {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprintln(resp, d.components.serviceMetadata.GetWireEncoding())
+					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
 				} else {
 					http.NotFound(resp, req)
 				}

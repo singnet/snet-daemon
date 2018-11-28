@@ -77,7 +77,7 @@ type paymentValidationInterceptor struct {
 	paymentHandlers       map[string]PaymentHandler
 }
 
-func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *status.Status
 
 	context, err := getGrpcContext(ss, info)
@@ -103,13 +103,28 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	}
 	log.Debug("Payment validated")
 
-	e := handler(srv, ss)
+	handlerSucceed := false
+
+	defer func() {
+		if !handlerSucceed {
+			if r := recover(); r != nil {
+				e = r.(error)
+				paymentHandler.CompleteAfterError(payment, e)
+				panic("re-panic after payment handler error handling")
+			} else if e != nil {
+				err = paymentHandler.CompleteAfterError(payment, e)
+				if err != nil {
+					e = err.Err()
+				}
+			}
+		}
+	}()
+
+	e = handler(srv, ss)
+	handlerSucceed = err != nil
+
 	if e != nil {
 		log.WithError(e).Warn("gRPC handler returned error")
-		err = paymentHandler.CompleteAfterError(payment, e)
-		if err != nil {
-			return err.Err()
-		}
 		return e
 	}
 

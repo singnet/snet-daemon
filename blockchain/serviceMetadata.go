@@ -16,13 +16,13 @@ import (
 const IpfsPrefix = "ipfs://"
 
 type ServiceMetadata struct {
-	Version                    int    `json:"version"`
-	DisplayName                string `json:"display_name"`
-	Encoding                   string `json:"encoding"`
-	ServiceType                string `json:"service_type"`
-	PaymentExpirationThreshold int64  `json:"payment_expiration_threshold"`
-	ModelIpfsHash              string `json:"model_ipfs_hash"`
-	MpeAddress                 string `json:"mpe_address"`
+	Version                    int      `json:"version"`
+	DisplayName                string   `json:"display_name"`
+	Encoding                   string   `json:"encoding"`
+	ServiceType                string   `json:"service_type"`
+	PaymentExpirationThreshold *big.Int `json:"payment_expiration_threshold"`
+	ModelIpfsHash              string   `json:"model_ipfs_hash"`
+	MpeAddress                 string   `json:"mpe_address"`
 	Pricing                    struct {
 		PriceModel  string   `json:"price_model"`
 		PriceInCogs *big.Int `json:"price_in_cogs"`
@@ -163,9 +163,14 @@ func setDaemonGroupName(metaData *ServiceMetadata) error {
 
 func setDaemonGroupIDAndPaymentAddress(metaData *ServiceMetadata) error {
 	groupName := metaData.GetDaemonGroupName()
+
 	for _, group := range metaData.Groups {
 		if strings.Compare(groupName, group.GroupName) == 0 {
-			metaData.daemonReplicaGroupID = ConvertBase64Encoding(group.GroupID)
+			var err error
+			metaData.daemonReplicaGroupID, err = ConvertBase64Encoding(group.GroupID)
+			if err != nil {
+				return err
+			}
 			metaData.recipientPaymentAddress = common.HexToAddress(group.PaymentAddress)
 			return nil
 		}
@@ -183,7 +188,7 @@ func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
 	return metaData.multiPartyEscrowAddress
 }
 
-func (metaData *ServiceMetadata) GetPaymentExpirationThreshold() int64 {
+func (metaData *ServiceMetadata) GetPaymentExpirationThreshold() *big.Int {
 	return metaData.PaymentExpirationThreshold
 }
 

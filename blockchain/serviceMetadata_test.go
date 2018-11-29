@@ -23,10 +23,11 @@ func TestAllGetterMethods(t *testing.T) {
 	assert.Equal(t, metaData.GetWireEncoding(), "grpc")
 	assert.Equal(t, metaData.GetDaemonEndPoint(), ""+daemonEndPoint)
 	assert.Equal(t, metaData.GetPaymentAddress(), common.HexToAddress("0xD6C6344f1D122dC6f4C1782A4622B683b9008081"))
-	assert.Equal(t, metaData.GetPaymentExpirationThreshold(), int64(40320))
+	assert.Equal(t, metaData.GetPaymentExpirationThreshold(), big.NewInt(40320))
 	assert.Equal(t, metaData.GetPriceInCogs(), big.NewInt(12000000))
 	assert.Equal(t, metaData.GetMpeAddress(), common.HexToAddress("0x5C7a4290F6F8FF64c69eEffDFAFc8644A4Ec3a4E"))
-	assert.Equal(t, metaData.GetDaemonGroupID(), ConvertBase64Encoding("nXzNEetD1kzU3PZqR4nHPS8erDkrUK0hN4iCBQ4vH5U="))
+	encodedStr, _ := ConvertBase64Encoding("nXzNEetD1kzU3PZqR4nHPS8erDkrUK0hN4iCBQ4vH5U=")
+	assert.Equal(t, metaData.GetDaemonGroupID(), encodedStr)
 
 }
 

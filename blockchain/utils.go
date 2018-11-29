@@ -86,14 +86,15 @@ func RemoveSpecialCharactersfromHash(pString string) string {
 	return reg.ReplaceAllString(pString, "")
 }
 
-func ConvertBase64Encoding(str string) [32]byte {
+func ConvertBase64Encoding(str string) ([32]byte, error) {
+	var byte32 [32]byte
 	data, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		log.WithError(err).WithField("String Passed:", str).Panic("Error trying to base64.StdEncoding.DecodeString")
+		log.WithError(err).WithField("String Passed:", str)
+		return byte32, err
 	}
-	var byte32 [32]byte
 	copy(byte32[:], data[:])
-	return byte32
+	return byte32, nil
 }
 
 func FormatHash(ipfsHash string) string {

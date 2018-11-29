@@ -24,7 +24,7 @@ func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Vipe
 	return &ChannelPaymentValidator{
 		currentBlock: processor.CurrentBlock,
 		paymentExpirationThreshold: func() *big.Int {
-			return big.NewInt(metadata.GetPaymentExpirationThreshold())
+			return metadata.GetPaymentExpirationThreshold()
 		},
 	}
 }

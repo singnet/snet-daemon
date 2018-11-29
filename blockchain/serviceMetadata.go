@@ -49,7 +49,6 @@ func getRegistryAddressKey() common.Address {
 }
 
 func ServiceMetaData() *ServiceMetadata {
-
 	var metadata *ServiceMetadata
 	var err error
 	if config.GetBool(config.BlockchainEnabledKey) {
@@ -99,7 +98,6 @@ func getMetaDataUrifromRegistry() []byte {
 	}
 	defer ethClient.Close()
 	return serviceRegistration.MetadataURI[:]
-
 }
 
 func GetServiceMetaDataFromIPFS(hash string) (*ServiceMetadata, error) {

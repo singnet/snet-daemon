@@ -64,7 +64,7 @@ func NewProcessor(boltDB *bolt.DB, metadata *ServiceMetadata) (Processor, error)
 		p.rawClient = ethclients.RawClient
 		p.ethClient = ethclients.EthClient
 	}
-	defer ethereumClient.Close()
+
 	// TODO: if address is not in config, try to load it using network
 
 	//TODO: Read this from github
@@ -127,4 +127,7 @@ func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
 	currentBlock = new(big.Int).SetBytes(currentBlockBytes)
 
 	return
+}
+func (processor *Processor) Close() {
+	ethereumClient.Close()
 }

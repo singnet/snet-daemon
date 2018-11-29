@@ -77,6 +77,9 @@ func (components *Components) Close() {
 	if components.etcdServer != nil {
 		components.etcdServer.Close()
 	}
+	if components.blockchain != nil {
+		components.blockchain.Close()
+	}
 }
 
 func (components *Components) DB() *bbolt.DB {

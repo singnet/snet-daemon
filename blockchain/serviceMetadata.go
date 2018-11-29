@@ -81,6 +81,7 @@ func readServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 
 func getMetaDataUrifromRegistry() []byte {
 	ethClient, err := GetEthereumClient()
+	defer ethClient.Close()
 	registryContractAddress := getRegistryAddressKey()
 	reg, err := NewRegistryCaller(registryContractAddress, ethClient.EthClient)
 	if err != nil {
@@ -96,7 +97,7 @@ func getMetaDataUrifromRegistry() []byte {
 			WithField("ServiceName", config.GetString(config.ServiceName)).
 			Panic("Error Retrieving contract details for the Given Organization and Service Name ")
 	}
-	defer ethClient.Close()
+
 	return serviceRegistration.MetadataURI[:]
 }
 

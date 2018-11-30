@@ -15,7 +15,7 @@ import (
 const (
 	// PaymentTypeHeader is a type of payment used to pay for a RPC call.
 	// Supported types are: "escrow".
-	// Note: "job" Payment type is deprecated 
+	// Note: "job" Payment type is deprecated
 	PaymentTypeHeader = "snet-payment-type"
 )
 
@@ -36,16 +36,15 @@ type Payment interface{}
 
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
-// jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted. 
+// jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
 type PaymentHandler interface {
 	// Type is a content of PaymentTypeHeader field which triggers usage of the
 	// payment handler.
 	Type() (typ string)
-	// Payment extracts payment data from gRPC request context.
+	// Payment extracts payment data from gRPC request context and checks
+	// validity of payment data. It returns nil if data is valid or
+	// appropriate gRPC status otherwise.
 	Payment(context *GrpcStreamContext) (payment Payment, err *status.Status)
-	// Validate checks validity of payment data, it returns nil if data is
-	// valid or appropriate gRPC error otherwise.
-	Validate(payment Payment) (err *status.Status)
 	// Complete completes payment if gRPC call was successfully proceeded by
 	// service.
 	Complete(payment Payment) (err *status.Status)
@@ -114,12 +113,6 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	}()
 
 	log.WithField("payment", payment).Debug("New payment received")
-
-	err = paymentHandler.Validate(payment)
-	if err != nil {
-		return err.Err()
-	}
-	log.Debug("Payment validated")
 
 	e = handler(srv, ss)
 

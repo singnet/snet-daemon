@@ -104,10 +104,6 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 	}, nil
 }
 
-func (h *paymentChannelPaymentHandler) Validate(_payment handler.Payment) (err *status.Status) {
-	return nil
-}
-
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *status.Status) {
 	return paymentErrorToGrpcStatus(payment.(*paymentTransaction).Commit())
 }

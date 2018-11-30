@@ -88,9 +88,9 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	port, portErr := deriveDaemonPort(config.GetString(config.DaemonEndPoint))
+	port, err := deriveDaemonPort(config.GetString(config.DaemonEndPoint))
 
-	if portErr != nil {
+	if err != nil {
 		return d, errors.Wrap(err, "error determining port")
 	}
 
@@ -126,6 +126,11 @@ func deriveDaemonPort(daemonEndpoint string) (string, error) {
 	port := "8080"
 	var err error = nil
 
+	//There is a separate issue raised on standardizing the daemon end point format, #153, Daemon end point can also
+	//be entered in the format localhost:8080 or 127.1.0.0:8080 ( as this is allowed while defining the service metadata )
+	//For now strip http: or https: from the daemonEndPoint
+	daemonEndpoint = strings.Replace(daemonEndpoint, "https://", "", -1)
+	daemonEndpoint = strings.Replace(daemonEndpoint, "http://", "", -1)
 	splitString := strings.Split(daemonEndpoint, ":")
 	length := len(splitString)
 	if length == 2 {

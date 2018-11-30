@@ -95,13 +95,6 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	if err != nil {
 		return err.Err()
 	}
-	log.WithField("payment", payment).Debug("New payment received")
-
-	err = paymentHandler.Validate(payment)
-	if err != nil {
-		return err.Err()
-	}
-	log.Debug("Payment validated")
 
 	handlerSucceed := false
 
@@ -120,13 +113,22 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 		}
 	}()
 
+	log.WithField("payment", payment).Debug("New payment received")
+
+	err = paymentHandler.Validate(payment)
+	if err != nil {
+		return err.Err()
+	}
+	log.Debug("Payment validated")
+
 	e = handler(srv, ss)
-	handlerSucceed = err != nil
 
 	if e != nil {
 		log.WithError(e).Warn("gRPC handler returned error")
 		return e
 	}
+
+	handlerSucceed = true
 
 	err = paymentHandler.Complete(payment)
 	if err != nil {

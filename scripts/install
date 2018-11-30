@@ -6,9 +6,15 @@ PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
 dep ensure -v
+
+# install executable dependencies
 pushd vendor/github.com/ethereum/go-ethereum
 go install ./cmd/abigen
 popd
+pushd vendor/github.com/golang/protobuf
+go install ./protoc-gen-go
+popd
+
 go run resources/installBlockchainDependencies/main.go
 go generate ./...
 popd

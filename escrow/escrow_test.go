@@ -113,6 +113,9 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 				return suite.mpeChannel(), true, nil
 			},
+			recipientPaymentAddress: func() common.Address {
+				return suite.recipientAddress
+			},
 		},
 		NewEtcdLocker(suite.memoryStorage),
 		&ChannelPaymentValidator{

@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	RegistryAddressKey             = "REGISTRY_ADDRESS_KEY" //to be read from github
-	AutoSSLDomainKey               = "AUTO_SSL_DOMAIN"
-	AutoSSLCacheDirKey             = "AUTO_SSL_CACHE_DIR"
-	BlockchainEnabledKey           = "BLOCKCHAIN_ENABLED"
-	ConfigPathKey                  = "CONFIG_PATH"
-	DaemonListeningPortKey         = "DAEMON_LISTENING_PORT"
+	RegistryAddressKey   = "REGISTRY_ADDRESS_KEY" //to be read from github
+	AutoSSLDomainKey     = "AUTO_SSL_DOMAIN"
+	AutoSSLCacheDirKey   = "AUTO_SSL_CACHE_DIR"
+	BlockchainEnabledKey = "BLOCKCHAIN_ENABLED"
+	ConfigPathKey        = "CONFIG_PATH"
+
 	DaemonTypeKey                  = "DAEMON_TYPE"
 	DaemonEndPoint                 = "DAEMON_END_POINT"
 	EthereumJsonRpcEndpointKey     = "ETHEREUM_JSON_RPC_ENDPOINT"
@@ -45,7 +45,7 @@ const (
 	"blockchain_enabled": true,
 	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
-	"daemon_end_point": "http://localhost:8080",
+	"daemon_end_point": "127.0.0.1:8080",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",

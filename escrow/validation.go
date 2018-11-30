@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"math/big"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"math/big"
 
 	"github.com/singnet/snet-daemon/blockchain"
 )
@@ -20,11 +20,11 @@ type ChannelPaymentValidator struct {
 }
 
 // NewChannelPaymentValidator returns new payment validator instance
-func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Viper) *ChannelPaymentValidator {
+func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Viper, metadata *blockchain.ServiceMetadata) *ChannelPaymentValidator {
 	return &ChannelPaymentValidator{
 		currentBlock: processor.CurrentBlock,
 		paymentExpirationThreshold: func() *big.Int {
-			return big.NewInt(blockchain.GetPaymentExpirationThreshold())
+			return metadata.GetPaymentExpirationThreshold()
 		},
 	}
 }
@@ -79,7 +79,7 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 	signer, err = getSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
-		return nil,err
+		return nil, err
 	}
 
 	return signer, err

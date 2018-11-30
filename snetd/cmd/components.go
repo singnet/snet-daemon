@@ -16,6 +16,7 @@ import (
 )
 
 type Components struct {
+	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
@@ -70,6 +71,9 @@ func (components *Components) Close() {
 	if components.etcdServer != nil {
 		components.etcdServer.Close()
 	}
+	if components.blockchain != nil {
+		components.blockchain.Close()
+	}
 }
 
 func (components *Components) Blockchain() *blockchain.Processor {
@@ -77,13 +81,21 @@ func (components *Components) Blockchain() *blockchain.Processor {
 		return components.blockchain
 	}
 
-	processor, err := blockchain.NewProcessor()
+	processor, err := blockchain.NewProcessor(components.ServiceMetaData())
 	if err != nil {
 		log.WithError(err).Panic("unable to initialize blockchain processor")
 	}
 
 	components.blockchain = &processor
 	return components.blockchain
+}
+
+func (components *Components) ServiceMetaData() *blockchain.ServiceMetadata {
+	if components.serviceMetadata != nil {
+		return components.serviceMetadata
+	}
+	components.serviceMetadata = blockchain.ServiceMetaData()
+	return components.serviceMetadata
 }
 
 func (components *Components) EtcdServer() *etcddb.EtcdServer {
@@ -149,9 +161,9 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
 		escrow.NewPaymentStorage(components.AtomicStorage()),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip()),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip()),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 	)
 
 	return components.paymentChannelService
@@ -165,7 +177,7 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	components.escrowPaymentHandler = escrow.NewPaymentHandler(
 		components.PaymentChannelService(),
 		components.Blockchain(),
-		escrow.NewIncomeValidator(),
+		escrow.NewIncomeValidator(components.ServiceMetaData().GetPriceInCogs()),
 	)
 
 	return components.escrowPaymentHandler

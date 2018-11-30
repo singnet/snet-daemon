@@ -96,6 +96,10 @@ func (suite *BlockchainChannelReaderSuite) SetupSuite() {
 		readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 			return suite.mpeChannel(), true, nil
 		},
+		recipientPaymentAddress: func() common.Address {
+			address := suite.recipientAddress
+			return address
+		},
 	}
 }
 
@@ -145,10 +149,21 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelState() {
 func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectGroupId() {
 	reader := suite.reader
 	reader.replicaGroupID = func() ([32]byte, error) { return [32]byte{32}, nil }
+	reader.recipientPaymentAddress = func() common.Address { return suite.recipientAddress }
 
 	channel, ok, err := reader.GetChannelStateFromBlockchain(suite.channelKey())
 
 	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: [32 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
+	assert.False(suite.T(), ok)
+	assert.Nil(suite.T(), channel)
+}
+
+func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeintAddress() {
+	reader := suite.reader
+	reader.replicaGroupID = func() ([32]byte, error) { return [32]byte{123}, nil }
+	reader.recipientPaymentAddress = func() common.Address { return crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey) }
+	channel, ok, err := reader.GetChannelStateFromBlockchain(suite.channelKey())
+	assert.Equal(suite.T(), errors.New("recipient Address from service metadata does not Match on what was retrieved from Channel"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
 }

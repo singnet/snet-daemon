@@ -88,9 +88,10 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	port, portErr := deriveDaemonPort(config.GetString(config.DaemonEndPoint))
+	port, err := deriveDaemonPort(config.GetString(config.DaemonEndPoint))
+	log.WithField("port", port).Info("Starting listening port")
 
-	if portErr != nil {
+	if err != nil {
 		return d, errors.Wrap(err, "error determining port")
 	}
 

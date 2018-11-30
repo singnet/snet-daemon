@@ -129,5 +129,6 @@ func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
 	return
 }
 func (processor *Processor) Close() {
-	ethereumClient.Close()
+	processor.ethClient.Close()
+	processor.rawClient.Close()
 }

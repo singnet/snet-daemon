@@ -128,6 +128,11 @@ func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
 
 	return
 }
+
+func (processor *Processor) HasIdentity() bool {
+	return processor.address != ""
+}
+
 func (processor *Processor) Close() {
 	processor.ethClient.Close()
 	processor.rawClient.Close()

@@ -22,7 +22,6 @@ const (
 
 	DaemonTypeKey                  = "DAEMON_TYPE"
 	DaemonEndPoint                 = "DAEMON_END_POINT"
-	DbPathKey                      = "DB_PATH"
 	EthereumJsonRpcEndpointKey     = "ETHEREUM_JSON_RPC_ENDPOINT"
 	ExecutablePathKey              = "EXECUTABLE_PATH"
 	HdwalletIndexKey               = "HDWALLET_INDEX"
@@ -47,7 +46,6 @@ const (
 	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
 	"daemon_end_point": "127.0.0.1:8080",
-	"db_path": "snetd.db",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",

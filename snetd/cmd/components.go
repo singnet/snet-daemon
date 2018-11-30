@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 
-	"github.com/coreos/bbolt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -11,14 +10,12 @@ import (
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/db"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
 )
 
 type Components struct {
-	db                         *bbolt.DB
 	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
@@ -68,9 +65,6 @@ func isFileExist(fileName string) bool {
 }
 
 func (components *Components) Close() {
-	if components.db != nil {
-		components.db.Close()
-	}
 	if components.etcdClient != nil {
 		components.etcdClient.Close()
 	}
@@ -82,28 +76,12 @@ func (components *Components) Close() {
 	}
 }
 
-func (components *Components) DB() *bbolt.DB {
-	if components.db != nil {
-		return components.db
-	}
-
-	if config.GetBool(config.BlockchainEnabledKey) {
-		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
-			log.WithError(err).Panic("unable to initialize bbolt DB for blockchain state")
-		} else {
-			components.db = database
-		}
-	}
-
-	return components.db
-}
-
 func (components *Components) Blockchain() *blockchain.Processor {
 	if components.blockchain != nil {
 		return components.blockchain
 	}
 
-	processor, err := blockchain.NewProcessor(components.DB(), components.ServiceMetaData())
+	processor, err := blockchain.NewProcessor(components.ServiceMetaData())
 	if err != nil {
 		log.WithError(err).Panic("unable to initialize blockchain processor")
 	}

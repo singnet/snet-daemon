@@ -103,7 +103,7 @@ func init() {
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))
 	vip.BindPFlag(config.DaemonTypeKey, serveCmdFlags.Lookup("type"))
 	vip.BindPFlag(config.BlockchainEnabledKey, serveCmdFlags.Lookup("blockchain"))
-	vip.BindPFlag(config.DaemonListeningPortKey, serveCmdFlags.Lookup("port"))
+
 	vip.BindPFlag(config.EthereumJsonRpcEndpointKey, serveCmdFlags.Lookup("ethereum-endpoint"))
 	vip.BindPFlag(config.HdwalletMnemonicKey, serveCmdFlags.Lookup("mnemonic"))
 	vip.BindPFlag(config.HdwalletIndexKey, serveCmdFlags.Lookup("wallet-index"))

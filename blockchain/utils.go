@@ -4,11 +4,13 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"fmt"
-
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil/hdkeychain"
 	"github.com/ethereum/go-ethereum/common"
+	log "github.com/sirupsen/logrus"
 	"github.com/tyler-smith/go-bip39"
+	"regexp"
+	"strings"
 )
 
 func derivePrivateKey(mnemonic string, path ...uint32) (*ecdsa.PrivateKey, error) {
@@ -74,4 +76,31 @@ func StringToBytes32(str string) [32]byte {
 	var byte32 [32]byte
 	copy(byte32[:], []byte(str))
 	return byte32
+}
+
+func RemoveSpecialCharactersfromHash(pString string) string {
+	reg, err := regexp.Compile("[^a-zA-Z0-9=]")
+	if err != nil {
+		log.Panic(err)
+	}
+	return reg.ReplaceAllString(pString, "")
+}
+
+func ConvertBase64Encoding(str string) ([32]byte, error) {
+	var byte32 [32]byte
+	data, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		log.WithError(err).WithField("String Passed:", str)
+		return byte32, err
+	}
+	copy(byte32[:], data[:])
+	return byte32, nil
+}
+
+func FormatHash(ipfsHash string) string {
+	log.WithField("metadataHash", ipfsHash).Debug("Before Formatting")
+	ipfsHash = strings.Replace(ipfsHash, IpfsPrefix, "", -1)
+	ipfsHash = RemoveSpecialCharactersfromHash(ipfsHash)
+	log.WithField("metadataUri", ipfsHash).Debug("After Formatting")
+	return ipfsHash
 }

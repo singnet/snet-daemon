@@ -1,12 +1,12 @@
 package handler
 
 import (
+	"math/big"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-	"math/big"
-	"testing"
 )
 
 func TestGetBytesFromHexString(t *testing.T) {
@@ -32,7 +32,7 @@ func TestGetBytesFromHexStringNoValue(t *testing.T) {
 
 	_, err := GetBytesFromHex(md, "test-key")
 
-	assert.Equal(t, status.Newf(codes.InvalidArgument, "missing \"test-key\""), err)
+	assert.Equal(t, NewGrpcErrorf(codes.InvalidArgument, "missing \"test-key\""), err)
 }
 
 func TestGetBytesFromHexStringTooManyValues(t *testing.T) {
@@ -40,7 +40,7 @@ func TestGetBytesFromHexStringTooManyValues(t *testing.T) {
 
 	_, err := GetBytesFromHex(md, "test-key")
 
-	assert.Equal(t, status.Newf(codes.InvalidArgument, "too many values for key \"test-key\": [0x123 FED]"), err)
+	assert.Equal(t, NewGrpcErrorf(codes.InvalidArgument, "too many values for key \"test-key\": [0x123 FED]"), err)
 }
 
 func TestGetBigInt(t *testing.T) {
@@ -57,7 +57,7 @@ func TestGetBigIntIncorrectValue(t *testing.T) {
 
 	_, err := GetBigInt(md, "big-int-key")
 
-	assert.Equal(t, status.Newf(codes.InvalidArgument, "incorrect format \"big-int-key\": \"12345abc\""), err)
+	assert.Equal(t, NewGrpcErrorf(codes.InvalidArgument, "incorrect format \"big-int-key\": \"12345abc\""), err)
 }
 
 func TestGetBigIntNoValue(t *testing.T) {
@@ -65,7 +65,7 @@ func TestGetBigIntNoValue(t *testing.T) {
 
 	_, err := GetBigInt(md, "big-int-key")
 
-	assert.Equal(t, status.Newf(codes.InvalidArgument, "missing \"big-int-key\""), err)
+	assert.Equal(t, NewGrpcErrorf(codes.InvalidArgument, "missing \"big-int-key\""), err)
 }
 
 func TestGetBigIntTooManyValues(t *testing.T) {
@@ -73,7 +73,7 @@ func TestGetBigIntTooManyValues(t *testing.T) {
 
 	_, err := GetBigInt(md, "big-int-key")
 
-	assert.Equal(t, status.Newf(codes.InvalidArgument, "too many values for key \"big-int-key\": [12345 54321]"), err)
+	assert.Equal(t, NewGrpcErrorf(codes.InvalidArgument, "too many values for key \"big-int-key\": [12345 54321]"), err)
 }
 
 func TestGetBytes(t *testing.T) {
@@ -90,5 +90,5 @@ func TestGetBytesIncorrectBinaryKey(t *testing.T) {
 
 	_, err := GetBytes(md, "binary-key")
 
-	assert.Equal(t, status.Newf(codes.InvalidArgument, "incorrect binary key name \"binary-key\""), err)
+	assert.Equal(t, NewGrpcErrorf(codes.InvalidArgument, "incorrect binary key name \"binary-key\""), err)
 }

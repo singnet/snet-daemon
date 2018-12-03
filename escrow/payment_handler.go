@@ -65,9 +65,9 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 
 	income := big.NewInt(0)
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
-	err = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
-	if err != nil {
-		return
+	e = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
+	if e != nil {
+		return nil, paymentErrorToGrpcError(e)
 	}
 
 	return transaction, nil

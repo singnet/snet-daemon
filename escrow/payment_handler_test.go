@@ -134,12 +134,12 @@ func (suite *PaymentHandlerTestSuite) TestStartTransactionError() {
 
 func (suite *PaymentHandlerTestSuite) TestValidatePaymentIncorrectIncome() {
 	context := suite.grpcContext(func(md *metadata.MD) {})
-	incomeErr := handler.NewGrpcError(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
+	incomeErr := NewPaymentError(Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	paymentHandler := suite.paymentHandler
 	paymentHandler.incomeValidator = &incomeValidatorMockType{err: incomeErr}
 
 	payment, err := paymentHandler.Payment(context)
 
-	assert.Equal(suite.T(), incomeErr, err)
+	assert.Equal(suite.T(), handler.NewGrpcError(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\""), err)
 	assert.Nil(suite.T(), payment)
 }

@@ -6,16 +6,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/codes"
-
-	"github.com/singnet/snet-daemon/handler"
 )
 
 type incomeValidatorMockType struct {
-	err *handler.GrpcError
+	err error
 }
 
-func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (err *handler.GrpcError) {
+func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (err error) {
 	return incomeValidator.err
 }
 
@@ -28,7 +25,7 @@ func TestIncomeValidate(t *testing.T) {
 	income.Sub(price, one)
 	err := incomeValidator.Validate(&IncomeData{Income: income})
 	msg := fmt.Sprintf("income %s does not equal to price %s", income, price)
-	assert.Equal(t, handler.NewGrpcError(codes.Unauthenticated, msg), err)
+	assert.Equal(t, NewPaymentError(Unauthenticated, msg), err)
 
 	income.Set(price)
 	err = incomeValidator.Validate(&IncomeData{Income: income})
@@ -37,5 +34,5 @@ func TestIncomeValidate(t *testing.T) {
 	income.Add(price, one)
 	err = incomeValidator.Validate(&IncomeData{Income: income})
 	msg = fmt.Sprintf("income %s does not equal to price %s", income, price)
-	assert.Equal(t, handler.NewGrpcError(codes.Unauthenticated, msg), err)
+	assert.Equal(t, NewPaymentError(Unauthenticated, msg), err)
 }

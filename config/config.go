@@ -18,6 +18,7 @@ const (
 	AutoSSLDomainKey     = "AUTO_SSL_DOMAIN"
 	AutoSSLCacheDirKey   = "AUTO_SSL_CACHE_DIR"
 	BlockchainEnabledKey = "BLOCKCHAIN_ENABLED"
+	BurstSize            = "BURST_SIZE"
 	ConfigPathKey        = "CONFIG_PATH"
 
 	DaemonTypeKey                  = "DAEMON_TYPE"
@@ -34,6 +35,7 @@ const (
 	PassthroughEnabledKey          = "PASSTHROUGH_ENABLED"
 	PassthroughEndpointKey         = "PASSTHROUGH_ENDPOINT"
 	PrivateKeyKey                  = "PRIVATE_KEY"
+	RateLimitPerMinute             = "RATE_LIMIT"
 	SSLCertPathKey                 = "SSL_CERT"
 	SSLKeyPathKey                  = "SSL_KEY"
 	PaymentChannelStorageTypeKey   = "PAYMENT_CHANNEL_STORAGE_TYPE"
@@ -44,6 +46,7 @@ const (
 {
 	"auto_ssl_domain": "",
 	"blockchain_enabled": true,
+	"burst_size":40,
 	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
 	"daemon_end_point": "127.0.0.1:8080",
@@ -54,6 +57,7 @@ const (
 	"ipfs_end_point": "http://localhost:5002/", 
 	"organization_name": "ExampleOrganization", 
 	"passthrough_enabled": false,
+	"rate_limit": 20,
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_name": "ExampleService", 
 	"ssl_cert": "",

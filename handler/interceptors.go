@@ -34,6 +34,14 @@ func (context *GrpcStreamContext) String() string {
 // and used to complete payment.
 type Payment interface{}
 
+// Custom gRPC codes to return to the client
+const (
+	// IncorrectNonce is returned to client when payment recieved contains
+	// incorrect nonce value. Client may use PaymentChannelStateService to get
+	// latest channel state and correct nonce value.
+	IncorrectNonce codes.Code = 1000
+)
+
 // GrpcError is an error which will be returned by interceptor via gRPC
 // protocol. Part of information will be returned as header metadata.
 type GrpcError struct {

@@ -126,7 +126,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentChannelNonce() {
 
 	err := suite.validator.Validate(payment, channel)
 
-	assert.Equal(suite.T(), NewPaymentError(Unauthenticated, "incorrect payment channel nonce, latest: 3, sent: 2"), err)
+	assert.Equal(suite.T(), NewPaymentError(IncorrectNonce, "incorrect payment channel nonce, latest: 3, sent: 2"), err)
 }
 
 func (suite *ValidationTestSuite) TestValidatePaymentIncorrectSignatureLength() {

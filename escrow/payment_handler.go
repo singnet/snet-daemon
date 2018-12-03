@@ -128,6 +128,8 @@ func paymentErrorToGrpcError(err error) *handler.GrpcError {
 		grpcCode = codes.Unauthenticated
 	case FailedPrecondition:
 		grpcCode = codes.FailedPrecondition
+	case IncorrectNonce:
+		grpcCode = handler.IncorrectNonce
 	default:
 		grpcCode = codes.Internal
 	}

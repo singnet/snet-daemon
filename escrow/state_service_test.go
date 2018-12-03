@@ -13,7 +13,6 @@ import (
 
 type stateServiceTestType struct {
 	service            PaymentChannelStateService
-	senderPrivateKey   *ecdsa.PrivateKey
 	senderAddress      common.Address
 	signerPrivateKey   *ecdsa.PrivateKey
 	signerAddress      common.Address
@@ -28,8 +27,7 @@ type stateServiceTestType struct {
 
 var stateServiceTest = func() stateServiceTestType {
 	channelServiceMock := &paymentChannelServiceMock{}
-	senderPrivateKey := GenerateTestPrivateKey()
-	senderAddress := crypto.PubkeyToAddress(senderPrivateKey.PublicKey)
+	senderAddress := crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	signerPrivateKey := GenerateTestPrivateKey()
 	signerAddress := crypto.PubkeyToAddress(signerPrivateKey.PublicKey)
 
@@ -43,7 +41,6 @@ var stateServiceTest = func() stateServiceTestType {
 		service: PaymentChannelStateService{
 			channelService: channelServiceMock,
 		},
-		senderPrivateKey:   senderPrivateKey,
 		senderAddress:      senderAddress,
 		signerPrivateKey:   signerPrivateKey,
 		signerAddress:      signerAddress,
@@ -61,7 +58,7 @@ var stateServiceTest = func() stateServiceTestType {
 		},
 		defaultRequest: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelId),
-			Signature: getSignature(bigIntToBytes(defaultChannelId), senderPrivateKey),
+			Signature: getSignature(bigIntToBytes(defaultChannelId), signerPrivateKey),
 		},
 		defaultReply: &ChannelStateReply{
 			CurrentNonce:        bigIntToBytes(big.NewInt(3)),
@@ -96,7 +93,7 @@ func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {
 		nil,
 		&ChannelStateRequest{
 			ChannelId: []byte{0xFF},
-			Signature: getSignature(bigIntToBytes(channelId), stateServiceTest.senderPrivateKey),
+			Signature: getSignature(bigIntToBytes(channelId), stateServiceTest.signerPrivateKey),
 		},
 	)
 
@@ -135,7 +132,7 @@ func TestGetChannelStateChannelNotFound(t *testing.T) {
 		nil,
 		&ChannelStateRequest{
 			ChannelId: bigIntToBytes(channelId),
-			Signature: getSignature(bigIntToBytes(channelId), stateServiceTest.senderPrivateKey),
+			Signature: getSignature(bigIntToBytes(channelId), stateServiceTest.signerPrivateKey),
 		},
 	)
 
@@ -160,7 +157,7 @@ func TestGetChannelStateIncorrectSender(t *testing.T) {
 		},
 	)
 
-	assert.Equal(t, errors.New("only channel sender can get latest channel state"), err)
+	assert.Equal(t, errors.New("only channel signer can get latest channel state"), err)
 	assert.Nil(t, reply)
 }
 

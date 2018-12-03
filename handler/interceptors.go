@@ -47,8 +47,6 @@ const (
 type GrpcError struct {
 	// Status is a gRPC call status
 	Status *status.Status
-	// MD is an metadata to be returned back
-	MD metadata.MD
 }
 
 // Err returns error to return correct gRPC error to the caller
@@ -61,7 +59,7 @@ func (err *GrpcError) Err() error {
 
 // String converts GrpcError to string
 func (err *GrpcError) String() string {
-	return fmt.Sprintf("{Status: %v, MD: %v}", err.Status, err.MD)
+	return fmt.Sprintf("{Status: %v}", err.Status)
 }
 
 // NewGrpcError returns new error which contains gRPC status with provided code

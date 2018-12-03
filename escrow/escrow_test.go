@@ -78,7 +78,6 @@ func (transaction *paymentTransactionMock) Rollback() error {
 type PaymentChannelServiceSuite struct {
 	suite.Suite
 
-	senderPrivateKey   *ecdsa.PrivateKey
 	senderAddress      common.Address
 	signerPrivateKey   *ecdsa.PrivateKey
 	signerAddress      common.Address
@@ -92,8 +91,7 @@ type PaymentChannelServiceSuite struct {
 }
 
 func (suite *PaymentChannelServiceSuite) SetupSuite() {
-	suite.senderPrivateKey = GenerateTestPrivateKey()
-	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPrivateKey.PublicKey)
+	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerPrivateKey = GenerateTestPrivateKey()
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
@@ -156,7 +154,7 @@ func (suite *PaymentChannelServiceSuite) payment() *Payment {
 		ChannelNonce: big.NewInt(3),
 		//MpeContractAddress: suite.mpeContractAddress,
 	}
-	SignTestPayment(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.signerPrivateKey)
 	return payment
 }
 
@@ -205,10 +203,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentParallelTransaction() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(17)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	transactionB, errB := suite.service.StartPaymentTransaction(paymentB)
@@ -227,10 +225,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentParallelTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransaction() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(17)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	errAC := transactionA.Commit()
@@ -250,10 +248,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransactionAfterRollback() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(13)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	errAC := transactionA.Rollback()

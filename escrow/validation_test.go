@@ -59,7 +59,6 @@ func GenerateTestPrivateKey() (privateKey *ecdsa.PrivateKey) {
 type ValidationTestSuite struct {
 	suite.Suite
 
-	senderPrivateKey   *ecdsa.PrivateKey
 	senderAddress      common.Address
 	signerPrivateKey   *ecdsa.PrivateKey
 	signerAddress      common.Address
@@ -74,8 +73,7 @@ func TestValidationTestSuite(t *testing.T) {
 }
 
 func (suite *ValidationTestSuite) SetupSuite() {
-	suite.senderPrivateKey = GenerateTestPrivateKey()
-	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPrivateKey.PublicKey)
+	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerPrivateKey = GenerateTestPrivateKey()
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
@@ -94,7 +92,7 @@ func (suite *ValidationTestSuite) payment() *Payment {
 		ChannelNonce:       big.NewInt(3),
 		MpeContractAddress: suite.mpeContractAddress,
 	}
-	SignTestPayment(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.signerPrivateKey)
 	return payment
 }
 
@@ -125,7 +123,7 @@ func (suite *ValidationTestSuite) TestPaymentIsValid() {
 func (suite *ValidationTestSuite) TestValidatePaymentChannelNonce() {
 	payment := suite.payment()
 	payment.ChannelNonce = big.NewInt(2)
-	SignTestPayment(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.signerPrivateKey)
 	channel := suite.channel()
 	channel.Nonce = big.NewInt(3)
 
@@ -158,7 +156,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentIncorrectSigner() {
 
 	err := suite.validator.Validate(payment, suite.channel())
 
-	assert.Equal(suite.T(), NewPaymentError(Unauthenticated, "payment is not signed by channel sender"), err)
+	assert.Equal(suite.T(), NewPaymentError(Unauthenticated, "payment is not signed by channel signer"), err)
 }
 
 func (suite *ValidationTestSuite) TestValidatePaymentChannelCannotGetCurrentBlock() {
@@ -200,7 +198,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentChannelExpirationThreshold(
 func (suite *ValidationTestSuite) TestValidatePaymentAmountIsTooBig() {
 	payment := suite.payment()
 	payment.Amount = big.NewInt(12346)
-	SignTestPayment(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.signerPrivateKey)
 	channel := suite.channel()
 	channel.FullAmount = big.NewInt(12345)
 

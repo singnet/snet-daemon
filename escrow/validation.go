@@ -36,7 +36,7 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 
 	if payment.ChannelNonce.Cmp(channel.Nonce) != 0 {
 		log.Warn("Incorrect nonce is sent by client")
-		return NewPaymentError(Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.ChannelNonce)
+		return NewPaymentError(IncorrectNonce, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.ChannelNonce)
 	}
 
 	signerAddress, err := getSignerAddressFromPayment(payment)

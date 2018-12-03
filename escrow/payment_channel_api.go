@@ -134,6 +134,8 @@ const (
 	// FailedPrecondition means that request cannot be handled because system
 	// is not in appropriate state.
 	FailedPrecondition PaymentErrorCode = 3
+	// IncorrectNonce is returned when nonce value sent by client is incorrect.
+	IncorrectNonce PaymentErrorCode = 4
 )
 
 // PaymentError contains error code and message and implements Error interface.

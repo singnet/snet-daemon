@@ -15,7 +15,7 @@ import (
 const (
 	// PaymentTypeHeader is a type of payment used to pay for a RPC call.
 	// Supported types are: "escrow".
-	// Note: "job" Payment type is deprecated 
+	// Note: "job" Payment type is deprecated
 	PaymentTypeHeader = "snet-payment-type"
 )
 
@@ -34,23 +34,66 @@ func (context *GrpcStreamContext) String() string {
 // and used to complete payment.
 type Payment interface{}
 
+// Custom gRPC codes to return to the client
+const (
+	// IncorrectNonce is returned to client when payment recieved contains
+	// incorrect nonce value. Client may use PaymentChannelStateService to get
+	// latest channel state and correct nonce value.
+	IncorrectNonce codes.Code = 1000
+)
+
+// GrpcError is an error which will be returned by interceptor via gRPC
+// protocol. Part of information will be returned as header metadata.
+type GrpcError struct {
+	// Status is a gRPC call status
+	Status *status.Status
+}
+
+// Err returns error to return correct gRPC error to the caller
+func (err *GrpcError) Err() error {
+	if err.Status == nil {
+		return nil
+	}
+	return err.Status.Err()
+}
+
+// String converts GrpcError to string
+func (err *GrpcError) String() string {
+	return fmt.Sprintf("{Status: %v}", err.Status)
+}
+
+// NewGrpcError returns new error which contains gRPC status with provided code
+// and message
+func NewGrpcError(code codes.Code, message string) *GrpcError {
+	return &GrpcError{
+		Status: status.Newf(code, message),
+	}
+}
+
+// NewGrpcErrorf returns new error which contains gRPC status with provided
+// code and message formed from format string and args.
+func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcError {
+	return &GrpcError{
+		Status: status.Newf(code, format, args...),
+	}
+}
+
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
-// jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted. 
+// jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
 type PaymentHandler interface {
 	// Type is a content of PaymentTypeHeader field which triggers usage of the
 	// payment handler.
 	Type() (typ string)
-	// Payment extracts payment data from gRPC request context.
-	Payment(context *GrpcStreamContext) (payment Payment, err *status.Status)
-	// Validate checks validity of payment data, it returns nil if data is
-	// valid or appropriate gRPC error otherwise.
-	Validate(payment Payment) (err *status.Status)
+	// Payment extracts payment data from gRPC request context and checks
+	// validity of payment data. It returns nil if data is valid or
+	// appropriate gRPC status otherwise.
+	Payment(context *GrpcStreamContext) (payment Payment, err *GrpcError)
 	// Complete completes payment if gRPC call was successfully proceeded by
 	// service.
-	Complete(payment Payment) (err *status.Status)
+	Complete(payment Payment) (err *GrpcError)
 	// CompleteAfterError completes payment if service returns error.
-	CompleteAfterError(payment Payment, result error) (err *status.Status)
+	CompleteAfterError(payment Payment, result error) (err *GrpcError)
 }
 
 // GrpcStreamInterceptor returns gRPC interceptor to validate payment. If
@@ -78,7 +121,7 @@ type paymentValidationInterceptor struct {
 }
 
 func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
-	var err *status.Status
+	var err *GrpcError
 
 	context, err := getGrpcContext(ss, info)
 	if err != nil {
@@ -115,12 +158,6 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 
 	log.WithField("payment", payment).Debug("New payment received")
 
-	err = paymentHandler.Validate(payment)
-	if err != nil {
-		return err.Err()
-	}
-	log.Debug("Payment validated")
-
 	e = handler(srv, ss)
 
 	if e != nil {
@@ -139,11 +176,11 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	return nil
 }
 
-func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *GrpcStreamContext, err *status.Status) {
+func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *GrpcStreamContext, err *GrpcError) {
 	md, ok := metadata.FromIncomingContext(serverStream.Context())
 	if !ok {
 		log.WithField("info", info).Error("Invalid metadata")
-		return nil, status.New(codes.InvalidArgument, "missing metadata")
+		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata")
 	}
 
 	return &GrpcStreamContext{
@@ -152,7 +189,7 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 	}, nil
 }
 
-func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *status.Status) {
+func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *GrpcError) {
 	paymentTypeMd, ok := context.MD[PaymentTypeHeader]
 	if !ok || len(paymentTypeMd) == 0 {
 		log.WithField("defaultPaymentHandlerType", interceptor.defaultPaymentHandler.Type()).Debug("Payment type was not set by caller, return default payment handler")
@@ -163,7 +200,7 @@ func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *Grpc
 	paymentHandler, ok := interceptor.paymentHandlers[paymentType]
 	if !ok {
 		log.WithField("paymentType", paymentType).Error("Unexpected payment type")
-		return nil, status.Newf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
+		return nil, NewGrpcErrorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
 	}
 
 	log.WithField("paymentType", paymentType).Debug("Return payment handler by type")
@@ -171,7 +208,7 @@ func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *Grpc
 }
 
 // GetBigInt gets big.Int value from gRPC metadata
-func GetBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) {
+func GetBigInt(md metadata.MD, key string) (value *big.Int, err *GrpcError) {
 	str, err := GetSingleValue(md, key)
 	if err != nil {
 		return
@@ -180,7 +217,7 @@ func GetBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) 
 	value = big.NewInt(0)
 	e := value.UnmarshalText([]byte(str))
 	if e != nil {
-		return nil, status.Newf(codes.InvalidArgument, "incorrect format \"%v\": \"%v\"", key, str)
+		return nil, NewGrpcErrorf(codes.InvalidArgument, "incorrect format \"%v\": \"%v\"", key, str)
 	}
 
 	return
@@ -188,9 +225,9 @@ func GetBigInt(md metadata.MD, key string) (value *big.Int, err *status.Status) 
 
 // GetBytes gets bytes array value from gRPC metadata for key with '-bin'
 // suffix, internally this data is encoded as base64
-func GetBytes(md metadata.MD, key string) (result []byte, err *status.Status) {
+func GetBytes(md metadata.MD, key string) (result []byte, err *GrpcError) {
 	if !strings.HasSuffix(key, "-bin") {
-		return nil, status.Newf(codes.InvalidArgument, "incorrect binary key name \"%v\"", key)
+		return nil, NewGrpcErrorf(codes.InvalidArgument, "incorrect binary key name \"%v\"", key)
 	}
 
 	str, err := GetSingleValue(md, key)
@@ -203,7 +240,7 @@ func GetBytes(md metadata.MD, key string) (result []byte, err *status.Status) {
 
 // GetBytesFromHex gets bytes array value from gRPC metadata, bytes array is
 // encoded as hex string
-func GetBytesFromHex(md metadata.MD, key string) (value []byte, err *status.Status) {
+func GetBytesFromHex(md metadata.MD, key string) (value []byte, err *GrpcError) {
 	str, err := GetSingleValue(md, key)
 	if err != nil {
 		return
@@ -212,15 +249,15 @@ func GetBytesFromHex(md metadata.MD, key string) (value []byte, err *status.Stat
 }
 
 // GetSingleValue gets string value from gRPC metadata
-func GetSingleValue(md metadata.MD, key string) (value string, err *status.Status) {
+func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 	array := md.Get(key)
 
 	if len(array) == 0 {
-		return "", status.Newf(codes.InvalidArgument, "missing \"%v\"", key)
+		return "", NewGrpcErrorf(codes.InvalidArgument, "missing \"%v\"", key)
 	}
 
 	if len(array) > 1 {
-		return "", status.Newf(codes.InvalidArgument, "too many values for key \"%v\": %v", key, array)
+		return "", NewGrpcErrorf(codes.InvalidArgument, "too many values for key \"%v\": %v", key, array)
 	}
 
 	return array[0], nil

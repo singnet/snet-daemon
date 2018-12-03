@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/handler"
@@ -73,7 +72,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPayment() {
 
 	_, err := suite.paymentHandler.Payment(context)
 
-	assert.Nil(suite.T(), err, "Unexpected error: %v", err.Message())
+	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 }
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelId() {
@@ -83,7 +82,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelId() {
 
 	payment, err := suite.paymentHandler.Payment(context)
 
-	assert.Equal(suite.T(), status.New(codes.InvalidArgument, "missing \"snet-payment-channel-id\""), err)
+	assert.Equal(suite.T(), handler.NewGrpcError(codes.InvalidArgument, "missing \"snet-payment-channel-id\""), err)
 	assert.Nil(suite.T(), payment)
 }
 
@@ -94,7 +93,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelNonce() {
 
 	payment, err := suite.paymentHandler.Payment(context)
 
-	assert.Equal(suite.T(), status.New(codes.InvalidArgument, "missing \"snet-payment-channel-nonce\""), err)
+	assert.Equal(suite.T(), handler.NewGrpcError(codes.InvalidArgument, "missing \"snet-payment-channel-nonce\""), err)
 	assert.Nil(suite.T(), payment)
 }
 
@@ -105,7 +104,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelAmount() {
 
 	payment, err := suite.paymentHandler.Payment(context)
 
-	assert.Equal(suite.T(), status.New(codes.InvalidArgument, "missing \"snet-payment-channel-amount\""), err)
+	assert.Equal(suite.T(), handler.NewGrpcError(codes.InvalidArgument, "missing \"snet-payment-channel-amount\""), err)
 	assert.Nil(suite.T(), payment)
 }
 
@@ -116,7 +115,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoSignature() {
 
 	payment, err := suite.paymentHandler.Payment(context)
 
-	assert.Equal(suite.T(), status.New(codes.InvalidArgument, "missing \"snet-payment-channel-signature-bin\""), err)
+	assert.Equal(suite.T(), handler.NewGrpcError(codes.InvalidArgument, "missing \"snet-payment-channel-signature-bin\""), err)
 	assert.Nil(suite.T(), payment)
 }
 
@@ -129,18 +128,18 @@ func (suite *PaymentHandlerTestSuite) TestStartTransactionError() {
 
 	payment, err := paymentHandler.Payment(context)
 
-	assert.Equal(suite.T(), status.New(codes.FailedPrecondition, "another transaction in progress"), err)
+	assert.Equal(suite.T(), handler.NewGrpcError(codes.FailedPrecondition, "another transaction in progress"), err)
 	assert.Nil(suite.T(), payment)
 }
 
 func (suite *PaymentHandlerTestSuite) TestValidatePaymentIncorrectIncome() {
 	context := suite.grpcContext(func(md *metadata.MD) {})
-	incomeErr := status.New(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
+	incomeErr := NewPaymentError(Unauthenticated, "incorrect payment income: \"45\", expected \"46\"")
 	paymentHandler := suite.paymentHandler
 	paymentHandler.incomeValidator = &incomeValidatorMockType{err: incomeErr}
 
 	payment, err := paymentHandler.Payment(context)
 
-	assert.Equal(suite.T(), incomeErr, err)
+	assert.Equal(suite.T(), handler.NewGrpcError(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\""), err)
 	assert.Nil(suite.T(), payment)
 }

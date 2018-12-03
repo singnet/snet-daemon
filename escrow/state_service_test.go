@@ -15,6 +15,8 @@ type stateServiceTestType struct {
 	service            PaymentChannelStateService
 	senderPrivateKey   *ecdsa.PrivateKey
 	senderAddress      common.Address
+	signerPrivateKey   *ecdsa.PrivateKey
+	signerAddress      common.Address
 	channelServiceMock *paymentChannelServiceMock
 
 	defaultChannelId   *big.Int
@@ -28,6 +30,8 @@ var stateServiceTest = func() stateServiceTestType {
 	channelServiceMock := &paymentChannelServiceMock{}
 	senderPrivateKey := GenerateTestPrivateKey()
 	senderAddress := crypto.PubkeyToAddress(senderPrivateKey.PublicKey)
+	signerPrivateKey := GenerateTestPrivateKey()
+	signerAddress := crypto.PubkeyToAddress(signerPrivateKey.PublicKey)
 
 	defaultChannelId := big.NewInt(42)
 	defaultSignature, err := hex.DecodeString("0504030201")
@@ -41,6 +45,8 @@ var stateServiceTest = func() stateServiceTestType {
 		},
 		senderPrivateKey:   senderPrivateKey,
 		senderAddress:      senderAddress,
+		signerPrivateKey:   signerPrivateKey,
+		signerAddress:      signerAddress,
 		channelServiceMock: channelServiceMock,
 
 		defaultChannelId:  defaultChannelId,
@@ -48,6 +54,7 @@ var stateServiceTest = func() stateServiceTestType {
 		defaultChannelData: &PaymentChannelData{
 			ChannelID:        defaultChannelId,
 			Sender:           senderAddress,
+			Signer:           signerAddress,
 			Signature:        defaultSignature,
 			Nonce:            big.NewInt(3),
 			AuthorizedAmount: big.NewInt(12345),

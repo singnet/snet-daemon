@@ -80,6 +80,8 @@ type PaymentChannelServiceSuite struct {
 
 	senderPrivateKey   *ecdsa.PrivateKey
 	senderAddress      common.Address
+	signerPrivateKey   *ecdsa.PrivateKey
+	signerAddress      common.Address
 	recipientAddress   common.Address
 	mpeContractAddress common.Address
 	memoryStorage      *memoryStorage
@@ -92,6 +94,8 @@ type PaymentChannelServiceSuite struct {
 func (suite *PaymentChannelServiceSuite) SetupSuite() {
 	suite.senderPrivateKey = GenerateTestPrivateKey()
 	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPrivateKey.PublicKey)
+	suite.signerPrivateKey = GenerateTestPrivateKey()
+	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	suite.memoryStorage = NewMemStorage()
@@ -141,6 +145,7 @@ func (suite *PaymentChannelServiceSuite) mpeChannel() *blockchain.MultiPartyEscr
 		Value:      big.NewInt(12345),
 		Nonce:      big.NewInt(3),
 		Expiration: big.NewInt(100),
+		Signer:     suite.signerAddress,
 	}
 }
 
@@ -170,6 +175,7 @@ func (suite *PaymentChannelServiceSuite) channel() *PaymentChannelData {
 		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
+		Signer:           suite.signerAddress,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}

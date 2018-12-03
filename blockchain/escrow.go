@@ -78,6 +78,7 @@ type MultiPartyEscrowChannel struct {
 	Value      *big.Int
 	Nonce      *big.Int
 	Expiration *big.Int
+	Signer     common.Address
 }
 
 var zeroAddress = common.Address{}
@@ -102,6 +103,7 @@ func (processor *Processor) MultiPartyEscrowChannel(channelID *big.Int) (channel
 		Value:      ch.Value,
 		Nonce:      ch.Nonce,
 		Expiration: ch.Expiration,
+		Signer:     ch.Signer,
 	}
 
 	log = log.WithField("channel", channel)

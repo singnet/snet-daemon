@@ -61,6 +61,8 @@ type ValidationTestSuite struct {
 
 	senderPrivateKey   *ecdsa.PrivateKey
 	senderAddress      common.Address
+	signerPrivateKey   *ecdsa.PrivateKey
+	signerAddress      common.Address
 	recipientAddress   common.Address
 	mpeContractAddress common.Address
 
@@ -74,6 +76,8 @@ func TestValidationTestSuite(t *testing.T) {
 func (suite *ValidationTestSuite) SetupSuite() {
 	suite.senderPrivateKey = GenerateTestPrivateKey()
 	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPrivateKey.PublicKey)
+	suite.signerPrivateKey = GenerateTestPrivateKey()
+	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
@@ -103,6 +107,7 @@ func (suite *ValidationTestSuite) channel() *PaymentChannelData {
 		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
+		Signer:           suite.signerAddress,
 		AuthorizedAmount: big.NewInt(12300),
 		Signature:        nil,
 	}

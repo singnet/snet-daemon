@@ -14,30 +14,30 @@ import (
 )
 
 const (
-	RegistryAddressKey   = "REGISTRY_ADDRESS_KEY" //to be read from github
-	AutoSSLDomainKey     = "AUTO_SSL_DOMAIN"
-	AutoSSLCacheDirKey   = "AUTO_SSL_CACHE_DIR"
-	BlockchainEnabledKey = "BLOCKCHAIN_ENABLED"
-	ConfigPathKey        = "CONFIG_PATH"
+	RegistryAddressKey   = "registry_address_key" //to be read from github
+	AutoSSLDomainKey     = "auto_ssl_domain"
+	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
+	BlockchainEnabledKey = "blockchain_enabled"
+	ConfigPathKey        = "config_path"
 
-	DaemonTypeKey                  = "DAEMON_TYPE"
-	DaemonEndPoint                 = "DAEMON_END_POINT"
-	EthereumJsonRpcEndpointKey     = "ETHEREUM_JSON_RPC_ENDPOINT"
-	ExecutablePathKey              = "EXECUTABLE_PATH"
-	HdwalletIndexKey               = "HDWALLET_INDEX"
-	HdwalletMnemonicKey            = "HDWALLET_MNEMONIC"
-	IpfsEndPoint                   = "IPFS_END_POINT"
-	LogKey                         = "LOG"
-	OrganizationName               = "ORGANIZATION_NAME"
-	ServiceName                    = "SERVICE_NAME"
-	PassthroughEnabledKey          = "PASSTHROUGH_ENABLED"
-	PassthroughEndpointKey         = "PASSTHROUGH_ENDPOINT"
-	PrivateKeyKey                  = "PRIVATE_KEY"
-	SSLCertPathKey                 = "SSL_CERT"
-	SSLKeyPathKey                  = "SSL_KEY"
-	PaymentChannelStorageTypeKey   = "PAYMENT_CHANNEL_STORAGE_TYPE"
-	PaymentChannelStorageClientKey = "PAYMENT_CHANNEL_STORAGE_CLIENT"
-	PaymentChannelStorageServerKey = "PAYMENT_CHANNEL_STORAGE_SERVER"
+	DaemonTypeKey                  = "daemon_type"
+	DaemonEndPoint                 = "daemon_end_point"
+	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
+	ExecutablePathKey              = "executable_path"
+	HdwalletIndexKey               = "hdwallet_index"
+	HdwalletMnemonicKey            = "hdwallet_mnemonic"
+	IpfsEndPoint                   = "ipfs_end_point"
+	LogKey                         = "log"
+	OrganizationName               = "organization_name"
+	ServiceName                    = "service_name"
+	PassthroughEnabledKey          = "passthrough_enabled"
+	PassthroughEndpointKey         = "passthrough_endpoint"
+	PrivateKeyKey                  = "private_key"
+	SSLCertPathKey                 = "ssl_cert"
+	SSLKeyPathKey                  = "ssl_key"
+	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
+	PaymentChannelStorageClientKey = "payment_channel_storage_client"
+	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 
 	defaultConfigJson string = `
 {

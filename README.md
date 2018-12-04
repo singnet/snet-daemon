@@ -119,96 +119,96 @@ configuration properties can be set using configuration file.
 These properties you should usually change before starting daemon for the first
 time.
 
-##### DAEMON_ENDPOINT (optional; default: `"127.0.0.1:8080"`)
+##### daemon_endpoint (optional; default: `"127.0.0.1:8080"`)
 Network interface and port which daemon listens to. This parameter should be
 absolutely equal to the corresponding endpoint in the [service configuration
 metadata][service-configuration-metadata]. URI format is recommended:
 http://<host>:<port>.
 
-##### ETHEREUM_JSON_RPC_ENDPOINT (optional, default: `"http://127.0.0.1:8545"`)
+##### ethereum_json_rpc_endpoint (optional, default: `"http://127.0.0.1:8545"`)
 Endpoint to which daemon sends ethereum JSON-RPC requests; recommend
 `"https://kovan.infura.io"` for kovan testnet.
 
-##### IPFS_END_POINT (optional; default `"http://localhost:5002/"`)
+##### ipfs_end_point (optional; default `"http://localhost:5002/"`)
 Endpoint of IPFS instance to get [service configuration
 metadata][service-configuration-metadata]
 
-##### REGISTRY_ADDRESS_KEY (required)
+##### registry_address_key (required)
 Ethereum address of the Registry contract instance.
 
-##### ORGANIZATION_NAME (required)
+##### organization_name (required)
 Name of the organization to search for [service configuration
 metadata][service-configuration-metadata].
 
-##### SERVICE_NAME (required)
+##### service_name (required)
 Name of the service to search for [service configuration
 metadata][service-configuration-metadata].
 
-##### PASSTHROUGH_ENABLED (optional; default: `false`)
+##### passthrough_enabled (optional; default: `false`)
 When passthrough is disabled, daemon echoes requests back as responses; `false`
 reserved mostly for testing purposes.
 
-##### PASSTHROUGH_ENDPOINT (required iff `SERVICE_TYPE` != `executable`)
+##### passthrough_endpoint (required iff `service_type` != `executable`)
 Endpoint to which requests should be proxied for handling by service.
 
-##### EXECUTABLE_PATH (required iff `SERVICE_TYPE` == `executable`)
+##### executable_path (required iff `service_type` == `executable`)
 Path to executable to expose as a service.
 
 #### Other properties
 
 This options are less frequently needed.
 
-##### AUTO_SSL_DOMAIN (optional; default: `""`) 
+##### auto_ssl_domain (optional; default: `""`) 
 Domain name for which the daemon should automatically acquire SSL certs from [Let's Encrypt](https://letsencrypt.org/).
 
-##### AUTO_SSL_CACHE_DIR (optional; only applies if `AUTO_SSL_DOMAIN` is set; default: `".certs"`)
+##### auto_ssl_cache_dir (optional; only applies if `auto_ssl_domain` is set; default: `".certs"`)
 Directory in which to cache the SSL certs issued by Let's Encrypt
 
-##### BLOCKCHAIN_ENABLED (optional; default: `true`)
+##### blockchain_enabled (optional; default: `true`)
 Enables or disables blockchain features of daemon; `false` reserved mostly for testing purposes
 
-##### HDWALLET_INDEX (optional; default: `0`; only applies if `HDWALLET_MNEMONIC` is set)
+##### hdwallet_index (optional; default: `0`; only applies if `hdwallet_mnemonic` is set)
 Derivation index for key to use within HDWallet specified by mnemonic.
 
-##### HDWALLET_MNEMONIC (optional; default: `""`; this or `PRIVATE_KEY` must be set to use `claim` command)
+##### hdwallet_mnemonic (optional; default: `""`; this or `private_key` must be set to use `claim` command)
 [bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
 mnemonic corresponding to wallet with which daemon transacts on blockchain.
 
-##### LOG (optional)
+##### log (optional)
 See [logger configuration](./logger/README.md)
 
-##### PRIVATE_KEY (optional; default: `""`; this or `HDWALLET_MNEMONIC` must be set to use `claim` command)
+##### private_key (optional; default: `""`; this or `hdwallet_mnemonic` must be set to use `claim` command)
 Private key with which daemon transacts on blockchain.
 
-##### SSL_CERT (optional; default: `""`)
+##### ssl_cert (optional; default: `""`)
 Path to certificate to use for SSL.
 
-##### SSL_KEY (optional; only applies if `SSL_CERT` is set; default: `""`)
+##### ssl_key (optional; only applies if `ssl_cert` is set; default: `""`)
 Path to key to use for SSL.
 
-##### PAYMENT_CHANNEL_STORAGE_TYPE (optional; default `"etcd"`)
+##### payment_channel_storage_type (optional; default `"etcd"`)
 See [etcd storage type](./etcddb#etcd-storage-type)
 
-##### PAYMENT_CHANNEL_STORAGE_CLIENT (optional)
+##### payment_channel_storage_client (optional)
 See [etcd client configuration](./etcddb#etcd-client-configuration)
 
-##### PAYMENT_CHANNEL_STORAGE_SERVIER (optional)
+##### payment_channel_storage_server (optional)
 See [etcd server configuration](./etcddb#etcd-server-configuration)
 
 #### Environment variables and CLI parameters
 
 |config file key|environment variable name|flag|
 |---|---|---|
-|`AUTO_SSL_DOMAIN`|`SNET_AUTO_SSL_DOMAIN`|`--auto-ssl-domain`|
-|`AUTO_SSL_CACHE_DIR`|`SNET_AUTO_SSL_CACHE_DIR`|`--auto-ssl-cache`|
-|`BLOCKCHAIN_ENABLED`|`SNET_BLOCKCHAIN_ENABLED`|`--blockchain`, `-b`|
-|`CONFIG_PATH`|`SNET_CONFIG_PATH`|`--config`, `-c`|
-|`ETHEREUM_JSON_RPC_ENDPOINT`|`SNET_ETHEREUM_JSON_RPC_ENDPOINT`|`--ethereum-endpoint`|
-|`HDWALLET_INDEX`|`SNET_HDWALLET_INDEX`|`--wallet-index`|
-|`HDWALLET_MNEMONIC`|`SNET_HDWALLET_MNEMONIC`|`--mnemonic`|
-|`PASSTHROUGH_ENABLED`|`SNET_PASSTHROUGH_ENABLED`|`--passthrough`|
-|`SSL_CERT`|`SNET_SSL_CERT`|`--ssl-cert`|
-|`SSL_KEY`|`SNET_SSL_KEY`|`--ssl-key`|
+|`auto_ssl_domain`|`SNET_AUTO_SSL_DOMAIN`|`--auto-ssl-domain`|
+|`auto_ssl_cache_dir`|`SNET_AUTO_SSL_CACHE_DIR`|`--auto-ssl-cache`|
+|`blockchain_enabled`|`SNET_BLOCKCHAIN_ENABLED`|`--blockchain`, `-b`|
+|`config_path`|`SNET_CONFIG_PATH`|`--config`, `-c`|
+|`ethereum_json_rpc_endpoint`|`SNET_ETHEREUM_JSON_RPC_ENDPOINT`|`--ethereum-endpoint`|
+|`hdwallet_index`|`SNET_HDWALLET_INDEX`|`--wallet-index`|
+|`hdwallet_mnemonic`|`SNET_HDWALLET_MNEMONIC`|`--mnemonic`|
+|`passthrough_enabled`|`SNET_PASSTHROUGH_ENABLED`|`--passthrough`|
+|`ssl_cert`|`SNET_SSL_CERT`|`--ssl-cert`|
+|`ssl_key`|`SNET_SSL_KEY`|`--ssl-key`|
 
 [service-configuration-metadata]: https://github.com/singnet/wiki/blob/master/multiPartyEscrowContract/MPEServiceMetadata.md
 

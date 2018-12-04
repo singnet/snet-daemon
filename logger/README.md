@@ -87,9 +87,30 @@ call [NewMailAuthHook method](https://godoc.org/github.com/zbindenren/logrus_mai
 * username
 * password
 
+Resulting log configuration using logrus_mail hook:
+```json
+  "log": {
+    ...
+    "hooks": [ "send-mail" ],
+    "send-mail": {
+      "type": "mail_auth",
+      "levels": ["Error", "Warn"],
+      "config": {
+		"application_name": "test-application-name",
+		"host": "smtp.gmail.com",
+		"port": 587,
+		"from": "from-user@gmail.com",
+		"to": "to-user@gmail.com",
+		"username": "smtp-username",
+		"password": "secret"
+	  }
+    },
+  }
+```
+
 # Default logger configuration in JSON format
 
-```
+```json
   "log": {
     "level": "info",
     "timezone": "UTC",

@@ -114,76 +114,85 @@ also supported via [Viper](https://github.com/spf13/viper). Use `snet init`
 command to save configuration file with default values. Following
 configuration properties can be set using configuration file.
 
-#### AUTO_SSL_DOMAIN (optional; default: `""`) 
-Domain name for which the daemon should automatically acquire SSL certs from [Let's Encrypt](https://letsencrypt.org/).
+#### Main properties
 
-#### AUTO_SSL_CACHE_DIR (optional; only applies if `AUTO_SSL_DOMAIN` is set; default: `".certs"`)
-Directory in which to cache the SSL certs issued by Let's Encrypt
+These properties you should usually change before starting daemon for the first
+time.
 
-#### BLOCKCHAIN_ENABLED (optional; default: `true`)
-Enables or disables blockchain features of daemon; `false` reserved mostly for testing purposes
-
-#### DAEMON_ENDPOINT (required)
+##### DAEMON_ENDPOINT (optional; default: `"127.0.0.1:8080"`)
 Network interface and port which daemon listens to. This parameter should be
 absolutely equal to the corresponding endpoint in the [service configuration
 metadata][service-configuration-metadata]. URI format is recommended:
 http://<host>:<port>.
 
-#### ETHEREUM_JSON_RPC_ENDPOINT (required)
+##### ETHEREUM_JSON_RPC_ENDPOINT (optional, default: `"http://127.0.0.1:8545"`)
 Endpoint to which daemon sends ethereum JSON-RPC requests; recommend
 `"https://kovan.infura.io"` for kovan testnet.
 
-#### EXECUTABLE_PATH (required iff `SERVICE_TYPE` == `executable`)
-Path to executable to expose as a service.
-
-#### HDWALLET_INDEX (optional; default: `0`; only applies if `HDWALLET_MNEMONIC` is set)
-Derivation index for key to use within HDWallet specified by mnemonic.
-
-#### HDWALLET_MNEMONIC (optional; default: `""`; this or `PRIVATE_KEY` must be set to use `claim` command)
-[bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
-mnemonic corresponding to wallet with which daemon transacts on blockchain.
-
-#### IPFS_END_POINT (optional; default `"http://localhost:5002/"`)
+##### IPFS_END_POINT (optional; default `"http://localhost:5002/"`)
 Endpoint of IPFS instance to get [service configuration
 metadata][service-configuration-metadata]
 
-#### LOG (optional)
-See [logger configuration](./logger/README.md)
-
-#### REGISTRY_ADDRESS_KEY (required)
+##### REGISTRY_ADDRESS_KEY (required)
 Ethereum address of the Registry contract instance.
 
-#### ORGANIZATION_NAME (required)
+##### ORGANIZATION_NAME (required)
 Name of the organization to search for [service configuration
 metadata][service-configuration-metadata].
 
-#### SERVICE_NAME (required)
+##### SERVICE_NAME (required)
 Name of the service to search for [service configuration
 metadata][service-configuration-metadata].
 
-#### PASSTHROUGH_ENABLED (optional; default: `false`)
+##### PASSTHROUGH_ENABLED (optional; default: `false`)
 When passthrough is disabled, daemon echoes requests back as responses; `false`
 reserved mostly for testing purposes.
 
-#### PASSTHROUGH_ENDPOINT (required iff `SERVICE_TYPE` != `executable`)
+##### PASSTHROUGH_ENDPOINT (required iff `SERVICE_TYPE` != `executable`)
 Endpoint to which requests should be proxied for handling by service.
 
-#### PRIVATE_KEY (optional; default: `""`; this or `HDWALLET_MNEMONIC` must be set to use `claim` command)
+##### EXECUTABLE_PATH (required iff `SERVICE_TYPE` == `executable`)
+Path to executable to expose as a service.
+
+#### Other properties
+
+This options are less frequently needed.
+
+##### AUTO_SSL_DOMAIN (optional; default: `""`) 
+Domain name for which the daemon should automatically acquire SSL certs from [Let's Encrypt](https://letsencrypt.org/).
+
+##### AUTO_SSL_CACHE_DIR (optional; only applies if `AUTO_SSL_DOMAIN` is set; default: `".certs"`)
+Directory in which to cache the SSL certs issued by Let's Encrypt
+
+##### BLOCKCHAIN_ENABLED (optional; default: `true`)
+Enables or disables blockchain features of daemon; `false` reserved mostly for testing purposes
+
+##### HDWALLET_INDEX (optional; default: `0`; only applies if `HDWALLET_MNEMONIC` is set)
+Derivation index for key to use within HDWallet specified by mnemonic.
+
+##### HDWALLET_MNEMONIC (optional; default: `""`; this or `PRIVATE_KEY` must be set to use `claim` command)
+[bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
+mnemonic corresponding to wallet with which daemon transacts on blockchain.
+
+##### LOG (optional)
+See [logger configuration](./logger/README.md)
+
+##### PRIVATE_KEY (optional; default: `""`; this or `HDWALLET_MNEMONIC` must be set to use `claim` command)
 Private key with which daemon transacts on blockchain.
 
-#### SSL_CERT (optional; default: `""`)
+##### SSL_CERT (optional; default: `""`)
 Path to certificate to use for SSL.
 
-#### SSL_KEY (optional; only applies if `SSL_CERT` is set; default: `""`)
+##### SSL_KEY (optional; only applies if `SSL_CERT` is set; default: `""`)
 Path to key to use for SSL.
 
-#### PAYMENT_CHANNEL_STORAGE_TYPE (optional; default `"etcd"`)
+##### PAYMENT_CHANNEL_STORAGE_TYPE (optional; default `"etcd"`)
 See [etcd storage type](./etcddb#etcd-storage-type)
 
-#### PAYMENT_CHANNEL_STORAGE_CLIENT (optional)
+##### PAYMENT_CHANNEL_STORAGE_CLIENT (optional)
 See [etcd client configuration](./etcddb#etcd-client-configuration)
 
-#### PAYMENT_CHANNEL_STORAGE_SERVIER (optional)
+##### PAYMENT_CHANNEL_STORAGE_SERVIER (optional)
 See [etcd server configuration](./etcddb#etcd-server-configuration)
 
 #### Environment variables and CLI parameters

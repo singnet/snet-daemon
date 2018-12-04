@@ -86,6 +86,9 @@ type PaymentChannelData struct {
 	// expressed in Ethereum block number. Since this block is added to
 	// blockchain Sender can withdraw tokens from channel.
 	Expiration *big.Int
+	// Signer is and address to be used to sign the payments. Usually it is
+	// equal to channel sender.
+	Signer common.Address
 
 	// service provider. This amount increments on price after each successful
 	// RPC call.
@@ -96,8 +99,8 @@ type PaymentChannelData struct {
 }
 
 func (data *PaymentChannelData) String() string {
-	return fmt.Sprintf("{ChannelID: %v, Nonce: %v, State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, AuthorizedAmount: %v, Signature: %v",
-		data.ChannelID, data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupID, data.FullAmount, data.Expiration, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
+	return fmt.Sprintf("{ChannelID: %v, Nonce: %v, State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, Signer: %v, AuthorizedAmount: %v, Signature: %v",
+		data.ChannelID, data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupID, data.FullAmount, data.Expiration, data.Signer, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
 }
 
 // PaymentChannelService interface is API for payment channel functionality.

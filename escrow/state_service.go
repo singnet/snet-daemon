@@ -47,8 +47,8 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
 	}
 
-	if channel.Sender != *sender {
-		return nil, errors.New("only channel sender can get latest channel state")
+	if channel.Signer != *sender {
+		return nil, errors.New("only channel signer can get latest channel state")
 	}
 
 	if channel.Signature == nil {

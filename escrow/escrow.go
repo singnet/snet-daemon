@@ -216,6 +216,7 @@ func (payment *paymentTransaction) Commit() error {
 			Recipient:        payment.channel.Recipient,
 			FullAmount:       payment.channel.FullAmount,
 			Expiration:       payment.channel.Expiration,
+			Signer:           payment.channel.Signer,
 			AuthorizedAmount: payment.payment.Amount,
 			Signature:        payment.payment.Signature,
 			GroupID:          payment.channel.GroupID,

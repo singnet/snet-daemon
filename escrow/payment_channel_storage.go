@@ -147,6 +147,7 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		GroupID:          ch.GroupId,
 		FullAmount:       ch.Value,
 		Expiration:       ch.Expiration,
+		Signer:           ch.Signer,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}, true, nil

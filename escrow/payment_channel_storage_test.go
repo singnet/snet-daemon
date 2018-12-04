@@ -26,6 +26,7 @@ type PaymentChannelStorageSuite struct {
 	suite.Suite
 
 	senderAddress    common.Address
+	signerAddress    common.Address
 	recipientAddress common.Address
 	memoryStorage    *memoryStorage
 
@@ -34,6 +35,7 @@ type PaymentChannelStorageSuite struct {
 
 func (suite *PaymentChannelStorageSuite) SetupSuite() {
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
+	suite.signerAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.memoryStorage = NewMemStorage()
 
@@ -61,6 +63,7 @@ func (suite *PaymentChannelStorageSuite) channel() *PaymentChannelData {
 		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
+		Signer:           suite.signerAddress,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}
@@ -83,12 +86,14 @@ type BlockchainChannelReaderSuite struct {
 
 	senderAddress    common.Address
 	recipientAddress common.Address
+	signerAddress    common.Address
 
 	reader BlockchainChannelReader
 }
 
 func (suite *BlockchainChannelReaderSuite) SetupSuite() {
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
+	suite.signerAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 
 	suite.reader = BlockchainChannelReader{
@@ -115,6 +120,7 @@ func (suite *BlockchainChannelReaderSuite) mpeChannel() *blockchain.MultiPartyEs
 		Value:      big.NewInt(12345),
 		Nonce:      big.NewInt(3),
 		Expiration: big.NewInt(100),
+		Signer:     suite.signerAddress,
 	}
 }
 
@@ -127,6 +133,7 @@ func (suite *BlockchainChannelReaderSuite) channel() *PaymentChannelData {
 		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
+		Signer:           suite.signerAddress,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}

@@ -105,7 +105,103 @@ $ ./scripts/test
 
 ### Configuration
 
-* [logger configuration](./logger/README.md)
+Configuration file is a main source of the configuration. Some properties
+can be set via environment variables or command line parameters see [table
+below](environment-variables-and-cli-parameters). Use `--config`
+parameter with any command to set configuration file name.  By default daemon
+use configuration file in JSON format `snetd.config.json` but other formats are
+also supported via [Viper](https://github.com/spf13/viper). Use `snet init`
+command to save configuration file with default values. Following
+configuration properties can be set using configuration file.
+
+#### AUTO_SSL_DOMAIN (optional; default: `""`) 
+Domain name for which the daemon should automatically acquire SSL certs from [Let's Encrypt](https://letsencrypt.org/).
+
+#### AUTO_SSL_CACHE_DIR (optional; only applies if `AUTO_SSL_DOMAIN` is set; default: `".certs"`)
+Directory in which to cache the SSL certs issued by Let's Encrypt
+
+#### BLOCKCHAIN_ENABLED (optional; default: `true`)
+Enables or disables blockchain features of daemon; `false` reserved mostly for testing purposes
+
+#### DAEMON_ENDPOINT (required)
+Network interface and port which daemon listens to. This parameter should be
+absolutely equal to the corresponding endpoint in the [service configuration
+metadata][service-configuration-metadata]. URI format is recommended:
+http://<host>:<port>.
+
+#### ETHEREUM_JSON_RPC_ENDPOINT (required)
+Endpoint to which daemon sends ethereum JSON-RPC requests; recommend
+`"https://kovan.infura.io"` for kovan testnet.
+
+#### EXECUTABLE_PATH (required iff `SERVICE_TYPE` == `executable`)
+Path to executable to expose as a service.
+
+#### HDWALLET_INDEX (optional; default: `0`; only applies if `HDWALLET_MNEMONIC` is set)
+Derivation index for key to use within HDWallet specified by mnemonic.
+
+#### HDWALLET_MNEMONIC (optional; default: `""`; this or `PRIVATE_KEY` must be set to use `claim` command)
+[bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
+mnemonic corresponding to wallet with which daemon transacts on blockchain.
+
+#### IPFS_END_POINT (optional; default `"http://localhost:5002/"`)
+Endpoint of IPFS instance to get [service configuration
+metadata][service-configuration-metadata]
+
+#### LOG (optional)
+See [logger configuration](./logger/README.md)
+
+#### REGISTRY_ADDRESS_KEY (required)
+Ethereum address of the Registry contract instance.
+
+#### ORGANIZATION_NAME (required)
+Name of the organization to search for [service configuration
+metadata][service-configuration-metadata].
+
+#### SERVICE_NAME (required)
+Name of the service to search for [service configuration
+metadata][service-configuration-metadata].
+
+#### PASSTHROUGH_ENABLED (optional; default: `false`)
+When passthrough is disabled, daemon echoes requests back as responses; `false`
+reserved mostly for testing purposes.
+
+#### PASSTHROUGH_ENDPOINT (required iff `SERVICE_TYPE` != `executable`)
+Endpoint to which requests should be proxied for handling by service.
+
+#### PRIVATE_KEY (optional; default: `""`; this or `HDWALLET_MNEMONIC` must be set to use `claim` command)
+Private key with which daemon transacts on blockchain.
+
+#### SSL_CERT (optional; default: `""`)
+Path to certificate to use for SSL.
+
+#### SSL_KEY (optional; only applies if `SSL_CERT` is set; default: `""`)
+Path to key to use for SSL.
+
+#### PAYMENT_CHANNEL_STORAGE_TYPE (optional; default `"etcd"`)
+See [etcd storage type](./etcddb#etcd-storage-type)
+
+#### PAYMENT_CHANNEL_STORAGE_CLIENT (optional)
+See [etcd client configuration](./etcddb#etcd-client-configuration)
+
+#### PAYMENT_CHANNEL_STORAGE_SERVIER (optional)
+See [etcd server configuration](./etcddb#etcd-server-configuration)
+
+#### Environment variables and CLI parameters
+
+|config file key|environment variable name|flag|
+|---|---|---|
+|`AUTO_SSL_DOMAIN`|`SNET_AUTO_SSL_DOMAIN`|`--auto-ssl-domain`|
+|`AUTO_SSL_CACHE_DIR`|`SNET_AUTO_SSL_CACHE_DIR`|`--auto-ssl-cache`|
+|`BLOCKCHAIN_ENABLED`|`SNET_BLOCKCHAIN_ENABLED`|`--blockchain`, `-b`|
+|`CONFIG_PATH`|`SNET_CONFIG_PATH`|`--config`, `-c`|
+|`ETHEREUM_JSON_RPC_ENDPOINT`|`SNET_ETHEREUM_JSON_RPC_ENDPOINT`|`--ethereum-endpoint`|
+|`HDWALLET_INDEX`|`SNET_HDWALLET_INDEX`|`--wallet-index`|
+|`HDWALLET_MNEMONIC`|`SNET_HDWALLET_MNEMONIC`|`--mnemonic`|
+|`PASSTHROUGH_ENABLED`|`SNET_PASSTHROUGH_ENABLED`|`--passthrough`|
+|`SSL_CERT`|`SNET_SSL_CERT`|`--ssl-cert`|
+|`SSL_KEY`|`SNET_SSL_KEY`|`--ssl-key`|
+
+[service-configuration-metadata]: https://github.com/singnet/wiki/blob/master/multiPartyEscrowContract/MPEServiceMetadata.md
 
 ## Release
 
@@ -120,3 +216,4 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 This project is licensed under the MIT License - see the
 [LICENSE](https://github.com/singnet/snet-daemon/blob/master/LICENSE) file for details.
+

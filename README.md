@@ -107,7 +107,7 @@ $ ./scripts/test
 
 Configuration file is a main source of the configuration. Some properties
 can be set via environment variables or command line parameters see [table
-below](environment-variables-and-cli-parameters). Use `--config`
+below](#environment-variables-and-cli-parameters). Use `--config`
 parameter with any command to set configuration file name.  By default daemon
 use configuration file in JSON format `snetd.config.json` but other formats are
 also supported via [Viper](https://github.com/spf13/viper). Use `snet init`

@@ -42,8 +42,8 @@ const (
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",
+	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
-	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
 	"daemon_end_point": "127.0.0.1:8080",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
@@ -54,6 +54,7 @@ const (
 	"passthrough_enabled": false,
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_name": "ExampleService", 
+	"private_key": "",
 	"ssl_cert": "",
 	"ssl_key": "",
 	"log":  {

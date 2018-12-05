@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"os"
 
 	"github.com/coreos/bbolt"
@@ -212,12 +213,12 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 
 	if !components.Blockchain().Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
-		components.grpcInterceptor = handler.NoOpInterceptor
+		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), handler.NoOpInterceptor)
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		components.grpcInterceptor = handler.GrpcStreamInterceptor(
-			components.EscrowPaymentHandler(),
-		)
+		components.grpcInterceptor =
+			grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), handler.GrpcStreamInterceptor(
+				components.EscrowPaymentHandler()))
 	}
 
 	return components.grpcInterceptor

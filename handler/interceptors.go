@@ -3,7 +3,9 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/ratelimit"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -15,7 +17,7 @@ import (
 const (
 	// PaymentTypeHeader is a type of payment used to pay for a RPC call.
 	// Supported types are: "escrow".
-	// Note: "job" Payment type is deprecated 
+	// Note: "job" Payment type is deprecated
 	PaymentTypeHeader = "snet-payment-type"
 )
 
@@ -36,7 +38,7 @@ type Payment interface{}
 
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
-// jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted. 
+// jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
 type PaymentHandler interface {
 	// Type is a content of PaymentTypeHeader field which triggers usage of the
 	// payment handler.
@@ -51,6 +53,32 @@ type PaymentHandler interface {
 	Complete(payment Payment) (err *status.Status)
 	// CompleteAfterError completes payment if service returns error.
 	CompleteAfterError(payment Payment, result error) (err *status.Status)
+}
+
+type rateLimitInterceptor struct {
+	rateLimiter rate.Limiter
+}
+
+func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
+	interceptor := &rateLimitInterceptor{
+		rateLimiter: ratelimit.GetRateLimiter(),
+	}
+	return interceptor.intercept
+}
+
+func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	if interceptor.rateLimiter.Allow() == false {
+		//Do we wait here
+		//interceptor.rateLimiter.wait(context)
+		log.Println("rate limit reached, too many requests to handle")
+		return status.New(codes.ResourceExhausted, "Too Many Requests").Err()
+	}
+	e := handler(srv, ss)
+	if e != nil {
+		log.WithError(e).Warn("rateLimiting: gRPC handler returned error")
+		return e
+	}
+	return nil
 }
 
 // GrpcStreamInterceptor returns gRPC interceptor to validate payment. If

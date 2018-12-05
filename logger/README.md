@@ -5,99 +5,79 @@ library. Logger configuration is a set of properties started from ```log.```
 prefix. If configuration file is formatted using JSON then all logger
 configuration is one JSON object located in ```log``` field.
 
-# log
+* **log** - log configuration section
 
-## log.level (default: info)
+  * **level** (default: info) - log level. Possible values are
+    [logrus](https://github.com/sirupsen/logrus) log levels
+    * debug
+    * info
+    * warn
+    * error
+    * fatal
+    * panic
 
-Log level. Possible values are [logrus](https://github.com/sirupsen/logrus) log
-levels
-* debug
-* info
-* warn
-* error
-* fatal
-* panic
+  * **timezone** (default: UTC) - timezone to format timestamps and log
+    file names. It should be name of the time.Location, see
+    [time.LoadLocation](https://golang.org/pkg/time/#LoadLocation).
 
-## log.timezone (default: UTC)
+  * **formatter** - set of properties with ```log.formatter.``` prefix
+    describes logger formatter configuration.
 
-Timezone to format timestamps and log file names. It should be name of the
-time.Location, see
-[time.LoadLocation](https://golang.org/pkg/time/#LoadLocation).
+    * **type** (default: json) - type of the log formatter. Two types are
+      supported, which correspond to ```logrus``` formatter types, see [logrus
+      Formatter](https://github.com/sirupsen/logrus#formatters)
+      * json
+      * text
 
-## log.formatter
+  * **output** - set of properties with ```log.output.``` prefix describes
+    logger output configuration.
 
-Set of properties with ```log.formatter.``` prefix describes logger formatter
-configuration.
+    * **type** (default: file) - type of the logger output. Two types are
+      supported:
+      * file -
+        [file-rotatelogs](https://github.com/lestrrat-go/file-rotatelogs)
+        output which supports log rotation
+      * stdout - os.Stdout
 
-### log.formatter.type (default: json)
+    * **file_pattern** (default: ./snet-daemon.%Y%m%d.log) - log file name
+      which may include date/time patterns in ```strftime (3)``` format. Time
+      and date in file name are necessary to support log rotation.
 
-Type of the log formatter. Two types are supported, which correspond to
-```logrus``` formatter types, see [logrus
-Formatter](https://github.com/sirupsen/logrus#formatters)
-* json
-* text
+    * **current_link** (default: ./snet-daemon.log) - link to the latest log
+      file.
 
-## log.output
+    * **rotation_time_in_sec** (default: 86400 (1 day)) - number of seconds
+      before log rotation happens.
 
-Set of properties with ```log.output.``` prefix describes logger output
-configuration.
+    * **max_age_in_sec** (default: 604800 (1 week)) - number of seconds since
+      last modification time before log file is removed.
 
-### log.output.type (default: file)
+    * **rotation_count** (default: 0 (disabled)) - max number of rotation
+      files. When number of log files becomes greater then oldest log file is
+      removed.
 
-Type of the logger output. Two types are supported:
-* file - [file-rotatelogs](https://github.com/lestrrat-go/file-rotatelogs)
-  output which supports log rotation
-* stdout - os.Stdout
+  * **hooks** (default: []) - list of names of the hooks which will be executed
+    when message with specified log level appears in log. See [logrus
+    hooks](https://github.com/sirupsen/logrus#hooks). List contains names of
+    the hooks and hook configuration can be found by name prefix.  Thus for
+    hook named ```<hook-name>``` properties will start from
+    ```log.<hook-name>.``` prefix.
 
-### log.output.file_pattern (default: ./snet-daemon.%Y%m%d.log)
+  * **```<hook-name>```** - configuration of log hook with `<hook-name>` name
 
-Log file name which may include date/time patterns in ```strftime (3)```
-format. Time and date in file name are necessary to support log rotation.
+    * **type** (required) - Type of the hook. this type is used to find actual
+      hook implementation. Hook types supported:
+      * mail_auth - [logrus_mail](https://github.com/zbindenren/logrus_mail)
 
-### log.output.current_link (default: ./snet-daemon.log)
+    * **levels** (required) - list of log levels to trigger the hook. 
 
-Link to the latest log file.
+    * **config** (depends on hook implementation) - set of properties with
+      ```log.<hook-name>.config``` prefix are passed to the hook implementation
+      when it is initialized. This list of properties is hook specific.
 
-### log.output.rotation_time_in_sec (default: 86400 (1 day))
+## logrus_mail hook config
 
-Number of seconds before log rotation happens.
-
-### log.output.max_age_in_sec (default: 604800 (1 week))
-
-Number of seconds since last modification time before log file is removed.
-
-### log.output.rotation_count (default: 0 (disabled))
-
-Max number of rotation files. When number of log files becomes greater then
-oldest log file is removed.
-
-## log.hooks (default: [])
-
-List of names of the hooks which will be executed when message with specified
-log level appears in log. See [logrus
-hooks](https://github.com/sirupsen/logrus#hooks). List contains names of the
-hooks and hook configuration can be found by name prefix.  Thus for hook named
-```<hook-name>``` properties will start from ```log.<hook-name>.``` prefix.
-
-### log.\<hook-name\>.type (required)
-
-Type of the hook. This type is used to find actual hook implementation. Hook
-types supported:
-* mail_auth - [logrus_mail](https://github.com/zbindenren/logrus_mail)
-
-### log.\<hook-name\>.levels (required)
-
-List of log levels to trigger the hook. 
-
-### log.\<hook-name\>.config (depends on hook implementation)
-
-Set of properties with ```log.<hook-name>.config``` prefix are passed to the
-hook implementation when it is initialized. This list of properties is hook
-specific.
-
-### logrus_mail hook
-
-Its configuration should contains all of the properties which are required to
+Its configuration should contain all of the properties which are required to
 call [NewMailAuthHook method](https://godoc.org/github.com/zbindenren/logrus_mail#NewMailAuthHook)
 * application_name
 * host
@@ -107,9 +87,30 @@ call [NewMailAuthHook method](https://godoc.org/github.com/zbindenren/logrus_mai
 * username
 * password
 
+Resulting log configuration using logrus_mail hook:
+```json
+  "log": {
+    ...
+    "hooks": [ "send-mail" ],
+    "send-mail": {
+      "type": "mail_auth",
+      "levels": ["Error", "Warn"],
+      "config": {
+		"application_name": "test-application-name",
+		"host": "smtp.gmail.com",
+		"port": 587,
+		"from": "from-user@gmail.com",
+		"to": "to-user@gmail.com",
+		"username": "smtp-username",
+		"password": "secret"
+	  }
+    },
+  }
+```
+
 # Default logger configuration in JSON format
 
-```
+```json
   "log": {
     "level": "info",
     "timezone": "UTC",

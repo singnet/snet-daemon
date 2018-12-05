@@ -14,43 +14,41 @@ import (
 )
 
 const (
-	RegistryAddressKey   = "REGISTRY_ADDRESS_KEY" //to be read from github
-	AutoSSLDomainKey     = "AUTO_SSL_DOMAIN"
-	AutoSSLCacheDirKey   = "AUTO_SSL_CACHE_DIR"
-	BlockchainEnabledKey = "BLOCKCHAIN_ENABLED"
-	BurstSize            = "BURST_SIZE"
-	ConfigPathKey        = "CONFIG_PATH"
+	RegistryAddressKey   = "registry_address_key" //to be read from github
+	AutoSSLDomainKey     = "auto_ssl_domain"
+	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
+	BlockchainEnabledKey = "blockchain_enabled"  
+	BurstSize            = "burst_size"
+	ConfigPathKey        = "config_path"
 
-	DaemonTypeKey                  = "DAEMON_TYPE"
-	DaemonEndPoint                 = "DAEMON_END_POINT"
-	DbPathKey                      = "DB_PATH"
-	EthereumJsonRpcEndpointKey     = "ETHEREUM_JSON_RPC_ENDPOINT"
-	ExecutablePathKey              = "EXECUTABLE_PATH"
-	HdwalletIndexKey               = "HDWALLET_INDEX"
-	HdwalletMnemonicKey            = "HDWALLET_MNEMONIC"
-	IpfsEndPoint                   = "IPFS_END_POINT"
-	LogKey                         = "LOG"
-	OrganizationName               = "ORGANIZATION_NAME"
-	ServiceName                    = "SERVICE_NAME"
-	PassthroughEnabledKey          = "PASSTHROUGH_ENABLED"
-	PassthroughEndpointKey         = "PASSTHROUGH_ENDPOINT"
-	PrivateKeyKey                  = "PRIVATE_KEY"
-	RateLimitPerMinute             = "RATE_LIMIT"
-	SSLCertPathKey                 = "SSL_CERT"
-	SSLKeyPathKey                  = "SSL_KEY"
-	PaymentChannelStorageTypeKey   = "PAYMENT_CHANNEL_STORAGE_TYPE"
-	PaymentChannelStorageClientKey = "PAYMENT_CHANNEL_STORAGE_CLIENT"
-	PaymentChannelStorageServerKey = "PAYMENT_CHANNEL_STORAGE_SERVER"
+	DaemonTypeKey                  = "daemon_type"
+	DaemonEndPoint                 = "daemon_end_point"
+	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
+	ExecutablePathKey              = "executable_path"
+	HdwalletIndexKey               = "hdwallet_index"
+	HdwalletMnemonicKey            = "hdwallet_mnemonic"
+	IpfsEndPoint                   = "ipfs_end_point"
+	LogKey                         = "log"
+	OrganizationName               = "organization_name"
+	ServiceName                    = "service_name"
+	PassthroughEnabledKey          = "passthrough_enabled"
+	PassthroughEndpointKey         = "passthrough_endpoint"
+	PrivateKeyKey                  = "private_key"
+  RateLimitPerMinute             = "rate_limit"
+	SSLCertPathKey                 = "ssl_cert"
+	SSLKeyPathKey                  = "ssl_key"
+	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
+	PaymentChannelStorageClientKey = "payment_channel_storage_client"
+	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",
+	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
 	"burst_size":40,
-	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
 	"daemon_end_point": "127.0.0.1:8080",
-	"db_path": "snetd.db",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
@@ -60,6 +58,7 @@ const (
 	"rate_limit": 20,
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_name": "ExampleService", 
+	"private_key": "",
 	"ssl_cert": "",
 	"ssl_key": "",
 	"log":  {

@@ -163,7 +163,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	lock, ok, err := h.locker.Lock(channelKey.String())
 	if err != nil {
-		return nil, NewPaymentError(FailedPrecondition, "cannot get mutex for channel: %v", channelKey)
+		return nil, NewPaymentError(Internal, "cannot get mutex for channel: %v", channelKey)
 	}
 	if !ok {
 		return nil, NewPaymentError(FailedPrecondition, "another transaction on channel: %v is in progress", channelKey)
@@ -216,6 +216,7 @@ func (payment *paymentTransaction) Commit() error {
 			Recipient:        payment.channel.Recipient,
 			FullAmount:       payment.channel.FullAmount,
 			Expiration:       payment.channel.Expiration,
+			Signer:           payment.channel.Signer,
 			AuthorizedAmount: payment.payment.Amount,
 			Signature:        payment.payment.Signature,
 			GroupID:          payment.channel.GroupID,

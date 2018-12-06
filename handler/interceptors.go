@@ -110,7 +110,7 @@ func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
 }
 
 func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	if interceptor.rateLimiter.Allow() == false {
+	if !interceptor.rateLimiter.Allow() {
 		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")
 		return status.New(codes.ResourceExhausted, "rate limiting , too many requests to handle").Err()
 	}

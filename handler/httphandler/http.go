@@ -20,7 +20,7 @@ func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
 	return httpHandler{
 		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
-		rateLimiter:         ratelimit.GetRateLimiter(),
+		rateLimiter:         ratelimit.NewRateLimiter(),
 	}
 }
 

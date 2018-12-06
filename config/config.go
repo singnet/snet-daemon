@@ -34,7 +34,7 @@ const (
 	PassthroughEnabledKey          = "passthrough_enabled"
 	PassthroughEndpointKey         = "passthrough_endpoint"
 	PrivateKeyKey                  = "private_key"
-	RateLimitPerMinute             = "rate_limit"
+	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
@@ -46,7 +46,6 @@ const (
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
-	"burst_size":40,
 	"daemon_type": "grpc",
 	"daemon_end_point": "127.0.0.1:8080",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",

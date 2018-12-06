@@ -104,7 +104,7 @@ type rateLimitInterceptor struct {
 
 func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
-		rateLimiter: ratelimit.GetRateLimiter(),
+		rateLimiter: ratelimit.NewRateLimiter(),
 	}
 	return interceptor.intercept
 }

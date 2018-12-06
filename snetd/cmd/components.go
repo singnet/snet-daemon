@@ -185,21 +185,21 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 }
 
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
-	if components.grpcInterceptor != nil {
+	if components.grpcInterceptor == nil {
 		return components.grpcInterceptor
 	}
+	components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), components.GrpcPaymentValidationInterceptor())
+	return components.grpcInterceptor
+}
 
+func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
-		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), handler.NoOpInterceptor)
+		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		components.grpcInterceptor =
-			grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), handler.GrpcStreamInterceptor(
-				components.EscrowPaymentHandler()))
+		return handler.GrpcStreamInterceptor(components.EscrowPaymentHandler())
 	}
-
-	return components.grpcInterceptor
 }
 
 func (components *Components) PaymentChannelStateService() (service *escrow.PaymentChannelStateService) {

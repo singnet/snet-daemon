@@ -167,9 +167,8 @@ directory in which to cache the SSL certs issued by Let's Encrypt
 * **blockchain_enabled** (optional; default: `true`) - 
 enables or disables blockchain features of daemon; `false` reserved mostly for testing purposes
 
-* **burst_size** (optional; default: Infinite) - Used for rate limiting using the Token Bucket algorithm.
-Defines a "token bucket" of size b , with a maximum burst size of b events.
-Please also refer to the parameter `rate_limit_per_minute`
+* **burst_size** (optional; default: Infinite) - 
+see [rate limiting configuration](./ratelimit/README.md)
 
 * **hdwallet_index** (optional; default: `0`; only applies if `hdwallet_mnemonic` is set) - 
 derivation index for key to use within HDWallet specified by mnemonic.
@@ -199,9 +198,8 @@ see [etcd client configuration](./etcddb#etcd-client-configuration)
 * **payment_channel_storage_server** (optional) - 
 see [etcd server configuration](./etcddb#etcd-server-configuration)
 
-* **rate_limit_per_minute** (optional; default: `Infinity`) - Used for rate limiting using the Token Bucket algorithm.
-The bucket is filled at the rate r tokens per minute when defined by this parameter.
-Please note that the Burst size is ignored when the rate limit is infinity.
+* **rate_limit_per_minute** (optional; default: `Infinity`) - 
+see [rate limiting configuration](./ratelimit/README.md)
 
 
 #### Environment variables and CLI parameters

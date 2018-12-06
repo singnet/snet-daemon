@@ -123,7 +123,7 @@ time.
 network interface and port which daemon listens to. This parameter should be
 absolutely equal to the corresponding endpoint in the [service configuration
 metadata][service-configuration-metadata]. URI format is recommended:
-http://<host>:<port>.
+`http://<host>:<port>`.
 
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
 endpoint to which daemon sends ethereum JSON-RPC requests; recommend

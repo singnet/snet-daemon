@@ -185,7 +185,7 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 }
 
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
-	if components.grpcInterceptor == nil {
+	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
 	components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), components.GrpcPaymentValidationInterceptor())

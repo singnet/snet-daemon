@@ -17,7 +17,7 @@ const (
 	RegistryAddressKey   = "registry_address_key" //to be read from github
 	AutoSSLDomainKey     = "auto_ssl_domain"
 	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
-	BlockchainEnabledKey = "blockchain_enabled"  
+	BlockchainEnabledKey = "blockchain_enabled"
 	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
@@ -34,7 +34,7 @@ const (
 	PassthroughEnabledKey          = "passthrough_enabled"
 	PassthroughEndpointKey         = "passthrough_endpoint"
 	PrivateKeyKey                  = "private_key"
-  RateLimitPerMinute             = "rate_limit"
+	RateLimitPerMinute             = "rate_limit"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"

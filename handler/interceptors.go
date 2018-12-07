@@ -124,7 +124,7 @@ func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.Serv
 
 // GrpcStreamInterceptor returns gRPC interceptor to validate payment. If
 // blockchain is disabled then noOpInterceptor is returned.
-func GrpcStreamInterceptor(defaultPaymentHandler PaymentHandler, paymentHandler ...PaymentHandler) grpc.StreamServerInterceptor {
+func GrpcPaymentValidationInterceptor(defaultPaymentHandler PaymentHandler, paymentHandler ...PaymentHandler) grpc.StreamServerInterceptor {
 	interceptor := &paymentValidationInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,
 		paymentHandlers:       make(map[string]PaymentHandler),

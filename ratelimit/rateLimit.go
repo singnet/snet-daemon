@@ -19,11 +19,11 @@ func NewRateLimiter() rate.Limiter {
 }
 
 func getLimit() rate.Limit {
-	configRateLimit := config.GetInt(config.RateLimitPerMinute)
+	ratePerMin := config.GetInt(config.RateLimitPerMinute)
 	//If the rate limit parameter Value is not defined we will assume it to be Infinity ( no Rate Limiting) ,
-	if configRateLimit == 0 {
+	if ratePerMin == 0 {
 		return rate.Inf
 	}
-	intervalMsec := time.Duration((1/float64(configRateLimit))*60*1000) * time.Millisecond
+	intervalMsec := time.Duration((1/float64(ratePerMin))*60*1000) * time.Millisecond
 	return rate.Every(intervalMsec)
 }

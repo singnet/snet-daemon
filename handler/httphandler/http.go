@@ -1,6 +1,8 @@
 package httphandler
 
 import (
+	"github.com/singnet/snet-daemon/ratelimit"
+	"golang.org/x/time/rate"
 	"io/ioutil"
 	"net/http"
 
@@ -11,17 +13,23 @@ import (
 type httpHandler struct {
 	passthroughEnabled  bool
 	passthroughEndpoint string
+	rateLimiter         rate.Limiter
 }
 
 func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
 	return httpHandler{
 		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
+		rateLimiter:         ratelimit.NewRateLimiter(),
 	}
 }
 
 func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	if h.passthroughEnabled {
+		if h.rateLimiter.Allow() == false {
+			http.Error(resp, http.StatusText(429), http.StatusTooManyRequests)
+			return
+		}
 		req2, err := http.NewRequest(req.Method, h.passthroughEndpoint, req.Body)
 		if err != nil {
 			http.Error(resp, err.Error(), http.StatusInternalServerError)

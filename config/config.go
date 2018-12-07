@@ -18,6 +18,7 @@ const (
 	AutoSSLDomainKey     = "auto_ssl_domain"
 	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
 	BlockchainEnabledKey = "blockchain_enabled"
+	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
 	DaemonTypeKey                  = "daemon_type"
@@ -33,6 +34,7 @@ const (
 	PassthroughEnabledKey          = "passthrough_enabled"
 	PassthroughEndpointKey         = "passthrough_endpoint"
 	PrivateKeyKey                  = "private_key"
+	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
@@ -52,6 +54,7 @@ const (
 	"ipfs_end_point": "http://localhost:5002/", 
 	"organization_name": "ExampleOrganization", 
 	"passthrough_enabled": false,
+	
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_name": "ExampleService", 
 	"private_key": "",

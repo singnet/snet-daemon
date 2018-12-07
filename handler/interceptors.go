@@ -3,7 +3,9 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/ratelimit"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -96,9 +98,33 @@ type PaymentHandler interface {
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
 }
 
+type rateLimitInterceptor struct {
+	rateLimiter rate.Limiter
+}
+
+func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
+	interceptor := &rateLimitInterceptor{
+		rateLimiter: ratelimit.NewRateLimiter(),
+	}
+	return interceptor.intercept
+}
+
+func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	if !interceptor.rateLimiter.Allow() {
+		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")
+		return status.New(codes.ResourceExhausted, "rate limiting , too many requests to handle").Err()
+	}
+	e := handler(srv, ss)
+	if e != nil {
+		log.WithError(e)
+		return e
+	}
+	return nil
+}
+
 // GrpcStreamInterceptor returns gRPC interceptor to validate payment. If
 // blockchain is disabled then noOpInterceptor is returned.
-func GrpcStreamInterceptor(defaultPaymentHandler PaymentHandler, paymentHandler ...PaymentHandler) grpc.StreamServerInterceptor {
+func GrpcPaymentValidationInterceptor(defaultPaymentHandler PaymentHandler, paymentHandler ...PaymentHandler) grpc.StreamServerInterceptor {
 	interceptor := &paymentValidationInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,
 		paymentHandlers:       make(map[string]PaymentHandler),

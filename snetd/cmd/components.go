@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -187,18 +188,18 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
+	components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), components.GrpcPaymentValidationInterceptor())
+	return components.grpcInterceptor
+}
 
+func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
-		components.grpcInterceptor = handler.NoOpInterceptor
+		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		components.grpcInterceptor = handler.GrpcStreamInterceptor(
-			components.EscrowPaymentHandler(),
-		)
+		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler())
 	}
-
-	return components.grpcInterceptor
 }
 
 func (components *Components) PaymentChannelStateService() (service *escrow.PaymentChannelStateService) {

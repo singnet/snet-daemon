@@ -40,10 +40,10 @@ const (
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
-	EnableMetrics                  = "ENABLE_METRICS"
-	MonitoringServiceEndpoint      = "MONITORING_SVC_END_POINT"
-	AlertsEMail                    = "ALERT_EMAIL"
-	NotificationURL                = "NOTIFICATION_URL"
+	EnableMetrics                  = "enable_metrics"
+	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
+	AlertsEMail                    = "alert_email"
+	NotificationURL                = "notification_url"
 
 	defaultConfigJson string = `
 {

@@ -14,7 +14,7 @@ import (
 )
 
 // calls the service heartbeat and relay the message to daemon
-func getServiceHeartbeat(serviceURL string) (string, bool) {
+func callServiceHeartbeat(serviceURL string) (string, bool) {
 	if isValidUrl(serviceURL) {
 		response, err := http.Get(serviceURL)
 		if err != nil {
@@ -39,8 +39,22 @@ func getServiceHeartbeat(serviceURL string) (string, bool) {
 }
 
 // Pushes the recoded metrics to Monitoring service
-func postMetrics(sericeURL string, jsonMetrcis string) (bool) {
+func callAndPostMetrics(serviceURL string, jsonMetrics string) bool {
 	//TODO hit the metrics service URL and post the metrics data
+	return false
+}
+
+// calls the correspanding the service to send the registration information
+func callRegisterService(daemonID string, serviceURL string) (status bool) {
+	// Validate the URL
+	_, err := url.ParseRequestURI(serviceURL)
+	if err != nil {
+		log.WithError(err).Fatal("Unable to register Daemon. Invalid service URL.")
+	}
+
+	//TODO Send this Daemon to monitoring service and wait for confirmation.
+	//	   If service returns True then registration is successful, else its a failure
+	log.Info("Registration service called with result  ")
 	return false
 }
 

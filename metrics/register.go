@@ -6,15 +6,23 @@
 package metrics
 
 import (
+	"bytes"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
-	"net/url"
 )
 
 // generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
-func getDaemonID() (string) {
-	// TODO add the code to read from metadata and generate HASH
-	return ""
+func getDaemonID() string {
+	// TODO add the code to read from metadata and update Service Endpoint
+	rawID := config.GetString(config.OrganizationName) + config.GetString(config.ServiceName) + config.GetString(config.DaemonEndPoint)
+
+	// generate the keccak hash from given input string. Same as Ethereum hashes
+	hash := crypto.Keccak256([]byte(rawID))
+
+	// Convert hash byte array to hash string and return
+	hashSize := bytes.IndexByte(hash, 0)
+	return string(hash[:hashSize])
 }
 
 // New Daemon registration. Generates the DaemonID and use that as getting access token
@@ -25,26 +33,11 @@ func registerNewDaemon() (status bool) {
 	status = callRegisterService(daemonID, config.GetString(config.MonitoringServiceEndpoint))
 
 	// if registers successfully
-	if  (status) {
+	if status {
 		log.Info("Daemon successfully registered with the monitoring service. ")
-		//TODO add the validate Daemon ID to Config and use it for the session
 		return true
 	}
 	log.Info("Daemon unable to register with the monitoring service. ")
 	// if unable to register, then throw an error.
-	return  false
-}
-
-// calls the correspanding the service to send the registration information
-func callRegisterService (daemonID string, serviceURL string) (status bool) {
-	// Validate the URL
-	_, err := url.ParseRequestURI(serviceURL)
-	if err != nil {
-		log.WithError(err).Fatal("Unable to register Daemon. Invalid service URL.")
-	}
-
-	//TODO Send this Daemon to monitoring service and wait for confirmation.
-	//	   If service returns True then registration is successful, else its a failure
-	log.Info("Registration service called with result  ")
 	return false
 }

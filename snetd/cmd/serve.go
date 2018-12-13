@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/singnet/snet-daemon/metrics"
 	"net"
 	"net/http"
 	"os"
@@ -227,6 +228,9 @@ func (d daemon) start() {
 
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
+
+	//TODO change this code to reuse daemon endpoint. Regardless of daemon type we will start metrics
+	go metrics.RunMetricsServices("http://localhost:30000")
 }
 
 func (d daemon) stop() {

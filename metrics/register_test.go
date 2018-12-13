@@ -25,22 +25,17 @@ func Test_registerNewDaemon(t *testing.T) {
 	}
 }
 
-func Test_callRegisterService(t *testing.T) {
-	type args struct {
-		daemonID   string
-		serviceURL string
-	}
+func Test_getDaemonID(t *testing.T) {
 	tests := []struct {
-		name       string
-		args       args
-		wantStatus bool
+		name string
+		want string
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotStatus := callRegisterService(tt.args.daemonID, tt.args.serviceURL); gotStatus != tt.wantStatus {
-				t.Errorf("callRegisterService() = %v, want %v", gotStatus, tt.wantStatus)
+			if got := getDaemonID(); got != tt.want {
+				t.Errorf("getDaemonID() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -16,25 +16,26 @@ import (
 
 // status enum
 type Status int
+
 const (
-	Offline Status = 0 // Returns if none of the services are online
-	Online Status = 1 // Returns if any of the services is online
+	Offline  Status = 0 // Returns if none of the services are online
+	Online   Status = 1 // Returns if any of the services is online
 	Warnings Status = 2 // if daemon has issues in extracting the service state
 	Critical Status = 3 // if the daemon main thread killed or any other critical issues
 )
 
 // define heartbeat data model. Service Status JSON object Array marshalled to a string
 type HeartbeatMessage struct {
-	DaemonID  		string	`json:"daemonID"`
-	Timestamp   	string	`json:"timestamp"`
-	Status      	string	`json:"status"`
-	ServiceStatus	string	`json:"serviceStatus"`
+	DaemonID      string `json:"daemonID"`
+	Timestamp     string `json:"timestamp"`
+	Status        string `json:"status"`
+	ServiceStatus string `json:"serviceStatus"`
 }
 
 // Converts the enum index into enum names
 func (state Status) String() string {
 	// declare an array of strings. operator counts how many items in the array (4)
-	listStatus := [...]string{ "Offline", "Online", "Warnings", "Critical",}
+	listStatus := [...]string{"Offline", "Online", "Warnings", "Critical"}
 
 	// → `state`: It's one of the values of Status constants.
 	// prevent panicking in case of `status` is out of range of Status
@@ -50,15 +51,14 @@ func getEpochTime() int64 {
 	return time.Now().UTC().Unix()
 }
 
-
 // preares the heartbeat, which includes calling to underlying service DAemon is serving
 func getHeartbeat() (HeartbeatMessage, bool) {
-	hearbeat := HeartbeatMessage{getDaemonID(), strconv.FormatInt(getEpochTime(),10), Online.String(),"[{}]"}
+	hearbeat := HeartbeatMessage{getDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "[{}]"}
 	//TODO Read the service metadata and get the service URL
-	serviceURL := "https://reqres.in/api/users/2"
-	svcHeartbeat, isSuccess := getServiceHeartbeat(serviceURL)
+	serviceURL := ""
+	svcHeartbeat, isSuccess := callServiceHeartbeat(serviceURL)
 	if isSuccess {
-		//TODO convert the service call response to sevice status array
+		//TODO convert the service call response to service status
 		log.Info("Service %s status : %s", serviceURL, svcHeartbeat)
 	} else {
 		// TODO maintain the previous state. if not avialble then relay status : unknown

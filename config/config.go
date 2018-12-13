@@ -40,6 +40,10 @@ const (
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
+	EnableMetrics                  = "ENABLE_METRICS"
+	MonitoringServiceEndpoint      = "MONITORING_SVC_END_POINT"
+	AlertsEMail                    = "ALERT_EMAIL"
+	NotificationURL                = "NOTIFICATION_URL"
 
 	defaultConfigJson string = `
 {
@@ -94,7 +98,11 @@ const (
 		"data_dir": "storage-data-dir-1.etcd",
 		"log_level": "info",
 		"enabled": true
-	}
+	},
+	"enable_metrics": false, 
+	"monitoring_svc_end_point": "",
+	"notification_url": "",
+	"alert_email":"", 
 }
 `
 )

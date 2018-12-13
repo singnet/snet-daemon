@@ -1,0 +1,55 @@
+// Copyright 2018 singularitynet foundation.
+// All rights reserved.
+// <<add licence terms for code reuse>>
+
+// package for monitoring and reporting the daemon metrics
+package metrics
+
+import (
+	"io/ioutil"
+	"net/http"
+	"net/url"
+
+	log "github.com/sirupsen/logrus"
+)
+
+// calls the service heartbeat and relay the message to daemon
+func getServiceHeartbeat(serviceURL string) (string, bool) {
+	if isValidUrl(serviceURL) {
+		response, err := http.Get(serviceURL)
+		if err != nil {
+			log.WithError(err).Fatal("The service request failed with an error.")
+		} else {
+			if response.StatusCode != http.StatusOK {
+				log.Error("Wrong status code: %d", response.StatusCode)
+				return "", false
+			}
+			log.Info("Service request processed successfully. ")
+			serviceHeartbeat, _ := ioutil.ReadAll(response.Body)
+
+			// TODO read and relay the heartbeat. it must be json string (which is URL Safe)
+			if string(serviceHeartbeat) == "" {
+				return string(serviceHeartbeat), false
+			}
+			return string(serviceHeartbeat), true
+		}
+	}
+	//if invalid URL and returns Internal Server error
+	return "{}", false
+}
+
+// Pushes the recoded metrics to Monitoring service
+func postMetrics(sericeURL string, jsonMetrcis string) (bool) {
+	//TODO hit the metrics service URL and post the metrics data
+	return false
+}
+
+// isValidUrl tests a string to determine if it is a url or not.
+func isValidUrl(urlToTest string) bool {
+	_, err := url.ParseRequestURI(urlToTest)
+	if err != nil {
+		return false
+	} else {
+		return true
+	}
+}

@@ -78,8 +78,9 @@ func (transaction *paymentTransactionMock) Rollback() error {
 type PaymentChannelServiceSuite struct {
 	suite.Suite
 
-	senderPrivateKey   *ecdsa.PrivateKey
 	senderAddress      common.Address
+	signerPrivateKey   *ecdsa.PrivateKey
+	signerAddress      common.Address
 	recipientAddress   common.Address
 	mpeContractAddress common.Address
 	memoryStorage      *memoryStorage
@@ -90,8 +91,9 @@ type PaymentChannelServiceSuite struct {
 }
 
 func (suite *PaymentChannelServiceSuite) SetupSuite() {
-	suite.senderPrivateKey = GenerateTestPrivateKey()
-	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPrivateKey.PublicKey)
+	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
+	suite.signerPrivateKey = GenerateTestPrivateKey()
+	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	suite.memoryStorage = NewMemStorage()
@@ -112,6 +114,9 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 			},
 			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 				return suite.mpeChannel(), true, nil
+			},
+			recipientPaymentAddress: func() common.Address {
+				return suite.recipientAddress
 			},
 		},
 		NewEtcdLocker(suite.memoryStorage),
@@ -138,6 +143,7 @@ func (suite *PaymentChannelServiceSuite) mpeChannel() *blockchain.MultiPartyEscr
 		Value:      big.NewInt(12345),
 		Nonce:      big.NewInt(3),
 		Expiration: big.NewInt(100),
+		Signer:     suite.signerAddress,
 	}
 }
 
@@ -148,7 +154,7 @@ func (suite *PaymentChannelServiceSuite) payment() *Payment {
 		ChannelNonce: big.NewInt(3),
 		//MpeContractAddress: suite.mpeContractAddress,
 	}
-	SignTestPayment(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.signerPrivateKey)
 	return payment
 }
 
@@ -167,6 +173,7 @@ func (suite *PaymentChannelServiceSuite) channel() *PaymentChannelData {
 		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
+		Signer:           suite.signerAddress,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}
@@ -196,10 +203,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentParallelTransaction() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(17)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	transactionB, errB := suite.service.StartPaymentTransaction(paymentB)
@@ -218,10 +225,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentParallelTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransaction() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(17)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	errAC := transactionA.Commit()
@@ -241,10 +248,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransactionAfterRollback() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(13)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	errAC := transactionA.Rollback()

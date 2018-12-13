@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"os"
 
-	"github.com/coreos/bbolt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -11,14 +11,13 @@ import (
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/db"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
 )
 
 type Components struct {
-	db                         *bbolt.DB
+	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
@@ -67,31 +66,15 @@ func isFileExist(fileName string) bool {
 }
 
 func (components *Components) Close() {
-	if components.db != nil {
-		components.db.Close()
-	}
 	if components.etcdClient != nil {
 		components.etcdClient.Close()
 	}
 	if components.etcdServer != nil {
 		components.etcdServer.Close()
 	}
-}
-
-func (components *Components) DB() *bbolt.DB {
-	if components.db != nil {
-		return components.db
+	if components.blockchain != nil {
+		components.blockchain.Close()
 	}
-
-	if config.GetBool(config.BlockchainEnabledKey) {
-		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
-			log.WithError(err).Panic("unable to initialize bbolt DB for blockchain state")
-		} else {
-			components.db = database
-		}
-	}
-
-	return components.db
 }
 
 func (components *Components) Blockchain() *blockchain.Processor {
@@ -99,13 +82,21 @@ func (components *Components) Blockchain() *blockchain.Processor {
 		return components.blockchain
 	}
 
-	processor, err := blockchain.NewProcessor(components.DB())
+	processor, err := blockchain.NewProcessor(components.ServiceMetaData())
 	if err != nil {
 		log.WithError(err).Panic("unable to initialize blockchain processor")
 	}
 
 	components.blockchain = &processor
 	return components.blockchain
+}
+
+func (components *Components) ServiceMetaData() *blockchain.ServiceMetadata {
+	if components.serviceMetadata != nil {
+		return components.serviceMetadata
+	}
+	components.serviceMetadata = blockchain.ServiceMetaData()
+	return components.serviceMetadata
 }
 
 func (components *Components) EtcdServer() *etcddb.EtcdServer {
@@ -171,9 +162,9 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
 		escrow.NewPaymentStorage(components.AtomicStorage()),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip()),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip()),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 	)
 
 	return components.paymentChannelService
@@ -187,7 +178,7 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	components.escrowPaymentHandler = escrow.NewPaymentHandler(
 		components.PaymentChannelService(),
 		components.Blockchain(),
-		escrow.NewIncomeValidator(),
+		escrow.NewIncomeValidator(components.ServiceMetaData().GetPriceInCogs()),
 	)
 
 	return components.escrowPaymentHandler
@@ -197,18 +188,18 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
+	components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), components.GrpcPaymentValidationInterceptor())
+	return components.grpcInterceptor
+}
 
+func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
-		components.grpcInterceptor = handler.NoOpInterceptor
+		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		components.grpcInterceptor = handler.GrpcStreamInterceptor(
-			components.EscrowPaymentHandler(),
-		)
+		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler())
 	}
-
-	return components.grpcInterceptor
 }
 
 func (components *Components) PaymentChannelStateService() (service *escrow.PaymentChannelStateService) {

@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/handler"
@@ -53,7 +52,7 @@ func (h *paymentChannelPaymentHandler) Type() (typ string) {
 	return EscrowPaymentType
 }
 
-func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *status.Status) {
+func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *handler.GrpcError) {
 	internalPayment, err := h.getPaymentFromContext(context)
 	if err != nil {
 		return
@@ -61,20 +60,20 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 
 	transaction, e := h.service.StartPaymentTransaction(internalPayment)
 	if e != nil {
-		return nil, paymentErrorToGrpcStatus(e)
+		return nil, paymentErrorToGrpcError(e)
 	}
 
 	income := big.NewInt(0)
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
-	err = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
-	if err != nil {
-		return
+	e = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
+	if e != nil {
+		return nil, paymentErrorToGrpcError(e)
 	}
 
 	return transaction, nil
 }
 
-func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *status.Status) {
+func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *handler.GrpcError) {
 	channelID, err := handler.GetBigInt(context.MD, PaymentChannelIDHeader)
 	if err != nil {
 		return
@@ -104,25 +103,21 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 	}, nil
 }
 
-func (h *paymentChannelPaymentHandler) Validate(_payment handler.Payment) (err *status.Status) {
-	return nil
+func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
+	return paymentErrorToGrpcError(payment.(*paymentTransaction).Commit())
 }
 
-func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *status.Status) {
-	return paymentErrorToGrpcStatus(payment.(*paymentTransaction).Commit())
+func (h *paymentChannelPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
+	return paymentErrorToGrpcError(payment.(*paymentTransaction).Rollback())
 }
 
-func (h *paymentChannelPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *status.Status) {
-	return paymentErrorToGrpcStatus(payment.(*paymentTransaction).Rollback())
-}
-
-func paymentErrorToGrpcStatus(err error) *status.Status {
+func paymentErrorToGrpcError(err error) *handler.GrpcError {
 	if err == nil {
 		return nil
 	}
 
 	if _, ok := err.(*PaymentError); !ok {
-		return status.Newf(codes.Internal, "internal error: %v", err)
+		return handler.NewGrpcErrorf(codes.Internal, "internal error: %v", err)
 	}
 
 	var grpcCode codes.Code
@@ -133,9 +128,11 @@ func paymentErrorToGrpcStatus(err error) *status.Status {
 		grpcCode = codes.Unauthenticated
 	case FailedPrecondition:
 		grpcCode = codes.FailedPrecondition
+	case IncorrectNonce:
+		grpcCode = handler.IncorrectNonce
 	default:
 		grpcCode = codes.Internal
 	}
 
-	return status.Newf(grpcCode, err.(*PaymentError).Message)
+	return handler.NewGrpcErrorf(grpcCode, err.(*PaymentError).Message)
 }

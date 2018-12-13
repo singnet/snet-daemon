@@ -1,12 +1,9 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
 	"math/big"
 
 	"github.com/singnet/snet-daemon/handler"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // IncomeData is used to pass information to the pricing validation system.
@@ -28,25 +25,26 @@ type IncomeData struct {
 // implement this strategies additional information from gRPC context can be
 // required. In such case it should be added into handler.GrpcStreamContext.
 type IncomeValidator interface {
-	// Validate returns nil if validation is successful or correct gRPC status
-	// to be sent to client in case of validation error.
-	Validate(*IncomeData) (err *status.Status)
+	// Validate returns nil if validation is successful or correct PaymentError
+	// status to be sent to client in case of validation error.
+	Validate(*IncomeData) (err error)
 }
 
 type incomeValidator struct {
+	priceInCogs *big.Int
 }
 
 // NewIncomeValidator returns new income validator instance
-func NewIncomeValidator() (validator IncomeValidator) {
-	return &incomeValidator{}
+func NewIncomeValidator(priceInCogs *big.Int) (validator IncomeValidator) {
+	return &incomeValidator{priceInCogs: priceInCogs}
 }
 
-func (validator *incomeValidator) Validate(data *IncomeData) (err *status.Status) {
+func (validator *incomeValidator) Validate(data *IncomeData) (err error) {
 
-	price := blockchain.GetPriceinCogs()
+	price := validator.priceInCogs
 
 	if data.Income.Cmp(price) != 0 {
-		err = status.Newf(codes.Unauthenticated, "income %d does not equal to price %d", data.Income, price)
+		err = NewPaymentError(Unauthenticated, "income %d does not equal to price %d", data.Income, price)
 		return
 	}
 

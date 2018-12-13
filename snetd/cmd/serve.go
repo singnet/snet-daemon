@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -87,8 +88,13 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v",
-		config.GetInt(config.DaemonListeningPortKey)))
+	port, err := deriveDaemonPort(config.GetString(config.DaemonEndPoint))
+	if err != nil {
+		return d, errors.Wrap(err, "error determining port")
+	}
+	log.WithField("port", port).Info("Starting listening port")
+
+	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v", port))
 	if err != nil {
 		return d, errors.Wrap(err, "error listening")
 	}
@@ -114,6 +120,30 @@ func newDaemon(components *Components) (daemon, error) {
 	}
 
 	return d, nil
+}
+
+func deriveDaemonPort(daemonEndpoint string) (string, error) {
+	port := "8080"
+	var err error = nil
+
+	//There is a separate issue raised on standardizing the daemon end point format, #153, Daemon end point can also
+	//be entered in the format localhost:8080 or 127.1.0.0:8080 ( as this is allowed while defining the service metadata )
+	//For now strip http: or https: from the daemonEndPoint
+	daemonEndpoint = strings.Replace(daemonEndpoint, "https://", "", -1)
+	daemonEndpoint = strings.Replace(daemonEndpoint, "http://", "", -1)
+	splitString := strings.Split(daemonEndpoint, ":")
+	length := len(splitString)
+	if length == 2 {
+		port = splitString[len(splitString)-1]
+		_, err = strconv.ParseInt(port, 0, 16)
+		if err != nil {
+			log.WithField("daemonEndPoint", daemonEndpoint).Error(err)
+			err = fmt.Errorf("port number <%s> is not valid ,the daemon End point  %s", port, daemonEndpoint)
+		}
+	} else if length > 2 {
+		err = fmt.Errorf("daemon end point should have a single ':' ,the daemon End point %s", daemonEndpoint)
+	}
+	return port, err
 }
 
 func (d daemon) start() {
@@ -160,7 +190,7 @@ func (d daemon) start() {
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		d.grpcServer = grpc.NewServer(
-			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
+			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
@@ -180,7 +210,7 @@ func (d daemon) start() {
 			} else {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprintln(resp, blockchain.GetWireEncoding())
+					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
 				} else {
 					http.NotFound(resp, req)
 				}

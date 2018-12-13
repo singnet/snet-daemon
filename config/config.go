@@ -14,57 +14,52 @@ import (
 )
 
 const (
-	RegistryAddressKey             = "REGISTRY_ADDRESS_KEY" //to be read from github
-	AutoSSLDomainKey               = "AUTO_SSL_DOMAIN"
-	AutoSSLCacheDirKey             = "AUTO_SSL_CACHE_DIR"
-	BlockchainEnabledKey           = "BLOCKCHAIN_ENABLED"
-	ConfigPathKey                  = "CONFIG_PATH"
-	DaemonListeningPortKey         = "DAEMON_LISTENING_PORT"
-	DaemonTypeKey                  = "DAEMON_TYPE"
-	DaemonEndPoint                 = "DAEMON_END_POINT"
-	DbPathKey                      = "DB_PATH"
-	EthereumJsonRpcEndpointKey     = "ETHEREUM_JSON_RPC_ENDPOINT"
-	ExecutablePathKey              = "EXECUTABLE_PATH"
-	HdwalletIndexKey               = "HDWALLET_INDEX"
-	HdwalletMnemonicKey            = "HDWALLET_MNEMONIC"
-	IpfsEndPoint                   = "IPFS_END_POINT"
-	LogKey                         = "LOG"
-	OrganizationName               = "ORGANIZATION_NAME"
-	ServiceName                    = "SERVICE_NAME"
-	PassthroughEnabledKey          = "PASSTHROUGH_ENABLED"
-	PassthroughEndpointKey         = "PASSTHROUGH_ENDPOINT"
-	PollSleepKey                   = "POLL_SLEEP"
-	PrivateKeyKey                  = "PRIVATE_KEY"
-	ServiceTypeKey                 = "SERVICE_TYPE"
-	SSLCertPathKey                 = "SSL_CERT"
-	SSLKeyPathKey                  = "SSL_KEY"
-	WireEncodingKey                = "WIRE_ENCODING"
-	PaymentChannelStorageTypeKey   = "PAYMENT_CHANNEL_STORAGE_TYPE"
-	PaymentChannelStorageClientKey = "PAYMENT_CHANNEL_STORAGE_CLIENT"
-	PaymentChannelStorageServerKey = "PAYMENT_CHANNEL_STORAGE_SERVER"
+	RegistryAddressKey   = "registry_address_key" //to be read from github
+	AutoSSLDomainKey     = "auto_ssl_domain"
+	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
+	BlockchainEnabledKey = "blockchain_enabled"
+	BurstSize            = "burst_size"
+	ConfigPathKey        = "config_path"
+
+	DaemonTypeKey                  = "daemon_type"
+	DaemonEndPoint                 = "daemon_end_point"
+	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
+	ExecutablePathKey              = "executable_path"
+	HdwalletIndexKey               = "hdwallet_index"
+	HdwalletMnemonicKey            = "hdwallet_mnemonic"
+	IpfsEndPoint                   = "ipfs_end_point"
+	LogKey                         = "log"
+	OrganizationName               = "organization_name"
+	ServiceName                    = "service_name"
+	PassthroughEnabledKey          = "passthrough_enabled"
+	PassthroughEndpointKey         = "passthrough_endpoint"
+	PrivateKeyKey                  = "private_key"
+	RateLimitPerMinute             = "rate_limit_per_minute"
+	SSLCertPathKey                 = "ssl_cert"
+	SSLKeyPathKey                  = "ssl_key"
+	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
+	PaymentChannelStorageClientKey = "payment_channel_storage_client"
+	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",
+	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
-	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
-	"daemon_end_point": "http://localhost:8080",
-	"db_path": "snetd.db",
+	"daemon_end_point": "127.0.0.1:8080",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
 	"organization_name": "ExampleOrganization", 
-	"price_per_call": 10,
 	"passthrough_enabled": false,
-	"poll_sleep": "5s",
+	
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_name": "ExampleService", 
-	"service_type": "grpc",
+	"private_key": "",
 	"ssl_cert": "",
 	"ssl_key": "",
-	"wire_encoding": "proto",
 	"log":  {
 		"level": "info",
 		"timezone": "UTC",
@@ -81,8 +76,6 @@ const (
 		},
 		"hooks": []
 	},
-	"replica_group_id": "0",
-	"payment_expiration_threshold_blocks": 5760,
 	"payment_channel_storage_type": "etcd",
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
@@ -147,32 +140,9 @@ func Vip() *viper.Viper {
 func Validate() error {
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
-		switch sType := vip.GetString(ServiceTypeKey); sType {
-		case "grpc":
-		case "jsonrpc":
-		case "process":
-			if vip.GetString(ExecutablePathKey) == "" {
-				return errors.New("EXECUTABLE required with SERVICE_TYPE 'process'")
-			}
-		default:
-			return fmt.Errorf("unrecognized SERVICE_TYPE '%+v'", sType)
-		}
-
-		switch enc := vip.GetString(WireEncodingKey); enc {
-		case "proto":
-		case "json":
-		default:
-			return fmt.Errorf("unrecognized WIRE_ENCODING '%+v'", enc)
-		}
 	case "http":
 	default:
 		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)
-	}
-
-	if vip.GetBool(BlockchainEnabledKey) {
-		if vip.GetString(PrivateKeyKey) == "" && vip.GetString(HdwalletMnemonicKey) == "" {
-			return errors.New("either PRIVATE_KEY or HDWALLET_MNEMONIC are required")
-		}
 	}
 
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)

@@ -136,12 +136,12 @@ metadata][service-configuration-metadata]
 * **registry_address_key** (required) - 
 Ethereum address of the Registry contract instance.
 
-* **organization_name** (required) - 
-name of the organization to search for [service configuration
+* **organization_id** (required) - 
+Id of the organization to search for [service configuration
 metadata][service-configuration-metadata].
 
-* **service_name** (required) - 
-name of the service to search for [service configuration
+* **service_id** (required) - 
+Id of the service to search for [service configuration
 metadata][service-configuration-metadata].
 
 * **passthrough_enabled** (optional; default: `false`) - 

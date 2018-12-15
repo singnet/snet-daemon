@@ -17,5 +17,3 @@ func RunMetricsServices(address string) {
 	}
 	log.Info("metrics service started successfully and available from %s", address)
 }
-
-//TODO write client to handle metrics, for pull based metrics

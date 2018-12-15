@@ -14,6 +14,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// default response
+var curResp = `{"isRunning":false,"message":"500 ERROR"}`
+
 // status enum
 type Status int
 
@@ -25,11 +28,11 @@ const (
 )
 
 // define heartbeat data model. Service Status JSON object Array marshalled to a string
-type HeartbeatMessage struct {
-	DaemonID      string `json:"daemonID"`
-	Timestamp     string `json:"timestamp"`
-	Status        string `json:"status"`
-	ServiceStatus string `json:"serviceStatus"`
+type DaemonHeartbeat struct {
+	DaemonID         string `json:"daemonID"`
+	Timestamp        string `json:"timestamp"`
+	Status           string `json:"status"`
+	ServiceHeartbeat string `json:"serviceheartbeat"`
 }
 
 // Converts the enum index into enum names
@@ -51,27 +54,41 @@ func getEpochTime() int64 {
 	return time.Now().UTC().Unix()
 }
 
-// preares the heartbeat, which includes calling to underlying service DAemon is serving
-func getHeartbeat() (HeartbeatMessage, bool) {
-	hearbeat := HeartbeatMessage{getDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "[{}]"}
+// prepares the heartbeat, which includes calling to underlying service DAemon is serving
+func GetHeartbeat() (DaemonHeartbeat, bool) {
+	heartbeat := DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "[{}]"}
 	//TODO Read the service metadata and get the service URL
-	serviceURL := ""
-	svcHeartbeat, isSuccess := callServiceHeartbeat(serviceURL)
-	if isSuccess {
-		//TODO convert the service call response to service status
-		log.Info("Service %s status : %s", serviceURL, svcHeartbeat)
-	} else {
-		// TODO maintain the previous state. if not avialble then relay status : unknown
-
-		hearbeat.Status = Warnings.String()
+	serviceURL := "localhost:25000"
+	//serviceURL := "http://demo3208027.mockable.io/heartbeat"
+	daemonType := "grpc"
+	//check whether given address is valid or not
+	if !isValidUrl(serviceURL) {
+		log.Warningf("Invalid service URL %s", serviceURL)
+		heartbeat.Status = Warnings.String()
 	}
-	return hearbeat, true
+	var svcHeartbeat []byte
+	var err error
+
+	// if daemon type is grpc, then call grpc heartbeat, else go for HTTP service heartbeat
+	if daemonType == "grpc" {
+		svcHeartbeat, err = callgRPCServiceHeartbeat(serviceURL)
+	} else {
+		svcHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
+	}
+	if err == nil {
+		log.Info("Service %s status : %s", serviceURL, svcHeartbeat)
+		curResp = string(svcHeartbeat)
+	} else {
+		heartbeat.Status = Warnings.String()
+	}
+	heartbeat.ServiceHeartbeat = curResp
+	return heartbeat, true
 }
 
 // Heartbeat request handler function : upon request it will hit the service for status and
 // wraps the results in daemons heartbeat
 func heartbeatHandler(rw http.ResponseWriter, r *http.Request) {
-	heartbeat, status := getHeartbeat()
+	heartbeat, status := GetHeartbeat()
 	if !status {
 		log.Warningf("Unable to get Heartbeat. ")
 	}
@@ -80,3 +97,16 @@ func heartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Failed to write heartbeat message. Reason: %s", err.Error())
 	}
 }
+
+/*
+service heartbeat/grpc heartbeat
+{"serviceName":"sample1","timestamp":1544823909,"isRunning":true,"message":"200 OK"}
+
+daemon heartbeat
+{
+  "daemonID": "3a4ebeb75eace1857a9133c7a50bdbb841b35de60f78bc43eafe0d204e523dfe",
+  "timestamp": "1544916260",
+  "status": "Online",
+  "serviceheartbeat": "{\"serviceName\":\"sample1\",\"timestamp\":1544823909,\"isRunning\":true,\"message\":\"500 OK\"}"
+}
+*/

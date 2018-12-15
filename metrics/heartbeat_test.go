@@ -44,22 +44,22 @@ func Test_getEpochTime(t *testing.T) {
 	}
 }
 
-func Test_getHeartbeat(t *testing.T) {
+func TestGetHeartbeat(t *testing.T) {
 	tests := []struct {
 		name  string
-		want  HeartbeatMessage
+		want  DaemonHeartbeat
 		want1 bool
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := getHeartbeat()
+			got, got1 := GetHeartbeat()
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getHeartbeat() got = %v, want %v", got, tt.want)
+				t.Errorf("GetHeartbeat() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.want1 {
-				t.Errorf("getHeartbeat() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("GetHeartbeat() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}

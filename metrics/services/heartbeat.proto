@@ -1,0 +1,18 @@
+syntax="proto3";
+package services;
+
+// proto spec for the heartbeat
+message HeartbeatMsg {
+    string serviceName = 1;
+    int64 timestamp = 2;
+    bool isRunning = 3;
+    string message = 4; //Can return the http status codes or an other custom format
+}
+
+// A generic empty message that you can re-use to avoid defining duplicated empty messages in your APIs.
+message Empty { }
+
+// grpc method which will be xposed as service
+service Heartbeat {
+    rpc getHeartbeat (Empty) returns(HeartbeatMsg) {}
+}

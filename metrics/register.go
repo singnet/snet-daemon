@@ -6,38 +6,48 @@
 package metrics
 
 import (
-	"bytes"
-	"github.com/ethereum/go-ethereum/crypto"
+	"crypto/sha256"
+	"encoding/hex"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 )
 
 // generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
-func getDaemonID() string {
+func GetDaemonID() string {
 	// TODO add the code to read from metadata and update Service Endpoint
 	rawID := config.GetString(config.OrganizationName) + config.GetString(config.ServiceName) + config.GetString(config.DaemonEndPoint)
-
-	// generate the keccak hash from given input string. Same as Ethereum hashes
-	hash := crypto.Keccak256([]byte(rawID))
-
-	// Convert hash byte array to hash string and return
-	hashSize := bytes.IndexByte(hash, 0)
-	return string(hash[:hashSize])
+	// rawID := "Org Name " + "Service Name " + "Daemon Endpoint"
+	hasher := sha256.New()
+	hasher.Write([]byte(rawID))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	return hash
 }
 
 // New Daemon registration. Generates the DaemonID and use that as getting access token
-func registerNewDaemon() (status bool) {
-	daemonID := getDaemonID()
+func RegisterDaemon() bool {
+	daemonID := GetDaemonID()
+	serviceURL := config.GetString(config.MonitoringServiceEndpoint) //"http://demo3208027.mockable.io/register"
+	status := false
 
-	// call the service and get the result
-	status = callRegisterService(daemonID, config.GetString(config.MonitoringServiceEndpoint))
-
-	// if registers successfully
-	if status {
-		log.Info("Daemon successfully registered with the monitoring service. ")
-		return true
+	//check whether given address is valid or not
+	if !isValidUrl(serviceURL) {
+		log.Warningf("Invalid service URL %s", serviceURL)
+	} else {
+		// call the service and get the result
+		status = callRegisterService(daemonID, serviceURL)
+		if status {
+			log.Info("Daemon successfully registered with the monitoring service. ")
+			return status
+		}
+		log.Info("Daemon unable to register with the monitoring service. ")
 	}
-	log.Info("Daemon unable to register with the monitoring service. ")
-	// if unable to register, then throw an error.
-	return false
+	return status
 }
+
+/*
+service request
+{"daemonID":"3a4ebeb75eace1857a9133c7a50bdbb841b35de60f78bc43eafe0d204e523dfe"}
+
+service output
+true/false
+*/

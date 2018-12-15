@@ -7,7 +7,7 @@ package metrics
 
 import "testing"
 
-func TestNotification_send(t *testing.T) {
+func TestNotification_Send(t *testing.T) {
 	type fields struct {
 		DaemonID  string
 		Timestamp string
@@ -29,8 +29,8 @@ func TestNotification_send(t *testing.T) {
 				To:        tt.fields.To,
 				Message:   tt.fields.Message,
 			}
-			if got := alert.send(); got != tt.want {
-				t.Errorf("Notification.send() = %v, want %v", got, tt.want)
+			if got := alert.Send(); got != tt.want {
+				t.Errorf("Notification.Send() = %v, want %v", got, tt.want)
 			}
 		})
 	}

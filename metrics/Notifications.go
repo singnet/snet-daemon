@@ -6,12 +6,8 @@
 package metrics
 
 import (
-	"bytes"
+	"encoding/json"
 	"github.com/singnet/snet-daemon/config"
-	"io/ioutil"
-	"net/http"
-	"strconv"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -24,26 +20,37 @@ type Notification struct {
 }
 
 // function for sending an alert to a given endpoint
-func (alert *Notification) send() bool {
-	url := config.GetString(config.NotificationURL)
-	// TODO convert the notification json to string
-	var jsonStr = []byte(`{"DaemonID":"eea21ae21"}`)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	req.Header.Set("Content-Type", "application/json")
+func (alert *Notification) Send() bool {
+	serviceURL := config.GetString(config.NotificationURL)
+	//serviceURL := "http://demo3208027.mockable.io/register"
+	status := false
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	// convert the notification struct to json
+	jsonAlert, err := json.Marshal(alert)
+	log.Info(string(jsonAlert))
 	if err != nil {
-		log.WithError(err).Info("Unable to post the metrics - %s", jsonStr)
+		log.WithError(err).Fatalf("Json conversion error.")
+	} else {
+		//check whether given address is valid or not
+		if !isValidUrl(serviceURL) {
+			log.Warningf("Invalid service URL %s", serviceURL)
+		} else {
+			// based on the notification success/failure
+			status := callNotificationService(jsonAlert, serviceURL)
+			if status {
+				log.Info("Notification sent. ")
+				return status
+			}
+			log.Info("Unable to send notification. ")
+		}
 	}
-	defer resp.Body.Close()
-	// Read the response
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	// TODO parse the notification result. could be a json result
-	// convert the result to bool, expectation from service is True/False
-	// based on the notification success/failure
-	result, _ := strconv.ParseBool(string(body))
-
-	return result
+	return status
 }
+
+/*
+service request
+{"daemonID":"3a4ebeb75eace1857a9133c7a50bdbb841b35de60f78bc43eafe0d204e523dfe","timestamp":"1544913544","to":"rdr1207@gmail.com","message":"Unexpected Error in Daemon metrics"}
+
+service response
+true/false
+*/

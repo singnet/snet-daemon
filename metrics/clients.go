@@ -20,13 +20,18 @@ import (
 	"time"
 )
 
+type Response struct {
+	ServiceName string `json:"serviceName"`
+	Status      string `json:"status"`
+}
+
 // Calls a gRPC endpoint for heartbeat (gRPC Client)
 func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(grpcAddress, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("Unable to connect to grpc endpoint: %v", err)
+		log.WithError(err).Warningf("Unable to connect to grpc endpoint: %v", err)
 	}
 	defer conn.Close()
 
@@ -38,15 +43,17 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 	defer cancel()
 
 	//call the heartbeat rpc method
-	response, err := client.GetHeartbeat(ctx, &pb.Empty{})
+	resp, err := client.Check(ctx, &pb.Empty{})
 	if err != nil {
-		log.Fatalf("Error in calling the heartbeat service : %v", err)
+		log.WithError(err).Warningf("Error in calling the heartbeat service : %v", err)
 	}
-	jsonResp, err := json.MarshalIndent(response, "", "")
+	//convert enum to string, because json marshal doesnt do it
+	responseConv := &Response{ServiceName: resp.ServiceName, Status: resp.Status.String()}
+	jsonResp, err := json.Marshal(responseConv)
 	if err != nil {
-		log.Fatalf("Invalid service response : %v", err)
+		log.WithError(err).Warningf("Invalid service response : %v", err)
 	}
-	log.Printf("Service heartbeat received : %s", string(jsonResp))
+	log.Infof("Service heartbeat received : %s", string(jsonResp))
 	return jsonResp, nil
 }
 
@@ -54,13 +61,13 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	response, err := http.Get(serviceURL)
 	if err != nil {
-		log.WithError(err).Fatal("The service request failed with an error.")
+		log.WithError(err).Info("The service request failed with an error.")
 	} else {
 		if response.StatusCode != http.StatusOK {
-			log.Error("Wrong status code: %d", response.StatusCode)
+			log.WithError(err).Warningf("Wrong status code: %d", response.StatusCode)
 			return []byte(""), errors.New("Unexpected error with the service.")
 		}
-		log.Info("Service request processed successfully. ")
+		log.Infof("Service request processed successfully. ")
 		serviceHeartbeat, _ := ioutil.ReadAll(response.Body)
 
 		if string(serviceHeartbeat) == "" {
@@ -78,18 +85,18 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(input))
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
-		log.WithError(err).Info("Unable to create register service request")
+		log.WithError(err).Infof("Unable to create register service request")
 	}
 	// sending the post request
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		log.WithError(err).Fatalf("unable to reach metrics service")
+		log.WithError(err).Info("unable to reach metrics service")
 	} else {
 		if response.StatusCode != http.StatusOK {
-			log.Error("Wrong status code: %d", response.StatusCode)
+			log.WithError(err).Warningf("Wrong status code: %d", response.StatusCode)
 		}
-		log.Info("Service request processed successfully. ")
+		log.Infof("Service request processed successfully. ")
 
 		// read the response body
 		body, _ := ioutil.ReadAll(response.Body)
@@ -106,18 +113,18 @@ func callNotificationService(jsonAlert []byte, serviceURL string) bool {
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(jsonAlert))
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
-		log.WithError(err).Info("Unable to create notification service request")
+		log.WithError(err).Warningf("Unable to create notification service request")
 	}
 	// sending the post request
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		log.WithError(err).Fatalf("unable to reach notification service")
+		log.WithError(err).Warningf("unable to reach notification service")
 	} else {
 		if response.StatusCode != http.StatusOK {
-			log.Error("Wrong status code: %d", response.StatusCode)
+			log.WithError(err).Warningf("Wrong status code: %d", response.StatusCode)
 		}
-		log.Info("Service request processed successfully. ")
+		log.Infof("Service request processed successfully. ")
 
 		// read the response body
 		body, _ := ioutil.ReadAll(response.Body)

@@ -13,7 +13,7 @@ func RunMetricsServices(address string) {
 	http.HandleFunc("/heartbeat", heartbeatHandler)
 	err := http.ListenAndServe(address, nil)
 	if err != nil {
-		log.Fatalf("Failed to start the metrics service. Reason: %s", err.Error())
+		log.WithError(err).Warningf("Failed to start the metrics service. Reason: %s", err.Error())
 	}
-	log.Info("metrics service started successfully and available from %s", address)
+	log.Infof("metrics service started successfully and available from %s", address)
 }

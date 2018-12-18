@@ -21,15 +21,14 @@ type Notification struct {
 
 // function for sending an alert to a given endpoint
 func (alert *Notification) Send() bool {
-	serviceURL := config.GetString(config.NotificationURL)
-	//serviceURL := "http://demo3208027.mockable.io/register"
+	serviceURL := config.GetString(config.NotificationServiceEndpoint) + "/register"
 	status := false
 
 	// convert the notification struct to json
 	jsonAlert, err := json.Marshal(alert)
 	log.Info(string(jsonAlert))
 	if err != nil {
-		log.WithError(err).Fatalf("Json conversion error.")
+		log.WithError(err).Warningf("Json conversion error.")
 	} else {
 		//check whether given address is valid or not
 		if !isValidUrl(serviceURL) {
@@ -38,10 +37,10 @@ func (alert *Notification) Send() bool {
 			// based on the notification success/failure
 			status := callNotificationService(jsonAlert, serviceURL)
 			if status {
-				log.Info("Notification sent. ")
+				log.Infof("Notification sent. ")
 				return status
 			}
-			log.Info("Unable to send notification. ")
+			log.Infof("Unable to send notification. ")
 		}
 	}
 	return status

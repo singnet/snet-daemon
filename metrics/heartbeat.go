@@ -7,6 +7,7 @@ package metrics
 
 import (
 	"encoding/json"
+	"github.com/gometrics/metrics/config"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,8 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// default response
-var curResp = `{"isRunning":false,"message":"500 ERROR"}`
+var curResp = `{"serviceName":"","status":"UNKNOWN"}`
 
 // status enum
 type Status int
@@ -57,10 +57,9 @@ func getEpochTime() int64 {
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
 func GetHeartbeat() (DaemonHeartbeat, bool) {
 	heartbeat := DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "[{}]"}
-	//TODO Read the service metadata and get the service URL
-	serviceURL := "localhost:25000"
-	//serviceURL := "http://demo3208027.mockable.io/heartbeat"
-	daemonType := "grpc"
+	// read the hearbeat service type and correspanding URL
+	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
+	serviceType := config.GetString(config.ServiceHeartbeatType)
 	//check whether given address is valid or not
 	if !isValidUrl(serviceURL) {
 		log.Warningf("Invalid service URL %s", serviceURL)
@@ -70,13 +69,13 @@ func GetHeartbeat() (DaemonHeartbeat, bool) {
 	var err error
 
 	// if daemon type is grpc, then call grpc heartbeat, else go for HTTP service heartbeat
-	if daemonType == "grpc" {
+	if serviceType == "grpc" {
 		svcHeartbeat, err = callgRPCServiceHeartbeat(serviceURL)
 	} else {
 		svcHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
 	}
 	if err == nil {
-		log.Info("Service %s status : %s", serviceURL, svcHeartbeat)
+		log.Infof("Service %s status : %s", serviceURL, svcHeartbeat)
 		curResp = string(svcHeartbeat)
 	} else {
 		heartbeat.Status = Warnings.String()
@@ -94,19 +93,19 @@ func heartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 	err := json.NewEncoder(rw).Encode(heartbeat)
 	if err != nil {
-		log.Fatalf("Failed to write heartbeat message. Reason: %s", err.Error())
+		log.WithError(err).Infof("Failed to write heartbeat message.")
 	}
 }
 
 /*
 service heartbeat/grpc heartbeat
-{"serviceName":"sample1","timestamp":1544823909,"isRunning":true,"message":"200 OK"}
+{"serviceName":"sample1", "status":"SERVING"}
 
 daemon heartbeat
 {
   "daemonID": "3a4ebeb75eace1857a9133c7a50bdbb841b35de60f78bc43eafe0d204e523dfe",
   "timestamp": "1544916260",
   "status": "Online",
-  "serviceheartbeat": "{\"serviceName\":\"sample1\",\"timestamp\":1544823909,\"isRunning\":true,\"message\":\"500 OK\"}"
+  "serviceheartbeat": "{\"serviceName\":\"sample1\", \"status\":\"SERVING\"}"
 }
 */

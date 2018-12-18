@@ -16,7 +16,7 @@ import (
 func GetDaemonID() string {
 	// TODO add the code to read from metadata and update Service Endpoint
 	rawID := config.GetString(config.OrganizationName) + config.GetString(config.ServiceName) + config.GetString(config.DaemonEndPoint)
-	// rawID := "Org Name " + "Service Name " + "Daemon Endpoint"
+
 	hasher := sha256.New()
 	hasher.Write([]byte(rawID))
 	hash := hex.EncodeToString(hasher.Sum(nil))
@@ -26,7 +26,7 @@ func GetDaemonID() string {
 // New Daemon registration. Generates the DaemonID and use that as getting access token
 func RegisterDaemon() bool {
 	daemonID := GetDaemonID()
-	serviceURL := config.GetString(config.MonitoringServiceEndpoint) //"http://demo3208027.mockable.io/register"
+	serviceURL := config.GetString(config.MonitoringServiceEndpoint) + "/register"
 	status := false
 
 	//check whether given address is valid or not
@@ -36,10 +36,10 @@ func RegisterDaemon() bool {
 		// call the service and get the result
 		status = callRegisterService(daemonID, serviceURL)
 		if status {
-			log.Info("Daemon successfully registered with the monitoring service. ")
+			log.Infof("Daemon successfully registered with the monitoring service. ")
 			return status
 		}
-		log.Info("Daemon unable to register with the monitoring service. ")
+		log.Infof("Daemon unable to register with the monitoring service. ")
 	}
 	return status
 }

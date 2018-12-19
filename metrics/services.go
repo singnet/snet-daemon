@@ -10,7 +10,7 @@ import log "github.com/sirupsen/logrus"
 
 // exposes and endpoint for metrics requests. we can keep adding the routes fro different messages
 func RunMetricsServices(address string) {
-	http.HandleFunc("/heartbeat", heartbeatHandler)
+	http.HandleFunc("/heartbeat", HeartbeatHandler)
 	err := http.ListenAndServe(address, nil)
 	if err != nil {
 		log.WithError(err).Warningf("Failed to start the metrics service. Reason: %s", err.Error())

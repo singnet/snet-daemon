@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/singnet/snet-daemon/metrics"
 	"net"
 	"net/http"
 	"os"
@@ -211,6 +212,9 @@ func (d daemon) start() {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
 					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
+				} else if strings.Split(req.URL.Path, "/")[1] == "heartbeat" {
+					resp.Header().Set("Access-Control-Allow-Origin", "*")
+					metrics.HeartbeatHandler(resp, req)
 				} else {
 					http.NotFound(resp, req)
 				}

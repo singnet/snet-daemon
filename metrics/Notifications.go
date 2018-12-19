@@ -13,15 +13,19 @@ import (
 
 // define heartbeat data model. Service Status JSON object Array marshalled to a string
 type Notification struct {
-	DaemonID  string `json:"daemonID"`
+	DaemonID  string `json:"component_id"`
 	Timestamp string `json:"timestamp"`
-	To        string `json:"to"`
+	Recipient string `json:"recipient"`
 	Message   string `json:"message"`
+	Details   string `json:"details"`
+	Component string `json:"component"`
+	Type      string `json:"type"`
+	Level     string `json:"level"`
 }
 
 // function for sending an alert to a given endpoint
 func (alert *Notification) Send() bool {
-	serviceURL := config.GetString(config.NotificationServiceEndpoint) + "/register"
+	serviceURL := config.GetString(config.NotificationServiceEndpoint) + "/notify"
 	status := false
 
 	// convert the notification struct to json
@@ -48,7 +52,15 @@ func (alert *Notification) Send() bool {
 
 /*
 service request
-{"daemonID":"3a4ebeb75eace1857a9133c7a50bdbb841b35de60f78bc43eafe0d204e523dfe","timestamp":"1544913544","to":"rdr1207@gmail.com","message":"Unexpected Error in Daemon metrics"}
+{
+    "recipient":"raam.comm@gmail.com",
+    "message":"From the API",
+    "details":"From the API",
+    "component":"daemon",
+    "component_id":"ad",
+    "type":"INFO",
+    "level":"10"
+}
 
 service response
 true/false

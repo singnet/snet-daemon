@@ -86,7 +86,7 @@ func GetHeartbeat() (DaemonHeartbeat, bool) {
 
 // Heartbeat request handler function : upon request it will hit the service for status and
 // wraps the results in daemons heartbeat
-func heartbeatHandler(rw http.ResponseWriter, r *http.Request) {
+func HeartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 	heartbeat, status := GetHeartbeat()
 	if !status {
 		log.Warningf("Unable to get Heartbeat. ")

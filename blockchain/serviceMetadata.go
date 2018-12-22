@@ -36,11 +36,12 @@ type ServiceMetadata struct {
 		GroupName string `json:"group_name"`
 		Endpoint  string `json:"endpoint"`
 	} `json:"endpoints"`
-	daemonReplicaGroupID    [32]byte
-	daemonGroupName         string
-	daemonEndPoint          string
-	recipientPaymentAddress common.Address
-	multiPartyEscrowAddress common.Address
+	daemonReplicaGroupID       [32]byte
+	daemonReplicaGroupIDString string
+	daemonGroupName            string
+	daemonEndPoint             string
+	recipientPaymentAddress    common.Address
+	multiPartyEscrowAddress    common.Address
 }
 
 func getRegistryAddressKey() common.Address {
@@ -166,6 +167,7 @@ func setDaemonGroupIDAndPaymentAddress(metaData *ServiceMetadata) error {
 	for _, group := range metaData.Groups {
 		if strings.Compare(groupName, group.GroupName) == 0 {
 			var err error
+			metaData.daemonReplicaGroupIDString = group.GroupID
 			metaData.daemonReplicaGroupID, err = ConvertBase64Encoding(group.GroupID)
 			if err != nil {
 				return err
@@ -216,6 +218,10 @@ func (metaData *ServiceMetadata) GetDisplayName() string {
 
 func (metaData *ServiceMetadata) GetDaemonGroupID() [32]byte {
 	return metaData.daemonReplicaGroupID
+}
+
+func (metaData *ServiceMetadata) GetDaemonGroupIDString() string {
+	return metaData.daemonReplicaGroupIDString
 }
 
 func (metaData *ServiceMetadata) GetPaymentAddress() common.Address {

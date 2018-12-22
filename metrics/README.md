@@ -61,7 +61,7 @@ Sample heartbeat from the daemon, which contains the service heartbeat as well
 
 
 Daemon must call the services as configured in heartbeat_svc_end_point and the type to get the service heartbeat. 
-Sample Heartbeat from Service is
+Sample Heartbeat Service result is
 
 GET http://127.0.0.1:25000/heartbeat
 ```json

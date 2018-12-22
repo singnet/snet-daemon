@@ -14,9 +14,8 @@ import (
 
 // generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
 func GetDaemonID() string {
-	// TODO add the code to read from metadata and update Service Endpoint
 	rawID := config.GetString(config.OrganizationName) + config.GetString(config.ServiceName) + config.GetString(config.DaemonEndPoint)
-
+	//get hash of the string id combination
 	hasher := sha256.New()
 	hasher.Write([]byte(rawID))
 	hash := hex.EncodeToString(hasher.Sum(nil))
@@ -24,7 +23,7 @@ func GetDaemonID() string {
 }
 
 // New Daemon registration. Generates the DaemonID and use that as getting access token
-func RegisterDaemon() bool {
+func RegisterDaemon() {
 	daemonID := GetDaemonID()
 	serviceURL := config.GetString(config.MonitoringServiceEndpoint) + "/register"
 	status := false
@@ -37,11 +36,9 @@ func RegisterDaemon() bool {
 		status = callRegisterService(daemonID, serviceURL)
 		if status {
 			log.Infof("Daemon successfully registered with the monitoring service. ")
-			return status
 		}
 		log.Infof("Daemon unable to register with the monitoring service. ")
 	}
-	return status
 }
 
 /*

@@ -84,6 +84,7 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	input := []byte(`{"daemonID":"` + daemonID + `"}`)
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(input))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Access-Token", daemonID)
 	if err != nil {
 		log.WithError(err).Infof("Unable to create register service request")
 	}
@@ -112,6 +113,7 @@ func callNotificationService(jsonAlert []byte, serviceURL string) bool {
 	//prepare the request payload
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(jsonAlert))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Access-Token", GetDaemonID())
 	if err != nil {
 		log.WithError(err).Warningf("Unable to create notification service request")
 	}

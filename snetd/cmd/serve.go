@@ -231,6 +231,10 @@ func (d daemon) start() {
 
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
+
+	// Once everything is configured and updated, register the daemon
+	log.Debug("registering daemon")
+	go metrics.RegisterDaemon()
 }
 
 func (d daemon) stop() {

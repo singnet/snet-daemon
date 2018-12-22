@@ -7,7 +7,7 @@ package metrics
 
 import (
 	"encoding/json"
-	"github.com/gometrics/metrics/config"
+	"github.com/singnet/snet-daemon/config"
 	"net/http"
 	"strconv"
 	"time"

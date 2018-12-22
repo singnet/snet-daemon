@@ -26,7 +26,7 @@ will have to call the heartbeat service to get the Daemon state. <br/>
 When the monitoring services calls daemon heartbeat, the daemon internally makes a call to service heartbeat endpoint.
 Upon receiving the service heartbeat, Daemon wraps it in the final heartbeat and sends it to the calling service.
 
-For service heartbeat, implementation followed the standard health checking protocol as defined in [gRPC Health Checking Protocol](https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+For the service heartbeat, implementation followed the standard health checking protocol as defined in [gRPC Health Checking Protocol](https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
 The service must use the same proto and implement the heartbeat functionality. 
 
 ```
@@ -59,6 +59,7 @@ Sample heartbeat from the daemon, which contains the service heartbeat as well
 }
 ```
 
+
 Daemon must call the services as configured in heartbeat_svc_end_point and the type to get the service heartbeat. 
 Sample Heartbeat from Service is
 
@@ -70,7 +71,6 @@ GET http://127.0.0.1:25000/heartbeat
 }
 ```
 
- 
 ### Metrics  
 Each incoming request, outgoing response will be intercepted and the corresponding metrics will be extracted.
 The extracted metrics will be reported immediately to the metrics services as configured in the Daemon configuration.
@@ -99,18 +99,24 @@ The metrics being collected are
    
 
 ##### Configuration
- * **monitoring_svc_end_point** (mandatory. ```http|https```) - It is the service endpoint to which we will have to 
+ * **monitoring_svc_end_point** (mandatory. ```must be valid http|https url```) - It is the service endpoint to which we will have to 
  post all the captured metrics.
 
 ##### Service endpoint
-   
+POST https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta/event
+
+Sample Payload (TBA)
+```json
+{}
+```
+
 ### Alerts/Notifications
 It is for alerting the user in case of any issues/errors/warning from the daemon/service, and also pass on some
 critical information when needed. Alerts depends on an external webhook or service endpoint o relay the messages to
 the configured email address. 
 
 ##### configuration  
-   * **alert_email** (optional unless metrics enabled. ```must be a valid email```) - an email for the 
+   * **alert_email** (optional unless metrics enabled. ```must be a valid email address```) - an email for the 
    alerts when there is an issue/warning/error/information to be sent. 
    
    * **notification_svc_end_point** (optional unless metrics enabled. ```must be a valid webhook/service end point```) - 
@@ -142,10 +148,10 @@ This is the sample configuration to enable metrics and heartbeat
 ```json
   {
       "enable_metrics"            : true,
-      "monitoring_svc_end_point"  : "http://demo3208027.mockable.io",
+      "monitoring_svc_end_point"  : "http://demo3208027.mockable.io/metrics",
       "notification_svc_end_point": "http://demo3208027.mockable.io/notify",
       "alert_email"               : "xyz.abc@myorg.io",
       "service_heartbeat_type"    : "http",
-      "heartbeat_svc_end_point"   : "http://demo3208027.mockable.io/heartbeat"  
+      "heartbeat_svc_end_point"   : "http://localhost:25000/heartbeat"  
    }
 ```

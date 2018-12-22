@@ -142,7 +142,7 @@ time.
 network interface and port which daemon listens to. This parameter should be
 absolutely equal to the corresponding endpoint in the [service configuration
 metadata][service-configuration-metadata]. URI format is recommended:
-`http://<host>:<port>`.
+http://<host>:<port>.
 
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
 endpoint to which daemon sends ethereum JSON-RPC requests; recommend
@@ -155,12 +155,12 @@ metadata][service-configuration-metadata]
 * **registry_address_key** (required) - 
 Ethereum address of the Registry contract instance.
 
-* **organization_name** (required) - 
-name of the organization to search for [service configuration
+* **organization_id** (required) - 
+Id of the organization to search for [service configuration
 metadata][service-configuration-metadata].
 
-* **service_name** (required) - 
-name of the service to search for [service configuration
+* **service_id** (required) - 
+Id of the service to search for [service configuration
 metadata][service-configuration-metadata].
 
 * **passthrough_enabled** (optional; default: `false`) - 

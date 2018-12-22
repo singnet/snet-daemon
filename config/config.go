@@ -29,8 +29,8 @@ const (
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
 	LogKey                         = "log"
-	OrganizationName               = "organization_name"
-	ServiceName                    = "service_name"
+	OrganizationId                 = "organization_id"
+	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
 	PassthroughEndpointKey         = "passthrough_endpoint"
 	PrivateKeyKey                  = "private_key"
@@ -57,10 +57,10 @@ const (
   "hdwallet_index": 0,
   "hdwallet_mnemonic": "",
   "ipfs_end_point": "http://localhost:5002/",
-  "organization_name": "ExampleOrganization",
+	"organization_id": "ExampleOrganizationId", 
   "passthrough_enabled": false,
   "registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
-  "service_name": "ExampleService",
+	"service_id": "ExampleServiceId", 
   "private_key": "",
   "ssl_cert": "",
   "ssl_key": "",
@@ -78,17 +78,13 @@ const (
       "max_age_in_sec": 604800,
       "rotation_count": 0
     },
-    "hooks": [
-      
-    ]
+		"hooks": [] 
   },
   "payment_channel_storage_type": "etcd",
   "payment_channel_storage_client": {
     "connection_timeout": "5s",
     "request_timeout": "3s",
-    "endpoints": [
-      "http://127.0.0.1:2379"
-    ]
+		"endpoints": ["http://127.0.0.1:2379"]
   },
   "payment_channel_storage_server": {
     "id": "storage-1",

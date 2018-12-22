@@ -137,12 +137,6 @@ func callNotificationService(jsonAlert []byte, serviceURL string) bool {
 	return false
 }
 
-// Pushes the recoded metrics to Monitoring service
-func callAndPostMetrics(serviceURL string, jsonMetrics string) bool {
-	//TODO hit the metrics service URL and post the metrics data
-	return false
-}
-
 // isValidUrl tests a string to determine if it is a url or not.
 func isValidUrl(urlToTest string) bool {
 	_, err := url.ParseRequestURI(urlToTest)

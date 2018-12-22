@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/ratelimit"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"math/big"
 	"strings"
+	"time"
 )
 
 const (
@@ -98,13 +100,17 @@ type PaymentHandler interface {
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
 }
 
+//Rate limit,
 type rateLimitInterceptor struct {
 	rateLimiter rate.Limiter
+	//keep track of which group this daemon belongs to
+	groupId string
 }
 
-func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
+func GrpcRateLimitInterceptor(grpId string) grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
 		rateLimiter: ratelimit.NewRateLimiter(),
+		groupId:     grpId,
 	}
 	return interceptor.intercept
 }
@@ -114,7 +120,15 @@ func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.Serv
 		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")
 		return status.New(codes.ResourceExhausted, "rate limiting , too many requests to handle").Err()
 	}
-	e := handler(srv, ss)
+	reqid := metrics.GenXid()
+	go metrics.PublishRequestStats(reqid, interceptor.groupId, ss)
+	var start time.Time
+	start = time.Now()
+	var e error
+	defer func() {
+		go metrics.PublishResponseStats(reqid, interceptor.groupId, time.Now().Sub(start), e)
+	}()
+	e = handler(srv, ss)
 	if e != nil {
 		log.WithError(e)
 		return e

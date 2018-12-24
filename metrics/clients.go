@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 )
@@ -135,14 +134,4 @@ func callNotificationService(jsonAlert []byte, serviceURL string) bool {
 	}
 	defer response.Body.Close()
 	return false
-}
-
-// isValidUrl tests a string to determine if it is a url or not.
-func isValidUrl(urlToTest string) bool {
-	_, err := url.ParseRequestURI(urlToTest)
-	if err != nil {
-		return false
-	} else {
-		return true
-	}
 }

@@ -24,14 +24,14 @@ func GetValue(md metadata.MD, key string) string {
 }
 
 //convert the given struct to its corresponding json.
-func ConvertStructToJSON(structbody interface{}) ([]byte, error) {
-	if structbody == nil {
+func ConvertStructToJSON(structBody interface{}) ([]byte, error) {
+	if structBody == nil {
 		return nil, errors.New("nil PayLoad passed")
 	}
-	b, err := json.Marshal(&structbody)
+	b, err := json.Marshal(&structBody)
 	if err != nil {
 		log.WithError(err).Warningf("Json conversion error.")
-		log.WithField("payload", structbody).Warningf("Unable to derive json from structure passed")
+		log.WithField("structBody", structBody).Warningf("Unable to derive json from structure passed")
 		return nil, err
 	}
 	return b, nil

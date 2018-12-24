@@ -8,10 +8,8 @@ import (
 	"github.com/rs/xid"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
-	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 )
 
 //Get the value of the first Pair
@@ -93,29 +91,19 @@ func publishJson(json []byte, serviceURL string) bool {
 	return false
 }
 
+//Check if the response received was proper
 func checkForSuccessfulResponse(response *http.Response) bool {
 	if response == nil {
-		log.Warningf("Nil response sent to check ")
+		log.Warningf("response is nil")
 		return false
 	}
 	if response.StatusCode != http.StatusOK {
 		log.Warningf("Unable to publish , status code returned : %d ", response.StatusCode)
 		return false
 	} //close the body
+	log.Debug("metrics published successfully")
 	defer response.Body.Close()
-	// read the response body
-	body, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		log.WithError(err).Warningf("unable to analyze the response received")
-		return false
-	}
-	result, err := strconv.ParseBool(string(body))
-	if err != nil {
-		log.WithError(err).Warningf("unable to parse the body of the response received")
-	}
-	return result
-
+	return true
 }
 
 //Generic utility to determine the size of the srtuct passed

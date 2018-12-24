@@ -26,7 +26,7 @@ type RequestStats struct {
 func PublishRequestStats(reqId string, grpId string, arrivalTime time.Time, inStream grpc.ServerStream) bool {
 	request := createRequestStat(reqId, grpId, arrivalTime)
 	setDataFromInStream(inStream, request)
-	return Publish(request, config.GetString(config.MonitoringServiceEndpoint))
+	return Publish(request, config.GetString(config.MonitoringServiceEndpoint)+"/event")
 }
 
 func setDataFromInStream(inStream grpc.ServerStream, request *RequestStats) {

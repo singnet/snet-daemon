@@ -2,15 +2,16 @@ package metrics
 
 import (
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"reflect"
+	"strconv"
+	"time"
 )
 
+//Request stats that will be captured
 type RequestStats struct {
 	RequestID          string `json:"request_id"`
-	InputDataSize      int    `json:"input_data_size"`
+	InputDataSize      string `json:"input_data_size"`
 	ContentType        string `json:"content-type"`
 	ServiceMethod      string `json:"service_method"`
 	UserAgent          string `json:"user-agent"`
@@ -21,40 +22,35 @@ type RequestStats struct {
 	DaemonEndPoint     string `json:"Daemon_end_point"`
 }
 
-func PublishRequestStats(reqId string, grpId string, inStream grpc.ServerStream) *RequestStats {
-	incomingContext := inStream.Context()
-	request := createRequestStat(reqId, grpId)
-	md, ok := metadata.FromIncomingContext(incomingContext)
-	if ok {
+//Create a request Object and Publish this to a service end point
+func PublishRequestStats(reqId string, grpId string, arrivalTime time.Time, inStream grpc.ServerStream) bool {
+	request := createRequestStat(reqId, grpId, arrivalTime)
+	setDataFromInStream(inStream, request)
+	return Publish(request, config.GetString(config.MonitoringServiceEndpoint))
+}
+
+func setDataFromInStream(inStream grpc.ServerStream, request *RequestStats) {
+	request.ServiceMethod, _ = grpc.MethodFromServerStream(inStream)
+	if md, ok := metadata.FromIncomingContext(inStream.Context()); ok {
 		setDataFromContext(md, request)
 	}
-	request.ServiceMethod, _ = grpc.MethodFromServerStream(inStream)
-	request.InputDataSize = getSize(inStream)
-	json, _ := ConvertObjectToJSON(request)
-	//Publish the request json created, loggin them for now
-	log.WithField("Request Object ", json).Debug("Request Stats ")
-	return request
 }
 
 func setDataFromContext(md metadata.MD, request *RequestStats) {
 	request.UserAgent = GetValue(md, "user-agent")
-	request.RequestArrivalTime = GetValue(md, "time")
 	request.ContentType = GetValue(md, "content-type")
+	//todo
+	request.InputDataSize = strconv.FormatUint(GetSize(md), 10)
 }
 
-//ToDO
-func getSize(T interface{}) int {
-	v := reflect.TypeOf(T).Size()
-	return int(v)
-}
-
-func createRequestStat(reqId string, grpId string) *RequestStats {
+func createRequestStat(reqId string, grpId string, time time.Time) *RequestStats {
 	request := &RequestStats{
-		RequestID:      reqId,
-		GroupID:        grpId,
-		DaemonEndPoint: config.GetString(config.DaemonEndPoint),
-		OrganizationID: config.GetString(config.OrganizationId),
-		ServiceID:      config.GetString(config.ServiceId),
+		RequestID:          reqId,
+		GroupID:            grpId,
+		DaemonEndPoint:     config.GetString(config.DaemonEndPoint),
+		OrganizationID:     config.GetString(config.OrganizationId),
+		ServiceID:          config.GetString(config.ServiceId),
+		RequestArrivalTime: time.String(),
 	}
 	return request
 }

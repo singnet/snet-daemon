@@ -7,12 +7,10 @@ import (
 	"time"
 )
 
-func TestBuildResponseStats(t *testing.T) {
-
-	response := PublishResponseStats("123", "#we3", time.Duration(12), nil)
+func TestCreateResponseStats(t *testing.T) {
+	response := createResponseStats("123", "#we3", time.Duration(12), nil)
 	assert.Equal(t, response.RequestID, "123")
 	assert.Equal(t, response.GroupID, "#we3")
-
 }
 
 func TestGetErrorMessage(t *testing.T) {

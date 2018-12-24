@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/ratelimit"
 	log "github.com/sirupsen/logrus"
@@ -120,14 +121,17 @@ func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.Serv
 		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")
 		return status.New(codes.ResourceExhausted, "rate limiting , too many requests to handle").Err()
 	}
-	reqid := metrics.GenXid()
-	go metrics.PublishRequestStats(reqid, interceptor.groupId, ss)
-	var start time.Time
-	start = time.Now()
 	var e error
-	defer func() {
-		go metrics.PublishResponseStats(reqid, interceptor.groupId, time.Now().Sub(start), e)
-	}()
+	//Publish the metrics if it enabled
+	if config.GetBool(config.EnableMetrics) {
+		var start time.Time
+		start = time.Now()
+		reqid := metrics.GenXid()
+		go metrics.PublishRequestStats(reqid, interceptor.groupId, start, ss)
+		defer func() {
+			go metrics.PublishResponseStats(reqid, interceptor.groupId, time.Now().Sub(start), e)
+		}()
+	}
 	e = handler(srv, ss)
 	if e != nil {
 		log.WithError(e)

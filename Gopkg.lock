@@ -3,6 +3,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/OneOfOne/go-utils"
+  packages = ["memory"]
+  revision = "6019ff89a94ec143c5b0d449d0615708a19b4f63"
+
+[[projects]]
+  branch = "master"
   name = "github.com/agl/ed25519"
   packages = [".","edwards25519","extra25519"]
   revision = "5312a61534124124185d41f09206b9fef1d88403"
@@ -392,6 +398,12 @@
   version = "v1.4.0"
 
 [[projects]]
+  name = "github.com/rs/xid"
+  packages = ["."]
+  revision = "15d26544def341f036c5f8dca987a4cbe575032c"
+  version = "v1.2.1"
+
+[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "a67f783a3814b8729bd2dac5780b5f78f8dbd64d"
@@ -592,6 +604,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8e539ba3dba157ad0e0c980c58290fae3e78374bc5981ffdbe2a65385729d87c"
+  inputs-digest = "b2f562cbaa12566aa2ab5f96465abca761234b9136a042d54937eb880da84dc3"
   solver-name = "gps-cdcl"
   solver-version = 1

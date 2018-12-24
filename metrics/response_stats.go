@@ -2,12 +2,12 @@ package metrics
 
 import (
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"time"
 )
 
+//Response stats that will be captured and published
 type ResponseStats struct {
 	RequestID        string `json:"request_id"`
 	OrganizationID   string `json:"organization_id"`
@@ -20,7 +20,12 @@ type ResponseStats struct {
 	ErrorMessage     string `json:"error_message"`
 }
 
-func PublishResponseStats(reqId string, grpId string, duration time.Duration, err error) *ResponseStats {
+func PublishResponseStats(reqId string, grpId string, duration time.Duration, err error) bool {
+	response := createResponseStats(reqId, grpId, duration, err)
+	return Publish(response, config.GetString(config.MonitoringServiceEndpoint))
+}
+
+func createResponseStats(reqId string, grpId string, duration time.Duration, err error) *ResponseStats {
 	response := &ResponseStats{
 		RequestID:      reqId,
 		ResponseTime:   duration.String(),
@@ -31,11 +36,7 @@ func PublishResponseStats(reqId string, grpId string, duration time.Duration, er
 		ErrorMessage:   getErrorMessage(err),
 		ResponseCode:   getErrorCode(err),
 	}
-	json, _ := ConvertObjectToJSON(response)
-	//Publish the response json created, logging them for now
-	log.WithField("Response Object ", json).Debug("Response Stats ")
 	return response
-
 }
 
 func getErrorMessage(err error) string {

@@ -79,23 +79,39 @@ The extracted metrics will be reported immediately to the metrics services as co
 <b>Metrics collection is enabled by default</b> in configuration. Service Provider can disable the metrics anytime, if he/she doesn wanted to collect any metrics.
 <br/>
 
-The metrics being collected are
-   * **No of Requests** - number of requests received by the service endpoint.
-   
-   * **No of Successful/Failed Requests** - number of requests successfully handled and number fo requesed rejected/failed. Reason for failures could be
-   anything like service errors, rate limited requests, etc.
-   
-   * **Request Size** 
-   
-   * **Content Types**
-   
-   * **No of Responses** - number of responses returned by the service endpoint.
-   
-   * **No of  Successful/Failed Responses** - number of successful/failed responses.
-   
-   * **Response Size**
-   
-   * **Response Time**
+Sample metrics being collected are as below
+
+```json
+{
+   "request_id": "bggd8ipod0kv0c9a3fs0",
+   "input_data_size": 8,
+   "content-type": "application/grpc",
+   "service_method": "/example_service.Calculator/div",
+   "user-agent": "grpc-python/1.17.1 grpc-c/7.0.0 (manylinux; chttp2; gizmo)",
+   "request_arrival_time": "2018-12-24T12:42:51Z",
+   "organization_id": "ExampleOrganizationID",
+   "service_id": "ExampleServiceID",
+   "Group_id": "B6r6a/TvJ36SvOrvyZHxQtDJDYNmWm3Y1/tqhJrKqFM=",
+   "Daemon_end_point": "localhost:8080"
+ }
+```
+
+Sample Payload for response stats
+```json
+
+{
+  "request_id": "bggdcdhod0kv0c9a3ft0",
+  "organization_id": "ExampleOrganizationID",
+  "service_id": "ExampleServiceID",
+  "Group_id": "B6r6a/TvJ36SvOrvyZHxQtDJDYNmWm3Y1/tqhJrKqFM=",
+  "Daemon_end_point": "localhost:8080",
+  "response_sent_time": "2018-12-24T12:59:51Z",
+  "response_time": "23.724177879s",
+  "response_code": "OK",
+  "error_message": ""
+}
+
+```
    
 
 ##### Configuration
@@ -105,10 +121,7 @@ The metrics being collected are
 ##### Service endpoint
 POST https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta/event
 
-Sample Payload (TBA)
-```json
-{}
-```
+
 
 ### Alerts/Notifications
 It is for alerting the user in case of any issues/errors/warning from the daemon/service, and also pass on some

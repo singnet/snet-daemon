@@ -22,7 +22,7 @@ type ResponseStats struct {
 
 func PublishResponseStats(reqId string, grpId string, duration time.Duration, err error) bool {
 	response := createResponseStats(reqId, grpId, duration, err)
-	return Publish(response, config.GetString(config.MonitoringServiceEndpoint))
+	return Publish(response, config.GetString(config.MonitoringServiceEndpoint)+"/event")
 }
 
 func createResponseStats(reqId string, grpId string, duration time.Duration, err error) *ResponseStats {

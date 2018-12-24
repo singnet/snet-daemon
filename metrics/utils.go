@@ -94,6 +94,7 @@ func publishJson(json []byte, serviceURL string) bool {
 	return false
 }
 
+//Check if the response received was proper
 func checkForSuccessfulResponse(response *http.Response) bool {
 	if response == nil {
 		log.Warningf("Empty response received.")

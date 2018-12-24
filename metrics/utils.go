@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 //Get the value of the first Pair
@@ -95,11 +96,11 @@ func publishJson(json []byte, serviceURL string) bool {
 
 func checkForSuccessfulResponse(response *http.Response) bool {
 	if response == nil {
-		log.Warningf("Nil response sent to check ")
+		log.Warningf("Empty response received.")
 		return false
 	}
 	if response.StatusCode != http.StatusOK {
-		log.Warningf("Unable to publish , status code returned : %d ", response.StatusCode)
+		log.Warningf("Service call failed with status code : %d ", response.StatusCode)
 		return false
 	} //close the body
 	defer response.Body.Close()
@@ -107,18 +108,22 @@ func checkForSuccessfulResponse(response *http.Response) bool {
 	body, err := ioutil.ReadAll(response.Body)
 
 	if err != nil {
-		log.WithError(err).Warningf("unable to analyze the response received")
+		log.WithError(err).Warningf("Invalid Response.")
 		return false
 	}
 	result, err := strconv.ParseBool(string(body))
 	if err != nil {
-		log.WithError(err).Warningf("unable to parse the body of the response received")
+		log.WithError(err).Warningf("Data conversion failed due to invalid datatype")
 	}
 	return result
-
 }
 
 //Generic utility to determine the size of the srtuct passed
 func GetSize(v interface{}) uint64 {
 	return memory.Sizeof(v)
+}
+
+// returns the epoch UTC timestamp from the current system time
+func getEpochTime() int64 {
+	return time.Now().UTC().Unix()
 }

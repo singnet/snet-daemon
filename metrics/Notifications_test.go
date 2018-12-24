@@ -11,8 +11,12 @@ func TestNotification_Send(t *testing.T) {
 	type fields struct {
 		DaemonID  string
 		Timestamp string
-		To        string
+		Recipient string
 		Message   string
+		Details   string
+		Component string
+		Type      string
+		Level     string
 	}
 	tests := []struct {
 		name   string
@@ -26,8 +30,12 @@ func TestNotification_Send(t *testing.T) {
 			alert := &Notification{
 				DaemonID:  tt.fields.DaemonID,
 				Timestamp: tt.fields.Timestamp,
-				To:        tt.fields.To,
+				Recipient: tt.fields.Recipient,
 				Message:   tt.fields.Message,
+				Details:   tt.fields.Details,
+				Component: tt.fields.Component,
+				Type:      tt.fields.Type,
+				Level:     tt.fields.Level,
 			}
 			if got := alert.Send(); got != tt.want {
 				t.Errorf("Notification.Send() = %v, want %v", got, tt.want)

@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -26,7 +25,6 @@ type Response struct {
 
 // Calls a gRPC endpoint for heartbeat (gRPC Client)
 func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
-
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(grpcAddress, grpc.WithInsecure())
 	if err != nil {
@@ -36,7 +34,6 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 
 	// create the client instance
 	client := pb.NewHeartbeatClient(conn)
-
 	// connect to the server and call the required method
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -93,17 +90,8 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	if err != nil {
 		log.WithError(err).Info("unable to reach metrics service")
 	} else {
-		if response.StatusCode != http.StatusOK {
-			log.WithError(err).Warningf("Wrong status code: %d", response.StatusCode)
-		}
-		log.Infof("Service request processed successfully. ")
-
-		// read the response body
-		body, _ := ioutil.ReadAll(response.Body)
-		result, _ := strconv.ParseBool(string(body))
-		return result
+		return checkForSuccessfulResponse(response)
 	}
-	defer response.Body.Close()
 	return false
 }
 
@@ -122,16 +110,7 @@ func callNotificationService(jsonAlert []byte, serviceURL string) bool {
 	if err != nil {
 		log.WithError(err).Warningf("unable to reach notification service")
 	} else {
-		if response.StatusCode != http.StatusOK {
-			log.WithError(err).Warningf("Wrong status code: %d", response.StatusCode)
-		}
-		log.Infof("Service request processed successfully. ")
-
-		// read the response body
-		body, _ := ioutil.ReadAll(response.Body)
-		result, _ := strconv.ParseBool(string(body))
-		return result
+		return checkForSuccessfulResponse(response)
 	}
-	defer response.Body.Close()
 	return false
 }

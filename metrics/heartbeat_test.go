@@ -6,42 +6,15 @@
 package metrics
 
 import (
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"reflect"
 	"testing"
 )
 
 func TestStatus_String(t *testing.T) {
-	tests := []struct {
-		name  string
-		state Status
-		want  string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.state.String(); got != tt.want {
-				t.Errorf("Status.String() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_getEpochTime(t *testing.T) {
-	tests := []struct {
-		name string
-		want int64
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getEpochTime(); got != tt.want {
-				t.Errorf("getEpochTime() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	assert.Equal(t, Online.String(), "Online", "Invalid enum string conversion")
+	assert.NotEqual(t, Online.String(), "Offline", "Invalid enum string conversion")
 }
 
 func TestGetHeartbeat(t *testing.T) {
@@ -65,7 +38,7 @@ func TestGetHeartbeat(t *testing.T) {
 	}
 }
 
-func Test_heartbeatHandler(t *testing.T) {
+func TestHeartbeatHandler(t *testing.T) {
 	type args struct {
 		rw http.ResponseWriter
 		r  *http.Request
@@ -78,7 +51,7 @@ func Test_heartbeatHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			heartbeatHandler(tt.args.rw, tt.args.r)
+			HeartbeatHandler(tt.args.rw, tt.args.r)
 		})
 	}
 }

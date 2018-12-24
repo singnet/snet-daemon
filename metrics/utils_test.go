@@ -2,10 +2,13 @@ package metrics
 
 import (
 	"github.com/stretchr/testify/assert"
+	"go/types"
 	"google.golang.org/grpc/metadata"
 	"net/http"
+	"reflect"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestGenXid(t *testing.T) {
@@ -64,4 +67,16 @@ func TestGetSize(t *testing.T) {
 		title: "abcdeefffffffffffffffff",
 	}
 	assert.Equal(t, strconv.FormatUint(GetSize(strt2), 10), "39")
+}
+
+func TestGetEpochTime(t *testing.T) {
+	currentEpoch := getEpochTime()
+	assert.NotNil(t, currentEpoch, "Epoch must not be empty")
+	assert.NotEqual(t, currentEpoch, 0, "epoch msut not be zero")
+	assert.IsType(t, reflect.TypeOf(types.Int64), reflect.TypeOf(currentEpoch), "Epoch must be an integer")
+
+	// two epochs must not be equal
+	time.Sleep(1 * time.Second)
+	secondEpoch := getEpochTime()
+	assert.NotEqual(t, currentEpoch, secondEpoch, "Epochs msut not be the same")
 }

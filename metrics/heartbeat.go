@@ -8,11 +8,9 @@ package metrics
 import (
 	"encoding/json"
 	"github.com/singnet/snet-daemon/config"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
-	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var curResp = `{"serviceName":"","status":"UNKNOWN"}`
@@ -47,11 +45,6 @@ func (state Status) String() string {
 	}
 	// return the status string constant from the array above.
 	return listStatus[state]
-}
-
-// returns the epoch UTC timestamp from the current system time
-func getEpochTime() int64 {
-	return time.Now().UTC().Unix()
 }
 
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving

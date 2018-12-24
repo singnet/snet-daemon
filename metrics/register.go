@@ -14,7 +14,8 @@ import (
 
 // generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
 func GetDaemonID() string {
-	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + config.GetString(config.DaemonEndPoint)
+	//rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + config.GetString(config.DaemonEndPoint)
+	rawID := "dinesh"
 	//get hash of the string id combination
 	hasher := sha256.New()
 	hasher.Write([]byte(rawID))

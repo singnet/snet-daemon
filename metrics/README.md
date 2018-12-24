@@ -115,7 +115,7 @@ Sample Payload for response stats
    
 
 ##### Configuration
- * **monitoring_svc_end_point** (mandatory. ```must be valid http|https url```) - It is the service endpoint to which we will have to 
+ * **monitoring_svc_end_point** (optional. ```must be valid http|https url```) - It is the service endpoint to which we will have to 
  post all the captured metrics.
 
 ##### Service endpoint

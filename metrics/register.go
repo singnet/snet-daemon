@@ -24,9 +24,13 @@ func GetDaemonID() string {
 
 var daemonGroupId string
 
-// New Daemon registration. Generates the DaemonID and use that as getting access token
-func RegisterDaemon(grpId string) bool {
+// setter method for daemonGroupID
+func SetDaemonGrpId(grpId string) {
 	daemonGroupId = grpId
+}
+
+// New Daemon registration. Generates the DaemonID and use that as getting access token
+func RegisterDaemon() bool {
 	daemonID := GetDaemonID()
 	serviceURL := config.GetString(config.MonitoringServiceEndpoint) + "/register"
 	status := false

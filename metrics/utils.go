@@ -8,10 +8,8 @@ import (
 	"github.com/rs/xid"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
-	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 )
 
@@ -25,14 +23,14 @@ func GetValue(md metadata.MD, key string) string {
 }
 
 //convert the given struct to its corresponding json.
-func ConvertStructToJSON(structBody interface{}) ([]byte, error) {
-	if structBody == nil {
-		return nil, errors.New("nil PayLoad passed")
+func ConvertStructToJSON(payLoad interface{}) ([]byte, error) {
+	if payLoad == nil {
+		return nil, errors.New("empty payload passed")
 	}
-	b, err := json.Marshal(&structBody)
+	b, err := json.Marshal(&payLoad)
 	if err != nil {
 		log.WithError(err).Warningf("Json conversion error.")
-		log.WithField("structBody", structBody).Warningf("Unable to derive json from structure passed")
+		log.WithField("payLoad", payLoad).Warningf("Unable to derive json from structure passed")
 		return nil, err
 	}
 	return b, nil
@@ -104,19 +102,9 @@ func checkForSuccessfulResponse(response *http.Response) bool {
 		log.Warningf("Service call failed with status code : %d ", response.StatusCode)
 		return false
 	} //close the body
+	log.Debug("Metrics posted successfully : %d ", response.StatusCode)
 	defer response.Body.Close()
-	// read the response body
-	body, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		log.WithError(err).Warningf("Invalid Response.")
-		return false
-	}
-	result, err := strconv.ParseBool(string(body))
-	if err != nil {
-		log.WithError(err).Warningf("Data conversion failed due to invalid datatype")
-	}
-	return result
+	return true
 }
 
 //Generic utility to determine the size of the srtuct passed

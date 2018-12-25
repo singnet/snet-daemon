@@ -234,7 +234,7 @@ func (d daemon) start() {
 
 	// Once everything is configured and updated, register the daemon
 	log.Debug("registering daemon")
-	go metrics.RegisterDaemon()
+	go metrics.RegisterDaemon(d.components.ServiceMetaData().GetDaemonGroupIDString())
 }
 
 func (d daemon) stop() {

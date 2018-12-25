@@ -10,16 +10,16 @@ import (
 
 //Request stats that will be captured
 type RequestStats struct {
-	RequestID          string `json:"request_id"`
-	InputDataSize      string `json:"input_data_size"`
-	ContentType        string `json:"content-type"`
-	ServiceMethod      string `json:"service_method"`
-	UserAgent          string `json:"user-agent"`
-	RequestArrivalTime string `json:"request_arrival_time"`
-	OrganizationID     string `json:"organization_id"`
-	ServiceID          string `json:"service_id"`
-	GroupID            string `json:"Group_id"`
-	DaemonEndPoint     string `json:"Daemon_end_point"`
+	RequestID           string `json:"request_id"`
+	InputDataSize       string `json:"input_data_size"`
+	ContentType         string `json:"content-type"`
+	ServiceMethod       string `json:"service_method"`
+	UserAgent           string `json:"user-agent"`
+	RequestReceivedTime string `json:"request_arrival_time"`
+	OrganizationID      string `json:"organization_id"`
+	ServiceID           string `json:"service_id"`
+	GroupID             string `json:"Group_id"`
+	DaemonEndPoint      string `json:"Daemon_end_point"`
 }
 
 //Create a request Object and Publish this to a service end point
@@ -45,12 +45,12 @@ func setDataFromContext(md metadata.MD, request *RequestStats) {
 
 func createRequestStat(reqId string, grpId string, time time.Time) *RequestStats {
 	request := &RequestStats{
-		RequestID:          reqId,
-		GroupID:            grpId,
-		DaemonEndPoint:     config.GetString(config.DaemonEndPoint),
-		OrganizationID:     config.GetString(config.OrganizationId),
-		ServiceID:          config.GetString(config.ServiceId),
-		RequestArrivalTime: time.String(),
+		RequestID:           reqId,
+		GroupID:             grpId,
+		DaemonEndPoint:      config.GetString(config.DaemonEndPoint),
+		OrganizationID:      config.GetString(config.OrganizationId),
+		ServiceID:           config.GetString(config.ServiceId),
+		RequestReceivedTime: time.String(),
 	}
 	return request
 }

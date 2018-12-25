@@ -100,7 +100,7 @@ const (
     "enabled": true
   },
   "enable_metrics": true,
-  "monitoring_svc_end_point": "http://demo3208027.mockable.io",
+  "monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
   "notification_svc_end_point": "http://demo3208027.mockable.io",
   "alert_email": "dinesh@singularitynet.io",
   "service_heartbeat_type": "http",

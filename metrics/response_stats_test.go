@@ -3,14 +3,18 @@ package metrics
 import (
 	"fmt"
 	"github.com/magiconair/properties/assert"
+	assert2 "github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestCreateResponseStats(t *testing.T) {
-	response := createResponseStats("123", "#we3", time.Duration(12), nil)
-	assert.Equal(t, response.RequestID, "123")
-	assert.Equal(t, response.GroupID, "#we3")
+	arrivalTime := time.Now()
+	commonStat := BuildCommonStats(arrivalTime, "TestMethod")
+	response := createResponseStats(commonStat, time.Duration(12), nil)
+	assert.Equal(t, response.RequestID, commonStat.ID)
+	assert.Equal(t, response.GroupID, daemonGroupId)
+	assert2.NotEqual(t, response.ResponseSentTime, "")
 }
 
 func TestGetErrorMessage(t *testing.T) {

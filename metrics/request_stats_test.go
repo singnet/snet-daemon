@@ -5,25 +5,25 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"google.golang.org/grpc/metadata"
 	"testing"
-	time2 "time"
+	"time"
 )
 
 func TestSetDataFromContext(t *testing.T) {
-	md := metadata.Pairs("user-agent", "Test user agent", "time", "2018-09-93", "content-type", "application/grpc")
+	md := metadata.Pairs("user-agent", "Test user agent", "time", "2018-09-93", "content-type", "application/")
 	request := &RequestStats{}
-	setDataFromContext(md, request)
+	request.setDataFromContext(md)
 	assert.Equal(t, request.UserAgent, "Test user agent")
-	assert.Equal(t, request.ContentType, "application/grpc")
-
+	assert.Equal(t, request.ContentType, "application/")
 }
 
 func TestCreateRequestStat(t *testing.T) {
-	time := time2.Now()
-	request := createRequestStat("123", "A1234", time)
-	assert.Equal(t, request.RequestID, "123")
-	assert.Equal(t, request.GroupID, "A1234")
+	arrivalTime := time.Now()
+	commonStat := BuildCommonStats(arrivalTime, "TestMethod")
+	request := createRequestStat(commonStat)
+	assert.Equal(t, request.RequestID, commonStat.ID)
+	assert.Equal(t, request.GroupID, daemonGroupId)
 	assert.Equal(t, request.DaemonEndPoint, config.GetString(config.DaemonEndPoint))
 	assert.Equal(t, request.OrganizationID, config.GetString(config.OrganizationId))
 	assert.Equal(t, request.ServiceID, config.GetString(config.ServiceId))
-	assert.Equal(t, request.RequestReceivedTime, time.String())
+	assert.Equal(t, request.RequestReceivedTime, arrivalTime.String())
 }

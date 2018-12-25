@@ -6,10 +6,11 @@
 package metrics
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStatus_String(t *testing.T) {

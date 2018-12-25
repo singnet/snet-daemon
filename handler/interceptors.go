@@ -101,17 +101,13 @@ type PaymentHandler interface {
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
 }
 
-//Rate limit,
 type rateLimitInterceptor struct {
 	rateLimiter rate.Limiter
-	//keep track of which group this daemon belongs to
-	groupId string
 }
 
-func GrpcRateLimitInterceptor(grpId string) grpc.StreamServerInterceptor {
+func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
 		rateLimiter: ratelimit.NewRateLimiter(),
-		groupId:     grpId,
 	}
 	return interceptor.intercept
 }
@@ -126,10 +122,13 @@ func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.Serv
 	if config.GetBool(config.EnableMetrics) {
 		var start time.Time
 		start = time.Now()
-		reqid := metrics.GenXid()
-		go metrics.PublishRequestStats(reqid, interceptor.groupId, start, ss)
+		//Get the method name
+		methodName, _ := grpc.MethodFromServerStream(ss)
+		//Build common stats and use this to set request stats and response stats
+		commonStats := metrics.BuildCommonStats(start, methodName)
+		go metrics.PublishRequestStats(commonStats, ss)
 		defer func() {
-			go metrics.PublishResponseStats(reqid, interceptor.groupId, time.Now().Sub(start), e)
+			go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), e)
 		}()
 	}
 	e = handler(srv, ss)

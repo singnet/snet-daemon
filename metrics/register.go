@@ -12,10 +12,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
+// generates DaemonID nad returns i.e. DaemonID = HASH (Org ID, Service ID, daemon endpoint)
 func GetDaemonID() string {
-	//rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + config.GetString(config.DaemonEndPoint)
-	rawID := "dinesh"
+	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + config.GetString(config.DaemonEndPoint)
 	//get hash of the string id combination
 	hasher := sha256.New()
 	hasher.Write([]byte(rawID))
@@ -24,22 +23,17 @@ func GetDaemonID() string {
 }
 
 // New Daemon registration. Generates the DaemonID and use that as getting access token
-func RegisterDaemon() {
+func RegisterDaemon() bool {
 	daemonID := GetDaemonID()
 	serviceURL := config.GetString(config.MonitoringServiceEndpoint) + "/register"
 	status := false
-
-	//check whether given address is valid or not
-	if !isValidUrl(serviceURL) {
-		log.Warningf("Invalid service URL %s", serviceURL)
-	} else {
-		// call the service and get the result
-		status = callRegisterService(daemonID, serviceURL)
-		if status {
-			log.Infof("Daemon successfully registered with the monitoring service. ")
-		}
+	// call the service and get the result
+	status = callRegisterService(daemonID, serviceURL)
+	if !status {
 		log.Infof("Daemon unable to register with the monitoring service. ")
 	}
+	log.Infof("Daemon successfully registered with the monitoring service. ")
+	return status
 }
 
 /*

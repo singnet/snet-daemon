@@ -29,6 +29,7 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 	conn, err := grpc.Dial(grpcAddress, grpc.WithInsecure())
 	if err != nil {
 		log.WithError(err).Warningf("Unable to connect to grpc endpoint: %v", err)
+		return nil, err
 	}
 	defer conn.Close()
 
@@ -42,12 +43,15 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 	resp, err := client.Check(ctx, &pb.Empty{})
 	if err != nil {
 		log.WithError(err).Warningf("Error in calling the heartbeat service : %v", err)
+		return nil, err
 	}
 	//convert enum to string, because json marshal doesnt do it
-	responseConv := &Response{ServiceName: resp.ServiceName, Status: resp.Status.String()}
+	responseConv := &Response{ServiceName: resp.ServiceID, Status: resp.Status.String()}
 	jsonResp, err := json.Marshal(responseConv)
 	if err != nil {
+		log.Infof("Response Received : %v", responseConv)
 		log.WithError(err).Warningf("Invalid service response : %v", err)
+		return nil, err
 	}
 	log.Infof("Service heartbeat received : %s", string(jsonResp))
 	return jsonResp, nil
@@ -57,21 +61,21 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	response, err := http.Get(serviceURL)
 	if err != nil {
-		log.WithError(err).Info("The service request failed with an error.")
-	} else {
-		if response.StatusCode != http.StatusOK {
-			log.WithError(err).Warningf("Wrong status code: %d", response.StatusCode)
-			return []byte(""), errors.New("Unexpected error with the service.")
-		}
-		log.Infof("Service request processed successfully. ")
-		serviceHeartbeat, _ := ioutil.ReadAll(response.Body)
-
-		if string(serviceHeartbeat) == "" {
-			return serviceHeartbeat, errors.New("Invalid service response")
-		}
-		return serviceHeartbeat, nil
+		log.WithError(err).Info("The service request failed with an error: %v", err)
+		return nil, err
 	}
-	return []byte(""), errors.New("Invalid service response")
+	if response.StatusCode != http.StatusOK {
+		log.Warningf("Wrong status code: %d", response.StatusCode)
+		return nil, errors.New("Unexpected error with the service.")
+	}
+	// Read the response
+	serviceHeartbeat, _ := ioutil.ReadAll(response.Body)
+	//Check if we got empty response
+	if string(serviceHeartbeat) == "" {
+		return nil, errors.New("Empty service response.")
+	}
+	log.Infof("Response received : %v", serviceHeartbeat)
+	return serviceHeartbeat, nil
 }
 
 // calls the correspanding the service to send the registration information
@@ -82,17 +86,18 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Access-Token", daemonID)
 	if err != nil {
-		log.WithError(err).Infof("Unable to create register service request")
+		log.WithError(err).Infof("Unable to create register service request : %v", err)
+		return false
 	}
 	// sending the post request
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		log.WithError(err).Info("unable to reach metrics service")
-	} else {
-		return checkForSuccessfulResponse(response)
+		log.WithError(err).Info("unable to reach registration service : %v", err)
+		return false
 	}
-	return false
+	// process the response
+	return checkForSuccessfulResponse(response)
 }
 
 // sends a notification to the user via notification service
@@ -102,15 +107,15 @@ func callNotificationService(jsonAlert []byte, serviceURL string) bool {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Access-Token", GetDaemonID())
 	if err != nil {
-		log.WithError(err).Warningf("Unable to create notification service request")
+		log.WithError(err).Warningf("Unable to create notification service request : %v", err)
+		return false
 	}
 	// sending the post request
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		log.WithError(err).Warningf("unable to reach notification service")
-	} else {
-		return checkForSuccessfulResponse(response)
+		log.WithError(err).Warningf("unable to reach notification service : %v", err)
+		return false
 	}
-	return false
+	return checkForSuccessfulResponse(response)
 }

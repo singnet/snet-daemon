@@ -2,6 +2,8 @@
 // All rights reserved.
 // <<add licence terms for code reuse>>
 
+//go:generate protoc -I services/ services/heartbeat.proto --go_out=plugins=grpc:services
+
 // package for monitoring and reporting the daemon metrics
 package metrics
 
@@ -13,7 +15,7 @@ import (
 	"strconv"
 )
 
-var curResp = `{"serviceName":"","status":"UNKNOWN"}`
+var curResp = `{"serviceID":"","status":"UNKNOWN"}`
 
 // status enum
 type Status int
@@ -50,14 +52,9 @@ func (state Status) String() string {
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
 func GetHeartbeat() (DaemonHeartbeat, bool) {
 	heartbeat := DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "[{}]"}
-	// read the hearbeat service type and correspanding URL
+	// read the heartbeat service type and corresponding URL
 	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
 	serviceType := config.GetString(config.ServiceHeartbeatType)
-	//check whether given address is valid or not
-	if !isValidUrl(serviceURL) {
-		log.Warningf("Invalid service URL %s", serviceURL)
-		heartbeat.Status = Warnings.String()
-	}
 	var svcHeartbeat []byte
 	var err error
 
@@ -67,11 +64,11 @@ func GetHeartbeat() (DaemonHeartbeat, bool) {
 	} else {
 		svcHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
 	}
-	if err == nil {
+	if err != nil {
+		heartbeat.Status = Warnings.String()
+	} else {
 		log.Infof("Service %s status : %s", serviceURL, svcHeartbeat)
 		curResp = string(svcHeartbeat)
-	} else {
-		heartbeat.Status = Warnings.String()
 	}
 	heartbeat.ServiceHeartbeat = curResp
 	return heartbeat, true
@@ -81,6 +78,7 @@ func GetHeartbeat() (DaemonHeartbeat, bool) {
 // wraps the results in daemons heartbeat
 func HeartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 	heartbeat, status := GetHeartbeat()
+	// ideally we will not get false. because by default, we will get daemon response even if service fails
 	if !status {
 		log.Warningf("Unable to get Heartbeat. ")
 	}
@@ -92,13 +90,13 @@ func HeartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 
 /*
 service heartbeat/grpc heartbeat
-{"serviceName":"sample1", "status":"SERVING"}
+{"serviceID":"sample1", "status":"SERVING"}
 
 daemon heartbeat
 {
   "daemonID": "3a4ebeb75eace1857a9133c7a50bdbb841b35de60f78bc43eafe0d204e523dfe",
   "timestamp": "1544916260",
   "status": "Online",
-  "serviceheartbeat": "{\"serviceName\":\"sample1\", \"status\":\"SERVING\"}"
+  "serviceheartbeat": "{\"serviceID\":\"sample1\", \"status\":\"SERVING\"}"
 }
 */

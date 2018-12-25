@@ -14,8 +14,7 @@ import (
 
 // generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
 func GetDaemonID() string {
-	//rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + config.GetString(config.DaemonEndPoint)
-	rawID := "dinesh"
+	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + daemonGroupId + config.GetString(config.DaemonEndPoint)
 	//get hash of the string id combination
 	hasher := sha256.New()
 	hasher.Write([]byte(rawID))
@@ -23,8 +22,11 @@ func GetDaemonID() string {
 	return hash
 }
 
+var daemonGroupId string
+
 // New Daemon registration. Generates the DaemonID and use that as getting access token
-func RegisterDaemon() {
+func RegisterDaemon(grpId string) {
+	daemonGroupId = grpId
 	daemonID := GetDaemonID()
 	serviceURL := config.GetString(config.MonitoringServiceEndpoint) + "/register"
 	status := false

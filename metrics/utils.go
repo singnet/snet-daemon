@@ -102,7 +102,7 @@ func checkForSuccessfulResponse(response *http.Response) bool {
 		log.Warningf("Service call failed with status code : %d ", response.StatusCode)
 		return false
 	} //close the body
-	log.Debug("Metrics posted successfully : %d ", response.StatusCode)
+	log.Debugf("Metrics posted successfully with status code : %d ", response.StatusCode)
 	defer response.Body.Close()
 	return true
 }

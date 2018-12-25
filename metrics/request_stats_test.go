@@ -25,4 +25,5 @@ func TestCreateRequestStat(t *testing.T) {
 	assert.Equal(t, request.DaemonEndPoint, config.GetString(config.DaemonEndPoint))
 	assert.Equal(t, request.OrganizationID, config.GetString(config.OrganizationId))
 	assert.Equal(t, request.ServiceID, config.GetString(config.ServiceId))
+	assert.Equal(t, request.RequestReceivedTime, time.String())
 }

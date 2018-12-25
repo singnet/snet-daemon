@@ -44,10 +44,6 @@ func GenXid() string {
 
 //convert the payload to JSON and publish it to the serviceUrl passed
 func Publish(payload interface{}, serviceUrl string) bool {
-	if !isValidUrl(serviceUrl) {
-		log.WithField("url", serviceUrl).Warningf("Invalid url")
-		return false
-	}
 	jsonBytes, err := ConvertStructToJSON(payload)
 	if err != nil {
 		return false

@@ -105,6 +105,10 @@ type rateLimitInterceptor struct {
 	rateLimiter rate.Limiter
 }
 
+type monitoringInterceptor struct {
+	enableMonitoring bool
+}
+
 func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
 		rateLimiter: ratelimit.NewRateLimiter(),
@@ -112,14 +116,18 @@ func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
 	return interceptor.intercept
 }
 
-func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	if !interceptor.rateLimiter.Allow() {
-		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")
-		return status.New(codes.ResourceExhausted, "rate limiting , too many requests to handle").Err()
+func GrpcMonitoringInterceptor() grpc.StreamServerInterceptor {
+	interceptor := &monitoringInterceptor{
+		config.GetBool(config.EnableMetrics),
 	}
+	return interceptor.intercept
+}
+
+//Monitor requests arrived and responses sent and publish these stats for Reporting
+func (interceptor *monitoringInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	var e error
-	//Publish the metrics if it enabled
-	if config.GetBool(config.EnableMetrics) {
+	//Publish the metrics if it is enabled
+	if interceptor.enableMonitoring {
 		var start time.Time
 		start = time.Now()
 		//Get the method name
@@ -132,6 +140,19 @@ func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.Serv
 		}()
 	}
 	e = handler(srv, ss)
+	if e != nil {
+		log.WithError(e)
+		return e
+	}
+	return nil
+}
+
+func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	if !interceptor.rateLimiter.Allow() {
+		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")
+		return status.New(codes.ResourceExhausted, "rate limiting , too many requests to handle").Err()
+	}
+	e := handler(srv, ss)
 	if e != nil {
 		log.WithError(e)
 		return e

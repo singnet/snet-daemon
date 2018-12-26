@@ -188,7 +188,8 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
-	components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(), components.GrpcPaymentValidationInterceptor())
+	components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(),
+		handler.GrpcMonitoringInterceptor(), components.GrpcPaymentValidationInterceptor())
 	return components.grpcInterceptor
 }
 

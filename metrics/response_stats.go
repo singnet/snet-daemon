@@ -46,9 +46,29 @@ type ResponseStats struct {
 	ErrorMessage        string `json:"error_message"`
 }
 
+//Publish response received as a payload for reporting /metrics analysis
+//If there is an error in the response received from the service, then send out a notification as well.
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
+	//Publish an alert on the notification service end point if there is an error
+	if err != nil {
+		notification := createNotification(response)
+		Publish(notification, config.GetString(config.NotificationServiceEndpoint)+"/notify")
+	}
 	return Publish(response, config.GetString(config.MonitoringServiceEndpoint)+"/event")
+}
+
+func createNotification(responseStats *ResponseStats) *Notification {
+	notification := &Notification{
+		Recipient: config.GetString(config.AlertsEMail),
+		Details:   responseStats.ErrorMessage,
+		Timestamp: responseStats.ResponseSentTime,
+		Message:   "Error on call of Service Method :" + responseStats.ServiceMethod,
+		Component: "Daemon",
+		DaemonID:  GetDaemonID(),
+		Level:     "ERROR",
+	}
+	return notification
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {

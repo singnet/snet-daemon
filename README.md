@@ -183,6 +183,12 @@ private key with which daemon transacts on blockchain.
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)
 
+* **monitoring_enabled** (optional; default: `true`) - 
+Enable or Disable monitoring of Requests arrived and response sent back
+
+* **monitoring_svc_end_point** (optional; default: `"https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta"`) - 
+Needs to be a vaild url where the request and response stats are published as part of monitoring
+
 * **ssl_cert** (optional; default: `""`) - 
 path to certificate to use for SSL.
 

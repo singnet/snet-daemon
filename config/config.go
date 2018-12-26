@@ -21,14 +21,17 @@ const (
 	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
-	DaemonTypeKey                  = "daemon_type"
-	DaemonEndPoint                 = "daemon_end_point"
-	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
-	ExecutablePathKey              = "executable_path"
-	HdwalletIndexKey               = "hdwallet_index"
-	HdwalletMnemonicKey            = "hdwallet_mnemonic"
-	IpfsEndPoint                   = "ipfs_end_point"
-	LogKey                         = "log"
+	DaemonTypeKey              = "daemon_type"
+	DaemonEndPoint             = "daemon_end_point"
+	EthereumJsonRpcEndpointKey = "ethereum_json_rpc_endpoint"
+	ExecutablePathKey          = "executable_path"
+	HdwalletIndexKey           = "hdwallet_index"
+	HdwalletMnemonicKey        = "hdwallet_mnemonic"
+	IpfsEndPoint               = "ipfs_end_point"
+	LogKey                     = "log"
+	//configs for Daemon Monitoring
+	MonitoringEnabled              = "monitoring_enabled"
+	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -52,6 +55,8 @@ const (
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
+	"monitoring_enabled": true,
+	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",

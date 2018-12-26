@@ -36,6 +36,7 @@ type ServiceMetadata struct {
 		GroupName string `json:"group_name"`
 		Endpoint  string `json:"endpoint"`
 	} `json:"endpoints"`
+
 	daemonReplicaGroupIDString string
 	daemonReplicaGroupID       [32]byte
 	daemonGroupName            string

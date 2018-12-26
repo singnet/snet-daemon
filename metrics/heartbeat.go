@@ -15,8 +15,6 @@ import (
 	"strconv"
 )
 
-var curResp = `{"serviceID":"","status":"UNKNOWN"}`
-
 // status enum
 type Status int
 
@@ -50,14 +48,13 @@ func (state Status) String() string {
 }
 
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
-func GetHeartbeat() (DaemonHeartbeat, bool) {
+func GetHeartbeat(serviceURL string) DaemonHeartbeat {
 	heartbeat := DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "[{}]"}
-	// read the heartbeat service type and corresponding URL
-	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
+
 	serviceType := config.GetString(config.ServiceHeartbeatType)
+	var curResp = `{"serviceID":"` + config.ServiceId + `","status":"NOT_SERVING"}`
 	var svcHeartbeat []byte
 	var err error
-
 	// if daemon type is grpc, then call grpc heartbeat, else go for HTTP service heartbeat
 	if serviceType == "grpc" {
 		svcHeartbeat, err = callgRPCServiceHeartbeat(serviceURL)
@@ -66,22 +63,21 @@ func GetHeartbeat() (DaemonHeartbeat, bool) {
 	}
 	if err != nil {
 		heartbeat.Status = Warnings.String()
+
 	} else {
 		log.Infof("Service %s status : %s", serviceURL, svcHeartbeat)
 		curResp = string(svcHeartbeat)
 	}
 	heartbeat.ServiceHeartbeat = curResp
-	return heartbeat, true
+	return heartbeat
 }
 
 // Heartbeat request handler function : upon request it will hit the service for status and
 // wraps the results in daemons heartbeat
 func HeartbeatHandler(rw http.ResponseWriter, r *http.Request) {
-	heartbeat, status := GetHeartbeat()
-	// ideally we will not get false. because by default, we will get daemon response even if service fails
-	if !status {
-		log.Warningf("Unable to get Heartbeat. ")
-	}
+	// read the heartbeat service type and corresponding URL
+	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
+	heartbeat := GetHeartbeat(serviceURL)
 	err := json.NewEncoder(rw).Encode(heartbeat)
 	if err != nil {
 		log.WithError(err).Infof("Failed to write heartbeat message.")

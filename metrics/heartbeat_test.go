@@ -18,27 +18,6 @@ func TestStatus_String(t *testing.T) {
 	assert.NotEqual(t, Online.String(), "Offline", "Invalid enum string conversion")
 }
 
-func TestGetHeartbeat(t *testing.T) {
-	tests := []struct {
-		name  string
-		want  DaemonHeartbeat
-		want1 bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := GetHeartbeat()
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetHeartbeat() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("GetHeartbeat() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
 func TestHeartbeatHandler(t *testing.T) {
 	type args struct {
 		rw http.ResponseWriter
@@ -53,6 +32,28 @@ func TestHeartbeatHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			HeartbeatHandler(tt.args.rw, tt.args.r)
+		})
+	}
+}
+
+func TestGetHeartbeat(t *testing.T) {
+	type args struct {
+		serviceURL string
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want  DaemonHeartbeat
+		want1 bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetHeartbeat(tt.args.serviceURL)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetHeartbeat() got = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

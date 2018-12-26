@@ -9,7 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -53,16 +52,6 @@ func Publish(payload interface{}, serviceUrl string) bool {
 		log.WithField("payload", string(jsonBytes)).WithField("url", serviceUrl).Warning("Unable to publish metrics")
 	}
 	return status
-}
-
-// isValidUrl tests a string to determine if it is a url or not.
-func isValidUrl(urlToTest string) bool {
-	_, err := url.ParseRequestURI(urlToTest)
-	if err != nil {
-		return false
-	} else {
-		return true
-	}
 }
 
 // Publish the json on the service end point

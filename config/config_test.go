@@ -90,3 +90,10 @@ func TestSetDefaultFromConfig(t *testing.T) {
 
 	assertConfigIsEqualToJsonConfigString(t, config)
 }
+
+func TestIsValidUrl(t *testing.T) {
+	valid := IsValidUrl("")
+	assert.Equal(t, valid, false)
+	valid = IsValidUrl("http://test:8080")
+	assert.Equal(t, valid, true)
+}

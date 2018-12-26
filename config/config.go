@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -42,7 +43,7 @@ const (
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	EnableMetrics                  = "enable_metrics"
 	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
-	AlertsEMail                    = "alert_email"
+	AlertsEMail                    = "alerts_email"
 	NotificationServiceEndpoint    = "notification_svc_end_point"
 	ServiceHeartbeatType           = "service_heartbeat_type"  //none|grpc|http
 	HeartbeatServiceEndpoint       = "heartbeat_svc_end_point" // optional. mandatory only when heartbeat type is http
@@ -102,7 +103,7 @@ const (
   "enable_metrics": true,
   "monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
   "notification_svc_end_point": "http://demo3208027.mockable.io",
-  "alert_email": "dinesh@singularitynet.io",
+  "alerts_email": "dinesh@singularitynet.io",
   "service_heartbeat_type": "http",
   "heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat"  
 }`
@@ -157,6 +158,13 @@ func Validate() error {
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
+	}
+
+	// validate heartbeat, notification, and monitoring service endpoints
+	if !(IsValidUrl(vip.GetString(HeartbeatServiceEndpoint)) &&
+		IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) &&
+		IsValidUrl(vip.GetString(NotificationServiceEndpoint))) {
+		return errors.New("service endpoint must be a valid URL")
 	}
 
 	return nil
@@ -233,4 +241,14 @@ func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err er
 	value = &big.Int{}
 	err = value.UnmarshalText([]byte(config.GetString(key)))
 	return
+}
+
+// isValidUrl tests a string to determine if it is a url or not.
+func IsValidUrl(urlToTest string) bool {
+	_, err := url.ParseRequestURI(urlToTest)
+	if err != nil {
+		return false
+	} else {
+		return true
+	}
 }

@@ -106,8 +106,10 @@ Sample Payload for response stats
   "service_id": "ExampleServiceID",
   "Group_id": "B6r6a/TvJ36SvOrvyZHxQtDJDYNmWm3Y1/tqhJrKqFM=",
   "Daemon_end_point": "localhost:8080",
+  "service_method": "/example_service.Calculator/div",
+  "request_received_time": "2018-12-24T12:42:51Z",
   "response_sent_time": "2018-12-24T12:59:51Z",
-  "response_time": "23.724177879s",
+  "response_time": "17.724177879s",
   "response_code": "OK",
   "error_message": ""
 }

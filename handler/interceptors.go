@@ -123,7 +123,7 @@ func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.Serv
 	}
 	var e error
 	//Publish the metrics if it enabled
-	if config.GetBool(config.EnableMetrics) {
+	if config.GetBool(config.EnableMonitoring) {
 		var start time.Time
 		start = time.Now()
 		reqid := metrics.GenXid()

@@ -186,7 +186,7 @@ see [logger configuration](./logger/README.md)
 * **monitoring_enabled** (optional; default: `true`) - 
 Enable or Disable monitoring of Requests arrived and response sent back
 
-* **monitoring_svc_end_point** (optional; default: `"https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta"`) - 
+* **monitoring_svc_end_point** (optional;only applies if `monitoring_enabled` is set to true) - 
 Needs to be a vaild url where the request and response stats are published as part of monitoring
 
 * **ssl_cert** (optional; default: `""`) - 

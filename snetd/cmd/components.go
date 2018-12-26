@@ -190,8 +190,9 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	}
 	if config.GetBool(config.MonitoringEnabled) {
 		//If monitoring is enabled , add this interceptor to the chain of interceptors
-		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(),
-			handler.GrpcMonitoringInterceptor(), components.GrpcPaymentValidationInterceptor())
+		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
+			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(),
+			components.GrpcPaymentValidationInterceptor())
 	} else {
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(),
 			components.GrpcPaymentValidationInterceptor())

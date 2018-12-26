@@ -18,28 +18,28 @@ func TestCreateResponseStats(t *testing.T) {
 }
 
 func TestGetErrorMessage(t *testing.T) {
-	err := fmt.Errorf("Test Error")
+	err := fmt.Errorf("test Error")
 	msg := getErrorMessage(err)
-	assert.Equal(t, msg, "Test Error")
+	assert.Equal(t, msg, "test Error")
 	assert.Equal(t, getErrorMessage(nil), "")
 
 }
 
 func TestGetErrorCode(t *testing.T) {
-	err := fmt.Errorf("Test Error")
+	err := fmt.Errorf("test Error")
 	code := getErrorCode(err)
 	assert.Equal(t, code, "Unknown")
 	assert.Equal(t, getErrorCode(nil), "OK")
 }
 
-func TestCreateNotificaiton(t *testing.T) {
+func TestCreateNotification(t *testing.T) {
 	arrivalTime := time.Now()
-	err := fmt.Errorf("Test Error")
+	err := fmt.Errorf("test Error")
 	commonStat := BuildCommonStats(arrivalTime, "TestMethod")
 	response := createResponseStats(commonStat, time.Duration(12), err)
 	notification := createNotification(response)
 	assert.Equal(t, notification.DaemonID, GetDaemonID())
-	assert.Equal(t, notification.Details, "Test Error")
+	assert.Equal(t, notification.Details, "test Error")
 	assert.Equal(t, notification.Message, "Error on call of Service Method :TestMethod")
 	assert.Equal(t, notification.Timestamp, response.ResponseSentTime)
 }

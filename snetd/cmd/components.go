@@ -183,15 +183,21 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 
 	return components.escrowPaymentHandler
 }
-
+//Add a chain of interceptors
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
-	components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(),
-		handler.GrpcMonitoringInterceptor(), components.GrpcPaymentValidationInterceptor())
+	if config.GetBool(config.EnableMonitoring) {
+		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(),
+			handler.GrpcMonitoringInterceptor(), components.GrpcPaymentValidationInterceptor())
+	} else {
+		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(),
+			components.GrpcPaymentValidationInterceptor())
+	}
 	return components.grpcInterceptor
 }
+
 
 func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {

@@ -46,7 +46,6 @@ func RegisterDaemon() bool {
 /*
 service request
 {"daemonID":"3a4ebeb75eace1857a9133c7a50bdbb841b35de60f78bc43eafe0d204e523dfe"}
-
 service output
 true/false
 */

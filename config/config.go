@@ -42,7 +42,7 @@ const (
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                    = "alert_email"
-	EnableMetrics                  = "enable_metrics"
+	EnableMonitoring               = "enable_monitoring"
 	HeartbeatServiceEndpoint       = "heartbeat_svc_end_point"
 	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
 	NotificationServiceEndpoint    = "notification_svc_end_point"
@@ -103,7 +103,7 @@ const (
 		"enabled": true
 	},
 	"alert_email": "",
-	"enable_metrics": true,
+	"enable_monitoring": true,
 	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
 	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"notification_svc_end_point": "http://demo3208027.mockable.io",

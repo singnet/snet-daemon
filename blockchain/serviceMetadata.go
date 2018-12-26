@@ -36,13 +36,12 @@ type ServiceMetadata struct {
 		GroupName string `json:"group_name"`
 		Endpoint  string `json:"endpoint"`
 	} `json:"endpoints"`
-
 	daemonReplicaGroupIDString string
-	daemonReplicaGroupID       [32]byte
-	daemonGroupName            string
-	daemonEndPoint             string
-	recipientPaymentAddress    common.Address
-	multiPartyEscrowAddress    common.Address
+	daemonReplicaGroupID    [32]byte
+	daemonGroupName         string
+	daemonEndPoint          string
+	recipientPaymentAddress common.Address
+	multiPartyEscrowAddress common.Address
 }
 
 func getRegistryAddressKey() common.Address {

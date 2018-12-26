@@ -41,72 +41,77 @@ const (
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
-	EnableMetrics                  = "enable_metrics"
-	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
-	AlertsEMail                    = "alerts_email"
-	NotificationServiceEndpoint    = "notification_svc_end_point"
-	ServiceHeartbeatType           = "service_heartbeat_type"  //none|grpc|http
-	HeartbeatServiceEndpoint       = "heartbeat_svc_end_point" // optional. mandatory only when heartbeat type is http
+	//configs for Daemon Monitoring and Notification
+	AlertsEMail                 = "alerts_email"
+	EnableMonitoring            = "enable_monitoring"
+	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	MonitoringServiceEndpoint   = "monitoring_svc_end_point"
+	NotificationServiceEndpoint = "notification_svc_end_point"
+	ServiceHeartbeatType        = "service_heartbeat_type" //none|grpc|http
 
-	defaultConfigJson string = `{
-  "auto_ssl_domain": "",
-  "auto_ssl_cache_dir": ".certs",
-  "blockchain_enabled": true,
-  "daemon_type": "grpc",
-  "daemon_end_point": "127.0.0.1:8080",
-  "ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
-  "hdwallet_index": 0,
-  "hdwallet_mnemonic": "",
-  "ipfs_end_point": "http://localhost:5002/",
+	// optional. mandatory only when heartbeat type is http
+	defaultConfigJson string = `
+{
+	"auto_ssl_domain": "",
+	"auto_ssl_cache_dir": ".certs",
+	"blockchain_enabled": true,
+	"daemon_type": "grpc",
+	"daemon_end_point": "127.0.0.1:8080",
+	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
+	"hdwallet_index": 0,
+	"hdwallet_mnemonic": "",
+	"ipfs_end_point": "http://localhost:5002/", 
 	"organization_id": "ExampleOrganizationId", 
-  "passthrough_enabled": false,
-  "registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
+	"passthrough_enabled": false,
+	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_id": "ExampleServiceId", 
-  "private_key": "",
-  "ssl_cert": "",
-  "ssl_key": "",
-  "log": {
-    "level": "info",
-    "timezone": "UTC",
-    "formatter": {
-      "type": "text"
-    },
-    "output": {
-      "type": "file",
-      "file_pattern": "./snet-daemon.%Y%m%d.log",
-      "current_link": "./snet-daemon.log",
-      "rotation_time_in_sec": 86400,
-      "max_age_in_sec": 604800,
-      "rotation_count": 0
-    },
-		"hooks": [] 
-  },
-  "payment_channel_storage_type": "etcd",
-  "payment_channel_storage_client": {
-    "connection_timeout": "5s",
-    "request_timeout": "3s",
+	"private_key": "",
+	"ssl_cert": "",
+	"ssl_key": "",
+	"log":  {
+		"level": "info",
+		"timezone": "UTC",
+		"formatter": {
+			"type": "text"
+		},
+		"output": {
+			"type": "file",
+			"file_pattern": "./snet-daemon.%Y%m%d.log",
+			"current_link": "./snet-daemon.log",
+			"rotation_time_in_sec": 86400,
+			"max_age_in_sec": 604800,
+			"rotation_count": 0
+		},
+		"hooks": []
+	},
+	"payment_channel_storage_type": "etcd",
+	"payment_channel_storage_client": {
+		"connection_timeout": "5s",
+		"request_timeout": "3s",
 		"endpoints": ["http://127.0.0.1:2379"]
-  },
-  "payment_channel_storage_server": {
-    "id": "storage-1",
-    "scheme": "http",
-    "host": "127.0.0.1",
-    "client_port": 2379,
-    "peer_port": 2380,
-    "token": "unique-token",
-    "cluster": "storage-1=http://127.0.0.1:2380",
-    "startup_timeout": "1m",
-    "data_dir": "storage-data-dir-1.etcd",
-    "log_level": "info",
-    "enabled": true
-  },
-  "enable_metrics": true,
-  "monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
-  "notification_svc_end_point": "http://demo3208027.mockable.io",
-  "alerts_email": "dinesh@singularitynet.io",
-  "service_heartbeat_type": "http",
-  "heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat"  
-}`
+	},
+	"payment_channel_storage_server": {
+		"id": "storage-1",
+		"scheme": "http",
+		"host" : "127.0.0.1",
+		"client_port": 2379,
+		"peer_port": 2380,
+		"token": "unique-token",
+		"cluster": "storage-1=http://127.0.0.1:2380",
+		"startup_timeout": "1m",
+		"data_dir": "storage-data-dir-1.etcd",
+		"log_level": "info",
+		"enabled": true
+	},
+	"alerts_email": "",
+	"enable_monitoring": true,
+	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
+	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
+	"notification_svc_end_point": "http://demo3208027.mockable.io",
+	"service_heartbeat_type": "http"
+ 
+}
+`
 )
 
 var vip *viper.Viper

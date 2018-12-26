@@ -68,7 +68,7 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string) Daemo
 			Recipient: config.GetString(config.AlertsEMail),
 			Details:   err.Error(),
 			Timestamp: time.Now().String(),
-			Message:   "Problem in calling Service Heatbeat endpoint.",
+			Message:   "Problem in calling Service Heartbeat endpoint.",
 			Component: "Daemon",
 			DaemonID:  GetDaemonID(),
 			Level:     "ERROR",

@@ -7,7 +7,6 @@ package metrics
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/singnet/snet-daemon/metrics/services"
 	"io/ioutil"
 	"net/http"
@@ -87,10 +86,21 @@ func Test_GetHeartbeat(t *testing.T) {
 	assert.Equal(t, dHeartbeat.Status, Warning.String(), "Invalid State")
 	assert.NotEqual(t, dHeartbeat.Status, Online.String(), "Invalid State")
 
-	fmt.Printf(dHeartbeat.ServiceHeartbeat)
-
 	assert.NotEqual(t, dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
 	assert.Equal(t, dHeartbeat.ServiceHeartbeat, `{"serviceID":"SERVICE001","status":"NOT_SERVING"}`,
 		"Unexpected service heartbeat")
+}
 
+func validateHeartbeat(t *testing.T, dHeartbeat DaemonHeartbeat) {
+	assert.NotNil(t, dHeartbeat, "heartbeat must not be nil")
+
+	assert.Equal(t, dHeartbeat.Status, Online.String(), "Invalid State")
+	assert.NotEqual(t, dHeartbeat.Status, Offline.String(), "Invalid State")
+
+	assert.Equal(t, dHeartbeat.DaemonID, "cc48d343313a1e06093c81830103b45496749e9ee632fd03207d042c277f3210",
+		"Incorrect daemon ID")
+
+	assert.NotEqual(t, dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
+	assert.Equal(t, dHeartbeat.ServiceHeartbeat, `{"serviceID":"SERVICE001", "status":"SERVING"}`,
+		"Unexpected service heartbeat")
 }

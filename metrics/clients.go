@@ -6,7 +6,6 @@
 package metrics
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -28,7 +27,7 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(grpcAddress, grpc.WithInsecure())
 	if err != nil {
-		log.WithError(err).Warningf("Unable to connect to grpc endpoint: %v", err)
+		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
 		return nil, err
 	}
 	defer conn.Close()
@@ -42,18 +41,18 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 	//call the heartbeat rpc method
 	resp, err := client.Check(ctx, &pb.Empty{})
 	if err != nil {
-		log.WithError(err).Warningf("Error in calling the heartbeat service : %v", err)
+		log.WithError(err).Warningf("rrror in calling the heartbeat service : %v", err)
 		return nil, err
 	}
 	//convert enum to string, because json marshal doesnt do it
 	responseConv := &Response{ServiceName: resp.ServiceID, Status: resp.Status.String()}
 	jsonResp, err := json.Marshal(responseConv)
 	if err != nil {
-		log.Infof("Response Received : %v", responseConv)
-		log.WithError(err).Warningf("Invalid service response : %v", err)
+		log.Infof("response Received : %v", responseConv)
+		log.WithError(err).Warningf("invalid service response : %v", err)
 		return nil, err
 	}
-	log.Infof("Service heartbeat received : %s", string(jsonResp))
+	log.Infof("service heartbeat received : %s", string(jsonResp))
 	return jsonResp, nil
 }
 
@@ -61,32 +60,30 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	response, err := http.Get(serviceURL)
 	if err != nil {
-		log.WithError(err).Info("The service request failed with an error: %v", err)
+		log.WithError(err).Info("the service request failed with an error: %v", err)
 		return nil, err
 	}
 	if response.StatusCode != http.StatusOK {
-		log.Warningf("Wrong status code: %d", response.StatusCode)
-		return nil, errors.New("Unexpected error with the service.")
+		log.Warningf("wrong status code: %d", response.StatusCode)
+		return nil, errors.New("unexpected error with the service")
 	}
 	// Read the response
 	serviceHeartbeat, _ := ioutil.ReadAll(response.Body)
 	//Check if we got empty response
 	if string(serviceHeartbeat) == "" {
-		return nil, errors.New("Empty service response.")
+		return nil, errors.New("empty service response")
 	}
-	log.Infof("Response received : %v", serviceHeartbeat)
+	log.Infof("response received : %v", serviceHeartbeat)
 	return serviceHeartbeat, nil
 }
 
 // calls the corresponding the service to send the registration information
 func callRegisterService(daemonID string, serviceURL string) (status bool) {
-	// prepare the request payload
-	input := []byte(`{"daemonID":"` + daemonID + `"}`)
-	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(input))
+	req, err := http.NewRequest("POST", serviceURL, nil)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Access-Token", daemonID)
 	if err != nil {
-		log.WithError(err).Infof("Unable to create register service request : %v", err)
+		log.WithError(err).Infof("unable to create register service request : %v", err)
 		return false
 	}
 	// sending the post request

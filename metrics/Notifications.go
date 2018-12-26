@@ -6,7 +6,6 @@
 package metrics
 
 import (
-	"encoding/json"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 )
@@ -24,22 +23,20 @@ type Notification struct {
 }
 
 // function for sending an alert to a given endpoint
-func (alert *Notification) Send() bool {
+func (alert *Notification) Send() {
 	serviceURL := config.GetString(config.NotificationServiceEndpoint)
-	status := false
 	// convert the notification struct to json
-	jsonAlert, err := json.Marshal(alert)
+	jsonAlert, err := ConvertStructToJSON(alert)
 	log.Infof("Notification : %v", string(jsonAlert))
 	if err != nil {
 		log.WithError(err).Warningf("Json conversion error : %v", err)
 	} else {
 		// based on the notification success/failure
-		status := callNotificationService(jsonAlert, serviceURL)
+		status := Publish(jsonAlert, serviceURL)
 		if !status {
 			log.Infof("Unable to send notification. ")
 		}
 	}
-	return status
 }
 
 /*

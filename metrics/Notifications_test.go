@@ -21,7 +21,6 @@ func TestNotification_Send(t *testing.T) {
 	tests := []struct {
 		name   string
 		fields fields
-		want   bool
 	}{
 		// TODO: Add test cases.
 	}
@@ -37,9 +36,7 @@ func TestNotification_Send(t *testing.T) {
 				Type:      tt.fields.Type,
 				Level:     tt.fields.Level,
 			}
-			if got := alert.Send(); got != tt.want {
-				t.Errorf("Notification.Send() = %v, want %v", got, tt.want)
-			}
+			alert.Send()
 		})
 	}
 }

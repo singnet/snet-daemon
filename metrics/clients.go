@@ -78,7 +78,7 @@ func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	return serviceHeartbeat, nil
 }
 
-// calls the correspanding the service to send the registration information
+// calls the corresponding the service to send the registration information
 func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	// prepare the request payload
 	input := []byte(`{"daemonID":"` + daemonID + `"}`)
@@ -97,25 +97,5 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 		return false
 	}
 	// process the response
-	return checkForSuccessfulResponse(response)
-}
-
-// sends a notification to the user via notification service
-func callNotificationService(jsonAlert []byte, serviceURL string) bool {
-	//prepare the request payload
-	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(jsonAlert))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Access-Token", GetDaemonID())
-	if err != nil {
-		log.WithError(err).Warningf("Unable to create notification service request : %v", err)
-		return false
-	}
-	// sending the post request
-	client := &http.Client{}
-	response, err := client.Do(req)
-	if err != nil {
-		log.WithError(err).Warningf("unable to reach notification service : %v", err)
-		return false
-	}
 	return checkForSuccessfulResponse(response)
 }

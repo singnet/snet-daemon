@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // status enum
@@ -63,7 +64,17 @@ func GetHeartbeat(serviceURL string) DaemonHeartbeat {
 	}
 	if err != nil {
 		heartbeat.Status = Warnings.String()
-
+		// send the alert if service heartbeat fails
+		notification := &Notification{
+			Recipient: config.GetString(config.AlertsEMail),
+			Details:   err.Error(),
+			Timestamp: time.Now().String(),
+			Message:   "Problem in calling Service Heatbeat endpoint.",
+			Component: "Daemon",
+			DaemonID:  GetDaemonID(),
+			Level:     "ERROR",
+		}
+		notification.Send()
 	} else {
 		log.Infof("Service %s status : %s", serviceURL, svcHeartbeat)
 		curResp = string(svcHeartbeat)
@@ -91,7 +102,7 @@ service heartbeat/grpc heartbeat
 daemon heartbeat
 {
   "daemonID": "3a4ebeb75eace1857a9133c7a50bdbb841b35de60f78bc43eafe0d204e523dfe",
-  "timestamp": "1544916260",
+  "timestamp": "2018-12-26 22:50:13.4569654 +0000 UTC",
   "status": "Online",
   "serviceheartbeat": "{\"serviceID\":\"sample1\", \"status\":\"SERVING\"}"
 }

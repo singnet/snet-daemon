@@ -172,6 +172,13 @@ func Validate() error {
 		return errors.New("service endpoint must be a valid URL")
 	}
 
+	switch hbType := vip.GetString(ServiceHeartbeatType); hbType {
+	case "grpc":
+	case "http":
+	default:
+		return fmt.Errorf("unrecognized  heartbet service type : '%+v'", hbType)
+	}
+
 	return nil
 }
 

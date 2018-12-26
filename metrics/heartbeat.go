@@ -22,7 +22,7 @@ type Status int
 const (
 	Offline  Status = 0 // Returns if none of the services are online
 	Online   Status = 1 // Returns if any of the services is online
-	Warnings Status = 2 // if daemon has issues in extracting the service state
+	Warning  Status = 2 // if daemon has issues in extracting the service state
 	Critical Status = 3 // if the daemon main thread killed or any other critical issues
 )
 
@@ -37,7 +37,7 @@ type DaemonHeartbeat struct {
 // Converts the enum index into enum names
 func (state Status) String() string {
 	// declare an array of strings. operator counts how many items in the array (4)
-	listStatus := [...]string{"Offline", "Online", "Warnings", "Critical"}
+	listStatus := [...]string{"Offline", "Online", "Warning", "Critical"}
 
 	// → `state`: It's one of the values of Status constants.
 	// prevent panicking in case of `status` is out of range of Status
@@ -49,11 +49,10 @@ func (state Status) String() string {
 }
 
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
-func GetHeartbeat(serviceURL string) DaemonHeartbeat {
-	heartbeat := DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "[{}]"}
+func GetHeartbeat(serviceURL string, serviceType string, serviceID string) DaemonHeartbeat {
+	heartbeat := DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "{}"}
 
-	serviceType := config.GetString(config.ServiceHeartbeatType)
-	var curResp = `{"serviceID":"` + config.ServiceId + `","status":"NOT_SERVING"}`
+	var curResp = `{"serviceID":"` + serviceID + `","status":"NOT_SERVING"}`
 	var svcHeartbeat []byte
 	var err error
 	// if daemon type is grpc, then call grpc heartbeat, else go for HTTP service heartbeat
@@ -63,7 +62,7 @@ func GetHeartbeat(serviceURL string) DaemonHeartbeat {
 		svcHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
 	}
 	if err != nil {
-		heartbeat.Status = Warnings.String()
+		heartbeat.Status = Warning.String()
 		// send the alert if service heartbeat fails
 		notification := &Notification{
 			Recipient: config.GetString(config.AlertsEMail),
@@ -87,8 +86,10 @@ func GetHeartbeat(serviceURL string) DaemonHeartbeat {
 // wraps the results in daemons heartbeat
 func HeartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 	// read the heartbeat service type and corresponding URL
+	serviceType := config.GetString(config.ServiceHeartbeatType)
 	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
-	heartbeat := GetHeartbeat(serviceURL)
+	serviceID := config.ServiceId
+	heartbeat := GetHeartbeat(serviceURL, serviceType, serviceID)
 	err := json.NewEncoder(rw).Encode(heartbeat)
 	if err != nil {
 		log.WithError(err).Infof("Failed to write heartbeat message.")

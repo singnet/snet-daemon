@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -29,8 +30,6 @@ const (
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
 	LogKey                         = "log"
-	MonitoringEnabled              = "monitoring_enabled"
-	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -44,7 +43,9 @@ const (
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
+	MonitoringEnabled           = "monitoring_enabled"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	MonitoringServiceEndpoint   = "monitoring_svc_end_point"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type" //none|grpc|http
 
@@ -105,9 +106,10 @@ const (
 		"enabled": true
 	},
 	"alerts_email": "",
+
 	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
 	"notification_svc_end_point": "http://demo3208027.mockable.io",
-	"service_heartbeat_type": "grpc"
+	"service_heartbeat_type": "http"
  
 }
 `
@@ -162,6 +164,20 @@ func Validate() error {
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
+	}
+
+	// validate heartbeat, notification, and monitoring service endpoints
+	if !(IsValidUrl(vip.GetString(HeartbeatServiceEndpoint)) &&
+		IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) &&
+		IsValidUrl(vip.GetString(NotificationServiceEndpoint))) {
+		return errors.New("service endpoint must be a valid URL")
+	}
+
+	switch hbType := vip.GetString(ServiceHeartbeatType); hbType {
+	case "grpc":
+	case "http":
+	default:
+		return fmt.Errorf("unrecognized  heartbet service type : '%+v'", hbType)
 	}
 
 	return nil
@@ -238,4 +254,14 @@ func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err er
 	value = &big.Int{}
 	err = value.UnmarshalText([]byte(config.GetString(key)))
 	return
+}
+
+// isValidUrl tests a string to determine if it is a url or not.
+func IsValidUrl(urlToTest string) bool {
+	_, err := url.ParseRequestURI(urlToTest)
+	if err != nil {
+		return false
+	} else {
+		return true
+	}
 }

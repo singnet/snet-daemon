@@ -6,25 +6,60 @@
 package metrics
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/singnet/snet-daemon/metrics/services"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+	"net"
 	"testing"
+
+	pb "github.com/singnet/snet-daemon/metrics/services"
 )
 
+// server is used to implement api.HeartbeatServer
+type server struct{}
+
+func (s *server) Check(ctx context.Context, in *pb.Empty) (*pb.HeartbeatMsg, error) {
+	return &pb.HeartbeatMsg{ServiceID: "SAMPLE002", Status: pb.HeartbeatMsg_SERVING}, nil
+}
+
+const (
+	testPort = ":33333"
+)
+
+// mocks grpc service endpoint for unit tests
+func StartMockGrpcService() {
+	ch := make(chan int)
+	go func() {
+		lis, err := net.Listen("tcp", testPort)
+		if err != nil {
+			panic(err)
+		}
+		grpcServer := grpc.NewServer()
+		pb.RegisterHeartbeatServer(grpcServer, &server{})
+		ch <- 0
+		grpcServer.Serve(lis)
+	}()
+	_ = <-ch
+}
+
 func Test_callgRPCServiceHeartbeat(t *testing.T) {
-	serviceURL := "localhost:35000"
+	// Start the grpc mock server
+	StartMockGrpcService()
+
+	serviceURL := "localhost" + testPort
 	heartbeat, err := callgRPCServiceHeartbeat(serviceURL)
 	assert.False(t, err != nil)
 
 	assert.NotEqual(t, `{}`, string(heartbeat), "Service Heartbeat must not be empty.")
-	assert.Equal(t, `{"serviceID":"sample1","status":"SERVING"}`, string(heartbeat),
+	assert.Equal(t, `{"serviceID":"SAMPLE002","status":"SERVING"}`, string(heartbeat),
 		"Unexpected service heartbeat")
 
 	var sHeartbeat grpc_health_v1.HeartbeatMsg
 	err = json.Unmarshal(heartbeat, &sHeartbeat)
 	assert.True(t, err != nil)
-	assert.Equal(t, "sample1", sHeartbeat.ServiceID, "Unexpected service ID")
+	assert.Equal(t, "SAMPLE002", sHeartbeat.ServiceID, "Unexpected service ID")
 
 	serviceURL = "localhost:26000"
 	heartbeat, err = callgRPCServiceHeartbeat(serviceURL)

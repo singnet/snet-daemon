@@ -5,7 +5,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"strconv"
-	"time"
 )
 
 //Request stats that will be captured
@@ -23,34 +22,28 @@ type RequestStats struct {
 }
 
 //Create a request Object and Publish this to a service end point
-func PublishRequestStats(reqId string, grpId string, arrivalTime time.Time, inStream grpc.ServerStream) bool {
-	request := createRequestStat(reqId, grpId, arrivalTime)
-	setDataFromInStream(inStream, request)
+func PublishRequestStats(commonStat *CommonStats, inStream grpc.ServerStream) bool {
+	request := createRequestStat(commonStat)
+	if md, ok := metadata.FromIncomingContext(inStream.Context()); ok {
+		request.setDataFromContext(md)
+	}
 	return Publish(request, config.GetString(config.MonitoringServiceEndpoint)+"/event")
 }
 
-func setDataFromInStream(inStream grpc.ServerStream, request *RequestStats) {
-	request.ServiceMethod, _ = grpc.MethodFromServerStream(inStream)
-	if md, ok := metadata.FromIncomingContext(inStream.Context()); ok {
-		setDataFromContext(md, request)
-	}
-}
-
-func setDataFromContext(md metadata.MD, request *RequestStats) {
+func (request *RequestStats) setDataFromContext(md metadata.MD) {
 	request.UserAgent = GetValue(md, "user-agent")
 	request.ContentType = GetValue(md, "content-type")
-	//todo
 	request.InputDataSize = strconv.FormatUint(GetSize(md), 10)
 }
 
-func createRequestStat(reqId string, grpId string, time time.Time) *RequestStats {
+func createRequestStat(commonStat *CommonStats) *RequestStats {
 	request := &RequestStats{
-		RequestID:           reqId,
-		GroupID:             grpId,
-		DaemonEndPoint:      config.GetString(config.DaemonEndPoint),
-		OrganizationID:      config.GetString(config.OrganizationId),
-		ServiceID:           config.GetString(config.ServiceId),
-		RequestReceivedTime: time.String(),
+		RequestID:           commonStat.ID,
+		GroupID:             commonStat.GroupID,
+		DaemonEndPoint:      commonStat.DaemonEndPoint,
+		OrganizationID:      commonStat.OrganizationID,
+		ServiceID:           commonStat.ServiceID,
+		RequestReceivedTime: commonStat.RequestReceivedTime,
 	}
 	return request
 }

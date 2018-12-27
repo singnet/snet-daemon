@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -30,6 +29,8 @@ const (
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
 	LogKey                         = "log"
+	MonitoringEnabled              = "monitoring_enabled"
+	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -43,9 +44,7 @@ const (
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
-	EnableMonitoring            = "enable_monitoring"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
-	MonitoringServiceEndpoint   = "monitoring_svc_end_point"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type" //none|grpc|http
 
@@ -61,6 +60,8 @@ const (
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
+	"monitoring_enabled": true,
+	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
 	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
@@ -104,11 +105,9 @@ const (
 		"enabled": true
 	},
 	"alerts_email": "",
-	"enable_monitoring": true,
 	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
-	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"notification_svc_end_point": "http://demo3208027.mockable.io",
-	"service_heartbeat_type": "http"
+	"service_heartbeat_type": "grpc"
  
 }
 `
@@ -163,20 +162,6 @@ func Validate() error {
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
-	}
-
-	// validate heartbeat, notification, and monitoring service endpoints
-	if !(IsValidUrl(vip.GetString(HeartbeatServiceEndpoint)) &&
-		IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) &&
-		IsValidUrl(vip.GetString(NotificationServiceEndpoint))) {
-		return errors.New("service endpoint must be a valid URL")
-	}
-
-	switch hbType := vip.GetString(ServiceHeartbeatType); hbType {
-	case "grpc":
-	case "http":
-	default:
-		return fmt.Errorf("unrecognized  heartbet service type : '%+v'", hbType)
 	}
 
 	return nil
@@ -253,14 +238,4 @@ func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err er
 	value = &big.Int{}
 	err = value.UnmarshalText([]byte(config.GetString(key)))
 	return
-}
-
-// isValidUrl tests a string to determine if it is a url or not.
-func IsValidUrl(urlToTest string) bool {
-	_, err := url.ParseRequestURI(urlToTest)
-	if err != nil {
-		return false
-	} else {
-		return true
-	}
 }

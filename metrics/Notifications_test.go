@@ -5,38 +5,26 @@
 // package for monitoring and reporting the daemon metrics
 package metrics
 
-import "testing"
+import (
+	"errors"
+	"github.com/singnet/snet-daemon/config"
+	"github.com/stretchr/testify/assert"
+	"testing"
+	"time"
+)
 
 func TestNotification_Send(t *testing.T) {
-	type fields struct {
-		DaemonID  string
-		Timestamp string
-		Recipient string
-		Message   string
-		Details   string
-		Component string
-		Type      string
-		Level     string
+	err := errors.New("dummy error for mail notification test")
+	// send the alert if service heartbeat fails
+	notification := &Notification{
+		Recipient: config.GetString(config.AlertsEMail),
+		Details:   err.Error(),
+		Timestamp: time.Now().String(),
+		Message:   "some random error message",
+		Component: "Daemon",
+		DaemonID:  GetDaemonID(),
+		Level:     "ERROR",
 	}
-	tests := []struct {
-		name   string
-		fields fields
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			alert := &Notification{
-				DaemonID:  tt.fields.DaemonID,
-				Timestamp: tt.fields.Timestamp,
-				Recipient: tt.fields.Recipient,
-				Message:   tt.fields.Message,
-				Details:   tt.fields.Details,
-				Component: tt.fields.Component,
-				Type:      tt.fields.Type,
-				Level:     tt.fields.Level,
-			}
-			alert.Send()
-		})
-	}
+	result := notification.Send()
+	assert.False(t, result)
 }

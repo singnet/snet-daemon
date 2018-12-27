@@ -18,8 +18,8 @@ import (
 )
 
 type Response struct {
-	ServiceName string `json:"serviceName"`
-	Status      string `json:"status"`
+	ServiceID string `json:"serviceID"`
+	Status    string `json:"status"`
 }
 
 // Calls a gRPC endpoint for heartbeat (gRPC Client)
@@ -41,14 +41,14 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 	//call the heartbeat rpc method
 	resp, err := client.Check(ctx, &pb.Empty{})
 	if err != nil {
-		log.WithError(err).Warningf("rrror in calling the heartbeat service : %v", err)
+		log.WithError(err).Warningf("error in calling the heartbeat service : %v", err)
 		return nil, err
 	}
 	//convert enum to string, because json marshal doesnt do it
-	responseConv := &Response{ServiceName: resp.ServiceID, Status: resp.Status.String()}
+	responseConv := &Response{ServiceID: resp.ServiceID, Status: resp.Status.String()}
 	jsonResp, err := json.Marshal(responseConv)
 	if err != nil {
-		log.Infof("response Received : %v", responseConv)
+		log.Infof("response received : %v", responseConv)
 		log.WithError(err).Warningf("invalid service response : %v", err)
 		return nil, err
 	}

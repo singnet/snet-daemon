@@ -30,16 +30,16 @@ func SetDaemonGrpId(grpId string) {
 }
 
 // New Daemon registration. Generates the DaemonID and use that as getting access token
-func RegisterDaemon() bool {
+func RegisterDaemon(serviceURL string) bool {
 	daemonID := GetDaemonID()
-	serviceURL := config.GetString(config.MonitoringServiceEndpoint) + "/register"
 	status := false
 	// call the service and get the result
 	status = callRegisterService(daemonID, serviceURL)
 	if !status {
 		log.Infof("Daemon unable to register with the monitoring service. ")
+	} else {
+		log.Infof("Daemon successfully registered with the monitoring service. ")
 	}
-	log.Infof("Daemon successfully registered with the monitoring service. ")
 	return status
 }
 

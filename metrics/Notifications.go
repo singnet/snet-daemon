@@ -23,20 +23,23 @@ type Notification struct {
 }
 
 // function for sending an alert to a given endpoint
-func (alert *Notification) Send() {
+func (alert *Notification) Send() bool {
 	serviceURL := config.GetString(config.NotificationServiceEndpoint)
 	// convert the notification struct to json
 	jsonAlert, err := ConvertStructToJSON(alert)
-	log.Infof("Notification : %v", string(jsonAlert))
+	log.Infof("notification : %v", string(jsonAlert))
 	if err != nil {
-		log.WithError(err).Warningf("Json conversion error : %v", err)
+		log.WithError(err).Warningf("json conversion error : %v", err)
+		return false
 	} else {
 		// based on the notification success/failure
 		status := Publish(jsonAlert, serviceURL)
 		if !status {
-			log.Infof("Unable to send notification. ")
+			log.Infof("unable to send notifications")
+			return false
 		}
 	}
+	return true
 }
 
 /*

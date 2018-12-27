@@ -36,11 +36,11 @@ type ResponseStats struct {
 	RequestID           string `json:"request_id"`
 	OrganizationID      string `json:"organization_id"`
 	ServiceID           string `json:"service_id"`
-	GroupID             string `json:"Group_id"`
-	DaemonEndPoint      string `json:"Daemon_end_point"`
+	GroupID             string `json:"group_id"`
+	DaemonEndPoint      string `json:"daemon_end_point"`
 	ServiceMethod       string `json:"service_method"`
 	ResponseSentTime    string `json:"response_sent_time"`
-	RequestReceivedTime string `json:"request_arrival_time"`
+	RequestReceivedTime string `json:"request_received_time"`
 	ResponseTime        string `json:"response_time"`
 	ResponseCode        string `json:"response_code"`
 	ErrorMessage        string `json:"error_message"`

@@ -4,6 +4,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strconv"
 	"time"
 )
 
@@ -56,7 +57,7 @@ func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {
 	response := &ResponseStats{
 		RequestID:           commonStat.ID,
-		ResponseTime:        duration.String(),
+		ResponseTime:        strconv.FormatFloat(duration.Seconds(), 'f', 4, 64),
 		GroupID:             daemonGroupId,
 		DaemonEndPoint:      commonStat.DaemonEndPoint,
 		OrganizationID:      commonStat.OrganizationID,

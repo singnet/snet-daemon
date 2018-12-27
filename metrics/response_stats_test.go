@@ -11,9 +11,10 @@ import (
 func TestCreateResponseStats(t *testing.T) {
 	arrivalTime := time.Now()
 	commonStat := BuildCommonStats(arrivalTime, "TestMethod")
-	response := createResponseStats(commonStat, time.Duration(12), nil)
+	response := createResponseStats(commonStat, time.Duration(1234566000), nil)
 	assert.Equal(t, response.RequestID, commonStat.ID)
 	assert.Equal(t, response.GroupID, daemonGroupId)
+	assert.Equal(t, response.ResponseTime, "1.2346")
 	assert2.NotEqual(t, response.ResponseSentTime, "")
 }
 

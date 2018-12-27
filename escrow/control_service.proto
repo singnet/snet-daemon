@@ -7,7 +7,7 @@ service ProviderControlService {
     //get list of all unclaimed "payments".
     //in PaymentsSignatureReply signatures MUST be omited
     //if signature field is present then response should be considered as invalid
-    rpc GetListUnclaimed(GetPaymentsListRequest)  returns (PaymentsSignatureReply) {}
+    rpc GetListUnclaimed(GetPaymentsListRequest)  returns (PaymentsListReply) {}
 
     //get list of all payments in progress
     rpc GetListInProgress(GetPaymentsListRequest) returns (PaymentsListReply) {}

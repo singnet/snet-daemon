@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/ratelimit"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"math/big"
 	"strings"
+	"time"
 )
 
 const (
@@ -107,6 +109,31 @@ func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
 		rateLimiter: ratelimit.NewRateLimiter(),
 	}
 	return interceptor.intercept
+}
+
+func GrpcMonitoringInterceptor() grpc.StreamServerInterceptor {
+	return interceptMonitoring
+}
+
+//Monitor requests arrived and responses sent and publish these stats for Reporting
+func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	var e error
+	var start time.Time
+	start = time.Now()
+	//Get the method name
+	methodName, _ := grpc.MethodFromServerStream(ss)
+	//Build common stats and use this to set request stats and response stats
+	commonStats := metrics.BuildCommonStats(start, methodName)
+	go metrics.PublishRequestStats(commonStats, ss)
+	defer func() {
+		go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), e)
+	}()
+	e = handler(srv, ss)
+	if e != nil {
+		log.WithError(e)
+		return e
+	}
+	return nil
 }
 
 func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {

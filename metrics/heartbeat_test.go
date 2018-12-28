@@ -7,12 +7,12 @@ package metrics
 
 import (
 	"encoding/json"
-	"github.com/singnet/snet-daemon/metrics/services"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/singnet/snet-daemon/metrics/services"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -103,4 +103,18 @@ func validateHeartbeat(t *testing.T, dHeartbeat DaemonHeartbeat) {
 	assert.NotEqual(t, dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
 	assert.Equal(t, dHeartbeat.ServiceHeartbeat, `{"serviceID":"SERVICE001", "status":"SERVING"}`,
 		"Unexpected service heartbeat")
+}
+
+func TestSetNoHeartbeatURLState(t *testing.T) {
+	SetNoHeartbeatURLState(true)
+	assert.Equal(t, true, isNoHeartbeatURL)
+
+	SetNoHeartbeatURLState(false)
+	assert.Equal(t, false, isNoHeartbeatURL)
+}
+
+func TestValidateHeartbeatConfig(t *testing.T) {
+	err := ValidateHeartbeatConfig()
+	assert.Nil(t, err)
+	assert.Equal(t, true, isNoHeartbeatURL)
 }

@@ -86,6 +86,16 @@ func newDaemon(components *Components) (daemon, error) {
 		return d, err
 	}
 
+	// validate heartbeat configuration
+	if err := metrics.ValidateHeartbeatConfig(); err != nil {
+		return d, err
+	}
+
+	// validate alerts/notifications configuration
+	if err := metrics.ValidateNotificationConfig(); err != nil {
+		return d, err
+	}
+
 	d.components = components
 
 	var err error

@@ -95,4 +95,5 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	}
 	// process the response
 	return checkForSuccessfulResponse(response)
+	//todo add access token related code in next iteration
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -47,9 +48,9 @@ const (
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
 	NotificationServiceEndpoint = "notification_svc_end_point"
-	ServiceHeartbeatType        = "service_heartbeat_type" //none|grpc|http
+	ServiceHeartbeatType        = "service_heartbeat_type"
+	//none|grpc|http
 
-	// optional. mandatory only when heartbeat type is http
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",
@@ -105,12 +106,10 @@ const (
 		"log_level": "info",
 		"enabled": true
 	},
-	"alerts_email": "",
-
+	"alerts_email": "", 
+	"service_heartbeat_type": "http",
 	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
-	"notification_svc_end_point": "http://demo3208027.mockable.io",
-	"service_heartbeat_type": "http"
- 
+	"notification_svc_end_point": "http://demo3208027.mockable.io"
 }
 `
 )
@@ -166,20 +165,14 @@ func Validate() error {
 		return errors.New("SSL requires both key and certificate when enabled")
 	}
 
-	// validate heartbeat, notification, and monitoring service endpoints
-	if !(IsValidUrl(vip.GetString(HeartbeatServiceEndpoint)) &&
-		IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) &&
-		IsValidUrl(vip.GetString(NotificationServiceEndpoint))) {
+	// validate monitoring service endpoints
+	if vip.GetBool(MonitoringEnabled) &&
+		vip.GetString(MonitoringServiceEndpoint) != "" &&
+		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
 		return errors.New("service endpoint must be a valid URL")
 	}
 
-	switch hbType := vip.GetString(ServiceHeartbeatType); hbType {
-	case "grpc":
-	case "http":
-	default:
-		return fmt.Errorf("unrecognized  heartbet service type : '%+v'", hbType)
-	}
-
+	// Validate metrics URL and set state
 	return nil
 }
 
@@ -264,4 +257,10 @@ func IsValidUrl(urlToTest string) bool {
 	} else {
 		return true
 	}
+}
+
+// validates in input URL
+func ValidateEmail(email string) bool {
+	Re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	return Re.MatchString(email)
 }

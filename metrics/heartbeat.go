@@ -9,6 +9,8 @@ package metrics
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -18,6 +20,9 @@ import (
 
 // status enum
 type Status int
+
+// heartbeat URL Status
+var isNoHeartbeatURL bool
 
 const (
 	Offline  Status = 0 // Returns if none of the services are online
@@ -48,35 +53,64 @@ func (state Status) String() string {
 	return listStatus[state]
 }
 
+// set the no heartbeat URL State
+func SetNoHeartbeatURLState(state bool) {
+	isNoHeartbeatURL = state
+}
+
+// validates the heartbeat configurations
+func ValidateHeartbeatConfig() error {
+	//initialize the url state to false
+	SetNoHeartbeatURLState(false)
+
+	// check if the configured type is not supported
+	hbType := config.GetString(config.GetString(config.ServiceHeartbeatType))
+	if hbType != "grpc" && hbType != "http" && hbType != "none" && hbType != "" {
+		return fmt.Errorf("unrecognized heartbet service type : '%+v'", hbType)
+	}
+
+	// if the URLs are empty, or hbtype is None or empty consider it as not configured
+	if hbType == "" || hbType == "none" || config.GetString(config.HeartbeatServiceEndpoint) == "" {
+		SetNoHeartbeatURLState(true)
+	} else if !config.IsValidUrl(config.GetString(config.HeartbeatServiceEndpoint)) {
+		return errors.New("service endpoint must be a valid URL")
+	}
+
+	return nil
+}
+
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
 func GetHeartbeat(serviceURL string, serviceType string, serviceID string) DaemonHeartbeat {
 	heartbeat := DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "{}"}
 
 	var curResp = `{"serviceID":"` + serviceID + `","status":"NOT_SERVING"}`
-	var svcHeartbeat []byte
-	var err error
-	// if daemon type is grpc, then call grpc heartbeat, else go for HTTP service heartbeat
-	if serviceType == "grpc" {
-		svcHeartbeat, err = callgRPCServiceHeartbeat(serviceURL)
+	if serviceType == "none" || serviceType == "" || isNoHeartbeatURL {
+		curResp = `{"serviceID":"` + serviceID + `","status":"SERVING"}`
 	} else {
-		svcHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
-	}
-	if err != nil {
-		heartbeat.Status = Warning.String()
-		// send the alert if service heartbeat fails
-		notification := &Notification{
-			Recipient: config.GetString(config.AlertsEMail),
-			Details:   err.Error(),
-			Timestamp: time.Now().String(),
-			Message:   "Problem in calling Service Heartbeat endpoint.",
-			Component: "Daemon",
-			DaemonID:  GetDaemonID(),
-			Level:     "ERROR",
+		var svcHeartbeat []byte
+		var err error
+		if serviceType == "grpc" {
+			svcHeartbeat, err = callgRPCServiceHeartbeat(serviceURL)
+		} else if serviceType == "http" {
+			svcHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
 		}
-		notification.Send()
-	} else {
-		log.Infof("Service %s status : %s", serviceURL, svcHeartbeat)
-		curResp = string(svcHeartbeat)
+		if err != nil {
+			heartbeat.Status = Warning.String()
+			// send the alert if service heartbeat fails
+			notification := &Notification{
+				Recipient: config.GetString(config.AlertsEMail),
+				Details:   err.Error(),
+				Timestamp: time.Now().String(),
+				Message:   "Problem in calling Service Heartbeat endpoint.",
+				Component: "Daemon",
+				DaemonID:  GetDaemonID(),
+				Level:     "ERROR",
+			}
+			notification.Send()
+		} else {
+			log.Infof("Service %s status : %s", serviceURL, svcHeartbeat)
+			curResp = string(svcHeartbeat)
+		}
 	}
 	heartbeat.ServiceHeartbeat = curResp
 	return heartbeat

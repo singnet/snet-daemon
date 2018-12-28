@@ -97,3 +97,10 @@ func TestIsValidUrl(t *testing.T) {
 	valid = IsValidUrl("http://test:8080")
 	assert.Equal(t, valid, true)
 }
+
+func TestValidateEmail(t *testing.T) {
+	valid := ValidateEmail("abc@gmail.com")
+	assert.Equal(t, true, valid)
+	valid = ValidateEmail("abc@xyz")
+	assert.Equal(t, false, valid)
+}

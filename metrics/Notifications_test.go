@@ -28,3 +28,17 @@ func TestNotification_Send(t *testing.T) {
 	result := notification.Send()
 	assert.False(t, result)
 }
+
+func TestSetIsNoAlertsConfig(t *testing.T) {
+	SetIsNoAlertsConfig(true)
+	assert.Equal(t, true, isNoAlertsConfig)
+
+	SetIsNoAlertsConfig(false)
+	assert.Equal(t, false, isNoAlertsConfig)
+}
+
+func TestValidateNotificationConfig(t *testing.T) {
+	err := ValidateNotificationConfig()
+	assert.Nil(t, err)
+	assert.Equal(t, true, isNoAlertsConfig) //because default email is empty
+}

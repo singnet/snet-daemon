@@ -24,7 +24,7 @@ func TestRegisterDaemon(t *testing.T) {
 	serviceURL := "https://demo3208027.mockable.io/register"
 
 	result := RegisterDaemon(serviceURL)
-	assert.Equal(t, false, result)
+	assert.Equal(t, true, result)
 
 	serviceURL = "https://demo3208027.mockable.io/registererror"
 	result = RegisterDaemon(serviceURL)

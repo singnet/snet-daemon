@@ -6,9 +6,13 @@
 package metrics
 
 import (
+	"errors"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 )
+
+// state of alerts configuration
+var isNoAlertsConfig bool
 
 // define heartbeat data model. Service Status JSON object Array marshalled to a string
 type Notification struct {
@@ -24,6 +28,10 @@ type Notification struct {
 
 // function for sending an alert to a given endpoint
 func (alert *Notification) Send() bool {
+	if isNoAlertsConfig {
+		log.Warningf("notifications not configured")
+		return false
+	}
 	serviceURL := config.GetString(config.NotificationServiceEndpoint)
 	// convert the notification struct to json
 	jsonAlert, err := ConvertStructToJSON(alert)
@@ -40,6 +48,25 @@ func (alert *Notification) Send() bool {
 		}
 	}
 	return true
+}
+
+// set the no alerts URL and email State
+func SetIsNoAlertsConfig(state bool) {
+	isNoAlertsConfig = state
+}
+
+// validates the heartbeat configurations
+func ValidateNotificationConfig() error {
+	SetIsNoAlertsConfig(false)
+
+	// if the URL or email is empty, consider it as not configured and set isInvalidAlertsConfig to true
+	if config.GetString(config.NotificationServiceEndpoint) == "" || config.GetString(config.AlertsEMail) == "" {
+		SetIsNoAlertsConfig(true)
+	} else if !(config.IsValidUrl(config.GetString(config.NotificationServiceEndpoint)) &&
+		config.ValidateEmail(config.GetString(config.AlertsEMail))) {
+		return errors.New("service endpoint  and alerts email id must be valid")
+	}
+	return nil
 }
 
 /*

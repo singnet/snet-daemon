@@ -30,6 +30,8 @@ const (
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
 	LogKey                         = "log"
+	MonitoringEnabled              = "monitoring_enabled"
+	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -43,9 +45,7 @@ const (
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
-	MonitoringEnabled           = "monitoring_enabled"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
-	MonitoringServiceEndpoint   = "monitoring_svc_end_point"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type" //none|grpc|http
 

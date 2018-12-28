@@ -4,6 +4,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strconv"
 	"time"
 )
 
@@ -36,11 +37,11 @@ type ResponseStats struct {
 	RequestID           string `json:"request_id"`
 	OrganizationID      string `json:"organization_id"`
 	ServiceID           string `json:"service_id"`
-	GroupID             string `json:"Group_id"`
-	DaemonEndPoint      string `json:"Daemon_end_point"`
+	GroupID             string `json:"group_id"`
+	DaemonEndPoint      string `json:"daemon_end_point"`
 	ServiceMethod       string `json:"service_method"`
 	ResponseSentTime    string `json:"response_sent_time"`
-	RequestReceivedTime string `json:"request_arrival_time"`
+	RequestReceivedTime string `json:"request_received_time"`
 	ResponseTime        string `json:"response_time"`
 	ResponseCode        string `json:"response_code"`
 	ErrorMessage        string `json:"error_message"`
@@ -56,7 +57,7 @@ func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {
 	response := &ResponseStats{
 		RequestID:           commonStat.ID,
-		ResponseTime:        duration.String(),
+		ResponseTime:        strconv.FormatFloat(duration.Seconds(), 'f', 4, 64),
 		GroupID:             daemonGroupId,
 		DaemonEndPoint:      commonStat.DaemonEndPoint,
 		OrganizationID:      commonStat.OrganizationID,

@@ -32,6 +32,7 @@ func ConvertStructToJSON(payLoad interface{}) ([]byte, error) {
 		log.WithField("payLoad", payLoad).Warningf("Unable to derive json from structure passed")
 		return nil, err
 	}
+	log.WithField("payload", string(b)).Debug("payload")
 	return b, nil
 }
 

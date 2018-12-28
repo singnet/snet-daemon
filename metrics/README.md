@@ -130,7 +130,7 @@ critical information when needed. Alerts depends on an external webhook or servi
 the configured email address. 
 
 ##### configuration  
-   * **alert_email** (optional unless metrics enabled. ```must be a valid email address```) - an email for the 
+   * **alerts_email** (optional unless metrics enabled. ```must be a valid email address```) - an email for the 
    alerts when there is an issue/warning/error/information to be sent. 
    
    * **notification_svc_end_point** (optional unless metrics enabled. ```must be a valid webhook/service end point```) - 
@@ -161,10 +161,10 @@ req.Header.Set("Access-Token", daemonID)
 This is the sample configuration to enable metrics and heartbeat
 ```json
   {
-      "enable_metrics"            : true,
+      "monitoring_enabled"        : true,
       "monitoring_svc_end_point"  : "http://demo3208027.mockable.io/metrics",
       "notification_svc_end_point": "http://demo3208027.mockable.io/notify",
-      "alert_email"               : "xyz.abc@myorg.io",
+      "alerts_email"               : "xyz.abc@myorg.io",
       "service_heartbeat_type"    : "http",
       "heartbeat_svc_end_point"   : "http://localhost:25000/heartbeat"  
    }

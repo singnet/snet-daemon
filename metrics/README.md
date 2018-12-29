@@ -72,7 +72,7 @@ GET http://127.0.0.1:25000/heartbeat
 }
 ```
 
-### Metrics  
+### Daemon Monitoring  
 Each incoming request, outgoing response will be intercepted and the corresponding metrics will be extracted.
 The extracted metrics will be reported immediately to the metrics services as configured in the Daemon configuration.
 <br/>
@@ -116,8 +116,10 @@ Sample Payload for response stats
    
 
 ##### Configuration
- * **monitoring_svc_end_point** (optional. ```must be valid http|https url```) - It is the service endpoint to which we will have to 
- post all the captured metrics.
+ * **monitoring_svc_end_point** (optional. ```must be valid http|https url```) - It is the service endpoint to which we will have to post all the captured metrics.
+ 
+ * **monitoring_enabled** (optional. ```true|false, default value is true```) - Enables or disables daemon monitoring. By default it is set to true. When enabled DAemon captures the request and resposne metrics and post to the end point.
+ 
 
 ##### Service endpoint
 POST http://127.0.0.1/beta/event

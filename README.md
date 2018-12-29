@@ -225,6 +225,14 @@ see [etcd server configuration](./etcddb#etcd-server-configuration)
 
 * **rate_limit_per_minute** (optional; default: `Infinity`) - 
 see [rate limiting configuration](./ratelimit/README.md)
+ 
+* **alerts_email** (optional; default: `""`) - It must be a valid email. if it is empty, then it is considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
+
+* **notification_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then it is considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
+
+* **service_heartbeat_type** (optional; default: `grpc`) - possible type configurations are ```none | grpc | http```. If it is left empty, then it is considered as none type. see [daemon heartbeats configuration](./metrics/README.md)
+
+* **heartbeat_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then service state always assumed as SERVING, and same will be wrapped in Daemon Heartbeat. see [daemon heartbeats configuration](./metrics/README.md)
 
 
 #### Environment variables and CLI parameters

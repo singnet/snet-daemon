@@ -25,12 +25,6 @@ func TestGetValue(t *testing.T) {
 	assert.Equal(t, GetValue(md, ""), "")
 }
 
-func TestIsValidUrl(t *testing.T) {
-	valid := isValidUrl("")
-	assert.Equal(t, valid, false)
-	valid = isValidUrl("http://test:8080")
-	assert.Equal(t, valid, true)
-}
 func TestPublish(t *testing.T) {
 	status := Publish(nil, "")
 	assert.Equal(t, status, false)

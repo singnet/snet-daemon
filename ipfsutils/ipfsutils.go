@@ -30,10 +30,10 @@ func GetIpfsFile(hash string) string {
 	//validating the file read from IPFS
 	newHash, err := sh.Add(strings.NewReader(jsondata), shell.OnlyHash(true))
 	if err != nil {
-		log.WithError(err).Panic("error: in generating IPFS hash for the meta data file %v", err)
+		log.WithError(err).Panic("error in generating the hash for the meta data read from IPFS : %v", err)
 	}
 	if newHash != hash {
-		log.WithError(err).WithField("hashFromIPFS", newHash).
+		log.WithError(err).WithField("hashFromIPFSContent", newHash).
 			Panic("IPFS hash verification failed. Generated hash doesnt match with expected hash %s", hash)
 	}
 

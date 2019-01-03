@@ -30,6 +30,7 @@ const (
 	HdwalletIndexKey               = "hdwallet_index"
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
+	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
 	MonitoringEnabled              = "monitoring_enabled"
 	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
@@ -62,6 +63,7 @@ const (
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
+	"ipfs_timeout" : 30,
 	"monitoring_enabled": true,
 	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 

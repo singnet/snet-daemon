@@ -53,6 +53,8 @@ const (
 	ClaimPaymentIdFlag = "payment-id"
 	ClaimSendBackFlag  = "send-back"
 	ClaimTimeoutFlag   = "timeout"
+
+	UnlockChannelFlag = "unlock"
 )
 
 var (
@@ -78,6 +80,8 @@ var (
 	claimPaymentId string
 	claimSendBack  bool
 	claimTimeout   string
+
+	paymentChannelId string
 )
 
 func init() {
@@ -88,9 +92,12 @@ func init() {
 	RootCmd.AddCommand(ServeCmd)
 	RootCmd.AddCommand(ClaimCmd)
 	RootCmd.AddCommand(ListCmd)
+	RootCmd.AddCommand(ChannelCmd)
 
 	ListCmd.AddCommand(ListChannelsCmd)
 	ListCmd.AddCommand(ListClaimsCmd)
+
+	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
 
 	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money, see \"list channels\"")
 	ClaimCmd.Flags().StringVar(&claimPaymentId, ClaimPaymentIdFlag, "", "id of the payment to claim money, see \"list payments\"")

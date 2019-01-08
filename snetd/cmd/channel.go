@@ -27,7 +27,7 @@ type channelCommand struct {
 
 // initializes and returns the new channel command object
 func newChannelCommand(cmd *cobra.Command, args []string, components *Components) (command Command, err error) {
-	channelId, err := getChannelId(cmd)
+	channelId, err := getPaymentChannelId(cmd)
 	if err != nil {
 		return
 	}
@@ -40,6 +40,18 @@ func newChannelCommand(cmd *cobra.Command, args []string, components *Components
 		paymentChannelId: channelId,
 	}
 	return
+}
+
+func getPaymentChannelId(cmd *cobra.Command) (id *big.Int, err error) {
+	if paymentChannelId == "" {
+		return nil, nil
+	}
+	value := &big.Int{}
+	err = value.UnmarshalText([]byte(paymentChannelId))
+	if err != nil {
+		return nil, fmt.Errorf("Incorrect decimal number format: %v, error: %v", paymentChannelId, err)
+	}
+	return value, nil
 }
 
 // command's run method

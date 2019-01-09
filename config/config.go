@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -28,6 +30,7 @@ const (
 	HdwalletIndexKey               = "hdwallet_index"
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
+	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
 	MonitoringEnabled              = "monitoring_enabled"
 	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
@@ -42,6 +45,12 @@ const (
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
+	//configs for Daemon Monitoring and Notification
+	AlertsEMail                 = "alerts_email"
+	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	NotificationServiceEndpoint = "notification_svc_end_point"
+	ServiceHeartbeatType        = "service_heartbeat_type"
+	//none|grpc|http
 
 	defaultConfigJson string = `
 {
@@ -54,6 +63,7 @@ const (
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
+	"ipfs_timeout" : 30,
 	"monitoring_enabled": true,
 	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 
@@ -97,7 +107,11 @@ const (
 		"data_dir": "storage-data-dir-1.etcd",
 		"log_level": "info",
 		"enabled": true
-	}
+	},
+	"alerts_email": "", 
+	"service_heartbeat_type": "http",
+	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
+	"notification_svc_end_point": "http://demo3208027.mockable.io"
 }
 `
 )
@@ -153,6 +167,14 @@ func Validate() error {
 		return errors.New("SSL requires both key and certificate when enabled")
 	}
 
+	// validate monitoring service endpoints
+	if vip.GetBool(MonitoringEnabled) &&
+		vip.GetString(MonitoringServiceEndpoint) != "" &&
+		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
+		return errors.New("service endpoint must be a valid URL")
+	}
+
+	// Validate metrics URL and set state
 	return nil
 }
 
@@ -227,4 +249,20 @@ func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err er
 	value = &big.Int{}
 	err = value.UnmarshalText([]byte(config.GetString(key)))
 	return
+}
+
+// isValidUrl tests a string to determine if it is a url or not.
+func IsValidUrl(urlToTest string) bool {
+	_, err := url.ParseRequestURI(urlToTest)
+	if err != nil {
+		return false
+	} else {
+		return true
+	}
+}
+
+// validates in input URL
+func ValidateEmail(email string) bool {
+	Re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	return Re.MatchString(email)
 }

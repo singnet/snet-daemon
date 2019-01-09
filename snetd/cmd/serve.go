@@ -86,6 +86,16 @@ func newDaemon(components *Components) (daemon, error) {
 		return d, err
 	}
 
+	// validate heartbeat configuration
+	if err := metrics.ValidateHeartbeatConfig(); err != nil {
+		return d, err
+	}
+
+	// validate alerts/notifications configuration
+	if err := metrics.ValidateNotificationConfig(); err != nil {
+		return d, err
+	}
+
 	d.components = components
 
 	var err error
@@ -213,6 +223,9 @@ func (d daemon) start() {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
 					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
+				} else if strings.Split(req.URL.Path, "/")[1] == "heartbeat" {
+					resp.Header().Set("Access-Control-Allow-Origin", "*")
+					metrics.HeartbeatHandler(resp, req)
 				} else {
 					http.NotFound(resp, req)
 				}

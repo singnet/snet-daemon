@@ -25,9 +25,28 @@ deploying SingularityNET services using SingularityNET Daemon should install the
 * [Dep 0.4.1+](https://github.com/golang/dep#installation)
 * [Node 8+ w/npm](https://nodejs.org/en/download/)
 
+### Dependencies
+
+* install [Protoc 3.0+](https://askubuntu.com/questions/1072683/how-can-i-install-protoc-on-ubuntu-16-04) 
+
+* install [protoc-gen-go] 
+``` bash
+$ go get -u github.com/golang/protobuf/protoc-gen-go
+```
+
+* install [grpc]
+```bash
+$ go get -u google.golang.org/grpc
+```
+
+* install [golint]
+```bash
+$ sudo apt-get install golint
+```
+
 ### Installing
 
-* Clone the git repository
+* Clone the git repository to the following path $GOPATH/src/github.com/singnet/
 ```bash
 $ git clone git@github.com:singnet/snet-daemon.git
 $ cd snet-daemon
@@ -206,7 +225,16 @@ see [etcd server configuration](./etcddb#etcd-server-configuration)
 
 * **rate_limit_per_minute** (optional; default: `Infinity`) - 
 see [rate limiting configuration](./ratelimit/README.md)
+ 
+* **alerts_email** (optional; default: `""`) - It must be a valid email. if it is empty, then it is considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
 
+* **notification_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then it is considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
+
+* **service_heartbeat_type** (optional; default: `grpc`) - possible type configurations are ```none | grpc | http```. If it is left empty, then it is considered as none type. see [daemon heartbeats configuration](./metrics/README.md)
+
+* **heartbeat_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then service state always assumed as SERVING, and same will be wrapped in Daemon Heartbeat. see [daemon heartbeats configuration](./metrics/README.md)
+
+* **ipfs_timeout** (optional; default: `30`) - All IPFS read/writes timeout if the operations doesnt complete in 30 sec or set duration in this config entry.
 
 #### Environment variables and CLI parameters
 

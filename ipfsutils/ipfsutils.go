@@ -5,6 +5,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+	"strings"
 )
 
 func GetIpfsFile(hash string) string {
@@ -25,6 +26,16 @@ func GetIpfsFile(hash string) string {
 	log.WithField("hash", hash).WithField("blob", string(blob)).Debug("Blob of IPFS file with hash")
 
 	jsondata := string(blob)
+
+	//validating the file read from IPFS
+	newHash, err := sh.Add(strings.NewReader(jsondata), shell.OnlyHash(true))
+	if err != nil {
+		log.WithError(err).Panic("error in generating the hash for the meta data read from IPFS : %v", err)
+	}
+	if newHash != hash {
+		log.WithError(err).WithField("hashFromIPFSContent", newHash).
+			Panic("IPFS hash verification failed. Generated hash doesnt match with expected hash %s", hash)
+	}
 
 	cid.Close()
 	return jsondata

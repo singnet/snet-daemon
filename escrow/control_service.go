@@ -9,8 +9,6 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"math/big"
 	"strings"
 )
@@ -20,44 +18,95 @@ type ProviderControlService struct {
 	serviceMetaData *blockchain.ServiceMetadata
 }
 
-func NewProviderControlService(channelService PaymentChannelService,metaData *blockchain.ServiceMetadata) *ProviderControlService {
+func NewProviderControlService(channelService PaymentChannelService, metaData *blockchain.ServiceMetadata) *ProviderControlService {
 	return &ProviderControlService{
-		channelService: channelService,
-		serviceMetaData:metaData,
+		channelService:  channelService,
+		serviceMetaData: metaData,
 	}
 }
 
-
 /*
-Get list of unclaimed payments
+Get list of unclaimed payments, we do this by getting the list of channels in progress which have some amount to be claimed.
 Verify that mpe_address is correct
-Verify that actual block_number is not very different (+-5 blocks) from the current_block_number from the signature - todo
+Verify that actual block_number is not very different (+-5 blocks) from the current_block_number from the signature
 Verify that message was signed by the service provider (“payment_address” in metadata should match to the signer).
 Send list of unclaimed payments
 */
 func (service *ProviderControlService) GetListUnclaimed(ctx context.Context, request *GetPaymentsListRequest) (paymentReply *PaymentsListReply, err error) {
-	//Get details from request
-
-	mpeAddress := request.GetMpeAddress()
-
 
 	//Check if the mpe address matches to what is there in service metadata
-	if err = service.checkMpeAddress(mpeAddress).Err(); err != nil {
-		return
+	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
+		return nil, err
 	}
-
+	if err := compareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+		return nil, err
+	}
 	//Check if the signer is valid
-	if err = service.verifySignerForListUnclaimed(request); err != nil {
-		return
+	if err := service.verifySignerForListUnclaimed(request); err != nil {
+		return nil, err
 	}
-	return service.ListChannels()
+	return service.listChannels()
 }
 
-func (service *ProviderControlService) ListChannels() (paymentReply *PaymentsListReply, err error) {
+//Get the list of all claims that have been initiated but not completed yet.
+//Verify that mpe_address is correct
+//Verify that actual block_number is not very different (+-5 blocks) from the current_block_number from the signature
+//Verify that message was signed by the service provider (“payment_address” in metadata should match to the signer).
+//Check for any claims already done on block chain but have not been reflected in the storage yet,
+//update the storage status by calling the Finish() method on such claims.
+func (service *ProviderControlService) GetListInProgress(ctx context.Context, request *GetPaymentsListRequest) (reply *PaymentsListReply, err error) {
+
+	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
+		return nil, err
+	}
+
+	if err := compareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+		return nil, err
+	}
+
+	if err := service.verifySignerForListInProgress(request); err != nil {
+		return nil, err
+	}
+	err = service.removeClaimedPayments()
+	if err != nil {
+		log.Errorf("unable to remove payments from which are already claimed")
+		return nil, err
+	}
+	return service.listClaims()
+}
+
+//Initialize the claim for specific channel
+//Verify that the “payment_address” in meta data matches to that of the signer.
+//Increase nonce and send last payment with old nonce to the caller.
+//Begin the claim process on the current channel and Increment the channel nonce and
+//decrease the full amount to allow channel sender to continue working with remaining amount.
+//Check for any claims already done on block chain but have not been reflected in the storage yet,
+//update the storage status by calling the Finish() method on such claims
+func (service *ProviderControlService) StartClaim(ctx context.Context, startClaim *StartClaimRequest) (paymentReply *PaymentReply, err error) {
+	//Check if the mpe address matches to what is there in service metadata
+	if err := service.checkMpeAddress(startClaim.MpeAddress); err != nil {
+		return nil, err
+	}
+	//Verify signature , check if “payment_address” matches to what is there in metadata
+	err = service.verifySignerForStartClaim(startClaim)
+	if err != nil {
+		return nil, err
+	}
+	//Remove any payments already claimed on block chain
+	err = service.removeClaimedPayments()
+	if err != nil {
+		log.Error("unable to remove payments from etcd storage which are already claimed in block chain")
+		return nil, err
+	}
+	return service.beginClaimOnChannel(bytesToBigInt(startClaim.GetChannelId()))
+}
+
+//get the list of channels in progress which have some amount to be claimed.
+func (service *ProviderControlService) listChannels() (*PaymentsListReply, error) {
 	//get the list of channels in progress which have some amount to be claimed.
 	channels, err := service.channelService.ListChannels()
 	if err != nil {
-		return
+		return nil, err
 	}
 	output := make([]*PaymentReply, 0)
 	for _, channel := range channels {
@@ -70,7 +119,6 @@ func (service *ProviderControlService) ListChannels() (paymentReply *PaymentsLis
 			ChannelNonce: bigIntToBytes(channel.Nonce),
 			SignedAmount: bigIntToBytes(channel.AuthorizedAmount),
 		}
-
 		output = append(output, paymentReply)
 	}
 	paymentList := &PaymentsListReply{
@@ -79,102 +127,62 @@ func (service *ProviderControlService) ListChannels() (paymentReply *PaymentsLis
 	return paymentList, nil
 }
 
+//message used to sign is of the form ("__list_unclaimed", mpe_address, current_block_number)
 func (service *ProviderControlService) verifySignerForListUnclaimed(request *GetPaymentsListRequest) (error) {
-	//Get details from request
-	currentBlock := request.GetCurrentBlock()
-	signature := request.GetSignature()
-	//message used to sign is of the form ("__list_unclaimed", mpe_address, current_block_number)
+	return service.verifySigner(service.getMessageBytes("__list_unclaimed", request), request.GetSignature())
+}
+
+func (service *ProviderControlService) getMessageBytes(prefixMessage string, request *GetPaymentsListRequest) []byte {
 	message := bytes.Join([][]byte{
-		[]byte ("__list_unclaimed"),
+		[]byte (prefixMessage),
 		service.serviceMetaData.GetMpeAddress().Bytes(),
-		abi.U256(big.NewInt(int64(currentBlock))),
+		abi.U256(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
+	return message
+}
 
+func (service *ProviderControlService) verifySigner(message []byte, signature []byte) error {
 	signer, err := getSignerAddressFromMessage(message, signature)
-
 	if err != nil {
 		log.Error(err)
 		return err
 	}
-	if errorStatus := service.checkSigner(*signer); errorStatus != nil {
-		return errorStatus.Err()
+	if err = service.verifyPaymentAddress(*signer); err != nil {
+		return err
 	}
-
 	return nil
 }
 
-//Initialize the claim for specific channel
-//Verify that signature , check if “payment_address” matches to what is there in metadata
-//Increase nonce and send last payment with old nonce to the caller.
-//Finish (change the state in etcd ) to reflect any claims already done on block chain but have not been reflected in the storage yet.
-
-func (service *ProviderControlService) StartClaim(ctx context.Context, startClaim *StartClaimRequest) (paymentReply *PaymentReply, err error) {
-	//Get details from request
-	channelId := bytesToBigInt(startClaim.GetChannelId())
-
-
-	//Check if the mpe address matches to what is there in service metadata
-	mpeAddress := startClaim.MpeAddress
-	if err = service.checkMpeAddress(mpeAddress).Err(); err != nil {
-		return
-	}
-
-	//Verify signature , check if “payment_address” matches to what is there in metadata
-	err = service.verifySignerForStartClaim(startClaim)
-	if err != nil {
-		return
-	}
-
-	//Remove any payments already claimed on block chain
-	err = service.removeClaimedPayments()
-	if err != nil {
-		log.Error("unable to remove payments from etcd storage which are already claimed in block chain")
-		return
-	}
-
-	return service.beginClaimOnChannel(channelId)
-}
-
-
 //Begin the claim process on the current channel and Increment the channel nonce and
 //decrease the full amount to allow channel sender to continue working with remaining amount.
-
-func (service *ProviderControlService) beginClaimOnChannel (channelId *big.Int) (paymentReply *PaymentReply, err error) {
-
+func (service *ProviderControlService) beginClaimOnChannel(channelId *big.Int) (*PaymentReply, error) {
 	latestChannel, _, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelId})
-
 	if err != nil {
-		return
+		return nil, err
 	}
 	//Check if there is any Authorized amount to initiate a claim
-	if latestChannel.AuthorizedAmount.Int64() == 0  {
-		err = fmt.Errorf("authorized amount is zero , hence nothing to claim on the channel Id: %v",channelId)
-		return
+	if latestChannel.AuthorizedAmount.Int64() == 0 {
+		err = fmt.Errorf("authorized amount is zero , hence nothing to claim on the channel Id: %v", channelId)
+		return nil, err
 	}
-
 	claim, err := service.channelService.StartClaim(&PaymentChannelKey{ID: channelId}, IncrementChannelNonce)
 	if err != nil {
-		return
+		return nil, err
 	}
-	paymentReply = &PaymentReply{
+	paymentReply := &PaymentReply{
 		ChannelId:    bigIntToBytes(channelId),
 		ChannelNonce: bigIntToBytes(claim.Payment().ChannelNonce),
 	}
-	return paymentReply,nil
+	return paymentReply, nil
 }
+
 //Verify if the signer is same as the payment address in metadata
 //__start_claim”, mpe_address, channel_id, channel_nonce
 func (service *ProviderControlService) verifySignerForStartClaim(startClaim *StartClaimRequest) error {
 	channelId := bytesToBigInt(startClaim.GetChannelId())
-
 	signature := startClaim.Signature
-
-
 	latestChannel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelId})
 	if !ok || err != nil {
-		log.WithFields(log.Fields{
-			"payment channel retrieval error": err,
-		}).Errorf("unable to retrieve latest channel state from block chain for channel Id:", channelId)
 		return err
 	}
 	message := bytes.Join([][]byte{
@@ -183,103 +191,48 @@ func (service *ProviderControlService) verifySignerForStartClaim(startClaim *Sta
 		bigIntToBytes(channelId),
 		bigIntToBytes(latestChannel.Nonce),
 	}, nil)
-
-	signer, err := getSignerAddressFromMessage(message, signature)
-
-	if err != nil {
-		log.Error(err)
-		//return err
-	}
-	if errorStatus := service.checkSigner(*signer); errorStatus != nil {
-		return errorStatus.Err()
-	}
-
-	return nil
+	return service.verifySigner(message, signature)
 }
 
-//To authenticate sender request should also contain correct signature of the channel id.
-//Before sending list of payments, daemon should remove all payments
-//with nonce < block chain nonce from payment storage (call finalize on them?).
-//It means that daemon remove all payments which were claimed already.
-
-func (service *ProviderControlService) GetListInProgress(ctx context.Context, request *GetPaymentsListRequest) (reply *PaymentsListReply, err error) {
-
-	if err = service.checkMpeAddress(request.GetMpeAddress()).Err(); err != nil {
-		return
-	}
-
-	if err = service.verifySignerForListInProgress(request); err != nil {
-		return
-	}
-
-	err = service.removeClaimedPayments()
-	if err != nil {
-		log.Errorf("unable to remove payments from which are already claimed")
-		return
-	}
-
-	return service.ListClaims()
-}
-
-func (service *ProviderControlService) ListClaims()  (reply *PaymentsListReply, err error) {
+func (service *ProviderControlService) listClaims() (*PaymentsListReply, error) {
 	//retrieve all the claims in progress
 	claimsRetrieved, err := service.channelService.ListClaims()
 	if err != nil {
 		log.Error("error in retrieving claims")
-		return
+		return nil, err
 	}
-
 	output := make([]*PaymentReply, 0)
-
 	for _, claimRetrieved := range claimsRetrieved {
 		payment := claimRetrieved.Payment()
 		if payment.Signature == nil || payment.Amount.Int64() == 0 {
-			log.Errorf("The Signature or the Amount is not defined on the Payment with" +
+			log.Errorf("The Signature or the Amount is not defined on the Payment with"+
 				" Channel Id:%v , Nonce:%v", payment.ChannelID, payment.ChannelNonce)
 			continue
 		}
-
 		paymentReply := &PaymentReply{
 			ChannelId:    bigIntToBytes(payment.ChannelID),
 			ChannelNonce: bigIntToBytes(payment.ChannelNonce),
 			SignedAmount: bigIntToBytes(payment.Amount),
 			Signature:    payment.Signature,
 		}
-
 		output = append(output, paymentReply)
 	}
-	reply = &PaymentsListReply{
+	reply := &PaymentsListReply{
 		Payments: output,
 	}
-	return
+	return reply, nil
 }
 
+//message used to sign is of the form ("__list_in_progress", mpe_address, current_block_number)
 func (service *ProviderControlService) verifySignerForListInProgress(request *GetPaymentsListRequest) (error) {
-	currentBlock := request.GetCurrentBlock()
-	signature := request.GetSignature()
-	message := bytes.Join([][]byte{
-		[]byte ("__list_in_progress"),
-		service.serviceMetaData.GetMpeAddress().Bytes(),
-		abi.U256(big.NewInt(int64(currentBlock))),
-	}, nil)
-
-	signer, err := getSignerAddressFromMessage(message, signature)
-
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	if errorStatus := service.checkSigner(*signer); errorStatus != nil {
-		return errorStatus.Err()
-	}
-
-	return nil
+	return service.verifySigner(service.getMessageBytes("__list_in_progress", request), request.GetSignature())
 }
 
 //No write operation on block chains are done by Daemon (will be take care of by the snet client )
-//Finish should be called only after the payment is successfully claimed and block chain is updated accordingly.
+//Finish on the claim should be called only after the payment is successfully claimed and block chain is updated accordingly.
 //One way to determine this is by checking the nonce in the block chain with the nonce in the payment,
-//if the block chain has a greater nonce => that the claim is already done in block chain.
+//for a given channel if the block chain nonce is greater than that of the nonce from etcd storage => that the claim is already done in block chain.
+//and the Finish method is called on the claim.
 func (service *ProviderControlService) removeClaimedPayments() error {
 	//Get the pending claims
 	//retrieve all the claims in progress
@@ -287,14 +240,10 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 	if err != nil {
 		return errors.New("error in retrieving claims")
 	}
-
 	for _, claimRetrieved := range claimsRetrieved {
 		payment := claimRetrieved.Payment()
 		blockChainChannel, ok, err := service.channelService.PaymentChannelFromBlockChain(&PaymentChannelKey{ID: payment.ChannelID})
 		if !ok || err != nil {
-			log.WithFields(log.Fields{
-				"Payment channel retrieval error": err,
-			}).Errorf("unable to retrieve channel state from block chain for Payment %v", payment)
 			return err
 		}
 		//Compare the state of this payment in progress with what is available in block chain
@@ -307,36 +256,56 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 			err = claimRetrieved.Finish()
 			if err != nil {
 				log.Error(err)
+				return err
 			}
-			continue
 		}
 	}
 	return nil
 }
 
-//Check if the MPE Address passed is the same
-func (service *ProviderControlService) checkSigner(address common.Address) (*status.Status) {
+//Check if the payment address/signer passed matches to what is present in the metadata
+func (service *ProviderControlService) verifyPaymentAddress(address common.Address) (error) {
 	isSameAddress := service.serviceMetaData.GetPaymentAddress() == address
-	//Check if the payment address passed matches to what has been received.
-	errorStatus := status.New(codes.InvalidArgument,
-		fmt.Errorf("The payment Address : %s  does not match to what has been registered", address).Error())
 	if !isSameAddress {
-		return errorStatus
+		return fmt.Errorf("the payment Address: %s  does not match to what has been registered", blockchain.AddressToHex(&address))
 	}
 	return nil
 }
 
-//Check if the MPE Address passed is the same
-func (service *ProviderControlService) checkMpeAddress(mpeAddress string) (*status.Status) {
+//Check if the mpe address passed matches to what is present in the metadata.
+func (service *ProviderControlService) checkMpeAddress(mpeAddress string) (error) {
 	isSameAddress := strings.Compare(service.serviceMetaData.MpeAddress, mpeAddress) == 0
-	//Check if the mpe address passed matches to what is present in the metadata.
-	errorStatus := status.New(codes.InvalidArgument,
-		fmt.Errorf("mpeAddress : %s passed does not match to what has been registered", mpeAddress).Error())
 	if !isSameAddress {
-		log.WithFields(log.Fields{
-			"mpeAddress": mpeAddress,
-		}).Error(errorStatus)
-		return errorStatus
+		return fmt.Errorf("the mpeAddress: %s passed does not match to what has been registered", mpeAddress)
 	}
 	return nil
+}
+
+//Check if the block number passed is not more +- 5 from the latest block number on chain
+func compareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
+	latestBlockNumber, err := currentBlock()
+	if err != nil {
+		return err
+	}
+	differenceInBlockNumber := latestBlockNumber.Cmp(blockNumberPassed)
+	if -5 <= differenceInBlockNumber || differenceInBlockNumber <= 5 {
+		return nil
+	}
+	return fmt.Errorf("difference between the latest block chain number and the block number passed is %v ", blockNumberPassed)
+}
+
+//Get the current block number from on chain
+func currentBlock() (*big.Int, error) {
+	if ethClient, err := blockchain.GetEthereumClient(); err != nil {
+		return nil, err
+	} else {
+		defer ethClient.RawClient.Close()
+		var currentBlockHex string
+		if err = ethClient.RawClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
+			log.WithError(err).Error("error determining current block")
+			return nil, fmt.Errorf("error determining current block: %v", err)
+		}
+		return new(big.Int).SetBytes(common.FromHex(currentBlockHex)), nil
+	}
+
 }

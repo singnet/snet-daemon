@@ -200,9 +200,11 @@ func (d daemon) start() {
 	}
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
+		maxsizeOpt := grpc.MaxRecvMsgSize(1000000000) //1GB
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
+			maxsizeOpt,
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 

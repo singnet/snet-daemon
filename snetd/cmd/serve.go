@@ -200,7 +200,8 @@ func (d daemon) start() {
 	}
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
-		maxsizeOpt := grpc.MaxRecvMsgSize(1000000000) //1GB
+		// set the maximum that the server can receive to 4GB. It is set to for 4GB because of issue here https://github.com/grpc/grpc-go/issues/1590
+		maxsizeOpt := grpc.MaxRecvMsgSize(4000000000)
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),

@@ -15,7 +15,7 @@ var ChannelCmd = &cobra.Command{
 	Long: "allows us to perform operations on channels with given channel ID." +
 		" User can use 'snetd channel --unlock {channelID}' command to unlock the channel manually.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return RunAndCleanup(cmd, args, newListChannelsCommand)
+		return RunAndCleanup(cmd, args, newChannelCommand)
 	},
 }
 
@@ -36,7 +36,7 @@ func newChannelCommand(cmd *cobra.Command, args []string, components *Components
 	}
 
 	command = &channelCommand{
-		etcdclient:       components.etcdClient,
+		etcdclient:       components.EtcdClient(),
 		paymentChannelId: channelId,
 	}
 	return
@@ -57,7 +57,7 @@ func getPaymentChannelId(cmd *cobra.Command) (id *big.Int, err error) {
 // command's run method
 func (command *channelCommand) Run() (err error) {
 	if command.paymentChannelId == nil {
-		return fmt.Errorf("--channel-id must be set")
+		return fmt.Errorf("--unlock channel-id must be set")
 	}
 	if command.paymentChannelId != nil {
 		return command.unlockChannel()
@@ -70,5 +70,11 @@ func (command *channelCommand) unlockChannel() (err error) {
 	key := &escrow.PaymentChannelKey{}
 	key.ID = command.paymentChannelId
 	channelKey := "/payment-channel/lock/" + key.String()
+	// verify whether the key exists or not
+	_, ok, _ := command.etcdclient.Get(channelKey)
+	if !ok {
+		fmt.Println("Error: Channel is not found by key:", key.String())
+	}
+	// if exists, delete the key
 	return command.etcdclient.Delete(channelKey)
 }

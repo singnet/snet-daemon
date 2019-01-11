@@ -73,7 +73,7 @@ func (command *channelCommand) unlockChannel() (err error) {
 	// verify whether the key exists or not
 	_, ok, _ := command.etcdclient.Get(channelKey)
 	if !ok {
-		fmt.Println("Error: Channel is not found by key:", key.String())
+		fmt.Println("Error: Channel is not found by key:", channelKey)
 	}
 	// if exists, delete the key
 	return command.etcdclient.Delete(channelKey)

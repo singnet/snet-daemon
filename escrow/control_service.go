@@ -174,7 +174,7 @@ func (service *ProviderControlService) beginClaimOnChannel(channelId *big.Int) (
 	paymentReply := &PaymentReply{
 		ChannelId:    bigIntToBytes(channelId),
 		ChannelNonce: bigIntToBytes(payment.ChannelNonce),
-		Signature:claim.Payment().Signature,
+		Signature:payment.Signature,
 		SignedAmount: bigIntToBytes(payment.Amount),
 	}
 	return paymentReply, nil

@@ -170,10 +170,12 @@ func (service *ProviderControlService) beginClaimOnChannel(channelId *big.Int) (
 	if err != nil {
 		return nil, err
 	}
+	payment := claim.Payment()
 	paymentReply := &PaymentReply{
 		ChannelId:    bigIntToBytes(channelId),
-		ChannelNonce: bigIntToBytes(claim.Payment().ChannelNonce),
+		ChannelNonce: bigIntToBytes(payment.ChannelNonce),
 		Signature:claim.Payment().Signature,
+		SignedAmount: bigIntToBytes(payment.Amount),
 	}
 	return paymentReply, nil
 }

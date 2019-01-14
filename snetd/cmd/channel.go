@@ -31,10 +31,6 @@ func newChannelCommand(cmd *cobra.Command, args []string, components *Components
 	if err != nil {
 		return
 	}
-	if err != nil {
-		return
-	}
-
 	command = &channelCommand{
 		etcdclient:       components.EtcdClient(),
 		paymentChannelId: channelId,

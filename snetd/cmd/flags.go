@@ -80,7 +80,6 @@ var (
 	claimPaymentId string
 	claimSendBack  bool
 	claimTimeout   string
-
 	paymentChannelId string
 )
 

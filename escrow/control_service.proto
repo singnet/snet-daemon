@@ -4,8 +4,9 @@ package escrow;
 
 service ProviderControlService {
 
-    //get list of all unclaimed "payments".
-    //in PaymentsSignatureReply signatures MUST be omited
+    //Get the list of all unclaimed "payments".
+    //in PaymentsSignatureReply signatures MUST be omitted
+
     //if signature field is present then response should be considered as invalid
     rpc GetListUnclaimed(GetPaymentsListRequest)  returns (PaymentsListReply) {}
 
@@ -51,5 +52,4 @@ message PaymentReply {
 message PaymentsListReply {
     repeated PaymentReply payments = 1;
 }
-
 

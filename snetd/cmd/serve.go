@@ -208,6 +208,7 @@ func (d daemon) start() {
 			maxsizeOpt,
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
+		escrow.RegisterProviderControlServiceServer(d.grpcServer,d.components.ProviderControlService())
 
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json

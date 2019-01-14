@@ -26,6 +26,7 @@ type Components struct {
 	escrowPaymentHandler       handler.PaymentHandler
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
+	providerControlService     *escrow.ProviderControlService
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -219,4 +220,13 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelService())
 
 	return components.paymentChannelStateService
+}
+//NewProviderControlService
+
+func (components *Components) ProviderControlService() (service *escrow.ProviderControlService) {
+	if components.providerControlService != nil {
+		return components.providerControlService
+	}
+	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),components.ServiceMetaData())
+	return components.providerControlService
 }

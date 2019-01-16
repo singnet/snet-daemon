@@ -16,16 +16,16 @@ import (
 )
 
 const (
-	RegistryAddressKey   = "registry_address_key" //to be read from github
 	AutoSSLDomainKey     = "auto_ssl_domain"
 	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
 	BlockchainEnabledKey = "blockchain_enabled"
+	BlockChainNetworkSelected       = "blockchain_network_selected"
 	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
-	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
+
 	ExecutablePathKey              = "executable_path"
 	HdwalletIndexKey               = "hdwallet_index"
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
@@ -57,9 +57,9 @@ const (
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
+	"blockchain_network_selected": "local",
 	"daemon_type": "grpc",
 	"daemon_end_point": "127.0.0.1:8080",
-	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
@@ -68,7 +68,6 @@ const (
 	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
-	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_id": "ExampleServiceId", 
 	"private_key": "",
 	"ssl_cert": "",
@@ -131,7 +130,6 @@ func init() {
 		panic(fmt.Sprintf("Cannot load default config: %v", err))
 	}
 	SetDefaultFromConfig(vip, defaults)
-
 	vip.AddConfigPath(".")
 }
 
@@ -223,7 +221,8 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	for subKey, value := range subMap {
 		sub.Set(subKey, value)
 	}
-
+	//Set all the block chain network details after config has been initialized with values.
+	setBlockChainNetworkDetails()
 	return sub
 }
 

@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"github.com/singnet/snet-daemon/escrow"
-	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/spf13/cobra"
 	"math/big"
 )
@@ -21,7 +20,7 @@ var ChannelCmd = &cobra.Command{
 
 //Channel command type
 type channelCommand struct {
-	etcdclient       *etcddb.EtcdClient
+	storage       escrow.PrefixedAtomicStorage
 	paymentChannelId *big.Int
 }
 
@@ -32,7 +31,7 @@ func newChannelCommand(cmd *cobra.Command, args []string, components *Components
 		return
 	}
 	command = &channelCommand{
-		etcdclient:       components.EtcdClient(),
+		storage:       *components.PrefixedAtomicStorage(),
 		paymentChannelId: channelId,
 	}
 	return
@@ -65,12 +64,18 @@ func (command *channelCommand) Run() (err error) {
 func (command *channelCommand) unlockChannel() (err error) {
 	key := &escrow.PaymentChannelKey{}
 	key.ID = command.paymentChannelId
-	channelKey := "/payment-channel/lock/" + key.String()
-	// verify whether the key exists or not
-	_, ok, _ := command.etcdclient.Get(channelKey)
+	// check whether the key exists or not
+	_, ok, err := command.storage.Get(key.String())
 	if !ok {
-		fmt.Println("Error: Channel is not found by key:", channelKey)
+		fmt.Printf("Error: Channel %s not found\n", key.String())
+		return
 	}
-	// if exists, delete the key
-	return command.etcdclient.Delete(channelKey)
+	// try deleting the key
+	err = command.storage.Delete(key.String())
+	if err != nil {
+		fmt.Printf("Error: Unable to unlock the channel -%s\n", key.String())
+		return
+	}
+	fmt.Printf("Success: Channel %s unlocked\n", key.String())
+	return
 }

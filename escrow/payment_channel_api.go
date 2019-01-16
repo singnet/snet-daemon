@@ -121,6 +121,9 @@ type PaymentChannelService interface {
 
 	// StartPaymentTransaction validates payment and starts payment transaction
 	StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error)
+
+	//Get Channel from BlockChain
+	PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
 }
 
 // PaymentErrorCode contains all types of errors which we need to handle on the

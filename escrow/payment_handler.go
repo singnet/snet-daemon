@@ -60,14 +60,14 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 
 	transaction, e := h.service.StartPaymentTransaction(internalPayment)
 	if e != nil {
-		return nil, paymentErrorToGrpcError(e)
+		return transaction, paymentErrorToGrpcError(e)
 	}
 
 	income := big.NewInt(0)
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
 	e = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
 	if e != nil {
-		return nil, paymentErrorToGrpcError(e)
+		return transaction, paymentErrorToGrpcError(e)
 	}
 
 	return transaction, nil

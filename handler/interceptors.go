@@ -175,25 +175,16 @@ type paymentValidationInterceptor struct {
 
 func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
-
+	handlerSucceed := false
 	context, err := getGrpcContext(ss, info)
 	if err != nil {
 		return err.Err()
 	}
 	log.WithField("context", context).Debug("New gRPC call received")
 
-	paymentHandler, err := interceptor.getPaymentHandler(context)
-	if err != nil {
-		return err.Err()
-	}
-
-	payment, err := paymentHandler.Payment(context)
-	if err != nil {
-		return err.Err()
-	}
-
-	handlerSucceed := false
-
+	var paymentHandler PaymentHandler
+	var payment Payment
+	//Ensure the defer is defined before
 	defer func() {
 		if !handlerSucceed {
 			if r := recover(); r != nil {
@@ -208,6 +199,14 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 			}
 		}
 	}()
+	paymentHandler, err = interceptor.getPaymentHandler(context)
+	if err != nil {
+		return err.Err()
+	}
+	payment, err = paymentHandler.Payment(context)
+	if err != nil {
+		return err.Err()
+	}
 
 	log.WithField("payment", payment).Debug("New payment received")
 

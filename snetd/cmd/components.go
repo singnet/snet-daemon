@@ -21,11 +21,12 @@ type Components struct {
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
-	atomicStorage              escrow.AtomicStorage
+	atomicStorage			   escrow.AtomicStorage
 	paymentChannelService      escrow.PaymentChannelService
 	escrowPaymentHandler       handler.PaymentHandler
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
+	etcdLockerStorage		       *escrow.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
 }
 
@@ -139,6 +140,14 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 
 	components.etcdClient = client
 	return components.etcdClient
+}
+
+func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
+	if components.etcdLockerStorage != nil {
+		return components.etcdLockerStorage
+	}
+	components.etcdLockerStorage = escrow.NewLockerStorage(components.AtomicStorage())
+	return components.etcdLockerStorage
 }
 
 func (components *Components) AtomicStorage() escrow.AtomicStorage {

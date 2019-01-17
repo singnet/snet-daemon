@@ -103,6 +103,7 @@ Usage:
   snetd [command]
 
 Available Commands:
+  channel     Manage operations on payment channels
   claim       Claim money from payment channel
   help        Help about any command
   init        Write default configuration to file

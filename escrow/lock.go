@@ -19,10 +19,15 @@ type Locker interface {
 // NewEtcdLocker returns new lock which is based on etcd storage.
 func NewEtcdLocker(storage AtomicStorage) Locker {
 	return &etcdLocker{
-		storage: &PrefixedAtomicStorage{
-			delegate:  storage,
-			keyPrefix: "/payment-channel/lock",
-		},
+		storage: NewLockerStorage(storage),
+	}
+}
+
+// returns new prefixed storage
+func NewLockerStorage(storage AtomicStorage) *PrefixedAtomicStorage {
+	return &PrefixedAtomicStorage{
+		delegate:  storage,
+		keyPrefix: "/payment-channel/lock",
 	}
 }
 

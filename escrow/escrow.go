@@ -35,6 +35,10 @@ func NewPaymentChannelService(
 	}
 }
 
+func (h *lockingPaymentChannelService)  PaymentChannelFromBlockChain (key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	return h.blockchainReader.GetChannelStateFromBlockchain(key)
+}
+
 func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	storageChannel, storageOk, err := h.storage.Get(key)
 	if err != nil {

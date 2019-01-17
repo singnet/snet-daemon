@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetRegistryAddress(t *testing.T) {
-	setBlockChainNetworkDetails()
+	setAndValidateBlockChainNetworkDetails()
 	assert2.NotEqual(t,GetRegistryAddress(),nil)
 }
 

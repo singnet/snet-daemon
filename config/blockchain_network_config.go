@@ -19,7 +19,7 @@ const (
 {
   "local":{
     "ethereum_json_rpc_endpoint":"http://localhost:8545",
-    "network_id":"42",
+    "network_id":"999999",
     "registry_address_key":"0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2"
   },
   "kovan":{
@@ -32,7 +32,7 @@ const (
   },
   "rinkeby":{
     "ethereum_json_rpc_endpoint":"https://rinkeby.infura.io",
-    "network_id":"7"
+    "network_id":"4"
   },
   "main":{
     "ethereum_json_rpc_endpoint":"https://mainnet.infura.io",
@@ -48,7 +48,6 @@ const (
 )
 
 var networkSelected *NetworkSelected
-
 
 func determineNetworkSelected(data []byte) {
 	dynamicBinding := map[string]interface{}{}
@@ -66,45 +65,54 @@ func determineNetworkSelected(data []byte) {
 		NetworkId:               fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]interface{})[NetworkId]),
 	}
 }
+
 //Check if the Registry address was set in the block chain network config, then we use this address as the contract address
 //the address is usually set for local testing , for other network types like ropsten or kovan or main , the system will automatically
 //figure out the contract address
-func getRegistryAddressfromJSON(address interface{} ) string {
+func getRegistryAddressfromJSON(address interface{}) string {
 	if address == nil {
 		return ""
 	}
-	return fmt.Sprintf("%v",address)
+	return fmt.Sprintf("%v", address)
 }
+
 //Get the Network ID associated  with the network selected
 func GetNetworkId() (string) {
 	return networkSelected.NetworkId
 }
+
 //Get the block chain end point associated with the Network selected
 func GetBlockChainEndPoint() string {
 	return networkSelected.EthereumJSONRPCEndpoint
 }
+
 //Get the Registry address of the contract
 func GetRegistryAddress() string {
 	return networkSelected.RegistryAddressKey
 }
+
 //Read the Registry address from JSON file ( file will be under networks folder)
 func setRegistryAddress() {
 	//if address is already set in the config file and has been initialized , then skip the setting process
-	if len(networkSelected.RegistryAddressKey)>0 {
+	if len(networkSelected.RegistryAddressKey) > 0 {
 		return
 	}
 	data, err := ReadFromFile(RegistryJsonFileName)
 	if err != nil {
 		panic(fmt.Sprintf("cannot find the file at %v for the network %v configuation file to read the address config: %v",
-			RegistryJsonFileName,GetString(BlockChainNetworkSelected),err))
+			RegistryJsonFileName, GetString(BlockChainNetworkSelected), err))
 	}
+	networkSelected.RegistryAddressKey= getRegistryAddressFromJson(data)
+}
+
+func getRegistryAddressFromJson(data []byte) string {
 	m := map[string]interface{}{}
-	err = json.Unmarshal(data, &m)
+	err := json.Unmarshal(data, &m)
 	if err != nil {
 		panic(fmt.Sprintf("cannot parse the JSON file at %v for the %v configuation file to read the address config: %v",
-			RegistryJsonFileName,GetString(BlockChainNetworkSelected),err))
+			RegistryJsonFileName, GetString(BlockChainNetworkSelected), err))
 	}
-	networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]interface{})["address"])
+	return fmt.Sprintf("%v", m[GetNetworkId()].(map[string]interface{})["address"])
 }
 
 //Read the file given file, if the file is not found  ,then return back an error
@@ -116,6 +124,7 @@ func ReadFromFile(filename string) ([]byte, error) {
 	return file, nil
 
 }
+
 //Read from the block chain network config json
 func setBlockChainNetworkDetails() {
 	data, err := ReadFromFile(BlockChainNetworkFileName)

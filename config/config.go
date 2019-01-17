@@ -19,7 +19,7 @@ const (
 	AutoSSLDomainKey     = "auto_ssl_domain"
 	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
 	BlockchainEnabledKey = "blockchain_enabled"
-	BlockChainNetworkSelected       = "blockchain_network_selected"
+	BlockChainNetworkSelected      = "blockchain_network_selected"
 	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
@@ -171,7 +171,8 @@ func Validate() error {
 		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
 		return errors.New("service endpoint must be a valid URL")
 	}
-
+	//Set all the block chain network details after config has been initialized with values.
+	setAndValidateBlockChainNetworkDetails()
 	// Validate metrics URL and set state
 	return nil
 }
@@ -221,8 +222,6 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	for subKey, value := range subMap {
 		sub.Set(subKey, value)
 	}
-	//Set all the block chain network details after config has been initialized with values.
-	setBlockChainNetworkDetails()
 	return sub
 }
 

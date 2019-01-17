@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 )
 
@@ -54,7 +55,8 @@ func determineNetworkSelected(data []byte) {
 	networkName := GetString(BlockChainNetworkSelected)
 	err := json.Unmarshal(data, &dynamicBinding)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("cannot parse the JSON configuation file %v for the network %v  to determine the network selected: %v",
+			BlockChainNetworkFileName, GetString(BlockChainNetworkSelected), err))
 	}
 	networkSelected = &NetworkSelected{
 		//Get the Network Name selected in config ( snetd.config.json) , Based on this retrieve the Registry address ,
@@ -102,7 +104,7 @@ func setRegistryAddress() {
 		panic(fmt.Sprintf("cannot find the file at %v for the network %v configuation file to read the address config: %v",
 			RegistryJsonFileName, GetString(BlockChainNetworkSelected), err))
 	}
-	networkSelected.RegistryAddressKey= getRegistryAddressFromJson(data)
+	networkSelected.RegistryAddressKey = getRegistryAddressFromJson(data)
 }
 
 func getRegistryAddressFromJson(data []byte) string {
@@ -126,11 +128,13 @@ func ReadFromFile(filename string) ([]byte, error) {
 }
 
 //Read from the block chain network config json
-func setBlockChainNetworkDetails() {
+func setAndValidateBlockChainNetworkDetails() {
 	data, err := ReadFromFile(BlockChainNetworkFileName)
 	if err != nil {
 		data = []byte(DefaultBlockChainNetworkConfig)
 	}
 	determineNetworkSelected(data)
 	setRegistryAddress()
+	log.Infof("blockchain_network_selected: %v BlockChainNetwork Registry Address:%v  Ethereum end point:%v ",
+		GetString(BlockChainNetworkSelected), GetRegistryAddress(), GetBlockChainEndPoint())
 }

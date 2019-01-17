@@ -141,11 +141,11 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	return components.etcdClient
 }
 
-func (components *Components) PrefixedAtomicStorage() *escrow.PrefixedAtomicStorage {
+func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
 	if components.etcdLockerStorage != nil {
 		return components.etcdLockerStorage
 	}
-	components.etcdLockerStorage = escrow.NewPrefixedStorage(components.AtomicStorage())
+	components.etcdLockerStorage = escrow.NewLockerStorage(components.AtomicStorage())
 	return components.etcdLockerStorage
 }
 

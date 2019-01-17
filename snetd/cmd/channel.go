@@ -31,7 +31,7 @@ func newChannelCommand(cmd *cobra.Command, args []string, components *Components
 		return
 	}
 	command = &channelCommand{
-		storage:       *components.PrefixedAtomicStorage(),
+		storage:       *components.LockerStorage(),
 		paymentChannelId: channelId,
 	}
 	return

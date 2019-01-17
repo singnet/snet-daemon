@@ -141,5 +141,5 @@ func (suite *PaymentHandlerTestSuite) TestValidatePaymentIncorrectIncome() {
 	payment, err := paymentHandler.Payment(context)
 
 	assert.Equal(suite.T(), handler.NewGrpcError(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\""), err)
-	assert.Nil(suite.T(), payment)
+	assert.NotEqual(suite.T(), payment, nil)
 }

@@ -1,20 +1,96 @@
 package handler
 
 import (
+	"context"
+	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )
 
+type serverStreamMock struct {
+	context context.Context
+}
+
+func (m *serverStreamMock) Context() context.Context {
+	return m.context
+}
+
+func (m *serverStreamMock) SetHeader(metadata.MD) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *serverStreamMock) SendHeader(metadata.MD) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *serverStreamMock) SetTrailer(metadata.MD) {
+}
+
+func (m *serverStreamMock) SendMsg(interface{}) error {
+	return errors.New("not implemented in mock")
+}
+
+func (m *serverStreamMock) RecvMsg(interface{}) error {
+	return errors.New("not implemented in mock")
+}
+
+const (
+	defaultPaymentHandlerType = "test-default-payment-handler"
+	testPaymentHandlerType    = "test-payment-handler"
+)
+
+type paymentHandlerMock struct {
+	typ                      string
+	completeAfterErrorCalled bool
+	completeCalled           bool
+}
+
+func (handler *paymentHandlerMock) Type() string {
+	return handler.typ
+}
+
+func (handler *paymentHandlerMock) Payment(context *GrpcStreamContext) (payment Payment, err *GrpcError) {
+	return
+}
+
+func (handler *paymentHandlerMock) Complete(payment Payment) (err *GrpcError) {
+	handler.completeCalled = true
+	return
+}
+
+func (handler *paymentHandlerMock) CompleteAfterError(payment Payment, result error) (err *GrpcError) {
+	handler.completeAfterErrorCalled = true
+	return
+}
+
 type InterceptorsSuite struct {
 	suite.Suite
+
+	returnErrorHandler    grpc.StreamHandler
+	panicHandler          grpc.StreamHandler
+	defaultPaymentHandler *paymentHandlerMock
+	paymentHandler        *paymentHandlerMock
+	interceptor           grpc.StreamServerInterceptor
+	serverStream          *serverStreamMock
 }
 
 func (suite *InterceptorsSuite) SetupSuite() {
+	suite.returnErrorHandler = func(srv interface{}, stream grpc.ServerStream) error {
+		return errors.New("some error")
+	}
+	suite.panicHandler = func(srv interface{}, stream grpc.ServerStream) error {
+		panic("some panic")
+	}
+	suite.defaultPaymentHandler = &paymentHandlerMock{typ: defaultPaymentHandlerType}
+	suite.paymentHandler = &paymentHandlerMock{typ: testPaymentHandlerType}
+	suite.interceptor = GrpcPaymentValidationInterceptor(suite.defaultPaymentHandler, suite.paymentHandler)
+	suite.serverStream = &serverStreamMock{context: metadata.NewIncomingContext(context.Background(), metadata.Pairs(PaymentTypeHeader, testPaymentHandlerType))}
 }
 
 func TestIntersecptorsSuite(t *testing.T) {
@@ -103,4 +179,24 @@ func (suite *InterceptorsSuite) TestGetBytesIncorrectBinaryKey() {
 	_, err := GetBytes(md, "binary-key")
 
 	assert.Equal(suite.T(), NewGrpcErrorf(codes.InvalidArgument, "incorrect binary key name \"binary-key\""), err)
+}
+
+func (suite *InterceptorsSuite) TestCompleteOnHandlerError() {
+	suite.interceptor(nil, suite.serverStream, nil, suite.returnErrorHandler)
+
+	assert.True(suite.T(), suite.paymentHandler.completeAfterErrorCalled)
+	assert.False(suite.T(), suite.paymentHandler.completeCalled)
+}
+
+func (suite *InterceptorsSuite) TestCompleteOnHandlerPanic() {
+	defer func() {
+		if r := recover(); r == nil {
+			assert.Fail(suite.T(), "panic() call expected")
+		}
+	}()
+
+	suite.interceptor(nil, suite.serverStream, nil, suite.panicHandler)
+
+	assert.True(suite.T(), suite.paymentHandler.completeAfterErrorCalled)
+	assert.False(suite.T(), suite.paymentHandler.completeCalled)
 }

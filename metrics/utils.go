@@ -67,6 +67,7 @@ func publishJson(json []byte, serviceURL string) bool {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Daemonid", GetDaemonID())
+	req.Header.Set("X-Token", daemonAuthorizationToken)
 	req.Header.Set("X-Netid", "42") //will be replaced with //config.GetNetworkId() once the issue to read registry address is fixed todo
 	// sending the post request
 	client := &http.Client{}

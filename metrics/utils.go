@@ -81,7 +81,8 @@ func rePublishJson(json []byte, serviceURL string) bool {
 		return false
 	}
 	log.Debugf("Metrics republished with status code : %d ", response.StatusCode)
-	return true
+	status, _ := checkForSuccessfulResponse(response)
+	return status
 }
 
 //Set all the headers before publishing

@@ -6,6 +6,7 @@
 package metrics
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -31,7 +33,6 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 		return nil, err
 	}
 	defer conn.Close()
-
 	// create the client instance
 	client := pb.NewHeartbeatClient(conn)
 	// connect to the server and call the required method
@@ -79,7 +80,8 @@ func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 
 // calls the corresponding the service to send the registration information
 func callRegisterService(daemonID string, serviceURL string) (status bool) {
-	req, err := http.NewRequest("POST", serviceURL, nil)
+	//Send the Daemon ID and the Network ID to register the Daemon
+	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(buildPayLoadForServiceRegistration()))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Access-Token", daemonID)
 	if err != nil {
@@ -93,7 +95,16 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 		log.WithError(err).Info("unable to reach registration service : %v", err)
 		return false
 	}
-	// process the response
-	return checkForSuccessfulResponse(response)
-	//todo add access token related code in next iteration
+	// process the response and set the Authorization token
+	daemonAuthorizationToken, status = getTokenFromResponse(response)
+	log.Infof("daemonAuthorizationToken %v", daemonAuthorizationToken)
+	return
+}
+
+func buildPayLoadForServiceRegistration() []byte {
+	id, _ := strconv.Atoi("42") //will be replaced with //config.GetNetworkId() once the issue to read registry address is fixed todo
+	payload := &RegisterDaemonPayload{NetworkID: id, DaemonID: GetDaemonID()}
+	body, _ := ConvertStructToJSON(payload)
+	log.Debugf("buildPayLoadForServiceRegistration() %v", string(body))
+	return body
 }

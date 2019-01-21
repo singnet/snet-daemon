@@ -20,7 +20,7 @@ Post beta, this ID will be used to enable Token based authentication for accessi
 
 // generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
 func GetDaemonID() string {
-	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + daemonGroupId + config.GetString(config.DaemonEndPoint)
+	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + daemonGroupId + config.GetString(config.DaemonEndPoint) + config.GetString(config.RegistryAddressKey)
 	//get hash of the string id combination
 	hasher := sha256.New()
 	hasher.Write([]byte(rawID))
@@ -28,7 +28,20 @@ func GetDaemonID() string {
 	return hash
 }
 
+type RegisterDaemonPayload struct {
+	NetworkID int    `json:"netId"`
+	DaemonID  string `json:"daemonId"`
+}
+type TokenGenerated struct {
+	Status string `json:"status"`
+	Data   struct {
+		Token string `json:"token"`
+	} `json:"data"`
+}
+
 var daemonGroupId string
+
+var daemonAuthorizationToken string
 
 // setter method for daemonGroupID
 func SetDaemonGrpId(grpId string) {

@@ -40,10 +40,11 @@ func TestPublish(t *testing.T) {
 }
 
 func TestCheckSuccessfulResponse(t *testing.T) {
-	status := checkForSuccessfulResponse(nil)
+	status, retry := checkForSuccessfulResponse(nil)
 	assert.Equal(t, status, false)
-	status = checkForSuccessfulResponse(&http.Response{StatusCode: http.StatusForbidden})
+	status, retry = checkForSuccessfulResponse(&http.Response{StatusCode: http.StatusForbidden})
 	assert.Equal(t, status, false)
+	assert.Equal(t, retry, false)
 
 }
 

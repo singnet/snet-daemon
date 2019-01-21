@@ -65,24 +65,47 @@ func publishJson(json []byte, serviceURL string) bool {
 		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
 		return false
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Daemonid", GetDaemonID())
-	req.Header.Set("X-Token", daemonAuthorizationToken)
-	req.Header.Set("X-Netid", "42") //will be replaced with //config.GetNetworkId() once the issue to read registry address is fixed todo
+	buildHeader(req)
 	// sending the post request
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		log.WithError(err).Warningf("r")
+		log.WithError(err)
 	} else {
 		status, retry := checkForSuccessfulResponse(response)
 		if retry {
 			//if Daemon was registered successfully , retry to publish the payload
-			//status = publishJson(json, serviceURL)
+			status = rePublishJson(json, serviceURL)
 		}
 		return status
 	}
 	return false
+}
+
+// Re Publish the json on the service end point
+func rePublishJson(json []byte, serviceURL string) bool {
+	//prepare the request payload
+	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
+	buildHeader(req)
+	if err != nil {
+		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
+		return false
+	}
+	// sending the post request
+	client := &http.Client{}
+	response, err := client.Do(req)
+	if err != nil {
+		log.WithError(err).Warningf("%v", response)
+		return false
+	}
+	return true
+}
+
+//Set all the headers before publishing
+func buildHeader(req *http.Request) {
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Daemonid", GetDaemonID())
+	req.Header.Set("X-Token", daemonAuthorizationToken)
 }
 
 //Check if the response received was proper

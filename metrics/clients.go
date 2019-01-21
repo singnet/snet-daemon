@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -97,13 +96,12 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	}
 	// process the response and set the Authorization token
 	daemonAuthorizationToken, status = getTokenFromResponse(response)
-	log.Infof("daemonAuthorizationToken %v", daemonAuthorizationToken)
+	log.Debugf("daemonAuthorizationToken %v", daemonAuthorizationToken)
 	return
 }
 
 func buildPayLoadForServiceRegistration() []byte {
-	id, _ := strconv.Atoi("42") //will be replaced with //config.GetNetworkId() once the issue to read registry address is fixed todo
-	payload := &RegisterDaemonPayload{NetworkID: id, DaemonID: GetDaemonID()}
+	payload := &RegisterDaemonPayload{DaemonID: GetDaemonID()}
 	body, _ := ConvertStructToJSON(payload)
 	log.Debugf("buildPayLoadForServiceRegistration() %v", string(body))
 	return body

@@ -103,6 +103,7 @@ Usage:
   snetd [command]
 
 Available Commands:
+  channel     Manage operations on payment channels
   claim       Claim money from payment channel
   help        Help about any command
   init        Write default configuration to file
@@ -234,6 +235,7 @@ see [rate limiting configuration](./ratelimit/README.md)
 
 * **heartbeat_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then service state always assumed as SERVING, and same will be wrapped in Daemon Heartbeat. see [daemon heartbeats configuration](./metrics/README.md)
 
+* **ipfs_timeout** (optional; default: `30`) - All IPFS read/writes timeout if the operations doesnt complete in 30 sec or set duration in this config entry.
 
 #### Environment variables and CLI parameters
 

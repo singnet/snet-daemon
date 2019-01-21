@@ -197,8 +197,8 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	defer func() {
 		if !handlerSucceed {
 			if r := recover(); r != nil {
-				e = r.(error)
-				paymentHandler.CompleteAfterError(payment, e)
+				log.WithField("panicValue", r).Warn("Service handler called panic(panicValue)")
+				paymentHandler.CompleteAfterError(payment, fmt.Errorf("Service handler called panic(%v)", r))
 				panic("re-panic after payment handler error handling")
 			} else if e != nil {
 				err = paymentHandler.CompleteAfterError(payment, e)

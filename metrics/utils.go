@@ -50,39 +50,27 @@ func Publish(payload interface{}, serviceUrl string) bool {
 	if err != nil {
 		return false
 	}
-	status := publishJson(jsonBytes, serviceUrl)
+	status := publishJson(jsonBytes, serviceUrl, true)
 	if !status {
 		log.WithField("payload", string(jsonBytes)).WithField("url", serviceUrl).Warning("Unable to publish metrics")
 	}
 	return status
 }
 
-// Publish the json on the service end point
-func publishJson(json []byte, serviceURL string) bool {
+// Publish the json on the service end point, retry will be set to false when trying to re publish the payload
+func publishJson(json []byte, serviceURL string, reTry bool) bool {
 	response, err := sendRequest(json, serviceURL)
 	if err != nil {
 		log.WithError(err)
 	} else {
-		status, retry := checkForSuccessfulResponse(response)
-		if retry {
+		status, reRegister := checkForSuccessfulResponse(response)
+		if reRegister && reTry {
 			//if Daemon was registered successfully , retry to publish the payload
-			status = rePublishJson(json, serviceURL)
+			status = publishJson(json, serviceURL, false)
 		}
 		return status
 	}
 	return false
-}
-
-// Re Publish the json on the service end point
-func rePublishJson(json []byte, serviceURL string) bool {
-	response, err := sendRequest(json, serviceURL)
-	if err != nil {
-		log.WithError(err).Warningf("%v", response)
-		return false
-	}
-	log.Debugf("Metrics republished with status code : %d ", response.StatusCode)
-	status, _ := checkForSuccessfulResponse(response)
-	return status
 }
 
 //Set all the headers before publishing

@@ -59,16 +59,7 @@ func Publish(payload interface{}, serviceUrl string) bool {
 
 // Publish the json on the service end point
 func publishJson(json []byte, serviceURL string) bool {
-	//prepare the request payload
-	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
-	if err != nil {
-		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
-		return false
-	}
-	buildHeader(req)
-	// sending the post request
-	client := &http.Client{}
-	response, err := client.Do(req)
+	response, err := sendRequest(json, serviceURL)
 	if err != nil {
 		log.WithError(err)
 	} else {
@@ -84,28 +75,29 @@ func publishJson(json []byte, serviceURL string) bool {
 
 // Re Publish the json on the service end point
 func rePublishJson(json []byte, serviceURL string) bool {
-	//prepare the request payload
-	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
-	buildHeader(req)
-	if err != nil {
-		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
-		return false
-	}
-	// sending the post request
-	client := &http.Client{}
-	response, err := client.Do(req)
+	response, err := sendRequest(json, serviceURL)
 	if err != nil {
 		log.WithError(err).Warningf("%v", response)
 		return false
 	}
+	log.Debugf("Metrics republished with status code : %d ", response.StatusCode)
 	return true
 }
 
 //Set all the headers before publishing
-func buildHeader(req *http.Request) {
+func sendRequest(json []byte, serviceURL string) (*http.Response, error) {
+	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
+	if err != nil {
+		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
+		return nil, err
+	}
+	// sending the post request
+	client := &http.Client{}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Daemonid", GetDaemonID())
 	req.Header.Set("X-Token", daemonAuthorizationToken)
+	return client.Do(req)
+
 }
 
 //Check if the response received was proper

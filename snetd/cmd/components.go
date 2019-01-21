@@ -194,6 +194,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	//If monitoring is enabled and the endpoint URL is valid and if the
 	// Daemon has successfully registered itself and has obtained a valid token to publish metrics
 	// , ONLY then add this interceptor to the chain of interceptors
+	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
 	if config.GetBool(config.MonitoringEnabled) &&
 		config.IsValidUrl(config.GetString(config.MonitoringServiceEndpoint)) &&
 		metrics.RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint)+"/register") {

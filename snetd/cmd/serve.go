@@ -205,6 +205,7 @@ func (d daemon) start() {
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
+		escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
 
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
@@ -241,7 +242,7 @@ func (d daemon) start() {
 
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
-	metrics.SetDaemonGrpId(d.components.ServiceMetaData().GetDaemonGroupIDString())
+
 }
 
 func (d daemon) stop() {

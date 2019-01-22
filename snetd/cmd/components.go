@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/singnet/snet-daemon/metrics"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -199,8 +200,14 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
-	if config.GetBool(config.MonitoringEnabled) && config.IsValidUrl(config.MonitoringServiceEndpoint) {
-		//If monitoring is enabled and the endpoint URL is valid , add this interceptor to the chain of interceptors
+	//If monitoring is enabled and the endpoint URL is valid and if the
+	// Daemon has successfully registered itself and has obtained a valid token to publish metrics
+	// , ONLY then add this interceptor to the chain of interceptors
+	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
+	if config.GetBool(config.MonitoringEnabled) &&
+		config.IsValidUrl(config.GetString(config.MonitoringServiceEndpoint)) &&
+		metrics.RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint)+"/register") {
+
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
 			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(),
 			components.GrpcPaymentValidationInterceptor())
@@ -230,12 +237,15 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 
 	return components.paymentChannelStateService
 }
+
 //NewProviderControlService
 
 func (components *Components) ProviderControlService() (service *escrow.ProviderControlService) {
 	if components.providerControlService != nil {
 		return components.providerControlService
 	}
+
 	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),components.ServiceMetaData())
 	return components.providerControlService
 }
+

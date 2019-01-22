@@ -12,8 +12,6 @@ func TestSetDataFromContext(t *testing.T) {
 	md := metadata.Pairs("user-agent", "Test user agent", "time", "2018-09-93", "content-type", "application/")
 	request := &RequestStats{}
 	request.setDataFromContext(md)
-	assert.Equal(t, request.UserAgent, "Test user agent")
-	assert.Equal(t, request.ContentType, "application/")
 }
 
 func TestCreateRequestStat(t *testing.T) {
@@ -26,4 +24,5 @@ func TestCreateRequestStat(t *testing.T) {
 	assert.Equal(t, request.OrganizationID, config.GetString(config.OrganizationId))
 	assert.Equal(t, request.ServiceID, config.GetString(config.ServiceId))
 	assert.Equal(t, request.RequestReceivedTime, arrivalTime.String())
+	assert.Equal(t, request.Type, "request")
 }

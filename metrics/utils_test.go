@@ -40,11 +40,10 @@ func TestPublish(t *testing.T) {
 }
 
 func TestCheckSuccessfulResponse(t *testing.T) {
-	status := checkForSuccessfulResponse(nil)
+	status, _ := checkForSuccessfulResponse(nil)
 	assert.Equal(t, status, false)
-	status = checkForSuccessfulResponse(&http.Response{StatusCode: http.StatusForbidden})
+	status, _ = checkForSuccessfulResponse(&http.Response{StatusCode: http.StatusForbidden})
 	assert.Equal(t, status, false)
-
 }
 
 func TestGetSize(t *testing.T) {

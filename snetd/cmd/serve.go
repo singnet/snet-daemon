@@ -245,7 +245,7 @@ func (d daemon) start() {
 
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
-	metrics.SetDaemonGrpId(d.components.ServiceMetaData().GetDaemonGroupIDString())
+
 }
 
 func (d daemon) stop() {

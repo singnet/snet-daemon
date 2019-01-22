@@ -6,8 +6,10 @@ import (
 	"errors"
 	"github.com/OneOfOne/go-utils/memory"
 	"github.com/rs/xid"
+	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -48,49 +50,83 @@ func Publish(payload interface{}, serviceUrl string) bool {
 	if err != nil {
 		return false
 	}
-	status := publishJson(jsonBytes, serviceUrl)
+	status := publishJson(jsonBytes, serviceUrl, true)
 	if !status {
 		log.WithField("payload", string(jsonBytes)).WithField("url", serviceUrl).Warning("Unable to publish metrics")
 	}
 	return status
 }
 
-// Publish the json on the service end point
-func publishJson(json []byte, serviceURL string) bool {
-	//prepare the request payload
-	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
+// Publish the json on the service end point, retry will be set to false when trying to re publish the payload
+func publishJson(json []byte, serviceURL string, reTry bool) bool {
+	response, err := sendRequest(json, serviceURL)
 	if err != nil {
-		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
-		return false
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Access-Token", GetDaemonID())
-	// sending the post request
-	client := &http.Client{}
-	response, err := client.Do(req)
-
-	if err != nil {
-		log.WithError(err).Warningf("r")
+		log.WithError(err)
 	} else {
-		return checkForSuccessfulResponse(response)
+		status, reRegister := checkForSuccessfulResponse(response)
+		if reRegister && reTry {
+			//if Daemon was registered successfully , retry to publish the payload
+			status = publishJson(json, serviceURL, false)
+		}
+		return status
 	}
-	log.WithField("json", json).WithField("url", serviceURL).Warningf("Unable to publish the json to the service ")
 	return false
 }
 
+//Set all the headers before publishing
+func sendRequest(json []byte, serviceURL string) (*http.Response, error) {
+	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
+	if err != nil {
+		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
+		return nil, err
+	}
+	// sending the post request
+	client := &http.Client{}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Daemonid", GetDaemonID())
+	req.Header.Set("X-Token", daemonAuthorizationToken)
+	return client.Do(req)
+
+}
+
 //Check if the response received was proper
-func checkForSuccessfulResponse(response *http.Response) bool {
+func checkForSuccessfulResponse(response *http.Response) (status bool, retry bool) {
 	if response == nil {
 		log.Warningf("Empty response received.")
-		return false
+		return false, false
 	}
 	if response.StatusCode != http.StatusOK {
 		log.Warningf("Service call failed with status code : %d ", response.StatusCode)
-		return false
+		//if response returned was forbidden error , then re register Daemon with fresh token and submit the request / response
+		//again ONLY if the Daemon was registered successfully
+		status = RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint) + "/register")
+		return false, status
 	} //close the body
 	log.Debugf("Metrics posted successfully with status code : %d ", response.StatusCode)
 	defer response.Body.Close()
-	return true
+	return true, false
+}
+
+//Check if the response received was proper
+func getTokenFromResponse(response *http.Response) (string, bool) {
+	if response == nil {
+		log.Warningf("Empty response received.")
+		return "", false
+	}
+	if response.StatusCode != http.StatusOK {
+		log.Warningf("Service call failed with status code : %d ", response.StatusCode)
+		return "", false
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Infof("Unable to retrieve Token from Body , : %f ", err.Error())
+		return "", false
+	}
+	var data TokenGenerated
+	json.Unmarshal(body, &data)
+	//close the body
+	defer response.Body.Close()
+	return data.Data.Token, true
 }
 
 //Generic utility to determine the size of the srtuct passed

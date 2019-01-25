@@ -23,7 +23,6 @@ func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 		ID:                  GenXid(),
 		GroupID:             daemonGroupId,
 		RequestReceivedTime: receivedTime.String(),
-		DaemonEndPoint:      config.GetString(config.DaemonEndPoint),
 		OrganizationID:      config.GetString(config.OrganizationId),
 		ServiceID:           config.GetString(config.ServiceId),
 		ServiceMethod:       methodName,

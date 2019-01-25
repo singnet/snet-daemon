@@ -139,11 +139,11 @@ configuration properties can be set using configuration file.
 These properties you should usually change before starting daemon for the first
 time.
 
-* **daemon_endpoint** (optional; default: `"127.0.0.1:8080"`) - 
-network interface and port which daemon listens to. This parameter should be
-absolutely equal to the corresponding endpoint in the [service configuration
-metadata][service-configuration-metadata]. URI format is recommended:
-http://<host>:<port>.
+* **daemon_group_name** (required ,default: `"default_group"`) - 
+This parameter defines the group the daemon belongs to .
+The group helps determine the recipient address for payments.
+[service configuration
+metadata][service-configuration-metadata]. 
 
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
 endpoint to which daemon sends ethereum JSON-RPC requests; recommend
@@ -189,6 +189,9 @@ enables or disables blockchain features of daemon; `false` reserved mostly for t
 
 * **burst_size** (optional; default: Infinite) - 
 see [rate limiting configuration](./ratelimit/README.md)
+
+* **daemon_listening_port** (optional; default: `"8080"`) - 
+Defines the port on which the daemon listens to.
 
 * **hdwallet_index** (optional; default: `0`; only applies if `hdwallet_mnemonic` is set) - 
 derivation index for key to use within HDWallet specified by mnemonic.

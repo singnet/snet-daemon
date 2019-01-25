@@ -23,8 +23,9 @@ const (
 	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
+	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
-	DaemonEndPoint                 = "daemon_end_point"
+	DaemonListeningPort            = "daemon_listening_port"
 	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
 	ExecutablePathKey              = "executable_path"
 	HdwalletIndexKey               = "hdwallet_index"
@@ -57,8 +58,9 @@ const (
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
+	"daemon_group_name":"default_group",
+	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
-	"daemon_end_point": "127.0.0.1:8080",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",

@@ -139,11 +139,6 @@ configuration properties can be set using configuration file.
 These properties you should usually change before starting daemon for the first
 time.
 
-* **daemon_group_name** (required ,default: `"default_group"`) - 
-This parameter defines the group the daemon belongs to .
-The group helps determine the recipient address for payments.
-[service configuration
-metadata][service-configuration-metadata]. 
 
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
 endpoint to which daemon sends ethereum JSON-RPC requests; recommend
@@ -189,6 +184,12 @@ enables or disables blockchain features of daemon; `false` reserved mostly for t
 
 * **burst_size** (optional; default: Infinite) - 
 see [rate limiting configuration](./ratelimit/README.md)
+
+* **daemon_group_name** (optional ,default: `"default_group"`) - 
+This parameter defines the group the daemon belongs to .
+The group helps determine the recipient address for payments.
+[service configuration
+metadata][service-configuration-metadata]. 
 
 * **daemon_listening_port** (optional; default: `"8080"`) - 
 Defines the port on which the daemon listens to.

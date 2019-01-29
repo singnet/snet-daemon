@@ -139,6 +139,9 @@ configuration properties can be set using configuration file.
 These properties you should usually change before starting daemon for the first
 time.
 
+* **daemon_end_point** (mandatory; default: `"0.0.0.0:8080"`) - 
+Defines the ip and the port on which the daemon listens to.
+format is :`<host>:<port>`.
 
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
 endpoint to which daemon sends ethereum JSON-RPC requests; recommend
@@ -190,9 +193,6 @@ This parameter defines the group the daemon belongs to .
 The group helps determine the recipient address for payments.
 [service configuration
 metadata][service-configuration-metadata]. 
-
-* **daemon_listening_port** (optional; default: `"8080"`) - 
-Defines the port on which the daemon listens to.
 
 * **hdwallet_index** (optional; default: `0`; only applies if `hdwallet_mnemonic` is set) - 
 derivation index for key to use within HDWallet specified by mnemonic.

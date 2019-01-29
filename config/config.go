@@ -25,7 +25,7 @@ const (
 
 	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
-	DaemonListeningPort            = "daemon_listening_port"
+	DaemonEndPoint                 = "daemon_end_point"
 	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
 	ExecutablePathKey              = "executable_path"
 	HdwalletIndexKey               = "hdwallet_index"
@@ -59,7 +59,6 @@ const (
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
 	"daemon_group_name":"default_group",
-	"daemon_listening_port": 8080,
 	"daemon_type": "grpc",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
@@ -168,7 +167,9 @@ func Validate() error {
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
 	}
-
+	if !IsValidUrl(vip.GetString(DaemonEndPoint)) {
+		return errors.New("Daemon endpoint must be a valid of the form host:port")
+	}
 	// validate monitoring service endpoints
 	if vip.GetBool(MonitoringEnabled) &&
 		vip.GetString(MonitoringServiceEndpoint) != "" &&

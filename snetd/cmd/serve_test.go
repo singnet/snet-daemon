@@ -7,5 +7,5 @@ import (
 )
 
 func TestDaemonPort(t *testing.T) {
-assert.Equal(t,config.GetString(config.DaemonListeningPort),"8080")
+assert.Equal(t,config.GetString(config.DaemonEndPoint),"")
 }

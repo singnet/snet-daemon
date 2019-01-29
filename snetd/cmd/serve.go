@@ -98,13 +98,8 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	port := config.GetString(config.DaemonListeningPort)
-	if err != nil {
-		return d, errors.Wrap(err, "error determining port")
-	}
-	log.WithField("port", port).Info("Starting listening port")
-
-	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v", port))
+	// The network must be "tcp", "tcp4", "tcp6", "unix" or "unixpacket".
+	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndPoint))
 	if err != nil {
 		return d, errors.Wrap(err, "error listening")
 	}

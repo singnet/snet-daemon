@@ -139,7 +139,7 @@ configuration properties can be set using configuration file.
 These properties you should usually change before starting daemon for the first
 time.
 
-* **daemon_end_point** (mandatory; default: `"0.0.0.0:8080"`) - 
+* **daemon_end_point** (required;) - 
 Defines the ip and the port on which the daemon listens to.
 format is :`<host>:<port>`.
 

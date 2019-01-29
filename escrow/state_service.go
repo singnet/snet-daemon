@@ -41,7 +41,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 
 	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelID})
 	if err != nil {
-		return nil, errors.New("channel error"+err.Error())
+		return nil, errors.New("channel error:"+err.Error())
 	}
 	if !ok {
 		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)

@@ -167,9 +167,6 @@ func Validate() error {
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
 	}
-	if !IsValidUrl(vip.GetString(DaemonEndPoint)) {
-		return errors.New("Daemon endpoint must be a valid of the form host:port")
-	}
 	// validate monitoring service endpoints
 	if vip.GetBool(MonitoringEnabled) &&
 		vip.GetString(MonitoringServiceEndpoint) != "" &&

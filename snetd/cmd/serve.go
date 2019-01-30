@@ -98,10 +98,9 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	// The network must be "tcp", "tcp4", "tcp6", "unix" or "unixpacket".
 	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndPoint))
 	if err != nil {
-		return d, errors.Wrap(err, "error listening")
+		return d, errors.Wrap(err, "error binding to the endpoint:"+config.GetString(config.DaemonEndPoint))
 	}
 
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)

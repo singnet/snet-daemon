@@ -5,7 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
-
+//todo
 func TestDaemonPort(t *testing.T) {
-assert.Equal(t,config.GetString(config.DaemonEndPoint),"")
+assert.Equal(t,config.GetString(config.DaemonEndPoint),"127.0.0.1:8080")
 }

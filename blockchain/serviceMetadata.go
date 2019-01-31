@@ -93,7 +93,7 @@ func getMetaDataUrifromRegistry() []byte {
 	serviceId := StringToBytes32(config.GetString(config.ServiceId))
 
 	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
-	if err != nil {
+	if err != nil || !serviceRegistration.Found {
 		log.WithError(err).WithField("OrganizationId", config.GetString(config.OrganizationId)).
 			WithField("ServiceId", config.GetString(config.ServiceId)).
 			Panic("Error Retrieving contract details for the Given Organization and Service Ids ")

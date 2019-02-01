@@ -120,7 +120,7 @@ func TestGetChannelStateChannelStorageError(t *testing.T) {
 
 	reply, err := stateServiceTest.service.GetChannelState(nil, stateServiceTest.defaultRequest)
 
-	assert.Equal(t, errors.New("channel storage error"), err)
+	assert.Equal(t, errors.New("channel error:storage error"), err)
 	assert.Nil(t, reply)
 }
 

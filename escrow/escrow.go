@@ -183,7 +183,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
-		return nil, NewPaymentError(Internal, "payment channel storage error")
+		return nil, NewPaymentError(Internal, "payment channel error:"+err.Error())
 	}
 	if !ok {
 		log.Warn("Payment channel not found")

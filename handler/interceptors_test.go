@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type serverStreamMock struct {
@@ -45,15 +46,26 @@ const (
 	testPaymentHandlerType    = "test-payment-handler"
 )
 
+type paymentMock struct {
+}
+
 type paymentHandlerMock struct {
 	typ                      string
 	completeAfterErrorCalled bool
 	completeCalled           bool
+	completeResult           *GrpcError
+	completeAfterErrorResult *GrpcError
+	paymentResult            *GrpcError
+	payment                  *paymentMock
 }
 
 func (handler *paymentHandlerMock) reset() {
 	handler.completeAfterErrorCalled = false
 	handler.completeCalled = false
+	handler.completeResult = nil
+	handler.completeAfterErrorResult = nil
+	handler.paymentResult = nil
+	handler.payment = nil
 }
 
 func (handler *paymentHandlerMock) Type() string {
@@ -61,17 +73,27 @@ func (handler *paymentHandlerMock) Type() string {
 }
 
 func (handler *paymentHandlerMock) Payment(context *GrpcStreamContext) (payment Payment, err *GrpcError) {
-	return
+	if handler.paymentResult != nil {
+		return nil, handler.paymentResult
+	}
+	handler.payment = &paymentMock{}
+	return handler.payment, nil
 }
 
 func (handler *paymentHandlerMock) Complete(payment Payment) (err *GrpcError) {
 	handler.completeCalled = true
-	return
+	if payment != handler.payment {
+		return NewGrpcError(codes.Internal, "invalid payment")
+	}
+	return handler.completeResult
 }
 
 func (handler *paymentHandlerMock) CompleteAfterError(payment Payment, result error) (err *GrpcError) {
 	handler.completeAfterErrorCalled = true
-	return
+	if payment != handler.payment {
+		return NewGrpcError(codes.Internal, "invalid payment")
+	}
+	return handler.completeAfterErrorResult
 }
 
 type InterceptorsSuite struct {
@@ -219,4 +241,28 @@ func (suite *InterceptorsSuite) TestCompleteOnHandlerSuccess() {
 
 	assert.True(suite.T(), suite.paymentHandler.completeCalled)
 	assert.False(suite.T(), suite.paymentHandler.completeAfterErrorCalled)
+}
+
+func (suite *InterceptorsSuite) TestCompleteReturnsError() {
+	suite.paymentHandler.completeResult = NewGrpcError(codes.Internal, "test error")
+
+	err := suite.interceptor(nil, suite.serverStream, nil, suite.successHandler)
+
+	assert.Equal(suite.T(), status.Newf(codes.Internal, "test error").Err(), err)
+}
+
+func (suite *InterceptorsSuite) TestCompleteAfterErrorReturnsError() {
+	suite.paymentHandler.completeAfterErrorResult = NewGrpcError(codes.Internal, "test error")
+
+	err := suite.interceptor(nil, suite.serverStream, nil, suite.returnErrorHandler)
+
+	assert.Equal(suite.T(), status.Newf(codes.Internal, "test error").Err(), err)
+}
+
+func (suite *InterceptorsSuite) TestPaymentReturnsError() {
+	suite.paymentHandler.paymentResult = NewGrpcError(codes.Internal, "test error")
+
+	err := suite.interceptor(nil, suite.serverStream, nil, suite.successHandler)
+
+	assert.Equal(suite.T(), status.Newf(codes.Internal, "test error").Err(), err)
 }

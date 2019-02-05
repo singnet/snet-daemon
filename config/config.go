@@ -79,7 +79,8 @@ const (
 		"level": "info",
 		"timezone": "UTC",
 		"formatter": {
-			"type": "text"
+			"type": "text",
+			"timestamp_format": "2006-01-02T15:04:05.999999999Z07:00"
 		},
 		"output": {
 			"type": "file",

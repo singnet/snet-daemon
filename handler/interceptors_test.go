@@ -51,6 +51,11 @@ type paymentHandlerMock struct {
 	completeCalled           bool
 }
 
+func (handler *paymentHandlerMock) reset() {
+	handler.completeAfterErrorCalled = false
+	handler.completeCalled = false
+}
+
 func (handler *paymentHandlerMock) Type() string {
 	return handler.typ
 }
@@ -72,6 +77,7 @@ func (handler *paymentHandlerMock) CompleteAfterError(payment Payment, result er
 type InterceptorsSuite struct {
 	suite.Suite
 
+	successHandler        grpc.StreamHandler
 	returnErrorHandler    grpc.StreamHandler
 	panicHandler          grpc.StreamHandler
 	defaultPaymentHandler *paymentHandlerMock
@@ -81,6 +87,9 @@ type InterceptorsSuite struct {
 }
 
 func (suite *InterceptorsSuite) SetupSuite() {
+	suite.successHandler = func(srv interface{}, stream grpc.ServerStream) error {
+		return nil
+	}
 	suite.returnErrorHandler = func(srv interface{}, stream grpc.ServerStream) error {
 		return errors.New("some error")
 	}
@@ -91,6 +100,10 @@ func (suite *InterceptorsSuite) SetupSuite() {
 	suite.paymentHandler = &paymentHandlerMock{typ: testPaymentHandlerType}
 	suite.interceptor = GrpcPaymentValidationInterceptor(suite.defaultPaymentHandler, suite.paymentHandler)
 	suite.serverStream = &serverStreamMock{context: metadata.NewIncomingContext(context.Background(), metadata.Pairs(PaymentTypeHeader, testPaymentHandlerType))}
+}
+
+func (suite *InterceptorsSuite) SetupTest() {
+	suite.paymentHandler.reset()
 }
 
 func TestIntersecptorsSuite(t *testing.T) {
@@ -199,4 +212,11 @@ func (suite *InterceptorsSuite) TestCompleteOnHandlerPanic() {
 
 	assert.True(suite.T(), suite.paymentHandler.completeAfterErrorCalled)
 	assert.False(suite.T(), suite.paymentHandler.completeCalled)
+}
+
+func (suite *InterceptorsSuite) TestCompleteOnHandlerSuccess() {
+	suite.interceptor(nil, suite.serverStream, nil, suite.successHandler)
+
+	assert.True(suite.T(), suite.paymentHandler.completeCalled)
+	assert.False(suite.T(), suite.paymentHandler.completeAfterErrorCalled)
 }

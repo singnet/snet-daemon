@@ -106,7 +106,7 @@ func (suite *InterceptorsSuite) SetupTest() {
 	suite.paymentHandler.reset()
 }
 
-func TestIntersecptorsSuite(t *testing.T) {
+func TestInterceptorsSuite(t *testing.T) {
 	suite.Run(t, new(InterceptorsSuite))
 }
 

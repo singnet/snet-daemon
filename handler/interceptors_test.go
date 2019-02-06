@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type serverStreamMock struct {
@@ -45,10 +46,26 @@ const (
 	testPaymentHandlerType    = "test-payment-handler"
 )
 
+type paymentMock struct {
+}
+
 type paymentHandlerMock struct {
 	typ                      string
 	completeAfterErrorCalled bool
 	completeCalled           bool
+	completeResult           *GrpcError
+	completeAfterErrorResult *GrpcError
+	paymentResult            *GrpcError
+	payment                  *paymentMock
+}
+
+func (handler *paymentHandlerMock) reset() {
+	handler.completeAfterErrorCalled = false
+	handler.completeCalled = false
+	handler.completeResult = nil
+	handler.completeAfterErrorResult = nil
+	handler.paymentResult = nil
+	handler.payment = nil
 }
 
 func (handler *paymentHandlerMock) Type() string {
@@ -56,22 +73,33 @@ func (handler *paymentHandlerMock) Type() string {
 }
 
 func (handler *paymentHandlerMock) Payment(context *GrpcStreamContext) (payment Payment, err *GrpcError) {
-	return
+	if handler.paymentResult != nil {
+		return nil, handler.paymentResult
+	}
+	handler.payment = &paymentMock{}
+	return handler.payment, nil
 }
 
 func (handler *paymentHandlerMock) Complete(payment Payment) (err *GrpcError) {
 	handler.completeCalled = true
-	return
+	if payment != handler.payment {
+		return NewGrpcError(codes.Internal, "invalid payment")
+	}
+	return handler.completeResult
 }
 
 func (handler *paymentHandlerMock) CompleteAfterError(payment Payment, result error) (err *GrpcError) {
 	handler.completeAfterErrorCalled = true
-	return
+	if payment != handler.payment {
+		return NewGrpcError(codes.Internal, "invalid payment")
+	}
+	return handler.completeAfterErrorResult
 }
 
 type InterceptorsSuite struct {
 	suite.Suite
 
+	successHandler        grpc.StreamHandler
 	returnErrorHandler    grpc.StreamHandler
 	panicHandler          grpc.StreamHandler
 	defaultPaymentHandler *paymentHandlerMock
@@ -81,6 +109,9 @@ type InterceptorsSuite struct {
 }
 
 func (suite *InterceptorsSuite) SetupSuite() {
+	suite.successHandler = func(srv interface{}, stream grpc.ServerStream) error {
+		return nil
+	}
 	suite.returnErrorHandler = func(srv interface{}, stream grpc.ServerStream) error {
 		return errors.New("some error")
 	}
@@ -93,7 +124,11 @@ func (suite *InterceptorsSuite) SetupSuite() {
 	suite.serverStream = &serverStreamMock{context: metadata.NewIncomingContext(context.Background(), metadata.Pairs(PaymentTypeHeader, testPaymentHandlerType))}
 }
 
-func TestIntersecptorsSuite(t *testing.T) {
+func (suite *InterceptorsSuite) SetupTest() {
+	suite.paymentHandler.reset()
+}
+
+func TestInterceptorsSuite(t *testing.T) {
 	suite.Run(t, new(InterceptorsSuite))
 }
 
@@ -199,4 +234,35 @@ func (suite *InterceptorsSuite) TestCompleteOnHandlerPanic() {
 
 	assert.True(suite.T(), suite.paymentHandler.completeAfterErrorCalled)
 	assert.False(suite.T(), suite.paymentHandler.completeCalled)
+}
+
+func (suite *InterceptorsSuite) TestCompleteOnHandlerSuccess() {
+	suite.interceptor(nil, suite.serverStream, nil, suite.successHandler)
+
+	assert.True(suite.T(), suite.paymentHandler.completeCalled)
+	assert.False(suite.T(), suite.paymentHandler.completeAfterErrorCalled)
+}
+
+func (suite *InterceptorsSuite) TestCompleteReturnsError() {
+	suite.paymentHandler.completeResult = NewGrpcError(codes.Internal, "test error")
+
+	err := suite.interceptor(nil, suite.serverStream, nil, suite.successHandler)
+
+	assert.Equal(suite.T(), status.Newf(codes.Internal, "test error").Err(), err)
+}
+
+func (suite *InterceptorsSuite) TestCompleteAfterErrorReturnsError() {
+	suite.paymentHandler.completeAfterErrorResult = NewGrpcError(codes.Internal, "test error")
+
+	err := suite.interceptor(nil, suite.serverStream, nil, suite.returnErrorHandler)
+
+	assert.Equal(suite.T(), status.Newf(codes.Internal, "test error").Err(), err)
+}
+
+func (suite *InterceptorsSuite) TestPaymentReturnsError() {
+	suite.paymentHandler.paymentResult = NewGrpcError(codes.Internal, "test error")
+
+	err := suite.interceptor(nil, suite.serverStream, nil, suite.successHandler)
+
+	assert.Equal(suite.T(), status.Newf(codes.Internal, "test error").Err(), err)
 }

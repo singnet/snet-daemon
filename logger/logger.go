@@ -18,8 +18,9 @@ const (
 	LogOutputKey    = "output"
 	LogHooksKey     = "hooks"
 
-	LogFormatterTypeKey     = "type"
-	LogFormatterTimezoneKey = "timezone"
+	LogFormatterTypeKey         = "type"
+	LogFormatterTimezoneKey     = "timezone"
+	LogFormatterTimestampFormat = "timestamp_format"
 
 	LogOutputTypeKey                  = "type"
 	LogOutputFileFilePatternKey       = "file_pattern"
@@ -88,11 +89,13 @@ func newFormatterByConfig(config *viper.Viper) (*timezoneFormatter, error) {
 	var err error
 	var formatter = &timezoneFormatter{}
 
+	var timestampFormat = config.GetString(LogFormatterTimestampFormat)
+
 	switch formatterType := config.GetString(LogFormatterTypeKey); formatterType {
 	case "text":
-		formatter.delegate = &log.TextFormatter{}
+		formatter.delegate = &log.TextFormatter{FullTimestamp: true, TimestampFormat: timestampFormat}
 	case "json":
-		formatter.delegate = &log.JSONFormatter{}
+		formatter.delegate = &log.JSONFormatter{TimestampFormat: timestampFormat}
 	default:
 		return nil, fmt.Errorf("Unexpected formatter type: %v", formatterType)
 	}

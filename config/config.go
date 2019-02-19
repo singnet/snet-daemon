@@ -30,6 +30,7 @@ const (
 	ExecutablePathKey              = "executable_path"
 	HdwalletIndexKey               = "hdwallet_index"
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
+	IgnoreSSLChallenge             = "ignore_ssl_challenge"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
@@ -41,7 +42,6 @@ const (
 	PassthroughEndpointKey         = "passthrough_endpoint"
 	PrivateKeyKey                  = "private_key"
 	RateLimitPerMinute             = "rate_limit_per_minute"
-	EnableSSLChallenge             = "enable_ssl_challenge"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
@@ -58,7 +58,7 @@ const (
 {
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
-	"enable_ssl_challenge": false,
+	"ignore_ssl_challenge": false,
 	"blockchain_enabled": true,
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",

@@ -23,24 +23,24 @@ const (
 	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
-	DaemonGroupName                = "daemon_group_name"
-	DaemonTypeKey                  = "daemon_type"
-	DaemonEndPoint                 = "daemon_end_point"
-	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
-	ExecutablePathKey              = "executable_path"
-	HdwalletIndexKey               = "hdwallet_index"
-	HdwalletMnemonicKey            = "hdwallet_mnemonic"
-	IgnoreSSLChallenge             = "ignore_ssl_challenge"
-	IpfsEndPoint                   = "ipfs_end_point"
-	IpfsTimeout                    = "ipfs_timeout"
-	LogKey                         = "log"
-	MonitoringEnabled              = "monitoring_enabled"
-	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
-	OrganizationId                 = "organization_id"
-	ServiceId                      = "service_id"
-	PassthroughEnabledKey          = "passthrough_enabled"
-	PassthroughEndpointKey         = "passthrough_endpoint"
-	PrivateKeyKey                  = "private_key"
+	DaemonGroupName            = "daemon_group_name"
+	DaemonTypeKey              = "daemon_type"
+	DaemonEndPoint             = "daemon_end_point"
+	EthereumJsonRpcEndpointKey = "ethereum_json_rpc_endpoint"
+	ExecutablePathKey          = "executable_path"
+	HdwalletIndexKey           = "hdwallet_index"
+	HdwalletMnemonicKey        = "hdwallet_mnemonic"
+	EnableSSLChallenge         = "enable_ssl_challenge"
+	IpfsEndPoint               = "ipfs_end_point"
+	IpfsTimeout                = "ipfs_timeout"
+	LogKey                     = "log"
+	MonitoringEnabled          = "monitoring_enabled"
+	MonitoringServiceEndpoint  = "monitoring_svc_end_point"
+	OrganizationId             = "organization_id"
+	ServiceId                  = "service_id"
+	PassthroughEnabledKey      = "passthrough_enabled"
+	PassthroughEndpointKey     = "passthrough_endpoint"
+	PrivateKeyKey              = "private_key"
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
@@ -58,11 +58,11 @@ const (
 {
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
-	"ignore_ssl_challenge": false,
 	"blockchain_enabled": true,
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"daemon_type": "grpc",
+	"enable_ssl_challenge": false,
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",

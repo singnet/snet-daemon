@@ -105,7 +105,7 @@ func newDaemon(components *Components) (daemon, error) {
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)
 	// In order to perform the LetsEncrypt (ACME) http-01 challenge-response, we need to bind
 	// port 80 (privileged) to listen for the challenge.
-	if d.autoSSLDomain != "" && config.GetBool(config.IgnoreSSLChallenge) {
+	if d.autoSSLDomain != "" && config.GetBool(config.EnableSSLChallenge) {
 		d.acmeListener, err = net.Listen("tcp", ":80")
 		if err != nil {
 			return d, errors.Wrap(err, "unable to bind port 80 for automatic SSL verification")
@@ -142,7 +142,7 @@ func (d daemon) start() {
 		acmeSrv := http.Server{
 			Handler: certMgr.HTTPHandler(nil),
 		}
-		if (config.GetBool(config.IgnoreSSLChallenge)) {
+		if (config.GetBool(config.EnableSSLChallenge)) {
 			go acmeSrv.Serve(d.acmeListener)
 		}
 		tlsConfig = &tls.Config{

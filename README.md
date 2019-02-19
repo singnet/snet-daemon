@@ -188,6 +188,9 @@ enables or disables blockchain features of daemon; `false` reserved mostly for t
 * **burst_size** (optional; default: Infinite) - 
 see [rate limiting configuration](./ratelimit/README.md)
 
+* **enable_ssl_challenge** (optional; default: false)
+to enable the SSL LetsEncrypt (ACME) http-01 challenge-response on port 80 ( certbot will be used by default)
+
 * **daemon_group_name** (optional ,default: `"default_group"`) - 
 This parameter defines the group the daemon belongs to .
 The group helps determine the recipient address for payments.

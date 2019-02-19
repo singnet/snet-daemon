@@ -41,7 +41,7 @@ const (
 	PassthroughEndpointKey         = "passthrough_endpoint"
 	PrivateKeyKey                  = "private_key"
 	RateLimitPerMinute             = "rate_limit_per_minute"
-	ReusePortForLetsEncrypt        = "reuse_port_for_letsencrypt"
+	EnableSSLChallenge             = "enable_ssl_challenge"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
@@ -58,7 +58,7 @@ const (
 {
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
-	"reuse_port_for_letsencrypt": false,
+	"enable_ssl_challenge": false,
 	"blockchain_enabled": true,
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",

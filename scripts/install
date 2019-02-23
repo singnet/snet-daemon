@@ -14,6 +14,12 @@ popd
 pushd vendor/github.com/golang/protobuf
 go install ./protoc-gen-go
 popd
+pushd escrow
+protoc -I . ./*.proto --go_out=plugins=grpc:.
+popd
+pushd metrics/services
+protoc -I . ./*.proto --go_out=plugins=grpc:.
+popd
 
 go run resources/installBlockchainDependencies/main.go
 go generate ./...

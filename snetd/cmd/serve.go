@@ -3,6 +3,14 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/singnet/snet-daemon/metrics"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
 	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
@@ -12,19 +20,12 @@ import (
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
-	"github.com/singnet/snet-daemon/metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 var corsOptions = []handlers.CORSOption{
@@ -105,7 +106,7 @@ func newDaemon(components *Components) (daemon, error) {
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)
 	// In order to perform the LetsEncrypt (ACME) http-01 challenge-response, we need to bind
 	// port 80 (privileged) to listen for the challenge.
-	if d.autoSSLDomain != "" && config.GetBool(config.EnableSSLChallenge) {
+	if d.autoSSLDomain != "" {
 		d.acmeListener, err = net.Listen("tcp", ":80")
 		if err != nil {
 			return d, errors.Wrap(err, "unable to bind port 80 for automatic SSL verification")
@@ -130,7 +131,7 @@ func (d daemon) start() {
 
 	var tlsConfig *tls.Config
 
-	if d.autoSSLDomain != ""  {
+	if d.autoSSLDomain != "" {
 		log.Debug("enabling automatic SSL support")
 		certMgr := autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
@@ -142,9 +143,8 @@ func (d daemon) start() {
 		acmeSrv := http.Server{
 			Handler: certMgr.HTTPHandler(nil),
 		}
-		if (config.GetBool(config.EnableSSLChallenge)) {
-			go acmeSrv.Serve(d.acmeListener)
-		}
+		go acmeSrv.Serve(d.acmeListener)
+
 		tlsConfig = &tls.Config{
 			GetCertificate: func(c *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				crt, err := certMgr.GetCertificate(c)
@@ -179,6 +179,7 @@ func (d daemon) start() {
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 		escrow.RegisterProviderControlServiceServer(d.grpcServer,d.components.ProviderControlService())
+
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:

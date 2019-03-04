@@ -8,10 +8,8 @@ package metrics
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/singnet/snet-daemon/config"
-	pb "github.com/singnet/snet-daemon/metrics/services"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -26,40 +24,7 @@ type Response struct {
 }
 
 // Calls a gRPC endpoint for heartbeat (gRPC Client)
-func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(grpcAddress, grpc.WithInsecure())
-	if err != nil {
-		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
-		return nil, err
-	}
-	defer conn.Close()
-	// create the client instance
-	client := pb.NewHeartbeatClient(conn)
-	// connect to the server and call the required method
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	//call the heartbeat rpc method
-	resp, err := client.Check(ctx, &pb.Empty{})
-	if err != nil {
-		log.WithError(err).Warningf("error in calling the heartbeat service : %v", err)
-		return nil, err
-	}
-	//convert enum to string, because json marshal doesnt do it
-	responseConv := &Response{ServiceID: resp.ServiceID, Status: resp.Status.String()}
-	jsonResp, err := json.Marshal(responseConv)
-	if err != nil {
-		log.Infof("response received : %v", responseConv)
-		log.WithError(err).Warningf("invalid service response : %v", err)
-		return nil, err
-	}
-	log.Infof("service heartbeat received : %s", string(jsonResp))
-	return jsonResp, nil
-}
-
-
-func callStandardgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
+func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(serviceUrl, grpc.WithInsecure())
 	if err != nil {
@@ -73,7 +38,7 @@ func callStandardgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthC
 	defer cancel()
 
 	req := grpc_health_v1.HealthCheckRequest{Service:config.GetString(config.ServiceId)}
-	resp, err := client.Check(ctx,&req,nil)
+	resp, err := client.Check(ctx,&req)
 	if err != nil {
 		log.WithError(err).Warningf("error in calling the heartbeat service : %v", err)
 		return grpc_health_v1.HealthCheckResponse_UNKNOWN, err

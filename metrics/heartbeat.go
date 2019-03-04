@@ -89,7 +89,7 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (hear
 		var svcHeartbeat []byte
 		if serviceType == "grpc" {
 			var response grpc_health_v1.HealthCheckResponse_ServingStatus
-			response, err = callStandardgRPCServiceHeartbeat(serviceURL)
+			response, err = callgRPCServiceHeartbeat(serviceURL)
 			//Standardize this as well on the response being sent
 			heartbeat.Status = response.String()
 		} else if serviceType == "http" {

@@ -10,9 +10,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/singnet/snet-daemon/config"
 	pb "github.com/singnet/snet-daemon/metrics/services"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -54,6 +56,29 @@ func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
 	}
 	log.Infof("service heartbeat received : %s", string(jsonResp))
 	return jsonResp, nil
+}
+
+
+func callStandardgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
+	// Set up a connection to the server.
+	conn, err := grpc.Dial(serviceUrl, grpc.WithInsecure())
+	if err != nil {
+		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
+		return grpc_health_v1.HealthCheckResponse_NOT_SERVING, err
+	}
+	defer conn.Close()
+	// create the client instance
+	client := grpc_health_v1.NewHealthClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	req := grpc_health_v1.HealthCheckRequest{Service:config.GetString(config.ServiceId)}
+	resp, err := client.Check(ctx,&req,nil)
+	if err != nil {
+		log.WithError(err).Warningf("error in calling the heartbeat service : %v", err)
+		return grpc_health_v1.HealthCheckResponse_UNKNOWN, err
+	}
+	return resp.Status,nil
 }
 
 // calls the service heartbeat and relay the message to daemon (HTTP client for heartbeat)

@@ -60,7 +60,7 @@ func Test_GetHeartbeat(t *testing.T) {
 	serviceType := "http"
 	serviveID := "SERVICE001"
 
-	dHeartbeat := GetHeartbeat(serviceURL, serviceType, serviveID)
+	dHeartbeat,_ := GetHeartbeat(serviceURL, serviceType, serviveID)
 	assert.NotNil(t, dHeartbeat, "heartbeat must not be nil")
 
 	assert.Equal(t, dHeartbeat.Status, Online.String(), "Invalid State")
@@ -80,7 +80,7 @@ func Test_GetHeartbeat(t *testing.T) {
 
 	// check with some timeout URL
 	serviceURL = "http://demo3208027.mockable.io"
-	dHeartbeat = GetHeartbeat(serviceURL, serviceType, serviveID)
+	dHeartbeat,_ = GetHeartbeat(serviceURL, serviceType, serviveID)
 	assert.NotNil(t, dHeartbeat, "heartbeat must not be nil")
 
 	assert.Equal(t, dHeartbeat.Status, Warning.String(), "Invalid State")
@@ -116,5 +116,5 @@ func TestSetNoHeartbeatURLState(t *testing.T) {
 func TestValidateHeartbeatConfig(t *testing.T) {
 	err := ValidateHeartbeatConfig()
 	assert.Nil(t, err)
-	assert.Equal(t, true, isNoHeartbeatURL)
+	assert.Equal(t, false, isNoHeartbeatURL)
 }

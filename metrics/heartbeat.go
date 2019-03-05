@@ -2,7 +2,6 @@
 // All rights reserved.
 // <<add licence terms for code reuse>>
 
-//go:generate protoc -I services/ services/heartbeat.proto --go_out=plugins=grpc:services
 
 // package for monitoring and reporting the daemon metrics
 package metrics
@@ -67,7 +66,7 @@ func ValidateHeartbeatConfig() error {
 	SetNoHeartbeatURLState(false)
 	// check if the configured type is not supported
 	hbType := config.GetString(config.ServiceHeartbeatType)
-	if hbType != "grpc" && hbType != "http" && hbType != "none" && hbType != "" {
+	if hbType != "grpc" && hbType != "http" && hbType != "https" && hbType != "none" && hbType != "" {
 		return fmt.Errorf("unrecognized heartbet service type : '%+v'", hbType)
 	}
 	// if the URLs are empty, or hbtype is None or empty consider it as not configured
@@ -92,7 +91,7 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (hear
 			response, err = callgRPCServiceHeartbeat(serviceURL)
 			//Standardize this as well on the response being sent
 			heartbeat.Status = response.String()
-		} else if serviceType == "http" {
+		} else if serviceType == "http" || serviceType == "https" {
 			svcHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
 		}
 		if err != nil {

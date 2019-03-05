@@ -22,13 +22,14 @@ type Components struct {
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
-	atomicStorage			   escrow.AtomicStorage
+	atomicStorage              escrow.AtomicStorage
 	paymentChannelService      escrow.PaymentChannelService
 	escrowPaymentHandler       handler.PaymentHandler
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
-	etcdLockerStorage		       *escrow.PrefixedAtomicStorage
+	etcdLockerStorage          *escrow.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
+	daemonHeartbeat            *metrics.DaemonHeartbeat
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -249,3 +250,11 @@ func (components *Components) ProviderControlService() (service *escrow.Provider
 	return components.providerControlService
 }
 
+func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbeat) {
+	if components.daemonHeartbeat != nil {
+		return components.daemonHeartbeat
+	}
+	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
+	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID:metrics.GetDaemonID()}
+	return components.daemonHeartbeat
+}

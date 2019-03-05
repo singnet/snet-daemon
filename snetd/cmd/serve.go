@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/singnet/snet-daemon/metrics"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"os"
@@ -179,7 +180,7 @@ func (d daemon) start() {
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 		escrow.RegisterProviderControlServiceServer(d.grpcServer,d.components.ProviderControlService())
-
+		grpc_health_v1.RegisterHealthServer(d.grpcServer,d.components.DaemonHeartBeat())
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:

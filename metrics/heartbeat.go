@@ -2,7 +2,6 @@
 // All rights reserved.
 // <<add licence terms for code reuse>>
 
-//go:generate protoc -I services/ services/heartbeat.proto --go_out=plugins=grpc:services
 
 // package for monitoring and reporting the daemon metrics
 package metrics
@@ -13,8 +12,11 @@ import (
 	"fmt"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -62,36 +64,34 @@ func SetNoHeartbeatURLState(state bool) {
 func ValidateHeartbeatConfig() error {
 	//initialize the url state to false
 	SetNoHeartbeatURLState(false)
-
 	// check if the configured type is not supported
-	hbType := config.GetString(config.GetString(config.ServiceHeartbeatType))
-	if hbType != "grpc" && hbType != "http" && hbType != "none" && hbType != "" {
+	hbType := config.GetString(config.ServiceHeartbeatType)
+	if hbType != "grpc" && hbType != "http" && hbType != "https" && hbType != "none" && hbType != "" {
 		return fmt.Errorf("unrecognized heartbet service type : '%+v'", hbType)
 	}
-
 	// if the URLs are empty, or hbtype is None or empty consider it as not configured
 	if hbType == "" || hbType == "none" || config.GetString(config.HeartbeatServiceEndpoint) == "" {
 		SetNoHeartbeatURLState(true)
 	} else if !config.IsValidUrl(config.GetString(config.HeartbeatServiceEndpoint)) {
 		return errors.New("service endpoint must be a valid URL")
 	}
-
 	return nil
 }
 
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
-func GetHeartbeat(serviceURL string, serviceType string, serviceID string) DaemonHeartbeat {
-	heartbeat := DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "{}"}
-
+func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (heartbeat DaemonHeartbeat,err error) {
+	heartbeat = DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "{}"}
 	var curResp = `{"serviceID":"` + serviceID + `","status":"NOT_SERVING"}`
 	if serviceType == "none" || serviceType == "" || isNoHeartbeatURL {
 		curResp = `{"serviceID":"` + serviceID + `","status":"SERVING"}`
 	} else {
 		var svcHeartbeat []byte
-		var err error
 		if serviceType == "grpc" {
-			svcHeartbeat, err = callgRPCServiceHeartbeat(serviceURL)
-		} else if serviceType == "http" {
+			var response grpc_health_v1.HealthCheckResponse_ServingStatus
+			response, err = callgRPCServiceHeartbeat(serviceURL)
+			//Standardize this as well on the response being sent
+			heartbeat.Status = response.String()
+		} else if serviceType == "http" || serviceType == "https" {
 			svcHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
 		}
 		if err != nil {
@@ -113,7 +113,7 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string) Daemo
 		}
 	}
 	heartbeat.ServiceHeartbeat = curResp
-	return heartbeat
+	return heartbeat,err
 }
 
 // Heartbeat request handler function : upon request it will hit the service for status and
@@ -122,13 +122,32 @@ func HeartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 	// read the heartbeat service type and corresponding URL
 	serviceType := config.GetString(config.ServiceHeartbeatType)
 	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
-	serviceID := config.ServiceId
-	heartbeat := GetHeartbeat(serviceURL, serviceType, serviceID)
+	serviceID := config.GetString(config.ServiceId)
+	heartbeat,_ := GetHeartbeat(serviceURL, serviceType, serviceID)
 	err := json.NewEncoder(rw).Encode(heartbeat)
 	if err != nil {
 		log.WithError(err).Infof("Failed to write heartbeat message.")
 	}
 }
+
+// Check implements `service Health`.
+func (service *DaemonHeartbeat) Check( ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+
+	heartbeat,err := GetHeartbeat(config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
+		config.GetString(config.ServiceId))
+
+	if strings.Compare(heartbeat.Status,Online.String()) == 0  {
+	 	return &grpc_health_v1.HealthCheckResponse{Status:grpc_health_v1.HealthCheckResponse_SERVING},nil
+	}
+
+	return &grpc_health_v1.HealthCheckResponse{Status:grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN},errors.New("Service heartbeat unknown "+err.Error())
+}
+
+// Watch implements `service Watch todo for later`.
+func (service *DaemonHeartbeat) Watch(*grpc_health_v1.HealthCheckRequest, grpc_health_v1.Health_WatchServer) (error) {
+	return nil
+}
+
 
 /*
 service heartbeat/grpc heartbeat

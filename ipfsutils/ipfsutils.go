@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"strings"
+	"time"
 )
 
 func GetIpfsFile(hash string) string {
@@ -43,5 +44,7 @@ func GetIpfsFile(hash string) string {
 
 func GetIpfsShell() *shell.Shell {
 	sh := shell.NewShell(config.GetString(config.IpfsEndPoint))
+	// sets the timeout for accessing the ipfs content
+	sh.SetTimeout(time.Duration(config.GetInt(config.IpfsTimeout)) * time.Second)
 	return sh
 }

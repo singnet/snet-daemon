@@ -93,7 +93,7 @@ func getMetaDataUrifromRegistry() []byte {
 	serviceId := StringToBytes32(config.GetString(config.ServiceId))
 
 	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
-	if err != nil {
+	if err != nil || !serviceRegistration.Found {
 		log.WithError(err).WithField("OrganizationId", config.GetString(config.OrganizationId)).
 			WithField("ServiceId", config.GetString(config.ServiceId)).
 			Panic("Error Retrieving contract details for the Given Organization and Service Ids ")
@@ -119,11 +119,7 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 }
 
 func setDerivedFields(metaData *ServiceMetadata) error {
-	err := setDaemonEndPoint(metaData)
-	if err != nil {
-		return err
-	}
-	err = setDaemonGroupName(metaData)
+	err := setDaemonGroupName(metaData)
 	if err != nil {
 		return err
 	}
@@ -141,24 +137,17 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 
 }
 
-func setDaemonEndPoint(metaData *ServiceMetadata) error {
-	metaData.daemonEndPoint = config.GetString(config.DaemonEndPoint)
-	if len(metaData.daemonEndPoint) == 0 {
-		log.WithField("daemonEndPoint", metaData.daemonEndPoint)
-		return fmt.Errorf("check the Daemon End Point in the config")
-	}
-	return nil
-}
 
 func setDaemonGroupName(metaData *ServiceMetadata) error {
+	metaData.daemonGroupName = config.GetString(config.DaemonGroupName)
+	//Make sure the group name specified is in the config matches to some group name in metadata
 	for _, endpoints := range metaData.Endpoints {
-		if strings.Compare(metaData.daemonEndPoint, endpoints.Endpoint) == 0 {
-			metaData.daemonGroupName = endpoints.GroupName
+		if strings.Compare(metaData.daemonGroupName, endpoints.GroupName) == 0 {
 			return nil
 		}
 	}
-	log.WithField("DaemonEndPoint", metaData.daemonEndPoint)
-	return fmt.Errorf("unable to determine Daemon Group Name, DaemonEndPoint %s", metaData.daemonEndPoint)
+	log.WithField("daemon group name does not match any of the Group Names in Metadata", metaData.daemonGroupName)
+	return fmt.Errorf("please set the mandatory Daemon group Name corrrectly through the config %s ", config.DaemonGroupName)
 }
 
 func setDaemonGroupIDAndPaymentAddress(metaData *ServiceMetadata) error {

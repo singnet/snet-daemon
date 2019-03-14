@@ -35,6 +35,10 @@ func NewPaymentChannelService(
 	}
 }
 
+func (h *lockingPaymentChannelService) PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	return h.blockchainReader.GetChannelStateFromBlockchain(key)
+}
+
 func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	storageChannel, storageOk, err := h.storage.Get(key)
 	if err != nil {
@@ -179,7 +183,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
-		return nil, NewPaymentError(Internal, "payment channel storage error")
+		return nil, NewPaymentError(Internal, "payment channel error:"+err.Error())
 	}
 	if !ok {
 		log.Warn("Payment channel not found")
@@ -204,8 +208,11 @@ func (payment *paymentTransaction) Commit() error {
 		err := payment.lock.Unlock()
 		if err != nil {
 			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+		} else {
+			log.Debug("Channel unlocked")
 		}
 	}(payment)
+
 	e := payment.service.storage.Put(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		&PaymentChannelData{
@@ -227,6 +234,7 @@ func (payment *paymentTransaction) Commit() error {
 		return NewPaymentError(Internal, "unable to store new payment channel state")
 	}
 
+	log.Debug("Payment completed")
 	return nil
 }
 
@@ -235,6 +243,8 @@ func (payment *paymentTransaction) Rollback() error {
 		err := payment.lock.Unlock()
 		if err != nil {
 			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+		} else {
+			log.Debug("Payment rolled back, channel unlocked")
 		}
 	}(payment)
 	return nil

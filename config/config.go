@@ -23,6 +23,7 @@ const (
 	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
+	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
@@ -30,6 +31,7 @@ const (
 	HdwalletIndexKey               = "hdwallet_index"
 	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
+	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
 	MonitoringEnabled              = "monitoring_enabled"
 	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
@@ -56,12 +58,14 @@ const (
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
-	"daemon_type": "grpc",
 	"daemon_end_point": "127.0.0.1:8080",
+	"daemon_group_name":"default_group",
+	"daemon_type": "grpc",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
+	"ipfs_timeout" : 30,
 	"monitoring_enabled": true,
 	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 
@@ -75,7 +79,8 @@ const (
 		"level": "info",
 		"timezone": "UTC",
 		"formatter": {
-			"type": "text"
+			"type": "text",
+			"timestamp_format": "2006-01-02T15:04:05.999999999Z07:00"
 		},
 		"output": {
 			"type": "file",
@@ -164,7 +169,6 @@ func Validate() error {
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
 	}
-
 	// validate monitoring service endpoints
 	if vip.GetBool(MonitoringEnabled) &&
 		vip.GetString(MonitoringServiceEndpoint) != "" &&

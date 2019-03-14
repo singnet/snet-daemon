@@ -7,12 +7,12 @@ package metrics
 
 import (
 	"encoding/json"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/singnet/snet-daemon/metrics/services"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,7 +47,7 @@ func TestHeartbeatHandler(t *testing.T) {
 	assert.Equal(t, dHeartbeat.Status, Online.String(), "Invalid State")
 	assert.NotEqual(t, dHeartbeat.Status, Offline.String(), "Invalid State")
 
-	assert.Equal(t, dHeartbeat.DaemonID, "cc48d343313a1e06093c81830103b45496749e9ee632fd03207d042c277f3210",
+	assert.Equal(t, dHeartbeat.DaemonID, "2188ffe79222a44083c315dbb6bc82f3292fa76131b226a85c8ed11361a2406f",
 		"Incorrect daemon ID")
 
 	assert.NotEqual(t, dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
@@ -60,27 +60,27 @@ func Test_GetHeartbeat(t *testing.T) {
 	serviceType := "http"
 	serviveID := "SERVICE001"
 
-	dHeartbeat := GetHeartbeat(serviceURL, serviceType, serviveID)
+	dHeartbeat,_ := GetHeartbeat(serviceURL, serviceType, serviveID)
 	assert.NotNil(t, dHeartbeat, "heartbeat must not be nil")
 
 	assert.Equal(t, dHeartbeat.Status, Online.String(), "Invalid State")
 	assert.NotEqual(t, dHeartbeat.Status, Offline.String(), "Invalid State")
 
-	assert.Equal(t, dHeartbeat.DaemonID, "cc48d343313a1e06093c81830103b45496749e9ee632fd03207d042c277f3210",
+	assert.Equal(t, dHeartbeat.DaemonID, "2188ffe79222a44083c315dbb6bc82f3292fa76131b226a85c8ed11361a2406f",
 		"Incorrect daemon ID")
 
 	assert.NotEqual(t, dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
 	assert.Equal(t, dHeartbeat.ServiceHeartbeat, `{"serviceID":"SERVICE001", "status":"SERVING"}`,
 		"Unexpected service heartbeat")
 
-	var sHeartbeat grpc_health_v1.HeartbeatMsg
+	var sHeartbeat DaemonHeartbeat
 	err := json.Unmarshal([]byte(dHeartbeat.ServiceHeartbeat), &sHeartbeat)
-	assert.True(t, err != nil)
-	assert.Equal(t, sHeartbeat.ServiceID, "SERVICE001", "Unexpected service ID")
+	assert.True(t, err == nil)
+	assert.Equal(t, sHeartbeat.Status, grpc_health_v1.HealthCheckResponse_SERVING.String())
 
 	// check with some timeout URL
 	serviceURL = "http://demo3208027.mockable.io"
-	dHeartbeat = GetHeartbeat(serviceURL, serviceType, serviveID)
+	dHeartbeat,_ = GetHeartbeat(serviceURL, serviceType, serviveID)
 	assert.NotNil(t, dHeartbeat, "heartbeat must not be nil")
 
 	assert.Equal(t, dHeartbeat.Status, Warning.String(), "Invalid State")
@@ -116,5 +116,5 @@ func TestSetNoHeartbeatURLState(t *testing.T) {
 func TestValidateHeartbeatConfig(t *testing.T) {
 	err := ValidateHeartbeatConfig()
 	assert.Nil(t, err)
-	assert.Equal(t, true, isNoHeartbeatURL)
+	assert.Equal(t, false, isNoHeartbeatURL)
 }

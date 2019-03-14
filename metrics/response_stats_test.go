@@ -15,6 +15,7 @@ func TestCreateResponseStats(t *testing.T) {
 	assert.Equal(t, response.RequestID, commonStat.ID)
 	assert.Equal(t, response.GroupID, daemonGroupId)
 	assert.Equal(t, response.ResponseTime, "1.2346")
+	assert.Equal(t, response.Type, "response")
 	assert2.NotEqual(t, response.ResponseSentTime, "")
 }
 

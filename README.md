@@ -103,6 +103,7 @@ Usage:
   snetd [command]
 
 Available Commands:
+  channel     Manage operations on payment channels
   claim       Claim money from payment channel
   help        Help about any command
   init        Write default configuration to file
@@ -138,11 +139,9 @@ configuration properties can be set using configuration file.
 These properties you should usually change before starting daemon for the first
 time.
 
-* **daemon_endpoint** (optional; default: `"127.0.0.1:8080"`) - 
-network interface and port which daemon listens to. This parameter should be
-absolutely equal to the corresponding endpoint in the [service configuration
-metadata][service-configuration-metadata]. URI format is recommended:
-http://<host>:<port>.
+* **daemon_end_point** (required;) - 
+Defines the ip and the port on which the daemon listens to.
+format is :`<host>:<port>`.
 
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
 endpoint to which daemon sends ethereum JSON-RPC requests; recommend
@@ -189,6 +188,12 @@ enables or disables blockchain features of daemon; `false` reserved mostly for t
 * **burst_size** (optional; default: Infinite) - 
 see [rate limiting configuration](./ratelimit/README.md)
 
+* **daemon_group_name** (optional ,default: `"default_group"`) - 
+This parameter defines the group the daemon belongs to .
+The group helps determine the recipient address for payments.
+[service configuration
+metadata][service-configuration-metadata]. 
+
 * **hdwallet_index** (optional; default: `0`; only applies if `hdwallet_mnemonic` is set) - 
 derivation index for key to use within HDWallet specified by mnemonic.
 
@@ -234,6 +239,7 @@ see [rate limiting configuration](./ratelimit/README.md)
 
 * **heartbeat_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then service state always assumed as SERVING, and same will be wrapped in Daemon Heartbeat. see [daemon heartbeats configuration](./metrics/README.md)
 
+* **ipfs_timeout** (optional; default: `30`) - All IPFS read/writes timeout if the operations doesnt complete in 30 sec or set duration in this config entry.
 
 #### Environment variables and CLI parameters
 

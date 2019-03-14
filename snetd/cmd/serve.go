@@ -4,11 +4,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/singnet/snet-daemon/metrics"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -99,15 +99,9 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	port, err := deriveDaemonPort(config.GetString(config.DaemonEndPoint))
+	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndPoint))
 	if err != nil {
-		return d, errors.Wrap(err, "error determining port")
-	}
-	log.WithField("port", port).Info("Starting listening port")
-
-	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v", port))
-	if err != nil {
-		return d, errors.Wrap(err, "error listening")
+		return d, errors.Wrap(err, "Expected format of daemon_end_point is <host>:<port>.Error binding to the endpoint:"+config.GetString(config.DaemonEndPoint))
 	}
 
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)
@@ -133,29 +127,6 @@ func newDaemon(components *Components) (daemon, error) {
 	return d, nil
 }
 
-func deriveDaemonPort(daemonEndpoint string) (string, error) {
-	port := "8080"
-	var err error = nil
-
-	//There is a separate issue raised on standardizing the daemon end point format, #153, Daemon end point can also
-	//be entered in the format localhost:8080 or 127.1.0.0:8080 ( as this is allowed while defining the service metadata )
-	//For now strip http: or https: from the daemonEndPoint
-	daemonEndpoint = strings.Replace(daemonEndpoint, "https://", "", -1)
-	daemonEndpoint = strings.Replace(daemonEndpoint, "http://", "", -1)
-	splitString := strings.Split(daemonEndpoint, ":")
-	length := len(splitString)
-	if length == 2 {
-		port = splitString[len(splitString)-1]
-		_, err = strconv.ParseInt(port, 0, 16)
-		if err != nil {
-			log.WithField("daemonEndPoint", daemonEndpoint).Error(err)
-			err = fmt.Errorf("port number <%s> is not valid ,the daemon End point  %s", port, daemonEndpoint)
-		}
-	} else if length > 2 {
-		err = fmt.Errorf("daemon end point should have a single ':' ,the daemon End point %s", daemonEndpoint)
-	}
-	return port, err
-}
 
 func (d daemon) start() {
 
@@ -200,12 +171,16 @@ func (d daemon) start() {
 	}
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
+		// set the maximum that the server can receive to 4GB. It is set to for 4GB because of issue here https://github.com/grpc/grpc-go/issues/1590
+		maxsizeOpt := grpc.MaxRecvMsgSize(4000000000)
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
+			maxsizeOpt,
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
-
+		escrow.RegisterProviderControlServiceServer(d.grpcServer,d.components.ProviderControlService())
+		grpc_health_v1.RegisterHealthServer(d.grpcServer,d.components.DaemonHeartBeat())
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:
@@ -241,7 +216,7 @@ func (d daemon) start() {
 
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
-	metrics.SetDaemonGrpId(d.components.ServiceMetaData().GetDaemonGroupIDString())
+
 }
 
 func (d daemon) stop() {

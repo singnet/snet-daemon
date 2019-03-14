@@ -2,18 +2,21 @@ package logger
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jonboulle/clockwork"
-	"github.com/lestrrat-go/file-rotatelogs"
-	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/jonboulle/clockwork"
+	"github.com/lestrrat-go/file-rotatelogs"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/singnet/snet-daemon/config"
 )
 
 const defaultFormatterConfigJSON = `
@@ -108,11 +111,11 @@ func newConfigFromString(configString string, defaultVip *viper.Viper) *viper.Vi
 }
 
 func TestNewFormatterTextType(t *testing.T) {
-	var formatterJSON = `{
+	var formatterText = `{
         "type": "text",
         "timezone": "Local"
     }`
-	var formatterConfig = newConfigFromString(formatterJSON, nil)
+	var formatterConfig = newConfigFromString(formatterText, nil)
 
 	var formatter, err = newFormatterByConfig(formatterConfig)
 
@@ -120,6 +123,25 @@ func TestNewFormatterTextType(t *testing.T) {
 	_, isFormatterDelegate := formatter.delegate.(*log.TextFormatter)
 	assert.True(t, isFormatterDelegate, "Unexpected underlying formatter type, actual: %T, expected: %T", formatter.delegate, &log.TextFormatter{})
 	assert.Equal(t, time.Local, formatter.timestampLocation)
+}
+
+func TestNewFormatterTextTypeTimestampFormat(t *testing.T) {
+	var formatterText = `{
+        "type": "text",
+        "timezone": "UTC",
+        "timestamp_format": "2006-01-02T15:04:05.999999999Z07:00"
+    }`
+	var formatterConfig = newConfigFromString(formatterText, nil)
+
+	var formatter, err = newFormatterByConfig(formatterConfig)
+	assert.Nil(t, err)
+	data, err := formatter.Format(&log.Entry{
+		Level:   log.InfoLevel,
+		Time:    time.Date(2019, time.February, 5, 16, 29, 13, 123456789, time.UTC),
+		Message: "test message",
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, "time=\"2019-02-05T16:29:13.123456789Z\" level=info msg=\"test message\"\n", string(data))
 }
 
 func TestNewFormatterJsonType(t *testing.T) {
@@ -135,6 +157,38 @@ func TestNewFormatterJsonType(t *testing.T) {
 	_, isFormatterDelegate := formatter.delegate.(*log.JSONFormatter)
 	assert.True(t, isFormatterDelegate, "Unexpected underlying formatter type, actual: %T, expected: %T", formatter.delegate, &log.JSONFormatter{})
 	assert.Equal(t, time.Local, formatter.timestampLocation)
+}
+
+type logLine struct {
+	Level string
+	Msg   string
+	Time  string
+}
+
+func TestNewFormatterJSONTypeTimestampFormat(t *testing.T) {
+	var formatterJSON = `{
+        "type": "json",
+        "timezone": "UTC",
+        "timestamp_format": "2006-01-02T15:04:05.999999999Z07:00"
+    }`
+	var formatterConfig = newConfigFromString(formatterJSON, nil)
+
+	var formatter, err = newFormatterByConfig(formatterConfig)
+	assert.Nil(t, err)
+	buffer, err := formatter.Format(&log.Entry{
+		Level:   log.InfoLevel,
+		Time:    time.Date(2019, time.February, 5, 16, 29, 13, 123456789, time.UTC),
+		Message: "test message",
+	})
+	assert.Nil(t, err)
+	var data = logLine{}
+	err = json.Unmarshal(buffer, &data)
+	assert.Nil(t, err)
+	assert.Equal(t, logLine{
+		Level: "info",
+		Msg:   "test message",
+		Time:  "2019-02-05T16:29:13.123456789Z",
+	}, data)
 }
 
 func TestNewFormatterIncorrectType(t *testing.T) {

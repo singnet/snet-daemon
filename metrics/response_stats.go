@@ -23,7 +23,6 @@ func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 		ID:                  GenXid(),
 		GroupID:             daemonGroupId,
 		RequestReceivedTime: receivedTime.String(),
-		DaemonEndPoint:      config.GetString(config.DaemonEndPoint),
 		OrganizationID:      config.GetString(config.OrganizationId),
 		ServiceID:           config.GetString(config.ServiceId),
 		ServiceMethod:       methodName,
@@ -34,17 +33,19 @@ func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 
 //Response stats that will be captured and published
 type ResponseStats struct {
-	RequestID           string `json:"request_id"`
-	OrganizationID      string `json:"organization_id"`
-	ServiceID           string `json:"service_id"`
-	GroupID             string `json:"group_id"`
-	DaemonEndPoint      string `json:"daemon_end_point"`
-	ServiceMethod       string `json:"service_method"`
-	ResponseSentTime    string `json:"response_sent_time"`
-	RequestReceivedTime string `json:"request_received_time"`
-	ResponseTime        string `json:"response_time"`
-	ResponseCode        string `json:"response_code"`
-	ErrorMessage        string `json:"error_message"`
+	Type                       string `json:"type"`
+	RegistryAddressKey         string `json:"registry_address_key"`
+	EthereumJsonRpcEndpointKey string `json:"ethereum_json_rpc_endpoint"`
+	RequestID                  string `json:"request_id"`
+	OrganizationID             string `json:"organization_id"`
+	ServiceID                  string `json:"service_id"`
+	GroupID                    string `json:"group_id"`
+	ServiceMethod              string `json:"service_method"`
+	ResponseSentTime           string `json:"response_sent_time"`
+	RequestReceivedTime        string `json:"request_received_time"`
+	ResponseTime               string `json:"response_time"`
+	ResponseCode               string `json:"response_code"`
+	ErrorMessage               string `json:"error_message"`
 }
 
 //Publish response received as a payload for reporting /metrics analysis
@@ -56,17 +57,19 @@ func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err 
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {
 	response := &ResponseStats{
-		RequestID:           commonStat.ID,
-		ResponseTime:        strconv.FormatFloat(duration.Seconds(), 'f', 4, 64),
-		GroupID:             daemonGroupId,
-		DaemonEndPoint:      commonStat.DaemonEndPoint,
-		OrganizationID:      commonStat.OrganizationID,
-		ServiceID:           commonStat.ServiceID,
-		ServiceMethod:       commonStat.ServiceMethod,
-		RequestReceivedTime: commonStat.RequestReceivedTime,
-		ResponseSentTime:    time.Now().String(),
-		ErrorMessage:        getErrorMessage(err),
-		ResponseCode:        getErrorCode(err),
+		Type:                       "response",
+		RegistryAddressKey:         config.GetString(config.RegistryAddressKey),
+		EthereumJsonRpcEndpointKey: config.GetString(config.EthereumJsonRpcEndpointKey),
+		RequestID:                  commonStat.ID,
+		ResponseTime:               strconv.FormatFloat(duration.Seconds(), 'f', 4, 64),
+		GroupID:                    daemonGroupId,
+		OrganizationID:             commonStat.OrganizationID,
+		ServiceID:                  commonStat.ServiceID,
+		ServiceMethod:              commonStat.ServiceMethod,
+		RequestReceivedTime:        commonStat.RequestReceivedTime,
+		ResponseSentTime:           time.Now().String(),
+		ErrorMessage:               getErrorMessage(err),
+		ResponseCode:               getErrorCode(err),
 	}
 	return response
 }

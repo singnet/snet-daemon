@@ -29,6 +29,10 @@ configuration is one JSON object located in ```log``` field.
       * json
       * text
 
+    * **timestamp_format** (default:  "2006-01-02T15:04:05.999999999Z07:00") -
+      timestamp format to use in log lines, standard time.Time formats are
+      supported, see [time.Time.Format](https://golang.org/pkg/time/#Time.Format)
+
   * **output** - set of properties with ```log.output.``` prefix describes
     logger output configuration.
 
@@ -112,11 +116,12 @@ Resulting log configuration using logrus_mail hook:
 
 ```json
   "log": {
-    "level": "info",
-    "timezone": "UTC",
     "formatter": {
-      "type": "json"
+      "timestamp_format": "2006-01-02T15:04:05.999999999Z07:00",
+      "type": "text"
     },
+    "hooks": [],
+    "level": "info",
     "output": {
       "current_link": "./snet-daemon.log",
       "file_pattern": "./snet-daemon.%Y%m%d.log",
@@ -125,7 +130,7 @@ Resulting log configuration using logrus_mail hook:
       "rotation_time_in_sec": 86400,
       "type": "file"
     },
-    "hooks": []
+    "timezone": "UTC"
   }
 ```
 

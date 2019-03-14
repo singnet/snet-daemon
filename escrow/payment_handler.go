@@ -67,6 +67,8 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
 	e = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
 	if e != nil {
+		//Make sure the transaction is Rolled back , else this will cause a lock on the channel
+		transaction.Rollback()
 		return nil, paymentErrorToGrpcError(e)
 	}
 

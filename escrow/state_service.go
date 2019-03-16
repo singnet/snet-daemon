@@ -61,5 +61,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		CurrentNonce:        bigIntToBytes(channel.Nonce),
 		CurrentSignedAmount: bigIntToBytes(channel.AuthorizedAmount),
 		CurrentSignature:    channel.Signature,
+		OldnonceSignedAmount:bigIntToBytes(channel.PrevAuthorizedAmount),
+		OldnonceSignature:   channel.PrevSignature,
 	}, nil
 }

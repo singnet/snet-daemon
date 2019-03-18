@@ -46,8 +46,8 @@ message ChannelStateReply {
     bytes current_signature = 3;
 
     // last amount which was signed by client with nonce=current_nonce - 1
-    bytes oldnonce_signed_amount = 4;
+    bytes prev_signed_amount = 4;
 
     // last signature sent by client with nonce = current_nonce - 1
-    bytes oldnonce_signature = 5;
+    bytes prev_signature = 5;
  }

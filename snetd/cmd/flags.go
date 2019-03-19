@@ -92,6 +92,7 @@ func init() {
 	RootCmd.AddCommand(ClaimCmd)
 	RootCmd.AddCommand(ListCmd)
 	RootCmd.AddCommand(ChannelCmd)
+	RootCmd.AddCommand(VersionCmd)
 
 	ListCmd.AddCommand(ListChannelsCmd)
 	ListCmd.AddCommand(ListClaimsCmd)

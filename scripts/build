@@ -6,5 +6,8 @@ PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
 mkdir -p build
-GOOS=$1 GOARCH=$2 go build -o build/snetd-$1-$2 snetd/main.go
+now=$(date +'%Y-%m-%d_%T')
+GOOS=$1 GOARCH=$2 go build  -ldflags " -X github.com/singnet/snet-daemon/config.sha1Revision=`git rev-parse HEAD` -X github.com/singnet/snet-daemon/config.versionTag=`git describe --tag` -X github.com/singnet/snet-daemon/config.buildTime=$now" -o build/snetd-$1-$2 snetd/main.go
 popd
+
+

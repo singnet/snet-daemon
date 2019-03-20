@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"net"
 	"regexp"
 	"sort"
 	"strings"
@@ -175,6 +176,13 @@ func Validate() error {
 		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
 		return errors.New("service endpoint must be a valid URL")
 	}
+	passEndpoint := vip.GetString(PassthroughEndpointKey)
+	daemonEndpoint := vip.GetString(DaemonEndPoint)
+	var err error
+	err = ValidateEndpoints(daemonEndpoint, passEndpoint)
+	if err != nil {
+		return err
+	}
 
 	// Validate metrics URL and set state
 	return nil
@@ -267,4 +275,26 @@ func IsValidUrl(urlToTest string) bool {
 func ValidateEmail(email string) bool {
 	Re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
 	return Re.MatchString(email)
+}
+
+func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error {
+	passthroughURL, err := url.Parse(passthroughEndpoint)
+	if err != nil {
+		return errors.New("passthrough endpoint must be a valid URL")
+	}
+	daemonHost, daemonPort, err := net.SplitHostPort(daemonEndpoint)
+	if err != nil {
+		return errors.New("couldn't split host:post of daemon endpoint")
+	}
+
+	if daemonHost == passthroughURL.Hostname() && daemonPort == passthroughURL.Port() {
+		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+	}
+
+	if ((daemonPort == passthroughURL.Port()) &&
+	    (daemonHost == "0.0.0.0") &&
+	    (passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost"))	{
+		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+	}
+	return nil
 }

@@ -44,6 +44,8 @@ $ go get -u google.golang.org/grpc
 $ sudo apt-get install golint
 ```
 
+* If you want to cross-compile you will also need Docker
+
 ### Installing
 
 * Clone the git repository to the following path $GOPATH/src/github.com/singnet/
@@ -57,7 +59,7 @@ $ cd snet-daemon
 $ ./scripts/install
 ```
 
-* Build snet-daemon (on Linux amd64 platform)
+* Build snet-daemon (on Linux amd64 platform), see below section if you want to cross compile instead.
 ```bash
 $ ./scripts/build linux amd64
 ```
@@ -68,12 +70,16 @@ $ ./build/snetd-linux-amd64 init
 ```
 **** Please update the registry address in daemon config based on the test network used 
 
+#### Cross-compiling
+
+If you want to build snetd for platforms other than the one you are on, run `./scripts/build-xgo` instead of `./scripts/build`.
+
+You can edit the script to choose a specific platform, but by default it will build for Linux, OSX, and Windows (amd64 for all, except Linux which will also build for arm6)
+
 #### Run Deamon
 ```bash
 $ ../build/snetd-linux-amd64
 ```
-
-
 
 
 ### Main commands

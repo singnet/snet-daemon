@@ -109,6 +109,7 @@ Available Commands:
   init        Write default configuration to file
   list        List channels, claims in progress, etc
   serve       Is the default option which starts the Daemon.
+  version     List the current version of the Daemon.
 
 Flags:
   -c, --config string   config file (default "snetd.config.json")

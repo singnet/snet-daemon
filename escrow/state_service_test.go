@@ -55,6 +55,8 @@ var stateServiceTest = func() stateServiceTestType {
 			Signature:        defaultSignature,
 			Nonce:            big.NewInt(3),
 			AuthorizedAmount: big.NewInt(12345),
+			PrevSignature:	  nil,
+			PrevAuthorizedAmount: big.NewInt(0),
 		},
 		defaultRequest: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelId),
@@ -64,6 +66,8 @@ var stateServiceTest = func() stateServiceTestType {
 			CurrentNonce:        bigIntToBytes(big.NewInt(3)),
 			CurrentSignedAmount: bigIntToBytes(big.NewInt(12345)),
 			CurrentSignature:    defaultSignature,
+			PrevSignature:		 nil,
+			PrevSignedAmount:bigIntToBytes(big.NewInt(0)),
 		},
 	}
 }()
@@ -180,5 +184,7 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 	expectedReply := stateServiceTest.defaultReply
 	expectedReply.CurrentSignedAmount = nil
 	expectedReply.CurrentSignature = nil
+	expectedReply.PrevSignature = nil
+	expectedReply.PrevSignedAmount = nil
 	assert.Equal(t, expectedReply, reply)
 }

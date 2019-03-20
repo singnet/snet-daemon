@@ -176,6 +176,8 @@ func (suite *PaymentChannelServiceSuite) channel() *PaymentChannelData {
 		Signer:           suite.signerAddress,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
+		PrevSignature:	  nil,
+		PrevAuthorizedAmount: big.NewInt(0),
 	}
 }
 

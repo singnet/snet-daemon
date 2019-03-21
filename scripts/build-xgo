@@ -5,6 +5,11 @@ set -ex
 PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 pushd $PARENT_PATH
 
+if [ $# -eq 0 ]
+  then
+    echo "Please pass the version of the Daemon as an argument.The version passed will be used by the ldflags to initialize the daemon version."
+    exit 1
+fi
 # Make sure we have xgo
 go get -u github.com/karalabe/xgo
 

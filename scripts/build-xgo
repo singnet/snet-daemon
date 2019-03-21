@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -ex
+
+PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+pushd $PARENT_PATH
+
+# Make sure we have xgo
+go get -u github.com/karalabe/xgo
+
+# Apply patch for OSX, Go 1.10 and old notify version
+# https://stackoverflow.com/questions/54064293/cannot-use-nil-as-type-ctype-cfallocatorref-in-argument-to-func-literal
+# Can be removed if we upgrade notify (which probably requires upgrading go-ethereum etc.)
+pushd vendor/github.com/rjeczalik/notify
+patch -N < $PARENT_PATH/scripts/watcher_fsevents_cgo.go.patch || true
+popd
+
+mkdir -p build
+
+# Stuck on Go 1.10.x until https://github.com/singnet/snet-daemon/issues/201 is resolved.
+GO_VERSION=1.10.x
+
+# All targets compiled when Joel tried (2019-March), but we probably don't want to build them all!
+#TARGETS=*/*
+
+# See here for details
+# https://github.com/karalabe/xgo#limit-build-targets
+TARGETS=linux/amd64,linux/arm-6,darwin-10.6/amd64,windows/amd64
+xgo -dest build -go $GO_VERSION -targets=$TARGETS ./snetd

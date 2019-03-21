@@ -4,6 +4,12 @@ set -ex
 
 PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
+
+if [ $# -lt 3 ]
+  then
+    echo "arguments expected are of the form <OS> <PLATFORM> and <VERSION> for the build script , as an example: '/scripts/build linux amd64 v.0.1.8'"
+    exit 1
+fi
 pushd $PARENT_PATH
 mkdir -p build
 now=$(date +'%Y-%m-%d_%T')

@@ -60,8 +60,10 @@ $ ./scripts/install
 ```
 
 * Build snet-daemon (on Linux amd64 platform), see below section if you want to cross compile instead.
+Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as part of the build.
+You need to pass the version as shown in the example below 
 ```bash
-$ ./scripts/build linux amd64
+$ ./scripts/build linux amd64 v.0.1.8
 ```
 
 * Generate default config file  snet-daemon (on Linux amd64 platform)
@@ -76,8 +78,11 @@ If you want to build snetd for platforms other than the one you are on, run `./s
 
 You can edit the script to choose a specific platform, but by default it will build for Linux, OSX, and Windows (amd64 for all, except Linux which will also build for arm6)
 
-Please note using ldflags the latest tagged version (passed as the first parameter to the script) , sha1 revision and the build time are set at the compile time
+Please note using ldflags the latest tagged version (passed as the first parameter to the script) , sha1 revision and the build time are set as part of the build.
 
+```bash
+$ ./scripts/build-xgo v.0.1.8
+```
 
 #### Run Deamon
 ```bash

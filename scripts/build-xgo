@@ -7,7 +7,7 @@ pushd $PARENT_PATH
 
 if [ $# -eq 0 ]
   then
-    echo "Please pass the version of the Daemon as an argument.The version passed will be used by the ldflags to initialize the daemon version."
+    echo "Please pass the latest tagged version of the Daemon as an argument.The version passed will be used by the ldflags to set accordingly."
     exit 1
 fi
 # Make sure we have xgo

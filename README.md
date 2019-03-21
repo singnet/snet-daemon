@@ -76,6 +76,9 @@ If you want to build snetd for platforms other than the one you are on, run `./s
 
 You can edit the script to choose a specific platform, but by default it will build for Linux, OSX, and Windows (amd64 for all, except Linux which will also build for arm6)
 
+Please note using ldflags the latest tagged version (passed as the first parameter to the script) , sha1 revision and the build time are set at the compile time
+
+
 #### Run Deamon
 ```bash
 $ ../build/snetd-linux-amd64

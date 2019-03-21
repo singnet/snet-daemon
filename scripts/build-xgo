@@ -25,5 +25,7 @@ GO_VERSION=1.10.x
 
 # See here for details
 # https://github.com/karalabe/xgo#limit-build-targets
+now=$(date +'%Y-%m-%d_%T')
+#latest version tag is passed as a param to this script.
 TARGETS=linux/amd64,linux/arm-6,darwin-10.6/amd64,windows/amd64
-xgo -dest build -go $GO_VERSION -targets=$TARGETS ./snetd
+xgo -dest build -go $GO_VERSION -ldflags "-X github.com/singnet/snet-daemon/config.sha1Revision=`git rev-parse HEAD` -X github.com/singnet/snet-daemon/config.versionTag=$1 -X github.com/singnet/snet-daemon/config.buildTime=$now" -targets=$TARGETS ./snetd

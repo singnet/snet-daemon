@@ -118,7 +118,6 @@ Usage:
 
 Available Commands:
   channel     Manage operations on payment channels
-  claim       Claim money from payment channel
   help        Help about any command
   init        Write default configuration to file
   list        List channels, claims in progress, etc
@@ -209,15 +208,6 @@ The group helps determine the recipient address for payments.
 [service configuration
 metadata][service-configuration-metadata]. 
 
-* **hdwallet_index** (optional; default: `0`; only applies if `hdwallet_mnemonic` is set) - 
-derivation index for key to use within HDWallet specified by mnemonic.
-
-* **hdwallet_mnemonic** (optional; default: `""`; this or `private_key` must be set to use `claim` command) - 
-[bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
-mnemonic corresponding to wallet with which daemon transacts on blockchain.
-
-* **private_key** (optional; default: `""`; this or `hdwallet_mnemonic` must be set to use `claim` command) - 
-private key with which daemon transacts on blockchain.
 
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)

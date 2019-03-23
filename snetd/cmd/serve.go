@@ -36,6 +36,7 @@ var corsOptions = []handlers.CORSOption{
 
 var ServeCmd = &cobra.Command{
 	Use: "serve",
+	Short: "Is the default option which starts the Daemon.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 

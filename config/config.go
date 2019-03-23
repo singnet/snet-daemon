@@ -29,8 +29,6 @@ const (
 	DaemonEndPoint                 = "daemon_end_point"
 	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
 	ExecutablePathKey              = "executable_path"
-	HdwalletIndexKey               = "hdwallet_index"
-	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
@@ -40,7 +38,6 @@ const (
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
 	PassthroughEndpointKey         = "passthrough_endpoint"
-	PrivateKeyKey                  = "private_key"
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
@@ -237,21 +234,14 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	return sub
 }
 
-var hiddenKeys = map[string]bool{
-	strings.ToUpper(PrivateKeyKey):       true,
-	strings.ToUpper(HdwalletMnemonicKey): true,
-}
 
 func LogConfig() {
 	log.Info("Final configuration:")
 	keys := vip.AllKeys()
 	sort.Strings(keys)
 	for _, key := range keys {
-		if hiddenKeys[strings.ToUpper(key)] {
-			log.Infof("%v: ***", key)
-		} else {
-			log.Infof("%v: %v", key, vip.Get(key))
-		}
+		log.Infof("%v: %v", key, vip.Get(key))
+
 	}
 }
 

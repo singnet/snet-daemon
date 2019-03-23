@@ -89,7 +89,7 @@ func init() {
 
 	RootCmd.AddCommand(InitCmd)
 	RootCmd.AddCommand(ServeCmd)
-	RootCmd.AddCommand(ClaimCmd)
+
 	RootCmd.AddCommand(ListCmd)
 	RootCmd.AddCommand(ChannelCmd)
 	RootCmd.AddCommand(VersionCmd)
@@ -99,12 +99,6 @@ func init() {
 
 	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
 
-	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money, see \"list channels\"")
-	ClaimCmd.Flags().StringVar(&claimPaymentId, ClaimPaymentIdFlag, "", "id of the payment to claim money, see \"list payments\"")
-	ClaimCmd.Flags().BoolVar(&claimSendBack, ClaimSendBackFlag, false, "send the rest of the channel value back to channel sender")
-	ClaimCmd.Flags().StringVar(&claimTimeout, ClaimTimeoutFlag, "5s", "timeout for blockchain transaction;"+
-		" timeout is specified as a sequence of decimal number with unit suffix;"+
-		" valid time units are \"ns\", \"us\", \"ms\", \"s\", \"m\", \"h\"")
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))
@@ -112,8 +106,7 @@ func init() {
 	vip.BindPFlag(config.BlockchainEnabledKey, serveCmdFlags.Lookup("blockchain"))
 
 	vip.BindPFlag(config.EthereumJsonRpcEndpointKey, serveCmdFlags.Lookup("ethereum-endpoint"))
-	vip.BindPFlag(config.HdwalletMnemonicKey, serveCmdFlags.Lookup("mnemonic"))
-	vip.BindPFlag(config.HdwalletIndexKey, serveCmdFlags.Lookup("wallet-index"))
+
 	vip.BindPFlag(config.PassthroughEnabledKey, serveCmdFlags.Lookup("passthrough"))
 	vip.BindPFlag(config.SSLCertPathKey, serveCmdFlags.Lookup("ssl-cert"))
 	vip.BindPFlag(config.SSLKeyPathKey, serveCmdFlags.Lookup("ssl-key"))

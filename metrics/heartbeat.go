@@ -108,7 +108,7 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (hear
 			}
 			notification.Send()
 		} else {
-			log.Infof("Service %s status : %s", serviceURL, svcHeartbeat)
+			log.Debugf("Service %s status : %s", serviceURL, svcHeartbeat)
 			curResp = string(svcHeartbeat)
 		}
 	}

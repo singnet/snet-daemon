@@ -98,11 +98,11 @@ type PaymentChannelData struct {
 	Signature []byte
 
 	// previous authorized amount when when Nonce is current_nonce -1
-	PrevAuthorizedAmount *big.Int
+	OldnonceSignedAmount *big.Int
 
 	// it is a signature of the message when Nonce is current_nonce -1
 	// It is required to to any failures in Tx claims and recover from it
-	PrevSignature []byte
+	OldnonceSignature []byte
 }
 
 func (data *PaymentChannelData) String() string {
@@ -210,8 +210,8 @@ var (
 	IncrementChannelNonce ChannelUpdate = func(channel *PaymentChannelData) {
 		channel.Nonce = (&big.Int{}).Add(channel.Nonce, big.NewInt(1))
 		channel.FullAmount = (&big.Int{}).Sub(channel.FullAmount, channel.AuthorizedAmount)
-		channel.PrevSignature = channel.Signature
-		channel.PrevAuthorizedAmount = channel.AuthorizedAmount
+		channel.OldnonceSignature = channel.Signature
+		channel.OldnonceSignedAmount = channel.AuthorizedAmount
 		channel.AuthorizedAmount = big.NewInt(0)
 		channel.Signature = nil
 	}

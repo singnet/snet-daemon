@@ -41,7 +41,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 
 	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelID})
 	if err != nil {
-		return nil, errors.New("channel error:"+err.Error())
+		return nil, errors.New("channel error:" + err.Error())
 	}
 	if !ok {
 		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
@@ -58,10 +58,10 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	}
 
 	return &ChannelStateReply{
-		CurrentNonce:        bigIntToBytes(channel.Nonce),
-		CurrentSignedAmount: bigIntToBytes(channel.AuthorizedAmount),
-		CurrentSignature:    channel.Signature,
-		PrevSignedAmount:	 bigIntToBytes(channel.PrevAuthorizedAmount),
-		PrevSignature:   	 channel.PrevSignature,
+		CurrentNonce:         bigIntToBytes(channel.Nonce),
+		CurrentSignedAmount:  bigIntToBytes(channel.AuthorizedAmount),
+		CurrentSignature:     channel.Signature,
+		OldnonceSignedAmount: bigIntToBytes(channel.OldnonceSignedAmount),
+		OldnonceSignature:    channel.OldnonceSignature,
 	}, nil
 }

@@ -56,18 +56,18 @@ func (suite *PaymentChannelStorageSuite) key(channelID int64) *PaymentChannelKey
 
 func (suite *PaymentChannelStorageSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
-		ChannelID:        big.NewInt(42),
-		Nonce:            big.NewInt(3),
-		Sender:           suite.senderAddress,
-		Recipient:        suite.recipientAddress,
-		GroupID:          [32]byte{123},
-		FullAmount:       big.NewInt(12345),
-		Expiration:       big.NewInt(100),
-		Signer:           suite.signerAddress,
-		AuthorizedAmount: big.NewInt(0),
-		Signature:        nil,
-		PrevAuthorizedAmount: big.NewInt(0),
-		PrevSignature:    nil,
+		ChannelID:            big.NewInt(42),
+		Nonce:                big.NewInt(3),
+		Sender:               suite.senderAddress,
+		Recipient:            suite.recipientAddress,
+		GroupID:              [32]byte{123},
+		FullAmount:           big.NewInt(12345),
+		Expiration:           big.NewInt(100),
+		Signer:               suite.signerAddress,
+		AuthorizedAmount:     big.NewInt(0),
+		Signature:            nil,
+		OldnonceSignedAmount: big.NewInt(0),
+		OldnonceSignature:    nil,
 	}
 }
 
@@ -128,18 +128,18 @@ func (suite *BlockchainChannelReaderSuite) mpeChannel() *blockchain.MultiPartyEs
 
 func (suite *BlockchainChannelReaderSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
-		ChannelID:        big.NewInt(42),
-		Nonce:            big.NewInt(3),
-		Sender:           suite.senderAddress,
-		Recipient:        suite.recipientAddress,
-		GroupID:          [32]byte{123},
-		FullAmount:       big.NewInt(12345),
-		Expiration:       big.NewInt(100),
-		Signer:           suite.signerAddress,
-		AuthorizedAmount: big.NewInt(0),
-		Signature:        nil,
-		PrevAuthorizedAmount: big.NewInt(0),
-		PrevSignature:    nil,
+		ChannelID:            big.NewInt(42),
+		Nonce:                big.NewInt(3),
+		Sender:               suite.senderAddress,
+		Recipient:            suite.recipientAddress,
+		GroupID:              [32]byte{123},
+		FullAmount:           big.NewInt(12345),
+		Expiration:           big.NewInt(100),
+		Signer:               suite.signerAddress,
+		AuthorizedAmount:     big.NewInt(0),
+		Signature:            nil,
+		OldnonceSignedAmount: big.NewInt(0),
+		OldnonceSignature:    nil,
 	}
 }
 

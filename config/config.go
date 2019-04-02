@@ -32,6 +32,7 @@ const (
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
+	MaxMessageSize                 = "max_message_size"
 	MonitoringEnabled              = "monitoring_enabled"
 	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
 	OrganizationId                 = "organization_id"
@@ -64,6 +65,7 @@ const (
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
+	"max_message_size" : 2147483647,
 	"monitoring_enabled": true,
 	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 

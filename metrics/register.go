@@ -20,7 +20,7 @@ Post beta, this ID will be used to enable Token based authentication for accessi
 
 // generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
 func GetDaemonID() string {
-	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + daemonGroupId + config.GetString(config.DaemonEndPoint) + config.GetString(config.RegistryAddressKey)
+	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + daemonGroupId  + config.GetString(config.RegistryAddressKey)
 	//get hash of the string id combination
 	hasher := sha256.New()
 	hasher.Write([]byte(rawID))

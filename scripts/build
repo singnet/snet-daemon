@@ -4,7 +4,16 @@ set -ex
 
 PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
+
+if [ $# -lt 3 ]
+  then
+    echo "arguments expected are of the form <OS> <PLATFORM> and <VERSION> for the build script , as an example: '/scripts/build linux amd64 v.0.1.8'"
+    exit 1
+fi
 pushd $PARENT_PATH
 mkdir -p build
-GOOS=$1 GOARCH=$2 go build -o build/snetd-$1-$2 snetd/main.go
+now=$(date +'%Y-%m-%d_%T')
+GOOS=$1 GOARCH=$2 go build  -ldflags " -X github.com/singnet/snet-daemon/config.sha1Revision=`git rev-parse HEAD` -X github.com/singnet/snet-daemon/config.versionTag=$3 -X github.com/singnet/snet-daemon/config.buildTime=$now" -o build/snetd-$1-$2 snetd/main.go
 popd
+
+

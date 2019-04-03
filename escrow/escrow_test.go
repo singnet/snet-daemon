@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -279,4 +280,42 @@ func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 	assert.Nil(suite.T(), errB, "Unexpected error: %v", errB)
 	assert.Equal(suite.T(), suite.payment(), claim.Payment())
 	assert.Equal(suite.T(), []*Payment{suite.payment()}, claims)
+}
+
+func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
+
+
+	service := NewPaymentChannelService(
+		suite.storage,
+		suite.paymentStorage,
+		&BlockchainChannelReader{
+			replicaGroupID: func() ([32]byte, error) {
+				return [32]byte{125}, nil
+			},
+			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
+				return suite.mpeChannel(), true, nil
+			},
+			recipientPaymentAddress: func() common.Address {
+				return suite.recipientAddress
+			},
+		},
+		NewEtcdLocker(suite.memoryStorage),
+		&ChannelPaymentValidator{
+			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
+		},
+	)
+	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
+	//Group ID is different
+	channel, ok, err := service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
+	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: [125 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
+	assert.False(suite.T(), ok)
+	assert.Nil(suite.T(), channel)
+	assert.NotNil(suite.T(),err)
+	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
+	//Group ID is the same ( no error should happen)
+	channel, ok, err = suite.service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
+	assert.True(suite.T(), ok)
+	assert.NotNil(suite.T(), channel)
+	assert.Nil(suite.T(),err)
 }

@@ -149,9 +149,9 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		Expiration:           ch.Expiration,
 		Signer:               ch.Signer,
 		AuthorizedAmount:     big.NewInt(0),
-		OldnonceSignedAmount: big.NewInt(0),
+		OldNonceSignedAmount: big.NewInt(0),
 		Signature:            nil,
-		OldnonceSignature:    nil,
+		OldNonceSignature:    nil,
 	}, true, nil
 }
 

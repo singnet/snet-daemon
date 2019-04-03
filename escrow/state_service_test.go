@@ -61,8 +61,8 @@ var stateServiceTest = func() stateServiceTestType {
 			Signature:            defaultSignature,
 			Nonce:                big.NewInt(3),
 			AuthorizedAmount:     big.NewInt(12345),
-			OldnonceSignature:    defaultPrevSignature,
-			OldnonceSignedAmount: big.NewInt(2345),
+			OldNonceSignature:    defaultPrevSignature,
+			OldNonceSignedAmount: big.NewInt(2345),
 		},
 		defaultRequest: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelId),
@@ -72,8 +72,8 @@ var stateServiceTest = func() stateServiceTestType {
 			CurrentNonce:         bigIntToBytes(big.NewInt(3)),
 			CurrentSignedAmount:  bigIntToBytes(big.NewInt(12345)),
 			CurrentSignature:     defaultSignature,
-			OldnonceSignature:    defaultPrevSignature,
-			OldnonceSignedAmount: bigIntToBytes(big.NewInt(2345)),
+			OldNonceSignature:    defaultPrevSignature,
+			OldNonceSignedAmount: bigIntToBytes(big.NewInt(2345)),
 		},
 	}
 }()
@@ -182,8 +182,8 @@ func TestGetChannelStateVerifyPrevChannelState(t *testing.T) {
 	tmpSignedAmount := big.NewInt(34545)
 
 	channelData := stateServiceTest.defaultChannelData
-	channelData.OldnonceSignature = tmpSignature
-	channelData.OldnonceSignedAmount = tmpSignedAmount
+	channelData.OldNonceSignature = tmpSignature
+	channelData.OldNonceSignedAmount = tmpSignedAmount
 
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
@@ -195,8 +195,8 @@ func TestGetChannelStateVerifyPrevChannelState(t *testing.T) {
 	)
 	assert.Nil(t, err)
 	expectedReply := stateServiceTest.defaultReply
-	expectedReply.OldnonceSignature = tmpSignature
-	expectedReply.OldnonceSignedAmount = bigIntToBytes(tmpSignedAmount)
+	expectedReply.OldNonceSignature = tmpSignature
+	expectedReply.OldNonceSignedAmount = bigIntToBytes(tmpSignedAmount)
 	assert.Equal(t, expectedReply, reply)
 
 	defer stateServiceTest.channelServiceMock.Clear()
@@ -205,8 +205,8 @@ func TestGetChannelStateVerifyPrevChannelState(t *testing.T) {
 // prev signature and authorized values  could be nil
 func TestGetChannelStateVerifyPrevChannelStateBegining(t *testing.T) {
 	channelData := stateServiceTest.defaultChannelData
-	channelData.OldnonceSignature = nil
-	channelData.OldnonceSignedAmount = big.NewInt(-1)
+	channelData.OldNonceSignature = nil
+	channelData.OldNonceSignedAmount = big.NewInt(-1)
 
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
@@ -220,8 +220,8 @@ func TestGetChannelStateVerifyPrevChannelStateBegining(t *testing.T) {
 	)
 	assert.Nil(t, err)
 	expectedReply := stateServiceTest.defaultReply
-	expectedReply.OldnonceSignature = nil
-	expectedReply.OldnonceSignedAmount = bigIntToBytes(big.NewInt(-1))
+	expectedReply.OldNonceSignature = nil
+	expectedReply.OldNonceSignedAmount = bigIntToBytes(big.NewInt(-1))
 	assert.Equal(t, expectedReply, reply)
 }
 
@@ -244,8 +244,8 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 	expectedReply := stateServiceTest.defaultReply
 	expectedReply.CurrentSignedAmount = nil
 	expectedReply.CurrentSignature = nil
-	expectedReply.OldnonceSignature = nil
-	expectedReply.OldnonceSignedAmount = nil
+	expectedReply.OldNonceSignature = nil
+	expectedReply.OldNonceSignedAmount = nil
 	assert.Equal(t, expectedReply, reply)
 }
 

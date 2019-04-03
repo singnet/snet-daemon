@@ -66,8 +66,8 @@ func (suite *PaymentChannelStorageSuite) channel() *PaymentChannelData {
 		Signer:               suite.signerAddress,
 		AuthorizedAmount:     big.NewInt(0),
 		Signature:            nil,
-		OldnonceSignedAmount: big.NewInt(0),
-		OldnonceSignature:    nil,
+		OldNonceSignedAmount: big.NewInt(6789),
+		OldNonceSignature:    nil,
 	}
 }
 
@@ -81,6 +81,17 @@ func (suite *PaymentChannelStorageSuite) TestGetAll() {
 
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 	assert.Equal(suite.T(), []*PaymentChannelData{channelA, channelB}, channels)
+}
+
+func (suite *PaymentChannelStorageSuite) TestGetChannel() {
+	expectedChannel := suite.channel()
+	suite.storage.Put(suite.key(42), expectedChannel)
+	channel, ok, err := suite.storage.Get(suite.key(42))
+
+	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
+	assert.Equal(suite.T(), true, ok)
+	assert.Equal(suite.T(), expectedChannel, channel)
+	assert.Equal(suite.T(), big.NewInt(6789), channel.OldNonceSignedAmount)
 }
 
 type BlockchainChannelReaderSuite struct {
@@ -138,8 +149,8 @@ func (suite *BlockchainChannelReaderSuite) channel() *PaymentChannelData {
 		Signer:               suite.signerAddress,
 		AuthorizedAmount:     big.NewInt(0),
 		Signature:            nil,
-		OldnonceSignedAmount: big.NewInt(0),
-		OldnonceSignature:    nil,
+		OldNonceSignedAmount: big.NewInt(0),
+		OldNonceSignature:    nil,
 	}
 }
 

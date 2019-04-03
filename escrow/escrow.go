@@ -227,8 +227,8 @@ func (payment *paymentTransaction) Commit() error {
 			AuthorizedAmount:     payment.payment.Amount,
 			Signature:            payment.payment.Signature,
 			GroupID:              payment.channel.GroupID,
-			OldnonceSignedAmount: payment.channel.OldnonceSignedAmount,
-			OldnonceSignature:    payment.channel.OldnonceSignature,
+			OldNonceSignedAmount: payment.channel.OldNonceSignedAmount,
+			OldNonceSignature:    payment.channel.OldNonceSignature,
 		},
 	)
 	if e != nil {

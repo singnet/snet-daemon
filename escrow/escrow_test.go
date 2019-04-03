@@ -285,26 +285,11 @@ func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 
 
-	service := NewPaymentChannelService(
-		suite.storage,
-		suite.paymentStorage,
-		&BlockchainChannelReader{
-			replicaGroupID: func() ([32]byte, error) {
-				return [32]byte{125}, nil
-			},
-			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
-				return suite.mpeChannel(), true, nil
-			},
-			recipientPaymentAddress: func() common.Address {
-				return suite.recipientAddress
-			},
-		},
-		NewEtcdLocker(suite.memoryStorage),
-		&ChannelPaymentValidator{
-			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
-			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
-		},
-	)
+	service := suite.service
+	service.(*lockingPaymentChannelService).blockchainReader.replicaGroupID =
+		func() ([32]byte, error) {
+			return [32]byte{125}, nil
+		}
 	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
 	//Group ID is different
 	channel, ok, err := service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
@@ -314,6 +299,11 @@ func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 	assert.NotNil(suite.T(),err)
 	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
 	//Group ID is the same ( no error should happen)
+	//also re setting the value here again to make sure the original state is retained
+	service.(*lockingPaymentChannelService).blockchainReader.replicaGroupID =
+		func() ([32]byte, error) {
+			return [32]byte{123}, nil
+		}
 	channel, ok, err = suite.service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
 	assert.True(suite.T(), ok)
 	assert.NotNil(suite.T(), channel)

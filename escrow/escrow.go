@@ -53,7 +53,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 		//if the channel is already present in the storage the group ID check is skipped.
 	    if blockchainChannel != nil {
 			blockChainGroupID,err := h.blockchainReader.replicaGroupID()
-		    if err = h.VerifyGroupId(blockChainGroupID,blockchainChannel.GroupID) ;err != nil {
+		    if err = h.verifyGroupId(blockChainGroupID,blockchainChannel.GroupID) ;err != nil {
 				return nil, false, err
 			}
 		}
@@ -67,7 +67,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 }
 
 //Check if the channel belongs to the same group Id
-func (h *lockingPaymentChannelService) VerifyGroupId(configGroupID [32]byte ,blockChainGroupID  [32]byte ) error {
+func (h *lockingPaymentChannelService) verifyGroupId(configGroupID [32]byte ,blockChainGroupID  [32]byte ) error {
 	if blockChainGroupID != configGroupID {
 		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
 		return fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, blockChainGroupID)

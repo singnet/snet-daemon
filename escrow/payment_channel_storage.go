@@ -132,17 +132,19 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		return nil, false, fmt.Errorf("recipient Address from service metadata does not Match on what was retrieved from Channel")
 	}
 	return &PaymentChannelData{
-		ChannelID:        key.ID,
-		Nonce:            ch.Nonce,
-		State:            Open,
-		Sender:           ch.Sender,
-		Recipient:        ch.Recipient,
-		GroupID:          ch.GroupId,
-		FullAmount:       ch.Value,
-		Expiration:       ch.Expiration,
-		Signer:           ch.Signer,
-		AuthorizedAmount: big.NewInt(0),
-		Signature:        nil,
+		ChannelID:            key.ID,
+		Nonce:                ch.Nonce,
+		State:                Open,
+		Sender:               ch.Sender,
+		Recipient:            ch.Recipient,
+		GroupID:              ch.GroupId,
+		FullAmount:           ch.Value,
+		Expiration:           ch.Expiration,
+		Signer:               ch.Signer,
+		AuthorizedAmount:     big.NewInt(0),
+		OldNonceSignedAmount: big.NewInt(0),
+		Signature:            nil,
+		OldNonceSignature:    nil,
 	}, true, nil
 }
 

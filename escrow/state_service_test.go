@@ -1,9 +1,11 @@
 package escrow
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +25,12 @@ type stateServiceTestType struct {
 	defaultChannelData *PaymentChannelData
 	defaultRequest     *ChannelStateRequest
 	defaultReply       *ChannelStateReply
+
+	defaultChannelIdA   *big.Int
+	defaultChannelKeyA  *PaymentChannelKey
+	defaultChannelDataA *PaymentChannelData
+	defaultRequestA 	*ChannelStateRequest
+	defaultReplyA 		*ChannelStateReply
 }
 
 var stateServiceTest = func() stateServiceTestType {
@@ -42,6 +50,15 @@ var stateServiceTest = func() stateServiceTestType {
 	if err != nil {
 		panic("Could not make default previous Signature")
 	}
+
+	defaultBlock := big.NewInt(0)
+	defaultChannelIdA := big.NewInt(43)
+	message := bytes.Join([][]byte{
+		[]byte ("__get_channel_state"),
+		defaultChannelIdA.Bytes(),
+		abi.U256(defaultBlock),
+	}, nil)
+	newFormatSignature := getSignature(message, signerPrivateKey)
 
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
@@ -75,8 +92,47 @@ var stateServiceTest = func() stateServiceTestType {
 			OldNonceSignature:    defaultPrevSignature,
 			OldNonceSignedAmount: bigIntToBytes(big.NewInt(2345)),
 		},
+		defaultChannelIdA:  defaultChannelIdA,
+		defaultChannelKeyA: &PaymentChannelKey{ID: defaultChannelIdA},
+		defaultChannelDataA: &PaymentChannelData{
+			ChannelID:            defaultChannelIdA,
+			Sender:               senderAddress,
+			Signer:               signerAddress,
+			Signature:            defaultSignature,
+			Nonce:                big.NewInt(7),
+			AuthorizedAmount:     big.NewInt(8345),
+			OldNonceSignature:    defaultPrevSignature,
+			OldNonceSignedAmount: big.NewInt(2323),
+		},
+		defaultRequestA: &ChannelStateRequest{
+			ChannelId: bigIntToBytes(defaultChannelIdA),
+			Signature: newFormatSignature,
+		},
+		defaultReplyA: &ChannelStateReply{
+			CurrentNonce:         bigIntToBytes(big.NewInt(7)),
+			CurrentSignedAmount:  bigIntToBytes(big.NewInt(8345)),
+			CurrentSignature:     defaultSignature,
+			OldNonceSignature:    defaultPrevSignature,
+			OldNonceSignedAmount: bigIntToBytes(big.NewInt(2323)),
+		},
 	}
 }()
+
+func TestGetChannelStateWithNewSignatureFormat(t *testing.T) {
+	stateServiceTest.channelServiceMock.Put(
+		stateServiceTest.defaultChannelKeyA,
+		stateServiceTest.defaultChannelDataA,
+	)
+	defer stateServiceTest.channelServiceMock.Clear()
+
+	reply, err := stateServiceTest.service.GetChannelState(
+		nil,
+		stateServiceTest.defaultRequestA,
+	)
+
+	assert.Nil(t, err)
+	assert.Equal(t, stateServiceTest.defaultReplyA, reply)
+}
 
 func TestGetChannelState(t *testing.T) {
 	stateServiceTest.channelServiceMock.Put(

@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/singnet/snet-daemon/metrics"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -34,6 +36,7 @@ var corsOptions = []handlers.CORSOption{
 
 var ServeCmd = &cobra.Command{
 	Use: "serve",
+	Short: "Is the default option which starts the Daemon.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
@@ -171,7 +174,7 @@ func (d daemon) start() {
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		// set the maximum that the server can receive to 4GB. It is set to for 4GB because of issue here https://github.com/grpc/grpc-go/issues/1590
-		maxsizeOpt := grpc.MaxRecvMsgSize(4000000000)
+		maxsizeOpt := grpc.MaxRecvMsgSize(math.MaxInt32)
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
@@ -179,7 +182,7 @@ func (d daemon) start() {
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 		escrow.RegisterProviderControlServiceServer(d.grpcServer,d.components.ProviderControlService())
-
+		grpc_health_v1.RegisterHealthServer(d.grpcServer,d.components.DaemonHeartBeat())
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:

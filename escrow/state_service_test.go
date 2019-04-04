@@ -33,8 +33,14 @@ var stateServiceTest = func() stateServiceTestType {
 
 	defaultChannelId := big.NewInt(42)
 	defaultSignature, err := hex.DecodeString("0504030201")
+
 	if err != nil {
-		panic("Could not make defaultSignature")
+		panic("Could not make default Signature")
+	}
+
+	defaultPrevSignature, err := hex.DecodeString("0403020100")
+	if err != nil {
+		panic("Could not make default previous Signature")
 	}
 
 	return stateServiceTestType{
@@ -49,21 +55,25 @@ var stateServiceTest = func() stateServiceTestType {
 		defaultChannelId:  defaultChannelId,
 		defaultChannelKey: &PaymentChannelKey{ID: defaultChannelId},
 		defaultChannelData: &PaymentChannelData{
-			ChannelID:        defaultChannelId,
-			Sender:           senderAddress,
-			Signer:           signerAddress,
-			Signature:        defaultSignature,
-			Nonce:            big.NewInt(3),
-			AuthorizedAmount: big.NewInt(12345),
+			ChannelID:            defaultChannelId,
+			Sender:               senderAddress,
+			Signer:               signerAddress,
+			Signature:            defaultSignature,
+			Nonce:                big.NewInt(3),
+			AuthorizedAmount:     big.NewInt(12345),
+			OldNonceSignature:    defaultPrevSignature,
+			OldNonceSignedAmount: big.NewInt(2345),
 		},
 		defaultRequest: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelId),
 			Signature: getSignature(bigIntToBytes(defaultChannelId), signerPrivateKey),
 		},
 		defaultReply: &ChannelStateReply{
-			CurrentNonce:        bigIntToBytes(big.NewInt(3)),
-			CurrentSignedAmount: bigIntToBytes(big.NewInt(12345)),
-			CurrentSignature:    defaultSignature,
+			CurrentNonce:         bigIntToBytes(big.NewInt(3)),
+			CurrentSignedAmount:  bigIntToBytes(big.NewInt(12345)),
+			CurrentSignature:     defaultSignature,
+			OldNonceSignature:    defaultPrevSignature,
+			OldNonceSignedAmount: bigIntToBytes(big.NewInt(2345)),
 		},
 	}
 }()
@@ -102,6 +112,12 @@ func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {
 }
 
 func TestGetChannelStateChannelIdIncorrectSignature(t *testing.T) {
+	stateServiceTest.channelServiceMock.Put(
+		stateServiceTest.defaultChannelKey,
+		stateServiceTest.defaultChannelData,
+	)
+	defer stateServiceTest.channelServiceMock.Clear()
+
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		&ChannelStateRequest{
@@ -120,7 +136,7 @@ func TestGetChannelStateChannelStorageError(t *testing.T) {
 
 	reply, err := stateServiceTest.service.GetChannelState(nil, stateServiceTest.defaultRequest)
 
-	assert.Equal(t, errors.New("channel storage error"), err)
+	assert.Equal(t, errors.New("channel error:storage error"), err)
 	assert.Nil(t, reply)
 }
 
@@ -161,6 +177,54 @@ func TestGetChannelStateIncorrectSender(t *testing.T) {
 	assert.Nil(t, reply)
 }
 
+func TestGetChannelStateVerifyPrevChannelState(t *testing.T) {
+	tmpSignature, err := hex.DecodeString("0102030405")
+	tmpSignedAmount := big.NewInt(34545)
+
+	channelData := stateServiceTest.defaultChannelData
+	channelData.OldNonceSignature = tmpSignature
+	channelData.OldNonceSignedAmount = tmpSignedAmount
+
+	stateServiceTest.channelServiceMock.Put(
+		stateServiceTest.defaultChannelKey,
+		channelData,
+	)
+	reply, err := stateServiceTest.service.GetChannelState(
+		nil,
+		stateServiceTest.defaultRequest,
+	)
+	assert.Nil(t, err)
+	expectedReply := stateServiceTest.defaultReply
+	expectedReply.OldNonceSignature = tmpSignature
+	expectedReply.OldNonceSignedAmount = bigIntToBytes(tmpSignedAmount)
+	assert.Equal(t, expectedReply, reply)
+
+	defer stateServiceTest.channelServiceMock.Clear()
+}
+
+// prev signature and authorized values  could be nil
+func TestGetChannelStateVerifyPrevChannelStateBegining(t *testing.T) {
+	channelData := stateServiceTest.defaultChannelData
+	channelData.OldNonceSignature = nil
+	channelData.OldNonceSignedAmount = big.NewInt(-1)
+
+	stateServiceTest.channelServiceMock.Put(
+		stateServiceTest.defaultChannelKey,
+		channelData,
+	)
+	defer stateServiceTest.channelServiceMock.Clear()
+
+	reply, err := stateServiceTest.service.GetChannelState(
+		nil,
+		stateServiceTest.defaultRequest,
+	)
+	assert.Nil(t, err)
+	expectedReply := stateServiceTest.defaultReply
+	expectedReply.OldNonceSignature = nil
+	expectedReply.OldNonceSignedAmount = bigIntToBytes(big.NewInt(-1))
+	assert.Equal(t, expectedReply, reply)
+}
+
 func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 	channelData := stateServiceTest.defaultChannelData
 	channelData.AuthorizedAmount = nil
@@ -180,5 +244,9 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 	expectedReply := stateServiceTest.defaultReply
 	expectedReply.CurrentSignedAmount = nil
 	expectedReply.CurrentSignature = nil
+	expectedReply.OldNonceSignature = nil
+	expectedReply.OldNonceSignedAmount = nil
 	assert.Equal(t, expectedReply, reply)
 }
+
+// Claim tests are already added to escrow_test.go

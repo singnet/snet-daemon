@@ -121,16 +121,9 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		return
 	}
 
-	configGroupID, err := reader.replicaGroupID()
-	if err != nil {
-		return nil, false, err
-	}
+
 	recipientPaymentAddress := reader.recipientPaymentAddress()
 
-	if ch.GroupId != configGroupID {
-		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
-		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, ch.GroupId)
-	}
 
 	if recipientPaymentAddress != ch.Recipient {
 		log.WithField("recipientPaymentAddress", recipientPaymentAddress).
@@ -139,17 +132,19 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		return nil, false, fmt.Errorf("recipient Address from service metadata does not Match on what was retrieved from Channel")
 	}
 	return &PaymentChannelData{
-		ChannelID:        key.ID,
-		Nonce:            ch.Nonce,
-		State:            Open,
-		Sender:           ch.Sender,
-		Recipient:        ch.Recipient,
-		GroupID:          ch.GroupId,
-		FullAmount:       ch.Value,
-		Expiration:       ch.Expiration,
-		Signer:           ch.Signer,
-		AuthorizedAmount: big.NewInt(0),
-		Signature:        nil,
+		ChannelID:            key.ID,
+		Nonce:                ch.Nonce,
+		State:                Open,
+		Sender:               ch.Sender,
+		Recipient:            ch.Recipient,
+		GroupID:              ch.GroupId,
+		FullAmount:           ch.Value,
+		Expiration:           ch.Expiration,
+		Signer:               ch.Signer,
+		AuthorizedAmount:     big.NewInt(0),
+		OldNonceSignedAmount: big.NewInt(0),
+		Signature:            nil,
+		OldNonceSignature:    nil,
 	}, true, nil
 }
 

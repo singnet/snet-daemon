@@ -56,16 +56,18 @@ func (suite *PaymentChannelStorageSuite) key(channelID int64) *PaymentChannelKey
 
 func (suite *PaymentChannelStorageSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
-		ChannelID:        big.NewInt(42),
-		Nonce:            big.NewInt(3),
-		Sender:           suite.senderAddress,
-		Recipient:        suite.recipientAddress,
-		GroupID:          [32]byte{123},
-		FullAmount:       big.NewInt(12345),
-		Expiration:       big.NewInt(100),
-		Signer:           suite.signerAddress,
-		AuthorizedAmount: big.NewInt(0),
-		Signature:        nil,
+		ChannelID:            big.NewInt(42),
+		Nonce:                big.NewInt(3),
+		Sender:               suite.senderAddress,
+		Recipient:            suite.recipientAddress,
+		GroupID:              [32]byte{123},
+		FullAmount:           big.NewInt(12345),
+		Expiration:           big.NewInt(100),
+		Signer:               suite.signerAddress,
+		AuthorizedAmount:     big.NewInt(0),
+		Signature:            nil,
+		OldNonceSignedAmount: big.NewInt(6789),
+		OldNonceSignature:    nil,
 	}
 }
 
@@ -79,6 +81,17 @@ func (suite *PaymentChannelStorageSuite) TestGetAll() {
 
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 	assert.Equal(suite.T(), []*PaymentChannelData{channelA, channelB}, channels)
+}
+
+func (suite *PaymentChannelStorageSuite) TestGetChannel() {
+	expectedChannel := suite.channel()
+	suite.storage.Put(suite.key(42), expectedChannel)
+	channel, ok, err := suite.storage.Get(suite.key(42))
+
+	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
+	assert.Equal(suite.T(), true, ok)
+	assert.Equal(suite.T(), expectedChannel, channel)
+	assert.Equal(suite.T(), big.NewInt(6789), channel.OldNonceSignedAmount)
 }
 
 type BlockchainChannelReaderSuite struct {
@@ -126,16 +139,18 @@ func (suite *BlockchainChannelReaderSuite) mpeChannel() *blockchain.MultiPartyEs
 
 func (suite *BlockchainChannelReaderSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
-		ChannelID:        big.NewInt(42),
-		Nonce:            big.NewInt(3),
-		Sender:           suite.senderAddress,
-		Recipient:        suite.recipientAddress,
-		GroupID:          [32]byte{123},
-		FullAmount:       big.NewInt(12345),
-		Expiration:       big.NewInt(100),
-		Signer:           suite.signerAddress,
-		AuthorizedAmount: big.NewInt(0),
-		Signature:        nil,
+		ChannelID:            big.NewInt(42),
+		Nonce:                big.NewInt(3),
+		Sender:               suite.senderAddress,
+		Recipient:            suite.recipientAddress,
+		GroupID:              [32]byte{123},
+		FullAmount:           big.NewInt(12345),
+		Expiration:           big.NewInt(100),
+		Signer:               suite.signerAddress,
+		AuthorizedAmount:     big.NewInt(0),
+		Signature:            nil,
+		OldNonceSignedAmount: big.NewInt(0),
+		OldNonceSignature:    nil,
 	}
 }
 
@@ -153,17 +168,7 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelState() {
 	assert.Equal(suite.T(), suite.channel(), channel)
 }
 
-func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectGroupId() {
-	reader := suite.reader
-	reader.replicaGroupID = func() ([32]byte, error) { return [32]byte{32}, nil }
-	reader.recipientPaymentAddress = func() common.Address { return suite.recipientAddress }
 
-	channel, ok, err := reader.GetChannelStateFromBlockchain(suite.channelKey())
-
-	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: [32 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
-	assert.False(suite.T(), ok)
-	assert.Nil(suite.T(), channel)
-}
 
 func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeintAddress() {
 	reader := suite.reader

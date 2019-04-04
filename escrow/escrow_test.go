@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -166,16 +167,18 @@ func (suite *PaymentChannelServiceSuite) channelKey() *PaymentChannelKey {
 
 func (suite *PaymentChannelServiceSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
-		ChannelID:        big.NewInt(42),
-		Nonce:            big.NewInt(3),
-		Sender:           suite.senderAddress,
-		Recipient:        suite.recipientAddress,
-		GroupID:          [32]byte{123},
-		FullAmount:       big.NewInt(12345),
-		Expiration:       big.NewInt(100),
-		Signer:           suite.signerAddress,
-		AuthorizedAmount: big.NewInt(0),
-		Signature:        nil,
+		ChannelID:            big.NewInt(42),
+		Nonce:                big.NewInt(3),
+		Sender:               suite.senderAddress,
+		Recipient:            suite.recipientAddress,
+		GroupID:              [32]byte{123},
+		FullAmount:           big.NewInt(12345),
+		Expiration:           big.NewInt(100),
+		Signer:               suite.signerAddress,
+		AuthorizedAmount:     big.NewInt(0),
+		Signature:            nil,
+		OldNonceSignature:    nil,
+		OldNonceSignedAmount: big.NewInt(0),
 	}
 }
 
@@ -272,6 +275,10 @@ func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 	transaction, _ := suite.service.StartPaymentTransaction(suite.payment())
 	transaction.Commit()
 
+	channel := suite.channelPlusPayment(suite.payment())
+	tmpOldNonceSignature := channel.Signature
+	tmpOldNonceSignedAmount := channel.AuthorizedAmount
+
 	claim, errA := suite.service.StartClaim(suite.channelKey(), IncrementChannelNonce)
 	claims, errB := suite.paymentStorage.GetAll()
 
@@ -279,4 +286,39 @@ func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 	assert.Nil(suite.T(), errB, "Unexpected error: %v", errB)
 	assert.Equal(suite.T(), suite.payment(), claim.Payment())
 	assert.Equal(suite.T(), []*Payment{suite.payment()}, claims)
+
+	// Validate channel data after claim
+	updatedChannel, ok, errC := suite.service.PaymentChannel(&PaymentChannelKey{ID: channel.ChannelID})
+	assert.Equal(suite.T(), ok, true)
+	assert.Nil(suite.T(), errC, "Unexpected error: %v", errC)
+	assert.Equal(suite.T(), updatedChannel.OldNonceSignature, tmpOldNonceSignature)
+	assert.Equal(suite.T(), updatedChannel.OldNonceSignedAmount, tmpOldNonceSignedAmount)
+}
+
+func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
+
+
+	service := suite.service
+	service.(*lockingPaymentChannelService).blockchainReader.replicaGroupID =
+		func() ([32]byte, error) {
+			return [32]byte{125}, nil
+		}
+	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
+	//Group ID is different
+	channel, ok, err := service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
+	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: [125 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
+	assert.False(suite.T(), ok)
+	assert.Nil(suite.T(), channel)
+	assert.NotNil(suite.T(),err)
+	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
+	//Group ID is the same ( no error should happen)
+	//also re setting the value here again to make sure the original state is retained
+	service.(*lockingPaymentChannelService).blockchainReader.replicaGroupID =
+		func() ([32]byte, error) {
+			return [32]byte{123}, nil
+		}
+	channel, ok, err = suite.service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
+	assert.True(suite.T(), ok)
+	assert.NotNil(suite.T(), channel)
+	assert.Nil(suite.T(),err)
 }

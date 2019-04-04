@@ -121,16 +121,9 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		return
 	}
 
-	configGroupID, err := reader.replicaGroupID()
-	if err != nil {
-		return nil, false, err
-	}
+
 	recipientPaymentAddress := reader.recipientPaymentAddress()
 
-	if ch.GroupId != configGroupID {
-		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
-		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, ch.GroupId)
-	}
 
 	if recipientPaymentAddress != ch.Recipient {
 		log.WithField("recipientPaymentAddress", recipientPaymentAddress).

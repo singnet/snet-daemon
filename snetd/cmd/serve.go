@@ -173,7 +173,7 @@ func (d daemon) start() {
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 
-		maxsizeOpt := grpc.MaxRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB) * 1000000)
+		maxsizeOpt := grpc.MaxRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB) * 1024 * 1024)
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),

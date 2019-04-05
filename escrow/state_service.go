@@ -10,6 +10,7 @@ import (
 	"github.com/singnet/snet-daemon/authutils"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"math/big"
 )
 
 // PaymentChannelStateService is an implementation of
@@ -45,15 +46,10 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
 	}
 
-	currentBlock, err := authutils.CurrentBlock()
-	if err != nil {
-		return nil, errors.New("unable to read current block number")
-	}
-
 	message := bytes.Join([][]byte{
 		[]byte ("__get_channel_state"),
 		channelID.Bytes(),
-		abi.U256(currentBlock),
+		abi.U256(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	signature := request.GetSignature()
 

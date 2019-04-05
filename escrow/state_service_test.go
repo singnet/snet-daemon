@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/authutils"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -51,7 +52,12 @@ var stateServiceTest = func() stateServiceTestType {
 		panic("Could not make default previous Signature")
 	}
 
-	defaultBlock := big.NewInt(0)
+	//abi.U256(big.NewInt(int64(request.CurrentBlock))),
+	defaultBlock, err := authutils.CurrentBlock()
+	if err != nil {
+		panic("Could not read current blocknumber")
+	}
+
 	defaultChannelIdA := big.NewInt(43)
 	message := bytes.Join([][]byte{
 		[]byte ("__get_channel_state"),
@@ -83,6 +89,7 @@ var stateServiceTest = func() stateServiceTestType {
 		},
 		defaultRequest: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelId),
+			CurrentBlock: defaultBlock.Uint64(),
 			Signature: getSignature(bigIntToBytes(defaultChannelId), signerPrivateKey),
 		},
 		defaultReply: &ChannelStateReply{
@@ -106,6 +113,7 @@ var stateServiceTest = func() stateServiceTestType {
 		},
 		defaultRequestA: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelIdA),
+			CurrentBlock: defaultBlock.Uint64(),
 			Signature: newFormatSignature,
 		},
 		defaultReplyA: &ChannelStateReply{

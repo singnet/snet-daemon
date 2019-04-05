@@ -2,10 +2,7 @@ package config
 
 import (
 	"fmt"
-	"gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/plumbing"
-	"gopkg.in/src-d/go-git.v4/plumbing/object"
-	"gopkg.in/src-d/go-git.v4/storage/memory"
+	"os/exec"
 	"strings"
 )
 
@@ -38,59 +35,21 @@ func GetBuildTime() string {
 //This function is called to see if the current daemon is on the latest version , if it is not, indicate this to the user
 //when the daemon starts.
 func CheckVersionOfDaemon() (message string,err error) {
-	//if the version tag has been set
-	message  = ""
-	if len(versionTag) > 0 {
-		//compare this with the latest version tag from gits
-		{
-			if repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-				URL: "https://github.com/singnet/snet-daemon",
-			}); err == nil {
-				if latest,err := GetLatestTagFromRepository(repo); err == nil {
-					latest = strings.Replace(latest, "refs/tags/", "", -1)
-					if strings.Compare(latest,versionTag) != 0 {
-						message = fmt.Sprintf("There is a newer version of the Daemon %v available." +
-							" You are currently on %v, please consider upgrading",latest,versionTag)
-					}
-				}
-			}
+	latestVersionFromGit,err := GetLatestDaemonVersion()
+	if len(versionTag) > 0 && err == nil  {
+		if strings.Compare(latestVersionFromGit,versionTag) != 0 {
+			message = fmt.Sprint("There is a newer version of the Daemon %v available. You are currently on %v, please consider upgrading.",latestVersionFromGit,versionTag)
 		}
 	}
 	return message,err
 }
 
-func GetLatestTagFromRepository(repository *git.Repository) (string, error) {
-	tagRefs, err := repository.Tags()
+
+func GetLatestDaemonVersion() (version string,err error) {
+	cmd:= "curl -s https://api.github.com/repos/singnet/snet-daemon/releases/latest | grep -oP '\"tag_name\": \"\\K(.*)(?=\")'"
+	out, err := exec.Command("bash","-c",cmd).Output()
 	if err != nil {
-		return "", err
+		 return "",err
 	}
-	var latestTagCommit *object.Commit
-	var latestTagName string
-	err = tagRefs.ForEach(func(tagRef *plumbing.Reference) error {
-		revision := plumbing.Revision(tagRef.Name().String())
-		tagCommitHash, err := repository.ResolveRevision(revision)
-		if err != nil {
-			return err
-		}
-		commit, err := repository.CommitObject(*tagCommitHash)
-		if err != nil {
-			return err
-		}
-
-		if latestTagCommit == nil {
-			latestTagCommit = commit
-			latestTagName = tagRef.Name().String()
-		}
-
-		if commit.Committer.When.After(latestTagCommit.Committer.When) {
-			latestTagCommit = commit
-			latestTagName = tagRef.Name().String()
-		}
-
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	return latestTagName, nil
+	return fmt.Sprint(string(out)),nil
 }

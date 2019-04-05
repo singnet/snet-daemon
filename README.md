@@ -212,8 +212,8 @@ metadata][service-configuration-metadata].
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)
 
-* **max_message_size_in_mb** (optional; default: `4MB`) - 
-The default value set is to 4 MB, this is used to configure the max size in MB of the message received by the Daemon.
+* **max_message_size_in_mb** (optional; default: `4`) - 
+The default value set is to 4 (units are in MB ), this is used to configure the max size in MB of the message received by the Daemon.
 In case of Large messages , it is recommended to use streaming than setting a very high value on this configuration.
 It is not recommended to set the value more than 4GB
 

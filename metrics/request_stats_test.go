@@ -20,7 +20,6 @@ func TestCreateRequestStat(t *testing.T) {
 	request := createRequestStat(commonStat)
 	assert.Equal(t, request.RequestID, commonStat.ID)
 	assert.Equal(t, request.GroupID, daemonGroupId)
-	assert.Equal(t, request.DaemonEndPoint, config.GetString(config.DaemonEndPoint))
 	assert.Equal(t, request.OrganizationID, config.GetString(config.OrganizationId))
 	assert.Equal(t, request.ServiceID, config.GetString(config.ServiceId))
 	assert.Equal(t, request.RequestReceivedTime, arrivalTime.String())

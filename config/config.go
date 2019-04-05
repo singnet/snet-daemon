@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"net"
 	"regexp"
 	"sort"
 	"strings"
@@ -23,12 +24,11 @@ const (
 	BurstSize            = "burst_size"
 	ConfigPathKey        = "config_path"
 
+	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	EthereumJsonRpcEndpointKey     = "ethereum_json_rpc_endpoint"
 	ExecutablePathKey              = "executable_path"
-	HdwalletIndexKey               = "hdwallet_index"
-	HdwalletMnemonicKey            = "hdwallet_mnemonic"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
@@ -38,7 +38,6 @@ const (
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
 	PassthroughEndpointKey         = "passthrough_endpoint"
-	PrivateKeyKey                  = "private_key"
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
@@ -57,8 +56,9 @@ const (
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
-	"daemon_type": "grpc",
 	"daemon_end_point": "127.0.0.1:8080",
+	"daemon_group_name":"default_group",
+	"daemon_type": "grpc",
 	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
@@ -77,7 +77,8 @@ const (
 		"level": "info",
 		"timezone": "UTC",
 		"formatter": {
-			"type": "text"
+			"type": "text",
+			"timestamp_format": "2006-01-02T15:04:05.999999999Z07:00"
 		},
 		"output": {
 			"type": "file",
@@ -166,12 +167,18 @@ func Validate() error {
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
 	}
-
 	// validate monitoring service endpoints
 	if vip.GetBool(MonitoringEnabled) &&
 		vip.GetString(MonitoringServiceEndpoint) != "" &&
 		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
 		return errors.New("service endpoint must be a valid URL")
+	}
+	passEndpoint := vip.GetString(PassthroughEndpointKey)
+	daemonEndpoint := vip.GetString(DaemonEndPoint)
+	var err error
+	err = ValidateEndpoints(daemonEndpoint, passEndpoint)
+	if err != nil {
+		return err
 	}
 
 	// Validate metrics URL and set state
@@ -227,21 +234,14 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	return sub
 }
 
-var hiddenKeys = map[string]bool{
-	strings.ToUpper(PrivateKeyKey):       true,
-	strings.ToUpper(HdwalletMnemonicKey): true,
-}
 
 func LogConfig() {
 	log.Info("Final configuration:")
 	keys := vip.AllKeys()
 	sort.Strings(keys)
 	for _, key := range keys {
-		if hiddenKeys[strings.ToUpper(key)] {
-			log.Infof("%v: ***", key)
-		} else {
-			log.Infof("%v: %v", key, vip.Get(key))
-		}
+		log.Infof("%v: %v", key, vip.Get(key))
+
 	}
 }
 
@@ -265,4 +265,26 @@ func IsValidUrl(urlToTest string) bool {
 func ValidateEmail(email string) bool {
 	Re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
 	return Re.MatchString(email)
+}
+
+func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error {
+	passthroughURL, err := url.Parse(passthroughEndpoint)
+	if err != nil {
+		return errors.New("passthrough endpoint must be a valid URL")
+	}
+	daemonHost, daemonPort, err := net.SplitHostPort(daemonEndpoint)
+	if err != nil {
+		return errors.New("couldn't split host:post of daemon endpoint")
+	}
+
+	if daemonHost == passthroughURL.Hostname() && daemonPort == passthroughURL.Port() {
+		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+	}
+
+	if ((daemonPort == passthroughURL.Port()) &&
+	    (daemonHost == "0.0.0.0") &&
+	    (passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost"))	{
+		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+	}
+	return nil
 }

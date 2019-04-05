@@ -35,7 +35,7 @@ func NewPaymentChannelService(
 	}
 }
 
-func (h *lockingPaymentChannelService)  PaymentChannelFromBlockChain (key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+func (h *lockingPaymentChannelService) PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	return h.blockchainReader.GetChannelStateFromBlockchain(key)
 }
 
@@ -45,8 +45,18 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 		return
 	}
 
+
 	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
+
 	if !storageOk {
+		//Group ID check is only done for the first time , when the channel is added to storage from the block chain ,
+		//if the channel is already present in the storage the group ID check is skipped.
+	    if blockchainChannel != nil {
+			blockChainGroupID,err := h.blockchainReader.replicaGroupID()
+		    if err = h.verifyGroupId(blockChainGroupID,blockchainChannel.GroupID) ;err != nil {
+				return nil, false, err
+			}
+		}
 		return blockchainChannel, blockchainOk, err
 	}
 	if err != nil || !blockchainOk {
@@ -54,6 +64,15 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	}
 
 	return MergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
+}
+
+//Check if the channel belongs to the same group Id
+func (h *lockingPaymentChannelService) verifyGroupId(configGroupID [32]byte ,blockChainGroupID  [32]byte ) error {
+	if blockChainGroupID != configGroupID {
+		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
+		return fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, blockChainGroupID)
+	}
+	return nil
 }
 
 func (h *lockingPaymentChannelService) ListChannels() (channels []*PaymentChannelData, err error) {
@@ -208,8 +227,11 @@ func (payment *paymentTransaction) Commit() error {
 		err := payment.lock.Unlock()
 		if err != nil {
 			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+		} else {
+			log.Debug("Channel unlocked")
 		}
 	}(payment)
+
 	e := payment.service.storage.Put(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		&PaymentChannelData{
@@ -231,6 +253,7 @@ func (payment *paymentTransaction) Commit() error {
 		return NewPaymentError(Internal, "unable to store new payment channel state")
 	}
 
+	log.Debug("Payment completed")
 	return nil
 }
 
@@ -239,6 +262,8 @@ func (payment *paymentTransaction) Rollback() error {
 		err := payment.lock.Unlock()
 		if err != nil {
 			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+		} else {
+			log.Debug("Payment rolled back, channel unlocked")
 		}
 	}(payment)
 	return nil

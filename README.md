@@ -44,6 +44,8 @@ $ go get -u google.golang.org/grpc
 $ sudo apt-get install golint
 ```
 
+* If you want to cross-compile you will also need Docker
+
 ### Installing
 
 * Clone the git repository to the following path $GOPATH/src/github.com/singnet/
@@ -57,9 +59,11 @@ $ cd snet-daemon
 $ ./scripts/install
 ```
 
-* Build snet-daemon (on Linux amd64 platform)
+* Build snet-daemon (on Linux amd64 platform), see below section if you want to cross compile instead.
+Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as part of the build.
+You need to pass the version as shown in the example below 
 ```bash
-$ ./scripts/build linux amd64
+$ ./scripts/build linux amd64 v.0.1.8
 ```
 
 * Generate default config file  snet-daemon (on Linux amd64 platform)
@@ -68,12 +72,22 @@ $ ./build/snetd-linux-amd64 init
 ```
 **** Please update the registry address in daemon config based on the test network used 
 
+#### Cross-compiling
+
+If you want to build snetd for platforms other than the one you are on, run `./scripts/build-xgo` instead of `./scripts/build`.
+
+You can edit the script to choose a specific platform, but by default it will build for Linux, OSX, and Windows (amd64 for all, except Linux which will also build for arm6)
+
+Please note using ldflags the latest tagged version (passed as the first parameter to the script) , sha1 revision and the build time are set as part of the build.
+
+```bash
+$ ./scripts/build-xgo v.0.1.8
+```
+
 #### Run Deamon
 ```bash
 $ ../build/snetd-linux-amd64
 ```
-
-
 
 
 ### Main commands
@@ -104,11 +118,11 @@ Usage:
 
 Available Commands:
   channel     Manage operations on payment channels
-  claim       Claim money from payment channel
   help        Help about any command
   init        Write default configuration to file
   list        List channels, claims in progress, etc
   serve       Is the default option which starts the Daemon.
+  version     List the current version of the Daemon.
 
 Flags:
   -c, --config string   config file (default "snetd.config.json")
@@ -139,11 +153,9 @@ configuration properties can be set using configuration file.
 These properties you should usually change before starting daemon for the first
 time.
 
-* **daemon_endpoint** (optional; default: `"127.0.0.1:8080"`) - 
-network interface and port which daemon listens to. This parameter should be
-absolutely equal to the corresponding endpoint in the [service configuration
-metadata][service-configuration-metadata]. URI format is recommended:
-http://<host>:<port>.
+* **daemon_end_point** (required;) - 
+Defines the ip and the port on which the daemon listens to.
+format is :`<host>:<port>`.
 
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
 endpoint to which daemon sends ethereum JSON-RPC requests; recommend
@@ -190,15 +202,12 @@ enables or disables blockchain features of daemon; `false` reserved mostly for t
 * **burst_size** (optional; default: Infinite) - 
 see [rate limiting configuration](./ratelimit/README.md)
 
-* **hdwallet_index** (optional; default: `0`; only applies if `hdwallet_mnemonic` is set) - 
-derivation index for key to use within HDWallet specified by mnemonic.
+* **daemon_group_name** (optional ,default: `"default_group"`) - 
+This parameter defines the group the daemon belongs to .
+The group helps determine the recipient address for payments.
+[service configuration
+metadata][service-configuration-metadata]. 
 
-* **hdwallet_mnemonic** (optional; default: `""`; this or `private_key` must be set to use `claim` command) - 
-[bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki)
-mnemonic corresponding to wallet with which daemon transacts on blockchain.
-
-* **private_key** (optional; default: `""`; this or `hdwallet_mnemonic` must be set to use `claim` command) - 
-private key with which daemon transacts on blockchain.
 
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)

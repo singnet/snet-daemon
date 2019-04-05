@@ -12,7 +12,7 @@ func NewRateLimiter() rate.Limiter {
 	//By Default set the maximum value possible for the Burst Size ( assuming rate was defined ,but burst was not defined)
 	burstSize := config.GetInt(config.BurstSize)
 	if burstSize == 0 {
-		burstSize = math.MaxInt64
+		burstSize = math.MaxInt32
 	}
 	limiter := rate.NewLimiter(getLimit(), burstSize)
 	return *limiter

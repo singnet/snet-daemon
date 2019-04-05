@@ -180,7 +180,13 @@ func Validate() error {
 	if err != nil {
 		return err
 	}
-
+	//Check if the Daemon is on the latest version or not
+	if message,err := CheckVersionOfDaemon(); err != nil {
+		//In case of any error on version check , just log it
+		log.Warning(err)
+	}else {
+		log.Info(message)
+	}
 	// Validate metrics URL and set state
 	return nil
 }

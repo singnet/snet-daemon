@@ -46,6 +46,10 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
 	}
 
+	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+		return nil, err
+	}
+
 	message := bytes.Join([][]byte{
 		[]byte ("__get_channel_state"),
 		channelID.Bytes(),

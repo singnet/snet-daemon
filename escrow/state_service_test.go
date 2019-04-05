@@ -52,7 +52,7 @@ var stateServiceTest = func() stateServiceTestType {
 		panic("Could not make default previous Signature")
 	}
 
-	//abi.U256(big.NewInt(int64(request.CurrentBlock))),
+	// read the current block number from blockchain,
 	defaultBlock, err := authutils.CurrentBlock()
 	if err != nil {
 		panic("Could not read current blocknumber")

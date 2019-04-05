@@ -185,8 +185,7 @@ func Validate() error {
 		return err
 	}
 
-	// the maximum that the server can receive to 4GB.
-	// 4GB because of issue here https://github.com/grpc/grpc-go/issues/1590
+	// the maximum that the server can receive to 2GB.
 	maxMessageSize:= vip.GetInt(MaxMessageSizeInMB)
 	if ( maxMessageSize <=0 || maxMessageSize > 2048)   {
 		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")

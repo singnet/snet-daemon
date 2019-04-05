@@ -35,7 +35,8 @@ func GetBuildTime() string {
 }
 
 
-
+//This function is called to see if the current daemon is on the latest version , if it is not, indicate this to the user
+//when the daemon starts.
 func CheckVersionOfDaemon() (message string,err error) {
 	//if the version tag has been set
 	message  = ""
@@ -48,7 +49,8 @@ func CheckVersionOfDaemon() (message string,err error) {
 				if latest,err := GetLatestTagFromRepository(repo); err == nil {
 					latest = strings.Replace(latest, "refs/tags/", "", -1)
 					if strings.Compare(latest,versionTag) != 0 {
-						message = fmt.Sprintf("PLEASE NOTE, the latest version if Daemon is %s, You are on %s",latest,versionTag)
+						message = fmt.Sprintf("There is a newer version of the Daemon %v available." +
+							" You are currently on %v, please consider upgrading",latest,versionTag)
 					}
 				}
 			}

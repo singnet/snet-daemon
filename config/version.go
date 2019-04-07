@@ -1,10 +1,10 @@
 package config
 
-
-
 import (
+	"encoding/json"
 	"fmt"
-	"os/exec"
+	"io/ioutil"
+	"net/http"
 	"strings"
 )
 
@@ -40,7 +40,7 @@ func CheckVersionOfDaemon() (message string,err error) {
 	latestVersionFromGit,err := GetLatestDaemonVersion()
 	if len(versionTag) > 0 && err == nil  {
 		if strings.Compare(latestVersionFromGit,versionTag) != 0 {
-			message = fmt.Sprint("There is a newer version of the Daemon %v available. You are currently on %v, please consider upgrading.",latestVersionFromGit,versionTag)
+			message = fmt.Sprintf("There is a newer version of the Daemon %v available. You are currently on %v, please consider upgrading.",latestVersionFromGit,versionTag)
 		}
 	}
 	return message,err
@@ -48,10 +48,24 @@ func CheckVersionOfDaemon() (message string,err error) {
 
 
 func GetLatestDaemonVersion() (version string,err error) {
-	cmd:= "curl -s https://api.github.com/repos/singnet/snet-daemon/releases/latest | grep -oP '\"tag_name\": \"\\K(.*)(?=\")'"
-	out, err := exec.Command("bash","-c",cmd).Output()
+	resp, err := http.Get("https://api.github.com/repos/singnet/snet-daemon/releases/latest")
 	if err != nil {
 		return "",err
 	}
-	return fmt.Sprint(string(out)),nil
+
+	if resp.StatusCode == http.StatusOK {
+		if body, err := ioutil.ReadAll(resp.Body) ; err == nil {
+			var data GitTags
+			if err = json.Unmarshal(body, &data); err == nil {
+				version = data.Tag_name
+			}
+		}
+	}
+	defer resp.Body.Close()
+
+	return "",err
+}
+
+type GitTags struct {
+	Tag_name string `json:"tag_name"`
 }

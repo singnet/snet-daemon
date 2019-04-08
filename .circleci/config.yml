@@ -20,7 +20,7 @@ jobs:
           command: ./scripts/install
       - run:
           name: Run build script
-          command: ./scripts/build linux amd64
+          command: ./scripts/build linux amd64 `git describe --tag`
       - run:
           name: Run test script
           command: ./scripts/test

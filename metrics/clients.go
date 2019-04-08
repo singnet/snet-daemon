@@ -8,11 +8,11 @@ package metrics
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	pb "github.com/singnet/snet-daemon/metrics/services"
+	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -24,36 +24,26 @@ type Response struct {
 }
 
 // Calls a gRPC endpoint for heartbeat (gRPC Client)
-func callgRPCServiceHeartbeat(grpcAddress string) ([]byte, error) {
+func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(grpcAddress, grpc.WithInsecure())
+	conn, err := grpc.Dial(serviceUrl, grpc.WithInsecure())
 	if err != nil {
 		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
-		return nil, err
+		return grpc_health_v1.HealthCheckResponse_NOT_SERVING, err
 	}
 	defer conn.Close()
 	// create the client instance
-	client := pb.NewHeartbeatClient(conn)
-	// connect to the server and call the required method
+	client := grpc_health_v1.NewHealthClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	//call the heartbeat rpc method
-	resp, err := client.Check(ctx, &pb.Empty{})
+	req := grpc_health_v1.HealthCheckRequest{Service:config.GetString(config.ServiceId)}
+	resp, err := client.Check(ctx,&req)
 	if err != nil {
 		log.WithError(err).Warningf("error in calling the heartbeat service : %v", err)
-		return nil, err
+		return grpc_health_v1.HealthCheckResponse_UNKNOWN, err
 	}
-	//convert enum to string, because json marshal doesnt do it
-	responseConv := &Response{ServiceID: resp.ServiceID, Status: resp.Status.String()}
-	jsonResp, err := json.Marshal(responseConv)
-	if err != nil {
-		log.Infof("response received : %v", responseConv)
-		log.WithError(err).Warningf("invalid service response : %v", err)
-		return nil, err
-	}
-	log.Infof("service heartbeat received : %s", string(jsonResp))
-	return jsonResp, nil
+	return resp.Status,nil
 }
 
 // calls the service heartbeat and relay the message to daemon (HTTP client for heartbeat)

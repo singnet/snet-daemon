@@ -3,6 +3,16 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/singnet/snet-daemon/metrics"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	"math"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
 	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
@@ -12,19 +22,12 @@ import (
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
-	"github.com/singnet/snet-daemon/metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 var corsOptions = []handlers.CORSOption{
@@ -33,6 +36,7 @@ var corsOptions = []handlers.CORSOption{
 
 var ServeCmd = &cobra.Command{
 	Use: "serve",
+	Short: "Is the default option which starts the Daemon.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
@@ -105,7 +109,7 @@ func newDaemon(components *Components) (daemon, error) {
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)
 	// In order to perform the LetsEncrypt (ACME) http-01 challenge-response, we need to bind
 	// port 80 (privileged) to listen for the challenge.
-	if d.autoSSLDomain != "" && config.GetBool(config.EnableSSLChallenge) {
+	if d.autoSSLDomain != "" {
 		d.acmeListener, err = net.Listen("tcp", ":80")
 		if err != nil {
 			return d, errors.Wrap(err, "unable to bind port 80 for automatic SSL verification")
@@ -130,7 +134,7 @@ func (d daemon) start() {
 
 	var tlsConfig *tls.Config
 
-	if d.autoSSLDomain != ""  {
+	if d.autoSSLDomain != "" {
 		log.Debug("enabling automatic SSL support")
 		certMgr := autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
@@ -142,9 +146,8 @@ func (d daemon) start() {
 		acmeSrv := http.Server{
 			Handler: certMgr.HTTPHandler(nil),
 		}
-		if (config.GetBool(config.EnableSSLChallenge)) {
-			go acmeSrv.Serve(d.acmeListener)
-		}
+		go acmeSrv.Serve(d.acmeListener)
+
 		tlsConfig = &tls.Config{
 			GetCertificate: func(c *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				crt, err := certMgr.GetCertificate(c)
@@ -171,7 +174,7 @@ func (d daemon) start() {
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
 		// set the maximum that the server can receive to 4GB. It is set to for 4GB because of issue here https://github.com/grpc/grpc-go/issues/1590
-		maxsizeOpt := grpc.MaxRecvMsgSize(4000000000)
+		maxsizeOpt := grpc.MaxRecvMsgSize(math.MaxInt32)
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
@@ -179,6 +182,7 @@ func (d daemon) start() {
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 		escrow.RegisterProviderControlServiceServer(d.grpcServer,d.components.ProviderControlService())
+		grpc_health_v1.RegisterHealthServer(d.grpcServer,d.components.DaemonHeartBeat())
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:

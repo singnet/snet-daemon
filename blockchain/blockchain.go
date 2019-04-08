@@ -79,22 +79,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 		return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 	}
 
-	// Setup identity
-	if privateKeyString := config.GetString(config.PrivateKeyKey); privateKeyString != "" {
-		if privKey, err := crypto.HexToECDSA(privateKeyString); err != nil {
-			return p, errors.Wrap(err, "error getting private key")
-		} else {
-			p.privateKey = privKey
-			p.address = crypto.PubkeyToAddress(p.privateKey.PublicKey).Hex()
-		}
-	} else if hdwalletMnemonic := config.GetString(config.HdwalletMnemonicKey); hdwalletMnemonic != "" {
-		if privKey, err := derivePrivateKey(hdwalletMnemonic, 44, 60, 0, 0, uint32(config.GetInt(config.HdwalletIndexKey))); err != nil {
-			log.WithError(err).Panic("error deriving private key")
-		} else {
-			p.privateKey = privKey
-			p.address = crypto.PubkeyToAddress(p.privateKey.PublicKey).Hex()
-		}
-	}
+
 
 	return p, nil
 }

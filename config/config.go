@@ -185,11 +185,21 @@ func Validate() error {
 		return err
 	}
 
+	//Check if the Daemon is on the latest version or not
+	if message,err := CheckVersionOfDaemon(); err != nil {
+		//In case of any error on version check , just log it
+		log.Warning(err)
+	}else {
+		log.Info(message)
+	}
+
+
 	// the maximum that the server can receive to 2GB.
 	maxMessageSize:= vip.GetInt(MaxMessageSizeInMB)
 	if ( maxMessageSize <=0 || maxMessageSize > 2048)   {
 		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
 	}
+
 	return nil
 }
 

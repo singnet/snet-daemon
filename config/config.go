@@ -32,6 +32,7 @@ const (
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
+	MaxMessageSizeInMB             = "max_message_size_in_mb"
 	MonitoringEnabled              = "monitoring_enabled"
 	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
 	OrganizationId                 = "organization_id"
@@ -64,6 +65,7 @@ const (
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
+	"max_message_size_in_mb" : 4,
 	"monitoring_enabled": true,
 	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 
@@ -173,6 +175,8 @@ func Validate() error {
 		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
 		return errors.New("service endpoint must be a valid URL")
 	}
+
+	// Validate metrics URL and set state
 	passEndpoint := vip.GetString(PassthroughEndpointKey)
 	daemonEndpoint := vip.GetString(DaemonEndPoint)
 	var err error
@@ -180,6 +184,7 @@ func Validate() error {
 	if err != nil {
 		return err
 	}
+
 	//Check if the Daemon is on the latest version or not
 	if message,err := CheckVersionOfDaemon(); err != nil {
 		//In case of any error on version check , just log it
@@ -187,7 +192,14 @@ func Validate() error {
 	}else {
 		log.Info(message)
 	}
-	// Validate metrics URL and set state
+
+
+	// the maximum that the server can receive to 2GB.
+	maxMessageSize:= vip.GetInt(MaxMessageSizeInMB)
+	if ( maxMessageSize <=0 || maxMessageSize > 2048)   {
+		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
+	}
+
 	return nil
 }
 

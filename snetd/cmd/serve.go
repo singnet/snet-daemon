@@ -224,7 +224,7 @@ func (d daemon) start() {
 func (d daemon) stop() {
 
 	if d.grpcServer != nil {
-		d.grpcServer.Stop()
+		d.grpcServer.GracefulStop()
 	}
 
 	d.lis.Close()

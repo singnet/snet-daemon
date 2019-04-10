@@ -15,7 +15,7 @@ import (
 
 func NewBlockchainChannelReaderMock() *BlockchainChannelReader {
 	return &BlockchainChannelReader{
-		replicaGroupID: func() ([32]byte, error) { return [32]byte{123}, nil },
+
 		readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 			return nil, false, nil
 		},
@@ -97,7 +97,7 @@ func (suite *BlockchainChannelReaderSuite) SetupSuite() {
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 
 	suite.reader = BlockchainChannelReader{
-		replicaGroupID: func() ([32]byte, error) { return [32]byte{123}, nil },
+
 		readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 			return suite.mpeChannel(), true, nil
 		},
@@ -157,7 +157,7 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelState() {
 
 func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeintAddress() {
 	reader := suite.reader
-	reader.replicaGroupID = func() ([32]byte, error) { return [32]byte{123}, nil }
+
 	reader.recipientPaymentAddress = func() common.Address { return crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey) }
 	channel, ok, err := reader.GetChannelStateFromBlockchain(suite.channelKey())
 	assert.Equal(suite.T(), errors.New("recipient Address from service metadata does not Match on what was retrieved from Channel"), err)

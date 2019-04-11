@@ -129,7 +129,7 @@ func newDaemon(components *Components) (daemon, error) {
 }
 
 
-func (d daemon) start() {
+func (d *daemon) start() {
 
 	var tlsConfig *tls.Config
 
@@ -220,7 +220,7 @@ func (d daemon) start() {
 
 }
 
-func (d daemon) stop() {
+func (d *daemon) stop() {
 
 	if d.grpcServer != nil {
 		d.grpcServer.GracefulStop()

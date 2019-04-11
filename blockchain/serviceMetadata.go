@@ -45,7 +45,7 @@ type ServiceMetadata struct {
 }
 
 func getRegistryAddressKey() common.Address {
-	address := config.GetString(config.RegistryAddressKey)
+	address := config.GetRegistryAddress()
 	return common.HexToAddress(address)
 }
 

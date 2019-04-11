@@ -152,21 +152,22 @@ configuration properties can be set using configuration file.
 
 These properties you should usually change before starting daemon for the first
 time.
+* **blockchain_network_selected**  (required; default: "local")
+ - Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
+  Daemon will automatically read the Registry address associated with this network For local network ( you can also specify the registry address manually),see the blockchain_network_config.json
 
 * **daemon_end_point** (required;) - 
 Defines the ip and the port on which the daemon listens to.
 format is :`<host>:<port>`.
 
-* **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
-endpoint to which daemon sends ethereum JSON-RPC requests; recommend
-`"https://kovan.infura.io"` for kovan testnet.
 
 * **ipfs_end_point** (optional; default `"http://localhost:5002/"`) - 
 endpoint of IPFS instance to get [service configuration
 metadata][service-configuration-metadata]
 
-* **registry_address_key** (required) - 
-Ethereum address of the Registry contract instance.
+* **registry_address_key** (Optiona) - 
+Ethereum address of the Registry contract instance.This is auto determined if not specified based on the blockchain_network_selected 
+If a value is specified , it will be used and no attempt to auto determine the registry address.
 
 * **organization_id** (required) - 
 Id of the organization to search for [service configuration

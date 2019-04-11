@@ -130,7 +130,7 @@ func newDaemon(components *Components) (daemon, error) {
 }
 
 
-func (d daemon) start() {
+func (d *daemon) start() {
 
 	var tlsConfig *tls.Config
 

@@ -165,7 +165,9 @@ func Validate() error {
 	default:
 		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)
 	}
-
+	if err := setBlockChainNetworkDetails(); err != nil {
+		return err
+	}
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
@@ -249,7 +251,6 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	for subKey, value := range subMap {
 		sub.Set(subKey, value)
 	}
-	setBlockChainNetworkDetails()
 	return sub
 }
 

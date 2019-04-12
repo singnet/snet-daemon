@@ -31,21 +31,37 @@ func determineNetworkSelected(data []byte) (err error) {
 	if err = json.Unmarshal(data, &dynamicBinding); err != nil {
 		return err
 	}
+
 	networkSelected = &NetworkSelected{
 		//Get the Network Name selected in config ( snetd.config.json) , Based on this retrieve the Registry address ,
-		//Ethereum End point and Network ID mapped
+		//Ethereum End point and Network ID mapped to
 		NetworkName:             networkName,
-		RegistryAddressKey:      getRegistryAddressfromJSON(dynamicBinding[networkName].(map[string]interface{})[RegistryAddressKey]),
-		EthereumJSONRPCEndpoint: fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]interface{})[EthereumJsonRpcEndpointKey]),
+		RegistryAddressKey:      getRegistryAddress(dynamicBinding[networkName].(map[string]interface{})[RegistryAddressKey]),
+		EthereumJSONRPCEndpoint: geEthereumJSONRPCEndpoint(dynamicBinding[networkName].(map[string]interface{})[EthereumJsonRpcEndpointKey]),
 		NetworkId:               fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]interface{})[NetworkId]),
 	}
 	return err
 }
 
-//Check if the Registry address was set in the block chain network config, then we use this address as the contract address
+
+func geEthereumJSONRPCEndpoint(endpoint interface{}) string {
+	if (len(GetString(EthereumJsonRpcEndpointKey))> 0) {
+		return GetString(EthereumJsonRpcEndpointKey)
+	}
+	if endpoint == nil {
+		return ""
+	}
+	return fmt.Sprintf("%v", endpoint)
+}
+
+//Check if the Registry address was set in the  config, then we use this address as the contract address
 //the address is usually set for local testing , for other network types like ropsten or kovan or main , the system will automatically
-//figure out the contract address
-func getRegistryAddressfromJSON(address interface{}) string {
+//figure out the contract address unless explicitly overridden in the config file
+func getRegistryAddress(address interface{}) string {
+
+	if (len(GetString(RegistryAddressKey))> 0) {
+		return GetString(RegistryAddressKey)
+	}
 	if address == nil {
 		return ""
 	}

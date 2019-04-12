@@ -71,7 +71,6 @@ const (
 	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
-	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
 	"service_id": "ExampleServiceId", 
 	"private_key": "",
 	"ssl_cert": "",

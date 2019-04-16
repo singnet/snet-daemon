@@ -13,8 +13,9 @@ fi
 pushd $PARENT_PATH
 mkdir -p build
 now=$(date +'%Y-%m-%d_%T')
-cp resources/blockchain/node_modules/singularitynet-platform-contracts/networks/Registry.json `pwd`/
-GOOS=$1 GOARCH=$2 go build  -ldflags " -X github.com/singnet/snet-daemon/config.sha1Revision=`git rev-parse HEAD` -X github.com/singnet/snet-daemon/config.versionTag=$3 -X github.com/singnet/snet-daemon/config.buildTime=$now" -o build/snetd-$1-$2 snetd/main.go
+registryAddressJson=`cat resources/blockchain/node_modules/singularitynet-platform-contracts/networks/Registry.json|sed -r 's/["]+/\\"/g'|tr '\n' ' '`
+networkIdNameMapping=`cat resources/blockchain_network_config.json|tr '\n' ' '|sed -r 's/["]+/\\"/g'`
+GOOS=$1 GOARCH=$2 go build  -ldflags " -X github.com/singnet/snet-daemon/config.sha1Revision=`git rev-parse HEAD` -X github.com/singnet/snet-daemon/config.versionTag=$3 -X github.com/singnet/snet-daemon/config.buildTime=$now -X github.com/singnet/snet-daemon/config.registryAddressJson=$registryAddressJson -X github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson" -o build/snetd-$1-$2 snetd/main.go
 popd
 
 

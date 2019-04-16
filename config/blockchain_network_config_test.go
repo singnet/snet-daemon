@@ -120,6 +120,7 @@ func Test_setRegistryAddress(t *testing.T) {
 	}{
 		{"resources/blockchain/node_modules/singularitynet-platform-contracts/networks/Registry.json","", false},
 		{"junsdsdsk", "sdsd",true},
+		{"junsdsdsk", "",true},
 	}
 
 	for _, tt := range tests {

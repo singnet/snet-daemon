@@ -61,7 +61,6 @@ const (
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"daemon_type": "grpc",
-	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
@@ -164,7 +163,7 @@ func Validate() error {
 	default:
 		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)
 	}
-	if err := setBlockChainNetworkDetails(); err != nil {
+	if err := setBlockChainNetworkDetails(BlockChainNetworkFileName); err != nil {
 		return err
 	}
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)

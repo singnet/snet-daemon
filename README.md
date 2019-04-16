@@ -160,14 +160,18 @@ time.
 Defines the ip and the port on which the daemon listens to.
 format is :`<host>:<port>`.
 
+* **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
+endpoint to which daemon sends ethereum JSON-RPC requests; 
+Based on the network selected blockchain_network_selected the end point is auto determined
+Example `"https://kovan.infura.io"` for kovan testnet.
 
 * **ipfs_end_point** (optional; default `"http://localhost:5002/"`) - 
 endpoint of IPFS instance to get [service configuration
 metadata][service-configuration-metadata]
 
-* **registry_address_key** (Optiona) - 
+* **registry_address_key** (Optional) - 
 Ethereum address of the Registry contract instance.This is auto determined if not specified based on the blockchain_network_selected 
-If a value is specified , it will be used and no attempt to auto determine the registry address.
+If a value is specified , it will be used and no attempt will be made to auto determine the registry address.
 
 * **organization_id** (required) - 
 Id of the organization to search for [service configuration

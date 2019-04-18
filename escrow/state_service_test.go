@@ -111,6 +111,11 @@ func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {
 }
 
 func TestGetChannelStateChannelIdIncorrectSignature(t *testing.T) {
+	stateServiceTest.channelServiceMock.Put(
+		stateServiceTest.defaultChannelKey,
+		stateServiceTest.defaultChannelData,
+	)
+
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		&ChannelStateRequest{

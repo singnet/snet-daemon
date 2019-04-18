@@ -201,7 +201,7 @@ var (
 		channel.FullAmount = big.NewInt(0)
 	}
 	// IncrementChannelNonce is an update which increments channel nonce and
-	// descreases full amount to allow channel sender continue working with
+	// decreases full amount to allow channel sender continue working with
 	// remaining amount.
 	IncrementChannelNonce ChannelUpdate = func(channel *PaymentChannelData) {
 		channel.Nonce = (&big.Int{}).Add(channel.Nonce, big.NewInt(1))

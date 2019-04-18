@@ -7,7 +7,6 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"math/big"
 )
 
 // PaymentChannelStateService is an implementation of PaymentChannelStateServiceServer gRPC interface

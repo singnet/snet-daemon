@@ -2,7 +2,6 @@ package escrow
 
 import (
 	"fmt"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -15,6 +14,7 @@ type lockingPaymentChannelService struct {
 	blockchainReader *BlockchainChannelReader
 	locker           Locker
 	validator        *ChannelPaymentValidator
+	replicaGroupID    func() ([32]byte, error)
 }
 
 // NewPaymentChannelService returns instance of PaymentChannelService to work
@@ -24,7 +24,7 @@ func NewPaymentChannelService(
 	paymentStorage *PaymentStorage,
 	blockchainReader *BlockchainChannelReader,
 	locker Locker,
-	channelPaymentValidator *ChannelPaymentValidator) PaymentChannelService {
+	channelPaymentValidator *ChannelPaymentValidator,groupIdReader func() ([32]byte, error)) PaymentChannelService {
 
 	return &lockingPaymentChannelService{
 		storage:          storage,
@@ -32,6 +32,7 @@ func NewPaymentChannelService(
 		blockchainReader: blockchainReader,
 		locker:           locker,
 		validator:        channelPaymentValidator,
+		replicaGroupID: groupIdReader,
 	}
 }
 
@@ -52,7 +53,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 		//Group ID check is only done for the first time , when the channel is added to storage from the block chain ,
 		//if the channel is already present in the storage the group ID check is skipped.
 	    if blockchainChannel != nil {
-			blockChainGroupID,err := h.blockchainReader.replicaGroupID()
+			blockChainGroupID,err := h.replicaGroupID()
 		    if err = h.verifyGroupId(blockChainGroupID,blockchainChannel.GroupID) ;err != nil {
 				return nil, false, err
 			}
@@ -235,19 +236,17 @@ func (payment *paymentTransaction) Commit() error {
 	e := payment.service.storage.Put(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		&PaymentChannelData{
-			ChannelID:            payment.channel.ChannelID,
-			Nonce:                payment.channel.Nonce,
-			State:                payment.channel.State,
-			Sender:               payment.channel.Sender,
-			Recipient:            payment.channel.Recipient,
-			FullAmount:           payment.channel.FullAmount,
-			Expiration:           payment.channel.Expiration,
-			Signer:               payment.channel.Signer,
-			AuthorizedAmount:     payment.payment.Amount,
-			Signature:            payment.payment.Signature,
-			GroupID:              payment.channel.GroupID,
-			OldNonceSignedAmount: payment.channel.OldNonceSignedAmount,
-			OldNonceSignature:    payment.channel.OldNonceSignature,
+			ChannelID:        payment.channel.ChannelID,
+			Nonce:            payment.channel.Nonce,
+			State:            payment.channel.State,
+			Sender:           payment.channel.Sender,
+			Recipient:        payment.channel.Recipient,
+			FullAmount:       payment.channel.FullAmount,
+			Expiration:       payment.channel.Expiration,
+			Signer:           payment.channel.Signer,
+			AuthorizedAmount: payment.payment.Amount,
+			Signature:        payment.payment.Signature,
+			GroupID:          payment.channel.GroupID,
 		},
 	)
 	if e != nil {

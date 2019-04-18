@@ -106,13 +106,12 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 		panic(fmt.Errorf("Cannot put value into test storage: %v", err))
 	}
 
+
 	suite.service = NewPaymentChannelService(
 		suite.storage,
 		suite.paymentStorage,
 		&BlockchainChannelReader{
-			replicaGroupID: func() ([32]byte, error) {
-				return [32]byte{123}, nil
-			},
+
 			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 				return suite.mpeChannel(), true, nil
 			},
@@ -124,6 +123,8 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
+		},func() ([32]byte, error) {
+			return [32]byte{123}, nil
 		},
 	)
 }
@@ -167,18 +168,16 @@ func (suite *PaymentChannelServiceSuite) channelKey() *PaymentChannelKey {
 
 func (suite *PaymentChannelServiceSuite) channel() *PaymentChannelData {
 	return &PaymentChannelData{
-		ChannelID:            big.NewInt(42),
-		Nonce:                big.NewInt(3),
-		Sender:               suite.senderAddress,
-		Recipient:            suite.recipientAddress,
-		GroupID:              [32]byte{123},
-		FullAmount:           big.NewInt(12345),
-		Expiration:           big.NewInt(100),
-		Signer:               suite.signerAddress,
-		AuthorizedAmount:     big.NewInt(0),
-		Signature:            nil,
-		OldNonceSignature:    nil,
-		OldNonceSignedAmount: big.NewInt(0),
+		ChannelID:        big.NewInt(42),
+		Nonce:            big.NewInt(3),
+		Sender:           suite.senderAddress,
+		Recipient:        suite.recipientAddress,
+		GroupID:          [32]byte{123},
+		FullAmount:       big.NewInt(12345),
+		Expiration:       big.NewInt(100),
+		Signer:           suite.signerAddress,
+		AuthorizedAmount: big.NewInt(0),
+		Signature:        nil,
 	}
 }
 
@@ -275,10 +274,6 @@ func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 	transaction, _ := suite.service.StartPaymentTransaction(suite.payment())
 	transaction.Commit()
 
-	channel := suite.channelPlusPayment(suite.payment())
-	tmpOldNonceSignature := channel.Signature
-	tmpOldNonceSignedAmount := channel.AuthorizedAmount
-
 	claim, errA := suite.service.StartClaim(suite.channelKey(), IncrementChannelNonce)
 	claims, errB := suite.paymentStorage.GetAll()
 
@@ -286,20 +281,13 @@ func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 	assert.Nil(suite.T(), errB, "Unexpected error: %v", errB)
 	assert.Equal(suite.T(), suite.payment(), claim.Payment())
 	assert.Equal(suite.T(), []*Payment{suite.payment()}, claims)
-
-	// Validate channel data after claim
-	updatedChannel, ok, errC := suite.service.PaymentChannel(&PaymentChannelKey{ID: channel.ChannelID})
-	assert.Equal(suite.T(), ok, true)
-	assert.Nil(suite.T(), errC, "Unexpected error: %v", errC)
-	assert.Equal(suite.T(), updatedChannel.OldNonceSignature, tmpOldNonceSignature)
-	assert.Equal(suite.T(), updatedChannel.OldNonceSignedAmount, tmpOldNonceSignedAmount)
 }
 
 func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 
 
 	service := suite.service
-	service.(*lockingPaymentChannelService).blockchainReader.replicaGroupID =
+	service.(*lockingPaymentChannelService).replicaGroupID =
 		func() ([32]byte, error) {
 			return [32]byte{125}, nil
 		}
@@ -313,7 +301,7 @@ func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
 	//Group ID is the same ( no error should happen)
 	//also re setting the value here again to make sure the original state is retained
-	service.(*lockingPaymentChannelService).blockchainReader.replicaGroupID =
+	service.(*lockingPaymentChannelService).replicaGroupID =
 		func() ([32]byte, error) {
 			return [32]byte{123}, nil
 		}

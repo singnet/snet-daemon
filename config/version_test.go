@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -50,4 +51,12 @@ func Test_getBuildTime(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckVersionOfDaemon(t *testing.T) {
+	versionTag = "v0.1.9"
+	message ,err := CheckVersionOfDaemon()
+	assert.Nil(t, err)
+	assert.Contains(t,message,"There is a newer version of the Daemon")
+
 }

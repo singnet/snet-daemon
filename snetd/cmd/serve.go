@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/singnet/snet-daemon/metrics"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"math"
 	"net"
 	"net/http"
 	"os"
@@ -130,7 +129,7 @@ func newDaemon(components *Components) (daemon, error) {
 }
 
 
-func (d daemon) start() {
+func (d *daemon) start() {
 
 	var tlsConfig *tls.Config
 
@@ -173,8 +172,8 @@ func (d daemon) start() {
 	}
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
-		// set the maximum that the server can receive to 4GB. It is set to for 4GB because of issue here https://github.com/grpc/grpc-go/issues/1590
-		maxsizeOpt := grpc.MaxRecvMsgSize(math.MaxInt32)
+
+		maxsizeOpt := grpc.MaxRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB) * 1024 * 1024)
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
@@ -221,10 +220,10 @@ func (d daemon) start() {
 
 }
 
-func (d daemon) stop() {
+func (d *daemon) stop() {
 
 	if d.grpcServer != nil {
-		d.grpcServer.Stop()
+		d.grpcServer.GracefulStop()
 	}
 
 	d.lis.Close()

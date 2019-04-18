@@ -33,6 +33,14 @@ func (p *paymentChannelServiceMock) PaymentChannel(key *PaymentChannelKey) (*Pay
 	return p.data, true, nil
 }
 
+
+func (p *paymentChannelServiceMock) StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey)   (equal bool, err error) {
+	if p.key == nil || p.key.ID.Cmp(key.ID) != 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (p *paymentChannelServiceMock) Put(key *PaymentChannelKey, data *PaymentChannelData) {
 	p.key = key
 	p.data = data

@@ -17,6 +17,7 @@ type stateServiceTestType struct {
 	signerPrivateKey   *ecdsa.PrivateKey
 	signerAddress      common.Address
 	channelServiceMock *paymentChannelServiceMock
+	paymentStorage     *PaymentStorage
 
 	defaultChannelId   *big.Int
 	defaultChannelKey  *PaymentChannelKey
@@ -37,9 +38,13 @@ var stateServiceTest = func() stateServiceTestType {
 		panic("Could not make defaultSignature")
 	}
 
+	paymentStorage := NewPaymentStorage(NewMemStorage())
+
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
 			channelService: channelServiceMock,
+			paymentStorage : paymentStorage,
+
 		},
 		senderAddress:      senderAddress,
 		signerPrivateKey:   signerPrivateKey,
@@ -73,6 +78,10 @@ func TestGetChannelState(t *testing.T) {
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
 	)
+	payment := getPaymentFromChannel(stateServiceTest.defaultChannelData)
+	stateServiceTest.paymentStorage = NewPaymentStorage(NewMemStorage())
+	stateServiceTest.paymentStorage.Put(payment)
+
 	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
@@ -180,5 +189,9 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 	expectedReply := stateServiceTest.defaultReply
 	expectedReply.CurrentSignedAmount = nil
 	expectedReply.CurrentSignature = nil
+	expectedReply.OldNonceSignature = nil
+	expectedReply.OldNonceSignedAmount = nil
 	assert.Equal(t, expectedReply, reply)
 }
+
+// Claim tests are already added to escrow_test.go

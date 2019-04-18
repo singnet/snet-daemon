@@ -2,6 +2,8 @@ package escrow
 
 import (
 	"fmt"
+	"errors"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -40,12 +42,30 @@ func (h *lockingPaymentChannelService) PaymentChannelFromBlockChain(key *Payment
 	return h.blockchainReader.GetChannelStateFromBlockchain(key)
 }
 
-func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+
+// check whether storage nonce and blockchain nonce of channel are equal or not
+func (h *lockingPaymentChannelService) StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey) (equal bool, err error) {
 	storageChannel, storageOk, err := h.storage.Get(key)
 	if err != nil {
 		return
 	}
 
+	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
+	if err != nil {
+		return false, errors.New("channel error:" + err.Error())
+	}
+	if !blockchainOk || !storageOk {
+		return false, errors.New("unable to read channel details.")
+	}
+
+	return storageChannel.Nonce.Cmp(blockchainChannel.Nonce) == 0, nil
+}
+
+func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
+	storageChannel, storageOk, err := h.storage.Get(key)
+	if err != nil {
+		return
+	}
 
 	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
 

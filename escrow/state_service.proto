@@ -42,6 +42,12 @@ message ChannelStateReply {
     bytes current_signed_amount = 2;
 
     // current_signature is a last signature sent by client with current_nonce
-    // it could be abset if none message was signed with current nonce
+    // it could be absent if none message was signed with current nonce
     bytes current_signature = 3;
+
+    // last amount which was signed by client with nonce=current_nonce - 1
+    bytes old_nonce_signed_amount = 4;
+
+    // last signature sent by client with nonce = current_nonce - 1
+    bytes old_nonce_signature = 5;
  }

@@ -49,13 +49,16 @@ func (h *lockingPaymentChannelService) StorageNonceMatchesWithBlockchainNonce(ke
 	if err != nil {
 		return
 	}
+	if !storageOk {
+		return false, errors.New("unable to read channel details from storage.")
+	}
 
 	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
 	if err != nil {
 		return false, errors.New("channel error:" + err.Error())
 	}
-	if !blockchainOk || !storageOk {
-		return false, errors.New("unable to read channel details.")
+	if !blockchainOk {
+		return false, errors.New("unable to read channel details from blockchain.")
 	}
 
 	return storageChannel.Nonce.Cmp(blockchainChannel.Nonce) == 0, nil

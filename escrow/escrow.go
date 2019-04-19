@@ -47,15 +47,18 @@ func (h *lockingPaymentChannelService) PaymentChannelFromBlockChain(key *Payment
 func (h *lockingPaymentChannelService) StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey) (equal bool, err error) {
 	storageChannel, storageOk, err := h.storage.Get(key)
 	if err != nil {
-		return
+		return false, errors.New("storage channel error:" + err.Error())
+	}
+	if !storageOk {
+		return false, errors.New("unable to read channel details from storage.")
 	}
 
 	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
 	if err != nil {
-		return false, errors.New("channel error:" + err.Error())
+		return false, errors.New("blockchain channel error:" + err.Error())
 	}
-	if !blockchainOk || !storageOk {
-		return false, errors.New("unable to read channel details.")
+	if !blockchainOk {
+		return false, errors.New("unable to read channel details from blockchain.")
 	}
 
 	return storageChannel.Nonce.Cmp(blockchainChannel.Nonce) == 0, nil

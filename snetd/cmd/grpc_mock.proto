@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package cmd;
+
+service ExampleService {
+    rpc LongCall(Input) returns (Output) {}
+}
+
+message Input {
+    string message = 1;
+}
+
+message Output {
+    string message = 1;
+}

@@ -19,6 +19,12 @@ type ChannelPaymentValidator struct {
 	paymentExpirationThreshold func() (threshold *big.Int)
 }
 
+func NewChannelPaymentValidatorT(a func() (currentBlock *big.Int, err error),b func() (threshold *big.Int) ) *ChannelPaymentValidator  {
+	return &ChannelPaymentValidator{
+		currentBlock:a,
+		paymentExpirationThreshold:b,}
+}
+
 // NewChannelPaymentValidator returns new payment validator instance
 func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Viper, metadata *blockchain.ServiceMetadata) *ChannelPaymentValidator {
 	return &ChannelPaymentValidator{

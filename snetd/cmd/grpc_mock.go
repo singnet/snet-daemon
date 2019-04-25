@@ -1,4 +1,4 @@
-//go:generate protoc grpc_test.proto --go_out=plugins=grpc:.
+//go:generate protoc grpc_mock.proto --go_out=plugins=grpc:.
 
 package cmd
 

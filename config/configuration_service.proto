@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package config;
+
+service ConfigurationService {
+    rpc GetCurrentConfiguration(ConfigurationRequest) returns (ConfigurationDetailsResponse) {}
+    rpc UpdateCurrentConfiguration(ConfigurationRequest) returns (ConfigurationDetailsResponse) {}
+    rpc StopProcessingRequests(ConfigurationRequest) returns (ConfigurationDetailsResponse) {}
+    rpc StartProcessingRequests(ConfigurationRequest) returns (ConfigurationDetailsResponse) {}
+}
+
+enum RequestType {
+    CONFIG_READ = 0;
+    CONFIG_WRITE = 1;
+    STOP_PROCESSING_REQUEST = 2;
+    START_PROCESSING_REQUEST = 3; // Used only by the Watch method.
+}
+
+enum ResponseType {
+    FAILED = 0;
+    SUCCESS = 1;
+}
+
+message ConfigurationRequest {
+    RequestType request_type = 1;
+    //Signature will compromise of the below
+    // ("_Request", "block_number","json_data",address)
+    bytes signature = 2;
+    string json_data = 3;
+}
+
+message ConfigurationDetailsResponse {
+    ResponseType response_type = 1;
+    string json_data = 2;
+}

@@ -39,8 +39,8 @@ func (request *RequestStats) setDataFromContext(md metadata.MD) {
 func createRequestStat(commonStat *CommonStats) *RequestStats {
 	request := &RequestStats{
 		Type:                       "request",
-		RegistryAddressKey:         config.GetString(config.RegistryAddressKey),
-		EthereumJsonRpcEndpointKey: config.GetString(config.EthereumJsonRpcEndpointKey),
+		RegistryAddressKey:         config.GetRegistryAddress(),
+		EthereumJsonRpcEndpointKey: config.GetBlockChainEndPoint(),
 		RequestID:                  commonStat.ID,
 		GroupID:                    commonStat.GroupID,
 		DaemonEndPoint:             commonStat.DaemonEndPoint,

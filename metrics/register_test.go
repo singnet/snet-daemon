@@ -16,7 +16,7 @@ func TestGetDaemonID(t *testing.T) {
 
 	assert.NotNil(t, daemonID, "daemon ID must not be nil")
 	assert.NotEmpty(t, daemonID, "daemon ID must not be empty")
-	assert.Equal(t, "2188ffe79222a44083c315dbb6bc82f3292fa76131b226a85c8ed11361a2406f", daemonID)
+	assert.Equal(t, "f940de0eb33eeddb283ac725478900deac24151b019e496c476d59f72c38abb3", daemonID)
 	assert.NotEqual(t, "48d343313a1e06093c81830103b45496cc7c277f321049e9ee632fd03207d042", daemonID)
 }
 

@@ -93,6 +93,7 @@ func Test_daemon_start(t *testing.T) {
 
 	config.Vip().Set(config.PaymentChannelStorageTypeKey,"")
 	config.Vip().Set(config.PassthroughEndpointKey,"localhost:8086")
+	config.Vip().Set(config.DaemonEndPoint,"localhost:8085")
 	lis, _ := net.Listen("tcp", config.GetString(config.DaemonEndPoint))
 
 	testSuite := &PaymentChannelServiceSuite{}

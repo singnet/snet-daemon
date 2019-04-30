@@ -27,7 +27,7 @@ var (
 	port       = flag.Int("port", 8086, "The server port")
 )
 type ServiceMock struct {
-	message *Message
+
 }
 
 var ch = make(chan int)
@@ -36,7 +36,7 @@ var sigChan = make(chan os.Signal, 1)
 func (service *ServiceMock) LongCall(context context.Context, input *Message) (output *Message, err error) {
 	<-sigChan
 	fmt.Printf("Call to service reached ... Service Provider .....")
-	return service.message, nil
+	return &Message{"Hello from Service"}, nil
 }
 
 func StartMockService() {
@@ -50,10 +50,10 @@ func StartMockService() {
 
 		fmt.Printf("Starting Service.....\n")
 		grpcServer := grpc.NewServer(opts...)
-		RegisterMockServiceServer(grpcServer, &ServiceMock{message:&Message{"Hello from Service"}})
+		RegisterMockServiceServer(grpcServer, &ServiceMock{})
 		ch <- 0
 		grpcServer.Serve(lis)
-		fmt.Printf("Started.....")
+
 	}()
 }
 

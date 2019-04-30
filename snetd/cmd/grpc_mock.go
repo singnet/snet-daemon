@@ -50,7 +50,7 @@ func StartMockService() {
 
 		fmt.Printf("Starting Service.....\n")
 		grpcServer := grpc.NewServer(opts...)
-		RegisterExampleServiceServer(grpcServer, &ServiceMock{message:&Message{"Hello from Service"},})
+		RegisterMockServiceServer(grpcServer, &ServiceMock{message:&Message{"Hello from Service"},})
 		ch <- 0
 		grpcServer.Serve(lis)
 		fmt.Printf("Started.....")

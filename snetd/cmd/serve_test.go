@@ -146,10 +146,10 @@ func Test_daemon_start(t *testing.T) {
 				//Wait till the service has started
 				_ = <-ch
 				go func() {
-					time.Sleep(time.Second*10)
+					time.Sleep(time.Second*15)
 					sigChan <- syscall.SIGTERM
 				}()
-				exampleClient := NewExampleServiceClient(conn)
+				exampleClient := NewMockServiceClient(conn)
 				_, err = exampleClient.LongCall(ctx, &Message{Message: "Hello from Client"})
 				assert.NotNil(t,err)
 				//Check if the channel is not locked here

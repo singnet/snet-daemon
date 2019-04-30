@@ -7,9 +7,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
-)
+	"github.com/singnet/snet-daemon/config"
 
+	"os"
+
+	"net"
+
+
+	"google.golang.org/grpc"
+
+)
 
 
 var (
@@ -20,17 +27,34 @@ var (
 	port       = flag.Int("port", 8086, "The server port")
 )
 type ServiceMock struct {
-	output *Output
-	err    error
+	message *Message
 }
 
 var ch = make(chan int)
 var sigChan = make(chan os.Signal, 1)
 
-func (service *ServiceMock) LongCall(context context.Context, input *Input) (output *Output, err error) {
+func (service *ServiceMock) LongCall(context context.Context, input *Message) (output *Message, err error) {
 	<-sigChan
 	fmt.Printf("Call to service reached ... Service Provider .....")
-	return service.output, service.err
+	return service.message, nil
+}
+
+func StartMockService() {
+	go func() {
+		flag.Parse()
+		lis, err := net.Listen("tcp", config.GetString(config.PassthroughEndpointKey))
+		if err != nil {
+			fmt.Sprintf("failed to listen: %v", err)
+		}
+		var opts []grpc.ServerOption
+
+		fmt.Printf("Starting Service.....\n")
+		grpcServer := grpc.NewServer(opts...)
+		RegisterExampleServiceServer(grpcServer, &ServiceMock{message:&Message{"Hello from Service"},})
+		ch <- 0
+		grpcServer.Serve(lis)
+		fmt.Printf("Started.....")
+	}()
 }
 
 

@@ -58,28 +58,13 @@ func Test_newDaemon(t *testing.T) {
 
 
 
-func StartMockService() {
-	go func() {
-		flag.Parse()
-		lis, err := net.Listen("tcp", config.GetString(config.PassthroughEndpointKey))
-		if err != nil {
-			fmt.Sprintf("failed to listen: %v", err)
-		}
-		var opts []grpc.ServerOption
 
-		fmt.Printf("Starting Service.....\n")
-		grpcServer := grpc.NewServer(opts...)
-		RegisterExampleServiceServer(grpcServer, &ServiceMock{output:&Output{"Hello from Service"},err:nil})
-		ch <- 0
-		grpcServer.Serve(lis)
-		fmt.Printf("Started.....")
-	}()
-}
 
 func Test_daemon_start(t *testing.T) {
 
 	config.Vip().Set(config.PaymentChannelStorageTypeKey,"")
 	config.Vip().Set(config.PassthroughEndpointKey,"localhost:8086")
+	config.Vip().Set(config.PassthroughEnabledKey,true)
 	config.Vip().Set(config.DaemonEndPoint,"localhost:8085")
 	lis, _ := net.Listen("tcp", config.GetString(config.DaemonEndPoint))
 
@@ -162,12 +147,11 @@ func Test_daemon_start(t *testing.T) {
 				_ = <-ch
 				go func() {
 					time.Sleep(time.Second*10)
-					ch <- 0
 					sigChan <- syscall.SIGTERM
 				}()
 				exampleClient := NewExampleServiceClient(conn)
-				output, err := exampleClient.LongCall(ctx, &Input{Message: "Hello from Client"})
-				assert.NotNil(t,output)
+				_, err = exampleClient.LongCall(ctx, &Message{Message: "Hello from Client"})
+				assert.NotNil(t,err)
 				//Check if the channel is not locked here
 				channel, _, errC := testSuite.storage.Get(testSuite.channelKey())
 				assert.Nil(t,errC)

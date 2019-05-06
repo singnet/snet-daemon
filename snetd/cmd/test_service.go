@@ -35,7 +35,7 @@ var sigChan = make(chan os.Signal, 1)
 func (service *ServiceMock) LongCall(context context.Context, input *TestMessage) (output *TestMessage, err error) {
 	<-sigChan
 	fmt.Printf("Call to service reached ... Service Provider .....")
-	return &TestMessage{"Hello from Service"}, nil
+	return &TestMessage{MessageString:"Hello from Service"}, nil
 }
 
 func StartMockService() {

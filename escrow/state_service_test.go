@@ -6,6 +6,8 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/authutils"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -31,7 +33,8 @@ var stateServiceTest = func() stateServiceTestType {
 	senderAddress := crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	signerPrivateKey := GenerateTestPrivateKey()
 	signerAddress := crypto.PubkeyToAddress(signerPrivateKey.PublicKey)
-
+	config.Vip().Set(config.EthereumJsonRpcEndpointKey, "https://ropsten.infura.io")
+	currentBlock, _ := authutils.CurrentBlock()
 	defaultChannelId := big.NewInt(42)
 	defaultSignature, err := hex.DecodeString("0504030201")
 	if err != nil {
@@ -43,8 +46,7 @@ var stateServiceTest = func() stateServiceTestType {
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
 			channelService: channelServiceMock,
-			paymentStorage : paymentStorage,
-
+			paymentStorage: paymentStorage,
 		},
 		senderAddress:      senderAddress,
 		signerPrivateKey:   signerPrivateKey,
@@ -62,8 +64,9 @@ var stateServiceTest = func() stateServiceTestType {
 			AuthorizedAmount: big.NewInt(12345),
 		},
 		defaultRequest: &ChannelStateRequest{
-			ChannelId: bigIntToBytes(defaultChannelId),
-			Signature: getSignature(bigIntToBytes(defaultChannelId), signerPrivateKey),
+			ChannelId:    bigIntToBytes(defaultChannelId),
+			Signature:    getSignature(bigIntToBytes(defaultChannelId), signerPrivateKey),
+			CurrentBlock: currentBlock.Uint64(),
 		},
 		defaultReply: &ChannelStateReply{
 			CurrentNonce:        bigIntToBytes(big.NewInt(3)),

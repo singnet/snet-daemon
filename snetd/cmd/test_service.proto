@@ -3,11 +3,11 @@ syntax = "proto3";
 package cmd;
 
 service MockService {
-    rpc LongCall(Message) returns (Message) {}
+    rpc LongCall(TestMessage) returns (TestMessage) {}
 }
 
 
-message Message {
-    string message = 1;
+message TestMessage {
+    string MessageString = 1;
 }
 

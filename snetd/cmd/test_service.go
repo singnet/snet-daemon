@@ -32,10 +32,10 @@ type ServiceMock struct {
 var ch = make(chan int)
 var sigChan = make(chan os.Signal, 1)
 
-func (service *ServiceMock) LongCall(context context.Context, input *Message) (output *Message, err error) {
+func (service *ServiceMock) LongCall(context context.Context, input *TestMessage) (output *TestMessage, err error) {
 	<-sigChan
 	fmt.Printf("Call to service reached ... Service Provider .....")
-	return &Message{"Hello from Service"}, nil
+	return &TestMessage{"Hello from Service"}, nil
 }
 
 func StartMockService() {

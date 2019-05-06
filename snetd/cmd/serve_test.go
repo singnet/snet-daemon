@@ -150,7 +150,7 @@ func Test_daemon_start(t *testing.T) {
 					sigChan <- syscall.SIGTERM
 				}()
 				exampleClient := NewMockServiceClient(conn)
-				_, err = exampleClient.LongCall(ctx, &Message{Message: "Hello from Client"})
+				_, err = exampleClient.LongCall(ctx, &TestMessage{MessageString: "Hello from Client"})
 				assert.NotNil(t,err)
 				//Check if the channel is not locked here
 				channel, _, errC := testSuite.storage.Get(testSuite.channelKey())

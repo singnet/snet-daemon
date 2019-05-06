@@ -176,7 +176,10 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 		escrow.NewPaymentStorage(components.AtomicStorage()),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()),func() ([32]byte, error) {
+			s := components.ServiceMetaData().GetDaemonGroupID()
+			return s, nil
+		},
 	)
 
 	return components.paymentChannelService

@@ -62,7 +62,7 @@ func ServiceMetaData() *ServiceMetadata {
 			// If no local file is available be default , then return a dummy metadata to support functionality when blockchain is disabled.
 			log.WithError(err)
 			metadata = &ServiceMetadata{}
-			metadata.getMetaDataWhenBlockChainIsDisabled()
+			metadata.setDefaultConfiguration()
 			return metadata
 		}
 
@@ -74,7 +74,7 @@ func ServiceMetaData() *ServiceMetadata {
 	return metadata
 }
 
-func (s *ServiceMetadata ) getMetaDataWhenBlockChainIsDisabled()  {
+func (s *ServiceMetadata ) setDefaultConfiguration()  {
     	s.ServiceType = "grpc"
     	s.Encoding = "proto"
 }

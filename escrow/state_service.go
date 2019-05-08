@@ -5,10 +5,8 @@ package escrow
 import (
 	"errors"
 	"fmt"
-	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"math/big"
 )
 
 // PaymentChannelStateService is an implementation of
@@ -39,14 +37,6 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	sender, err := getSignerAddressFromMessage(bigIntToBytes(channelID), signature)
 	if err != nil {
 		return nil, errors.New("incorrect signature")
-	}
-	//If block chain is Disabled, then just return the signed Amount as Zero
-	if !config.GetBool(config.BlockchainEnabledKey){
-		return &ChannelStateReply{
-			CurrentNonce:        bigIntToBytes(big.NewInt(0)),
-			CurrentSignedAmount: bigIntToBytes(big.NewInt(0)),
-			CurrentSignature:    signature,
-		},nil
 	}
 
 	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelID})

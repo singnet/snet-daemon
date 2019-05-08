@@ -58,25 +58,13 @@ func ServiceMetaData() *ServiceMetadata {
 	} else {
 		//TO DO, have a snetd command to create a default metadata json file, for now just read from a local file
 		// when block chain reading is disabled
-		if metadata, err = readServiceMetaDataFromLocalFile("service_metadata.json"); err != nil {
-			// If no local file is available be default , then return a dummy metadata to support functionality when blockchain is disabled.
-			log.WithError(err)
-			metadata = &ServiceMetadata{}
-			metadata.setDefaultConfiguration()
-			return metadata
-		}
-
+		metadata, err = readServiceMetaDataFromLocalFile("service_metadata.json")
 	}
 	if err != nil {
 		log.WithError(err).
 			Panic("error on determining service metadata from file")
 	}
 	return metadata
-}
-
-func (s *ServiceMetadata ) setDefaultConfiguration()  {
-    	s.ServiceType = "grpc"
-    	s.Encoding = "proto"
 }
 
 func readServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {

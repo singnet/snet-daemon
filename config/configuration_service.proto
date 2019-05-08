@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package config;
+
+//Currently all monitoring and any configuration changes on Daemon are done manually,
+//goal is to provide a one stop place to remotely monitor and configure the Daemon in a secure way
+
+service ConfigurationService {
+    //Used when you just need to read the current configuration
+    rpc GetConfiguration(ReadRequest) returns (ConfigurationResponse) {}
+
+    //Used when you want to update the existing configuration
+    rpc UpdateConfiguration(UpdateRequest) returns (ConfigurationResponse) {}
+
+    //This is used to instruct the Daemon to stop taking in any new requests,
+    //At this point , however any existing requests being processed will be honored.
+    // ("_Request_Stop", "block_number",authentication_address) should be sent in the signature
+    rpc StopProcessingRequests(CommandRequest) returns (Response) {}
+
+    //Restores the normal behavior to start processing new requests again
+    // ("_Request_Start", "block_number",authentication_address) should be sent in the signature
+    rpc StartProcessingRequests(CommandRequest) returns (Response) {}
+}
+
+
+//Used when you just need to read the current configuration
+message ReadRequest {
+    //Signature will compromise of the below
+    // ("_Request_Read", "block_number",authentication_address)
+    bytes signature = 1;
+
+}
+
+//Used when you want to update the existing configuration
+message UpdateRequest {
+    //Signature will compromise of the below
+    // ("_Request_Update", "block_number","updated_json_data",authentication_address)
+    bytes signature = 1;
+    //Holds the updated configuration in the form of JSON,only the fields to be updated should be sent
+    string updated_json_data = 2;
+
+}
+
+
+message CommandRequest {
+    //Signature will compromise one of the below
+    // ("_Request_Start", "block_number",authentication_address) for the StartProcessingRequests
+    // ("_Request_Stop", "block_number",authentication_address) for the StopProcessingRequests
+    bytes signature = 1;
+}
+
+
+
+message Response {
+    //Signature will compromise of the below
+    //(block_number,authentication_address)
+    bytes signature = 1;
+}
+
+
+//Response sent back by Daemon on Read or Successful update
+message ConfigurationResponse {
+    //Signature will compromise of the below
+    //(block_number,authentication_address,json_data)
+    bytes signature = 1;
+
+    //Holds the current configuration of Daemon and is sent back in the response.
+    string json_data = 2;
+
+}
+

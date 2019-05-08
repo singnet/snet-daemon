@@ -2,54 +2,70 @@ syntax = "proto3";
 
 package config;
 
-//Defines the kind of request type
-enum RequestType {
+//Currently all monitoring and any configuration changes on Daemon are done manually,
+//goal is to provide a one stop place to remotely monitor and configure the Daemon in a secure way
+
+service ConfigurationService {
     //Used when you just need to read the current configuration
-    CONFIG_READ = 0;
-    //Used when you want to update the configuration existing configuration
-    CONFIG_WRITE = 1;
-    //This is used to instruct the Daemon to stop taking in any new requests,At this point , however any existing requests being processed will be honored.
-    STOP_PROCESSING_REQUEST = 2;
+    rpc GetConfiguration(ReadRequest) returns (ConfigurationResponse) {}
+
+    //Used when you want to update the existing configuration
+    rpc UpdateConfiguration(UpdateRequest) returns (ConfigurationResponse) {}
+
+    //This is used to instruct the Daemon to stop taking in any new requests,
+    //At this point , however any existing requests being processed will be honored.
+    // ("_Request_Stop", "block_number",authentication_address) should be sent in the signature
+    rpc StopProcessingRequests(CommandRequest) returns (Response) {}
+
     //Restores the normal behavior to start processing new requests again
-    START_PROCESSING_REQUEST = 3;
+    // ("_Request_Start", "block_number",authentication_address) should be sent in the signature
+    rpc StartProcessingRequests(CommandRequest) returns (Response) {}
 }
 
-//To indicate if the request was processed successfully or with some error.rg
-enum ResponseType {
-    FAILED = 0;
-    SUCCESS = 1;
-}
 
-//Standardize the request expected by Daemon
-message ConfigurationRequest {
-    //Mandatory fields , tells what kind of request type is this for ( example , if the request is to read the config or to update the config etc;
-    RequestType request_type = 1;
-
+//Used when you just need to read the current configuration
+message ReadRequest {
     //Signature will compromise of the below
-    // ("_Request", "block_number","json_data",address)
-    bytes signature = 2;
+    // ("_Request_Read", "block_number",authentication_address)
+    bytes signature = 1;
 
-
-    //Holds the updated configuration in the form of JSON, this is honored by the Daemon ONLY when you the RequestType is set to CONFIG_WRITE
-    string json_data = 3;
 }
 
-//Standardize the response sent back by Daemon
-message ConfigurationDetailsResponse {
-    //Mandatory field (Indicates if the request was successful or not)
-    ResponseType response_type = 1;
+//Used when you want to update the existing configuration
+message UpdateRequest {
+    //Signature will compromise of the below
+    // ("_Request_Update", "block_number","updated_json_data",authentication_address)
+    bytes signature = 1;
+    //Holds the updated configuration in the form of JSON,only the fields to be updated should be sent
+    string updated_json_data = 2;
 
-    //Holds the current configuration of Daemon and is sent back as a response.
-    //This will be assigned a value when the Request type was CONFIG_READ
+}
+
+
+message CommandRequest {
+    //Signature will compromise one of the below
+    // ("_Request_Start", "block_number",authentication_address) for the StartProcessingRequests
+    // ("_Request_Stop", "block_number",authentication_address) for the StopProcessingRequests
+    bytes signature = 1;
+}
+
+
+
+message Response {
+    //Signature will compromise of the below
+    //(block_number,authentication_address)
+    bytes signature = 1;
+}
+
+
+//Response sent back by Daemon on Read or Successful update
+message ConfigurationResponse {
+    //Signature will compromise of the below
+    //(block_number,authentication_address,json_data)
+    bytes signature = 1;
+
+    //Holds the current configuration of Daemon and is sent back in the response.
     string json_data = 2;
 
-
-    //Only in case of any error this field will be populated.
-    string error_message =3;
 }
 
-//Used to manage all configurations in Daemon
-service ConfigurationService {
-    rpc ManageConfiguration(ConfigurationRequest) returns (ConfigurationDetailsResponse) {}
-
-}

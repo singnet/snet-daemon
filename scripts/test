@@ -10,5 +10,5 @@ pushd $PARENT_PATH
 ./scripts/lint
 
 # Run integration tests
-GOCACHE=off go test -v ./... -coverprofile=c.out
+GOCACHE=off go test -v ./... -coverprofile=c.out -coverpkg=./...
 popd

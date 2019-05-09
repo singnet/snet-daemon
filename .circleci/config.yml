@@ -11,7 +11,7 @@ jobs:
       - run:
           name: "Create a temp directory for artifacts"
           command: |
-          mkdir -p /tmp/artifacts
+            mkdir -p /tmp/artifacts
       - run:
           name: Install dependencies
           command: |
@@ -28,9 +28,9 @@ jobs:
       - run:
           name: Run test script
           command: |
-           ./scripts/test
-           go tool cover -html=c.out -o coverage.html
-           mv coverage.html /tmp/artifacts
+            ./scripts/test
+            go tool cover -html=c.out -o coverage.html
+            mv coverage.html /tmp/artifacts
       - store_artifacts:
           path: /tmp/artifacts
       - run:

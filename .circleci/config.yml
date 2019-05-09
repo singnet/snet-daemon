@@ -9,6 +9,10 @@ jobs:
     steps:
       - checkout
       - run:
+          name: "Create a temp directory for artifacts"
+          command: |
+          mkdir -p /tmp/artifacts
+      - run:
           name: Install dependencies
           command: |
             # install protobuf
@@ -23,7 +27,12 @@ jobs:
           command: ./scripts/build linux amd64
       - run:
           name: Run test script
-          command: ./scripts/test
+          command: |
+           ./scripts/test
+           go tool cover -html=c.out -o coverage.html
+           mv coverage.html /tmp/artifacts
+      - store_artifacts:
+          path: /tmp/artifacts
       - run:
           name: Trigger platform-pipeline build
           command: |

@@ -16,6 +16,29 @@ type PaymentChannelStateService struct {
 	paymentStorage *PaymentStorage
 }
 
+// verifies whether storage channel nonce is equal to blockchain nonce or not
+func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey) (equal bool, err error) {
+	h := service.channelService
+
+	storageChannel, storageOk, err := h.PaymentChannel(key)
+	if err != nil {
+		return
+	}
+	if !storageOk {
+		return false, errors.New("unable to read channel details from storage.")
+	}
+
+	blockchainChannel, blockchainOk, err := h.PaymentChannelFromBlockChain(key)
+	if err != nil {
+		return false, errors.New("channel error:" + err.Error())
+	}
+	if !blockchainOk {
+		return false, errors.New("unable to read channel details from blockchain.")
+	}
+
+	return storageChannel.Nonce.Cmp(blockchainChannel.Nonce) == 0, nil
+}
+
 // NewPaymentChannelStateService returns new instance of PaymentChannelStateService
 func NewPaymentChannelStateService(channelService PaymentChannelService, paymentStorage *PaymentStorage) *PaymentChannelStateService {
 	return &PaymentChannelStateService{
@@ -52,7 +75,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	}
 
 	// check if nonce matches with blockchain or not
-	nonceEqual, err := service.channelService.StorageNonceMatchesWithBlockchainNonce(&PaymentChannelKey{ID: channelID})
+	nonceEqual, err := service.StorageNonceMatchesWithBlockchainNonce(&PaymentChannelKey{ID: channelID})
 	if err != nil {
 		log.WithError(err).Infof("payment data not available in payment storage.")
 	} else if !nonceEqual {
@@ -60,19 +83,22 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 
 		paymentID := PaymentID(channel.ChannelID, (&big.Int{}).Sub(channel.Nonce, big.NewInt(1)))
 		payment, ok, err := service.paymentStorage.Get(paymentID)
-		if err == nil && ok && payment != nil {
-			log.Infof("old payment detected for the channel %v (payments with  nonce = current nonce -1).", channelID)
-
-			// return the channel state with old nonce
-			return &ChannelStateReply{
-				CurrentNonce:         bigIntToBytes(channel.Nonce),
-				CurrentSignedAmount:  bigIntToBytes(channel.AuthorizedAmount),
-				CurrentSignature:     channel.Signature,
-				OldNonceSignedAmount: bigIntToBytes(payment.Amount),
-				OldNonceSignature:    payment.Signature,
-			}, nil
+		if err != nil {
+			log.WithError(err).Errorf("unable to extract old payment from storage")
+			return nil, err
 		}
-		log.WithError(err).Infof("unable to extract old payment from storage")
+		if !ok {
+
+			log.Errorf("old payment is not found in storage, nevertheless local channel nonce is not equal to the blockchain one, channel: %v", channelID)
+			return nil, errors.New("channel has different nonce in local storage and blockchain")
+		}
+		return &ChannelStateReply{
+			CurrentNonce:         bigIntToBytes(channel.Nonce),
+			CurrentSignedAmount:  bigIntToBytes(channel.AuthorizedAmount),
+			CurrentSignature:     channel.Signature,
+			OldNonceSignedAmount: bigIntToBytes(payment.Amount),
+			OldNonceSignature:    payment.Signature,
+		}, nil
 	}
 
 	if channel.Signature == nil {

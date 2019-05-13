@@ -128,9 +128,6 @@ type PaymentChannelService interface {
 
 	//Get Channel from BlockChain
 	PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
-
-	// verifies whether storage channel nonce is equal to blockchain nonce or not
-	StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey) (equal bool, err error)
 }
 
 // PaymentErrorCode contains all types of errors which we need to handle on the

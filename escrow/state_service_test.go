@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -32,6 +33,18 @@ var stateServiceTest = func() stateServiceTestType {
 	signerPrivateKey := GenerateTestPrivateKey()
 	signerAddress := crypto.PubkeyToAddress(signerPrivateKey.PublicKey)
 
+	channelServiceMock.blockchainReader = &BlockchainChannelReader{}
+
+	channelServiceMock.blockchainReader.readChannelFromBlockchain = func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
+		return &blockchain.MultiPartyEscrowChannel{
+			Recipient: senderAddress,
+			Nonce:     big.NewInt(3),
+		}, true, nil
+	}
+	channelServiceMock.blockchainReader.recipientPaymentAddress = func() common.Address {
+		return senderAddress
+	}
+
 	defaultChannelId := big.NewInt(42)
 	defaultSignature, err := hex.DecodeString("0504030201")
 	if err != nil {
@@ -43,8 +56,7 @@ var stateServiceTest = func() stateServiceTestType {
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
 			channelService: channelServiceMock,
-			paymentStorage : paymentStorage,
-
+			paymentStorage: paymentStorage,
 		},
 		senderAddress:      senderAddress,
 		signerPrivateKey:   signerPrivateKey,

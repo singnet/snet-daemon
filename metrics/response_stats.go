@@ -58,8 +58,8 @@ func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {
 	response := &ResponseStats{
 		Type:                       "response",
-		RegistryAddressKey:         config.GetString(config.RegistryAddressKey),
-		EthereumJsonRpcEndpointKey: config.GetString(config.EthereumJsonRpcEndpointKey),
+		RegistryAddressKey:         config.GetRegistryAddress(),
+		EthereumJsonRpcEndpointKey: config.GetBlockChainEndPoint(),
 		RequestID:                  commonStat.ID,
 		ResponseTime:               strconv.FormatFloat(duration.Seconds(), 'f', 4, 64),
 		GroupID:                    daemonGroupId,

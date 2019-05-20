@@ -52,7 +52,16 @@ var stateServiceTest = func() stateServiceTestType {
 	}
 
 	paymentStorage := NewPaymentStorage(NewMemStorage())
+	defaultTestChannelData := &PaymentChannelData{
+		ChannelID:        defaultChannelId,
+		Sender:           senderAddress,
+		Signer:           signerAddress,
+		Signature:        defaultSignature,
+		Nonce:            big.NewInt(3),
+		AuthorizedAmount: big.NewInt(12345),
+	}
 
+	paymentStorage.Put(getPaymentFromChannel(defaultTestChannelData))
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
 			channelService: channelServiceMock,
@@ -63,16 +72,9 @@ var stateServiceTest = func() stateServiceTestType {
 		signerAddress:      signerAddress,
 		channelServiceMock: channelServiceMock,
 
-		defaultChannelId:  defaultChannelId,
-		defaultChannelKey: &PaymentChannelKey{ID: defaultChannelId},
-		defaultChannelData: &PaymentChannelData{
-			ChannelID:        defaultChannelId,
-			Sender:           senderAddress,
-			Signer:           signerAddress,
-			Signature:        defaultSignature,
-			Nonce:            big.NewInt(3),
-			AuthorizedAmount: big.NewInt(12345),
-		},
+		defaultChannelId:   defaultChannelId,
+		defaultChannelKey:  &PaymentChannelKey{ID: defaultChannelId},
+		defaultChannelData: defaultTestChannelData,
 		defaultRequest: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelId),
 			Signature: getSignature(bigIntToBytes(defaultChannelId), signerPrivateKey),
@@ -90,10 +92,6 @@ func TestGetChannelState(t *testing.T) {
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
 	)
-	payment := getPaymentFromChannel(stateServiceTest.defaultChannelData)
-	stateServiceTest.paymentStorage = NewPaymentStorage(NewMemStorage())
-	stateServiceTest.paymentStorage.Put(payment)
-
 	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
@@ -103,6 +101,18 @@ func TestGetChannelState(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, stateServiceTest.defaultReply, reply)
+	//Channel's nonce  =  blockchain nonce + 1
+	stateServiceTest.defaultChannelData.Nonce = big.NewInt(4)
+	reply, err = stateServiceTest.service.GetChannelState(
+		nil,
+		stateServiceTest.defaultRequest,
+	)
+	assert.Nil(t, err)
+	assert.NotNil(t, reply)
+
+	//reset the channel storage setting to default
+	stateServiceTest.defaultChannelData.Nonce = big.NewInt(3)
+
 }
 
 func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {

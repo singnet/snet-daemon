@@ -33,14 +33,6 @@ func (p *paymentChannelServiceMock) PaymentChannel(key *PaymentChannelKey) (*Pay
 	return p.data, true, nil
 }
 
-
-func (p *paymentChannelServiceMock) StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey)   (equal bool, err error) {
-	if p.key == nil || p.key.ID.Cmp(key.ID) != 0 {
-		return false, nil
-	}
-	return true, nil
-}
-
 func (p *paymentChannelServiceMock) Put(key *PaymentChannelKey, data *PaymentChannelData) {
 	p.key = key
 	p.data = data
@@ -114,7 +106,6 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 		panic(fmt.Errorf("Cannot put value into test storage: %v", err))
 	}
 
-
 	suite.service = NewPaymentChannelService(
 		suite.storage,
 		suite.paymentStorage,
@@ -131,7 +122,7 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
-		},func() ([32]byte, error) {
+		}, func() ([32]byte, error) {
 			return [32]byte{123}, nil
 		},
 	)
@@ -293,7 +284,6 @@ func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 
 func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 
-
 	service := suite.service
 	service.(*lockingPaymentChannelService).replicaGroupID =
 		func() ([32]byte, error) {
@@ -305,7 +295,7 @@ func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: [125 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
-	assert.NotNil(suite.T(),err)
+	assert.NotNil(suite.T(), err)
 	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
 	//Group ID is the same ( no error should happen)
 	//also re setting the value here again to make sure the original state is retained
@@ -316,5 +306,5 @@ func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 	channel, ok, err = suite.service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
 	assert.True(suite.T(), ok)
 	assert.NotNil(suite.T(), channel)
-	assert.Nil(suite.T(),err)
+	assert.Nil(suite.T(), err)
 }

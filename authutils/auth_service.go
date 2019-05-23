@@ -3,6 +3,7 @@ package authutils
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 	"math/big"
-	"context"
 )
 
 // TODO convert to separate authentication service. VERY MUCH REQUIRED FOR OPERATOR UI AUTHENTICATION
@@ -58,23 +58,23 @@ func VerifySigner(message []byte, signature []byte, signer common.Address) error
 		log.Error(err)
 		return err
 	}
-	if signerFromMessage.String() == signer.String(){
+	if signerFromMessage.String() == signer.String() {
 		return nil
 	}
 	return fmt.Errorf("Incorrect signer.")
 }
 
 //Check if the block number passed is not more +- 5 from the latest block number on chain
-func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
+func CompareBlockNumbers(blockNumberPassed *big.Int) error {
 	latestBlockNumber, err := CurrentBlock()
 	if err != nil {
 		return err
 	}
-	differenceInBlockNumber := latestBlockNumber.Cmp(blockNumberPassed)
-	if -5 <= differenceInBlockNumber || differenceInBlockNumber <= 5 {
-		return nil
+	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
+	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > 5 {
+		return fmt.Errorf("difference between the latest block chain number and the block number passed is %v ", differenceInBlockNumber)
 	}
-	return fmt.Errorf("difference between the latest block chain number and the block number passed is %v ", blockNumberPassed)
+	return nil
 }
 
 //Get the current block number from on chain
@@ -93,7 +93,7 @@ func CurrentBlock() (*big.Int, error) {
 }
 
 //Check if the payment address/signer passed matches to what is present in the metadata
-func VerifyPaymentAddress(address common.Address, paymentAddress common.Address) (error) {
+func VerifyPaymentAddress(address common.Address, paymentAddress common.Address) error {
 	isSameAddress := paymentAddress == address
 	if !isSameAddress {
 		return fmt.Errorf("the payment Address: %s  does not match to what has been registered", blockchain.AddressToHex(&address))

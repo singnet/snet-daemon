@@ -65,7 +65,7 @@ func VerifySigner(message []byte, signature []byte, signer common.Address) error
 }
 
 //Check if the block number passed is not more +- 5 from the latest block number on chain
-func CompareBlockNumbers(blockNumberPassed *big.Int) error {
+func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	latestBlockNumber, err := CurrentBlock()
 	if err != nil {
 		return err

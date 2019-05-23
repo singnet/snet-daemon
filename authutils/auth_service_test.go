@@ -11,11 +11,11 @@ import (
 func TestCompareWithLatestBlockNumber(t *testing.T) {
 	config.Vip().Set(config.EthereumJsonRpcEndpointKey, "https://ropsten.infura.io")
 	currentBlockNum, _ := CurrentBlock()
-	err := CompareBlockNumbers(currentBlockNum.Add(currentBlockNum, big.NewInt(13)))
+	err := CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(13)))
 	assert.Equal(t, "difference between the latest block chain number and the block number passed is 13 ", err.Error())
 
 	currentBlockNum, _ = CurrentBlock()
-	err = CompareBlockNumbers(currentBlockNum.Add(currentBlockNum, big.NewInt(5)))
+	err = CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(5)))
 	assert.Equal(t, nil, err)
 
 }

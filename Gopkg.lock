@@ -3,12 +3,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/OneOfOne/go-utils"
-  packages = ["memory"]
-  revision = "6019ff89a94ec143c5b0d449d0615708a19b4f63"
-
-[[projects]]
-  branch = "master"
   name = "github.com/agl/ed25519"
   packages = [".","edwards25519","extra25519"]
   revision = "5312a61534124124185d41f09206b9fef1d88403"
@@ -200,16 +194,16 @@
   version = "v1.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/ipfs/go-ipfs-api"
-  packages = [".","options"]
-  revision = "318010d8a1b693af9831135aee0c0c92936746cd"
+  packages = ["."]
+  revision = "c26fc48ff114bc48b2cc357f8d12484397f5738d"
+  version = "v1.3.5"
 
 [[projects]]
-  name = "github.com/ipfs/go-ipfs-files"
-  packages = ["."]
-  revision = "cf8456081cd5fd17ae1716c5fdff7d4cfba1bbb2"
-  version = "v0.0.3"
+  name = "github.com/ipfs/go-ipfs-cmdkit"
+  packages = ["files"]
+  revision = "23a066ae3c5d2db34e61ce8c75d71a4d99ee4864"
+  version = "v1.1.3"
 
 [[projects]]
   name = "github.com/jonboulle/clockwork"
@@ -264,6 +258,12 @@
   packages = ["."]
   revision = "e34f0d7468b3519bf9bf4e43c1d028ce651eab51"
   version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/libp2p/go-libp2p-pubsub"
+  packages = ["pb"]
+  revision = "3d408775deaf28da57cc356d37f2b8bf9c57db64"
+  version = "v0.10.2"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -390,12 +390,6 @@
   packages = ["."]
   revision = "ca016a06a5753f8ba03029c0aa5e54afb1bf713f"
   version = "v1.4.0"
-
-[[projects]]
-  name = "github.com/rs/xid"
-  packages = ["."]
-  revision = "15d26544def341f036c5f8dca987a4cbe575032c"
-  version = "v1.2.1"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -598,6 +592,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "951338082a298acd7696a25ace8cf84110a6adecf355c86ea3695ee595019f88"
+  inputs-digest = "8e539ba3dba157ad0e0c980c58290fae3e78374bc5981ffdbe2a65385729d87c"
   solver-name = "gps-cdcl"
   solver-version = 1

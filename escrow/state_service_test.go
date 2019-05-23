@@ -101,17 +101,39 @@ func TestGetChannelState(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, stateServiceTest.defaultReply, reply)
-	//Channel's nonce  =  blockchain nonce + 1
-	stateServiceTest.defaultChannelData.Nonce = big.NewInt(4)
-	reply, err = stateServiceTest.service.GetChannelState(
+
+}
+
+func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
+	latestSignature, _ := hex.DecodeString("0604030203")
+	oldSignature := stateServiceTest.defaultReply.CurrentSignature
+	defaultTestChannelData := &PaymentChannelData{
+		ChannelID:        stateServiceTest.defaultChannelId,
+		Sender:           stateServiceTest.senderAddress,
+		Signer:           stateServiceTest.signerAddress,
+		Signature:        latestSignature,
+		Nonce:            big.NewInt(3),
+		AuthorizedAmount: big.NewInt(123),
+	}
+	stateServiceTest.channelServiceMock.Put(
+		stateServiceTest.defaultChannelKey,
+		defaultTestChannelData,
+	)
+	//Now set the Channel's nonce  =  blockchain nonce + 1
+	defaultTestChannelData.Nonce = big.NewInt(4)
+
+	defer stateServiceTest.channelServiceMock.Clear()
+
+	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		stateServiceTest.defaultRequest,
 	)
 	assert.Nil(t, err)
-	assert.NotNil(t, reply)
-
-	//reset the channel storage setting to default
-	stateServiceTest.defaultChannelData.Nonce = big.NewInt(3)
+	assert.Equal(t, bigIntToBytes(big.NewInt(4)), reply.CurrentNonce)
+	assert.Equal(t, latestSignature, reply.CurrentSignature)
+	assert.Equal(t, bigIntToBytes(big.NewInt(123)), reply.CurrentSignedAmount)
+	assert.Equal(t, bigIntToBytes(big.NewInt(12345)), reply.OldNonceSignedAmount)
+	assert.Equal(t, oldSignature, reply.OldNonceSignature)
 
 }
 

@@ -100,12 +100,14 @@ func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {
 	channelId := big.NewInt(255)
 	stateServiceTest.channelServiceMock.Put(&PaymentChannelKey{ID: channelId}, stateServiceTest.defaultChannelData)
 	defer stateServiceTest.channelServiceMock.Clear()
-
+	currentBlock, _ := authutils.CurrentBlock()
 	reply, err := stateServiceTest.service.GetChannelState(
+
 		nil,
 		&ChannelStateRequest{
-			ChannelId: []byte{0xFF},
-			Signature: getSignature(bigIntToBytes(channelId), stateServiceTest.signerPrivateKey),
+			ChannelId:    []byte{0xFF},
+			Signature:    getSignature(bigIntToBytes(channelId), stateServiceTest.signerPrivateKey),
+			CurrentBlock: currentBlock.Uint64(),
 		},
 	)
 
@@ -118,12 +120,13 @@ func TestGetChannelStateChannelIdIncorrectSignature(t *testing.T) {
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
 	)
-
+	currentBlock, _ := authutils.CurrentBlock()
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		&ChannelStateRequest{
-			ChannelId: bigIntToBytes(stateServiceTest.defaultChannelId),
-			Signature: []byte{0x00},
+			ChannelId:    bigIntToBytes(stateServiceTest.defaultChannelId),
+			Signature:    []byte{0x00},
+			CurrentBlock: currentBlock.Uint64(),
 		},
 	)
 
@@ -163,7 +166,7 @@ func TestGetChannelStateIncorrectSender(t *testing.T) {
 		stateServiceTest.defaultChannelData,
 	)
 	defer stateServiceTest.channelServiceMock.Clear()
-
+	currentBlock, _ := authutils.CurrentBlock()
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		&ChannelStateRequest{
@@ -171,6 +174,7 @@ func TestGetChannelStateIncorrectSender(t *testing.T) {
 			Signature: getSignature(
 				bigIntToBytes(stateServiceTest.defaultChannelId),
 				GenerateTestPrivateKey()),
+			CurrentBlock: currentBlock.Uint64(),
 		},
 	)
 

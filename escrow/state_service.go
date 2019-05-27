@@ -88,6 +88,8 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	nonceEqual, err := service.StorageNonceMatchesWithBlockchainNonce(&PaymentChannelKey{ID: channelID})
 	if err != nil {
 		log.WithError(err).Infof("payment data not available in payment storage.")
+		return nil, err
+
 	} else if !nonceEqual {
 		// check for payments in the payment storage with current nonce - 1, this will happen  cli has issues in claiming process
 

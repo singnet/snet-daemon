@@ -36,6 +36,17 @@ func (storage *PaymentStorage) GetAll() (states []*Payment, err error) {
 	return values.([]*Payment), nil
 }
 
+func (storage *PaymentStorage) Get(paymentID string) (payment *Payment, ok bool,err error) {
+	value, ok, err := storage.delegate.Get(paymentID)
+	if err != nil {
+		return
+	}
+	if !ok {
+		return
+	}
+	return value.(*Payment), true, nil
+}
+
 func (storage *PaymentStorage) Put(payment *Payment) (err error) {
 	return storage.delegate.Put(payment.ID(), payment)
 }

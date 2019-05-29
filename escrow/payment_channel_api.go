@@ -30,7 +30,11 @@ func (p *Payment) String() string {
 }
 
 func (p *Payment) ID() string {
-	return fmt.Sprintf("%v/%v", p.ChannelID, p.ChannelNonce)
+	return PaymentID(p.ChannelID, p.ChannelNonce)
+}
+
+func PaymentID(channelID *big.Int, channelNonce *big.Int) string {
+	return fmt.Sprintf("%v/%v", channelID, channelNonce)
 }
 
 // PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It

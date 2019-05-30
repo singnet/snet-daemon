@@ -33,4 +33,10 @@ GO_VERSION=1.10.x
 now=$(date +'%Y-%m-%d_%T')
 #latest version tag is passed as a param to this script.
 TARGETS=linux/amd64,linux/arm-6,darwin-10.6/amd64,windows/amd64
-xgo -dest build -go $GO_VERSION -ldflags "-X github.com/singnet/snet-daemon/config.sha1Revision=`git rev-parse HEAD` -X github.com/singnet/snet-daemon/config.versionTag=$1 -X github.com/singnet/snet-daemon/config.buildTime=$now" -targets=$TARGETS ./snetd
+registryAddressJson=`cat resources/blockchain/node_modules/singularitynet-platform-contracts/networks/Registry.json|sed -r 's/["]+/\\"/g'|tr '\n' ' '`
+networkIdNameMapping=`cat resources/blockchain_network_config.json|tr '\n' ' '|sed -r 's/["]+/\\"/g'`
+xgo -dest build -go $GO_VERSION -ldflags "-X github.com/singnet/snet-daemon/config.sha1Revision=`git rev-parse HEAD`
+ -X github.com/singnet/snet-daemon/config.versionTag=$1
+ -X github.com/singnet/snet-daemon/config.buildTime=$now
+ -X github.com/singnet/snet-daemon/config.registryAddressJson=$registryAddressJson
+ -X github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson " -targets=$TARGETS ./snetd

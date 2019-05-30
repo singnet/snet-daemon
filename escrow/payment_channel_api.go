@@ -30,7 +30,11 @@ func (p *Payment) String() string {
 }
 
 func (p *Payment) ID() string {
-	return fmt.Sprintf("%v/%v", p.ChannelID, p.ChannelNonce)
+	return PaymentID(p.ChannelID, p.ChannelNonce)
+}
+
+func PaymentID(channelID *big.Int, channelNonce *big.Int) string {
+	return fmt.Sprintf("%v/%v", channelID, channelNonce)
 }
 
 // PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
@@ -124,9 +128,6 @@ type PaymentChannelService interface {
 
 	//Get Channel from BlockChain
 	PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
-
-	// verifies whether storage channel nonce is equal to blockchain nonce or not
-	StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey) (equal bool, err error)
 }
 
 // PaymentErrorCode contains all types of errors which we need to handle on the

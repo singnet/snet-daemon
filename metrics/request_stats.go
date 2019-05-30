@@ -20,6 +20,7 @@ type RequestStats struct {
 	ServiceID                  string `json:"service_id"`
 	GroupID                    string `json:"group_id"`
 	DaemonEndPoint             string `json:"daemon_end_point"`
+	Version                    string `json:"version"`
 }
 
 //Create a request Object and Publish this to a service end point
@@ -39,8 +40,8 @@ func (request *RequestStats) setDataFromContext(md metadata.MD) {
 func createRequestStat(commonStat *CommonStats) *RequestStats {
 	request := &RequestStats{
 		Type:                       "request",
-		RegistryAddressKey:         config.GetString(config.RegistryAddressKey),
-		EthereumJsonRpcEndpointKey: config.GetString(config.EthereumJsonRpcEndpointKey),
+		RegistryAddressKey:         config.GetRegistryAddress(),
+		EthereumJsonRpcEndpointKey: config.GetBlockChainEndPoint(),
 		RequestID:                  commonStat.ID,
 		GroupID:                    commonStat.GroupID,
 		DaemonEndPoint:             commonStat.DaemonEndPoint,
@@ -48,6 +49,7 @@ func createRequestStat(commonStat *CommonStats) *RequestStats {
 		ServiceID:                  commonStat.ServiceID,
 		RequestReceivedTime:        commonStat.RequestReceivedTime,
 		ServiceMethod:              commonStat.ServiceMethod,
+		Version:                    commonStat.Version,
 	}
 	return request
 }

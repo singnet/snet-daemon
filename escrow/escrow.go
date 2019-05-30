@@ -2,8 +2,6 @@ package escrow
 
 import (
 	"fmt"
-	"errors"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,7 +14,7 @@ type lockingPaymentChannelService struct {
 	blockchainReader *BlockchainChannelReader
 	locker           Locker
 	validator        *ChannelPaymentValidator
-	replicaGroupID    func() ([32]byte, error)
+	replicaGroupID   func() ([32]byte, error)
 }
 
 // NewPaymentChannelService returns instance of PaymentChannelService to work
@@ -26,7 +24,7 @@ func NewPaymentChannelService(
 	paymentStorage *PaymentStorage,
 	blockchainReader *BlockchainChannelReader,
 	locker Locker,
-	channelPaymentValidator *ChannelPaymentValidator,groupIdReader func() ([32]byte, error)) PaymentChannelService {
+	channelPaymentValidator *ChannelPaymentValidator, groupIdReader func() ([32]byte, error)) PaymentChannelService {
 
 	return &lockingPaymentChannelService{
 		storage:          storage,
@@ -34,34 +32,12 @@ func NewPaymentChannelService(
 		blockchainReader: blockchainReader,
 		locker:           locker,
 		validator:        channelPaymentValidator,
-		replicaGroupID: groupIdReader,
+		replicaGroupID:   groupIdReader,
 	}
 }
 
 func (h *lockingPaymentChannelService) PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	return h.blockchainReader.GetChannelStateFromBlockchain(key)
-}
-
-
-// check whether storage nonce and blockchain nonce of channel are equal or not
-func (h *lockingPaymentChannelService) StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey) (equal bool, err error) {
-	storageChannel, storageOk, err := h.storage.Get(key)
-	if err != nil {
-		return false, errors.New("storage channel error:" + err.Error())
-	}
-	if !storageOk {
-		return false, errors.New("unable to read channel details from storage.")
-	}
-
-	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
-	if err != nil {
-		return false, errors.New("blockchain channel error:" + err.Error())
-	}
-	if !blockchainOk {
-		return false, errors.New("unable to read channel details from blockchain.")
-	}
-
-	return storageChannel.Nonce.Cmp(blockchainChannel.Nonce) == 0, nil
 }
 
 func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
@@ -75,9 +51,9 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	if !storageOk {
 		//Group ID check is only done for the first time , when the channel is added to storage from the block chain ,
 		//if the channel is already present in the storage the group ID check is skipped.
-	    if blockchainChannel != nil {
-			blockChainGroupID,err := h.replicaGroupID()
-		    if err = h.verifyGroupId(blockChainGroupID,blockchainChannel.GroupID) ;err != nil {
+		if blockchainChannel != nil {
+			blockChainGroupID, err := h.replicaGroupID()
+			if err = h.verifyGroupId(blockChainGroupID, blockchainChannel.GroupID); err != nil {
 				return nil, false, err
 			}
 		}
@@ -91,7 +67,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 }
 
 //Check if the channel belongs to the same group Id
-func (h *lockingPaymentChannelService) verifyGroupId(configGroupID [32]byte ,blockChainGroupID  [32]byte ) error {
+func (h *lockingPaymentChannelService) verifyGroupId(configGroupID [32]byte, blockChainGroupID [32]byte) error {
 	if blockChainGroupID != configGroupID {
 		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
 		return fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, blockChainGroupID)

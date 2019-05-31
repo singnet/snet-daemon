@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -17,6 +18,7 @@ type stateServiceTestType struct {
 	signerPrivateKey   *ecdsa.PrivateKey
 	signerAddress      common.Address
 	channelServiceMock *paymentChannelServiceMock
+	paymentStorage     *PaymentStorage
 
 	defaultChannelId   *big.Int
 	defaultChannelKey  *PaymentChannelKey
@@ -31,31 +33,55 @@ var stateServiceTest = func() stateServiceTestType {
 	signerPrivateKey := GenerateTestPrivateKey()
 	signerAddress := crypto.PubkeyToAddress(signerPrivateKey.PublicKey)
 
+	channelServiceMock.blockchainReader = &BlockchainChannelReader{}
 	defaultChannelId := big.NewInt(42)
+	channelServiceMock.blockchainReader.readChannelFromBlockchain = func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
+		mpeChannel := &blockchain.MultiPartyEscrowChannel{
+			Recipient: senderAddress,
+			Nonce:     big.NewInt(3),
+		}
+		if channelID.Cmp(big.NewInt(33)) == 0 {
+			return nil, true, errors.New("Test error from blockchain reads")
+		} else if channelID.Cmp(big.NewInt(333)) == 0 {
+			return mpeChannel, false, nil
+		}
+		return mpeChannel, true, nil
+
+	}
+
+	channelServiceMock.blockchainReader.recipientPaymentAddress = func() common.Address {
+		return senderAddress
+	}
+
 	defaultSignature, err := hex.DecodeString("0504030201")
 	if err != nil {
 		panic("Could not make defaultSignature")
 	}
 
+	paymentStorage := NewPaymentStorage(NewMemStorage())
+	defaultTestChannelData := &PaymentChannelData{
+		ChannelID:        defaultChannelId,
+		Sender:           senderAddress,
+		Signer:           signerAddress,
+		Signature:        defaultSignature,
+		Nonce:            big.NewInt(3),
+		AuthorizedAmount: big.NewInt(12345),
+	}
+
+	paymentStorage.Put(getPaymentFromChannel(defaultTestChannelData))
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
 			channelService: channelServiceMock,
+			paymentStorage: paymentStorage,
 		},
 		senderAddress:      senderAddress,
 		signerPrivateKey:   signerPrivateKey,
 		signerAddress:      signerAddress,
 		channelServiceMock: channelServiceMock,
 
-		defaultChannelId:  defaultChannelId,
-		defaultChannelKey: &PaymentChannelKey{ID: defaultChannelId},
-		defaultChannelData: &PaymentChannelData{
-			ChannelID:        defaultChannelId,
-			Sender:           senderAddress,
-			Signer:           signerAddress,
-			Signature:        defaultSignature,
-			Nonce:            big.NewInt(3),
-			AuthorizedAmount: big.NewInt(12345),
-		},
+		defaultChannelId:   defaultChannelId,
+		defaultChannelKey:  &PaymentChannelKey{ID: defaultChannelId},
+		defaultChannelData: defaultTestChannelData,
 		defaultRequest: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelId),
 			Signature: getSignature(bigIntToBytes(defaultChannelId), signerPrivateKey),
@@ -82,6 +108,88 @@ func TestGetChannelState(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, stateServiceTest.defaultReply, reply)
+
+}
+
+func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
+	latestSignature, _ := hex.DecodeString("0604030203")
+	oldSignature := stateServiceTest.defaultReply.CurrentSignature
+	defaultTestChannelData := &PaymentChannelData{
+		ChannelID:        stateServiceTest.defaultChannelId,
+		Sender:           stateServiceTest.senderAddress,
+		Signer:           stateServiceTest.signerAddress,
+		Signature:        latestSignature,
+		Nonce:            big.NewInt(3),
+		AuthorizedAmount: big.NewInt(123),
+	}
+	stateServiceTest.channelServiceMock.Put(
+		stateServiceTest.defaultChannelKey,
+		defaultTestChannelData,
+	)
+	//Now set the Channel's nonce  =  blockchain nonce + 1
+	defaultTestChannelData.Nonce = big.NewInt(4)
+
+	defer stateServiceTest.channelServiceMock.Clear()
+
+	reply, err := stateServiceTest.service.GetChannelState(
+		nil,
+		stateServiceTest.defaultRequest,
+	)
+	assert.Nil(t, err)
+	assert.Equal(t, bigIntToBytes(big.NewInt(4)), reply.CurrentNonce)
+	assert.Equal(t, latestSignature, reply.CurrentSignature)
+	assert.Equal(t, bigIntToBytes(big.NewInt(123)), reply.CurrentSignedAmount)
+	assert.Equal(t, bigIntToBytes(big.NewInt(12345)), reply.OldNonceSignedAmount)
+	assert.Equal(t, oldSignature, reply.OldNonceSignature)
+
+}
+
+func TestStorageNonceMatchesWithBlockchainNonce(t *testing.T) {
+
+	defer stateServiceTest.channelServiceMock.Clear()
+	newRequest := &ChannelStateRequest{
+		ChannelId: bigIntToBytes(big.NewInt(33)),
+		Signature: getSignature(bigIntToBytes(big.NewInt(333)), stateServiceTest.signerPrivateKey),
+	}
+
+	latestSignature, _ := hex.DecodeString("0604030203")
+	defaultTestChannelData := &PaymentChannelData{
+		ChannelID:        big.NewInt(333),
+		Sender:           stateServiceTest.senderAddress,
+		Signer:           stateServiceTest.signerAddress,
+		Signature:        latestSignature,
+		Nonce:            big.NewInt(4),
+		AuthorizedAmount: big.NewInt(333),
+	}
+	stateServiceTest.channelServiceMock.Put(
+		&PaymentChannelKey{ID: big.NewInt(333)},
+		defaultTestChannelData,
+	)
+	//Now set the Channel's nonce  =  blockchain nonce + 1
+	defaultTestChannelData.Nonce = big.NewInt(3)
+	stateServiceTest.channelServiceMock.Put(
+		&PaymentChannelKey{ID: big.NewInt(333)},
+		defaultTestChannelData,
+	)
+	newRequest.ChannelId = bigIntToBytes(big.NewInt(333))
+	_, err := stateServiceTest.service.GetChannelState(
+		nil,
+		newRequest,
+	)
+	assert.Equal(t, err.Error(), "unable to read channel details from blockchain.")
+
+	stateServiceTest.channelServiceMock.Put(
+		&PaymentChannelKey{ID: big.NewInt(33)},
+		defaultTestChannelData,
+	)
+	newRequest.ChannelId = bigIntToBytes(big.NewInt(33))
+	newRequest.Signature = getSignature(bigIntToBytes(big.NewInt(33)), stateServiceTest.signerPrivateKey)
+	_, err = stateServiceTest.service.GetChannelState(
+		nil,
+		newRequest,
+	)
+	assert.Equal(t, err.Error(), "channel error:Test error from blockchain reads")
+
 }
 
 func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {
@@ -180,5 +288,9 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 	expectedReply := stateServiceTest.defaultReply
 	expectedReply.CurrentSignedAmount = nil
 	expectedReply.CurrentSignature = nil
+	expectedReply.OldNonceSignature = nil
+	expectedReply.OldNonceSignedAmount = nil
 	assert.Equal(t, expectedReply, reply)
 }
+
+// Claim tests are already added to escrow_test.go

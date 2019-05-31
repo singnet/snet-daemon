@@ -13,6 +13,7 @@ func TestCreateResponseStats(t *testing.T) {
 	commonStat := BuildCommonStats(arrivalTime, "TestMethod")
 	response := createResponseStats(commonStat, time.Duration(1234566000), nil)
 	assert.Equal(t, response.RequestID, commonStat.ID)
+	assert.Equal(t, response.Version, commonStat.Version)
 	assert.Equal(t, response.GroupID, daemonGroupId)
 	assert.Equal(t, response.ResponseTime, "1.2346")
 	assert.Equal(t, response.Type, "response")

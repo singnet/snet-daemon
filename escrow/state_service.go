@@ -79,12 +79,8 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	}
 
 	//For backward compatibility
+	oldProto := false
 	blockNumberPassed := int64(request.CurrentBlock)
-	if blockNumberPassed > 0 {
-		if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
-			return nil, err
-		}
-	}
 
 	// signature verification
 	message := bytes.Join([][]byte{
@@ -110,6 +106,15 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		}
 		if channel.Signer != *sender {
 			return nil, errors.New("only channel signer can get latest channel state")
+		}
+		if blockNumberPassed == 0 {
+			oldProto = true
+		}
+	}
+
+	if !oldProto {
+		if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+			return nil, err
 		}
 	}
 

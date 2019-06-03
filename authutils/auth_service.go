@@ -96,7 +96,7 @@ func CurrentBlock() (*big.Int, error) {
 func VerifyAddress(address common.Address, otherAddress common.Address) error {
 	isSameAddress := otherAddress == address
 	if !isSameAddress {
-		return fmt.Errorf("the payment Address: %s  does not match to what has been registered", blockchain.AddressToHex(&address))
+		return fmt.Errorf("the  Address: %s  does not match to what has been expected / registered", blockchain.AddressToHex(&address))
 	}
 	return nil
 }

@@ -93,8 +93,8 @@ func CurrentBlock() (*big.Int, error) {
 }
 
 //Check if the payment address/signer passed matches to what is present in the metadata
-func VerifyPaymentAddress(address common.Address, paymentAddress common.Address) error {
-	isSameAddress := paymentAddress == address
+func VerifyAddress(address common.Address, otherAddress common.Address) error {
+	isSameAddress := otherAddress == address
 	if !isSameAddress {
 		return fmt.Errorf("the payment Address: %s  does not match to what has been registered", blockchain.AddressToHex(&address))
 	}

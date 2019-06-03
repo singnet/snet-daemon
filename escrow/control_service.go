@@ -129,13 +129,13 @@ func (service *ProviderControlService) listChannels() (*PaymentsListReply, error
 }
 
 //message used to sign is of the form ("__list_unclaimed", mpe_address, current_block_number)
-func (service *ProviderControlService) verifySignerForListUnclaimed(request *GetPaymentsListRequest) (error) {
+func (service *ProviderControlService) verifySignerForListUnclaimed(request *GetPaymentsListRequest) error {
 	return service.verifySigner(service.getMessageBytes("__list_unclaimed", request), request.GetSignature())
 }
 
 func (service *ProviderControlService) getMessageBytes(prefixMessage string, request *GetPaymentsListRequest) []byte {
 	message := bytes.Join([][]byte{
-		[]byte (prefixMessage),
+		[]byte(prefixMessage),
 		service.serviceMetaData.GetMpeAddress().Bytes(),
 		abi.U256(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
@@ -148,7 +148,7 @@ func (service *ProviderControlService) verifySigner(message []byte, signature []
 		log.Error(err)
 		return err
 	}
-	if err = authutils.VerifyPaymentAddress(*signer, service.serviceMetaData.GetPaymentAddress()); err != nil  {
+	if err = authutils.VerifyAddress(*signer, service.serviceMetaData.GetPaymentAddress()); err != nil {
 		return err
 	}
 	return nil
@@ -174,7 +174,7 @@ func (service *ProviderControlService) beginClaimOnChannel(channelId *big.Int) (
 	paymentReply := &PaymentReply{
 		ChannelId:    bigIntToBytes(channelId),
 		ChannelNonce: bigIntToBytes(payment.ChannelNonce),
-		Signature:payment.Signature,
+		Signature:    payment.Signature,
 		SignedAmount: bigIntToBytes(payment.Amount),
 	}
 	return paymentReply, nil
@@ -190,7 +190,7 @@ func (service *ProviderControlService) verifySignerForStartClaim(startClaim *Sta
 		return err
 	}
 	message := bytes.Join([][]byte{
-		[]byte ("__start_claim"),
+		[]byte("__start_claim"),
 		service.serviceMetaData.GetMpeAddress().Bytes(),
 		bigIntToBytes(channelId),
 		bigIntToBytes(latestChannel.Nonce),
@@ -228,7 +228,7 @@ func (service *ProviderControlService) listClaims() (*PaymentsListReply, error) 
 }
 
 //message used to sign is of the form ("__list_in_progress", mpe_address, current_block_number)
-func (service *ProviderControlService) verifySignerForListInProgress(request *GetPaymentsListRequest) (error) {
+func (service *ProviderControlService) verifySignerForListInProgress(request *GetPaymentsListRequest) error {
 	return service.verifySigner(service.getMessageBytes("__list_in_progress", request), request.GetSignature())
 }
 
@@ -268,7 +268,7 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 }
 
 //Check if the mpe address passed matches to what is present in the metadata.
-func (service *ProviderControlService) checkMpeAddress(mpeAddress string) (error) {
+func (service *ProviderControlService) checkMpeAddress(mpeAddress string) error {
 	isSameAddress := strings.Compare(service.serviceMetaData.MpeAddress, mpeAddress) == 0
 	if !isSameAddress {
 		return fmt.Errorf("the mpeAddress: %s passed does not match to what has been registered", mpeAddress)

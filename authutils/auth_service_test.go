@@ -10,9 +10,10 @@ import (
 
 func TestCompareWithLatestBlockNumber(t *testing.T) {
 	config.Vip().Set(config.EthereumJsonRpcEndpointKey, "https://ropsten.infura.io")
+	config.Validate()
 	currentBlockNum, _ := CurrentBlock()
 	err := CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(13)))
-	assert.Equal(t, err.Error(), "difference between the latest block chain number and the block number passed is 13 ")
+	assert.Equal(t, err.Error(), "authentication failed as the signature passed has expired")
 
 	currentBlockNum, _ = CurrentBlock()
 	err = CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(1)))

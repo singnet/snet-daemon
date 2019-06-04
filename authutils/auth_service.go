@@ -18,6 +18,11 @@ import (
 
 // Extracts the signer address from signature given the signature
 // It returns signer address and error. nil error indicates the successful function execution
+
+const (
+	AllowedBlockChainDifference = 5
+)
+
 func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
 	log := log.WithFields(log.Fields{
 		"message":   blockchain.BytesToBase64(message),
@@ -71,8 +76,8 @@ func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 		return err
 	}
 	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
-	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > 5 {
-		return fmt.Errorf("difference between the latest block chain number and the block number passed is %v ", differenceInBlockNumber)
+	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > AllowedBlockChainDifference {
+		return fmt.Errorf("authentication failed as the signature passed has expired")
 	}
 	return nil
 }

@@ -292,5 +292,3 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 	expectedReply.OldNonceSignedAmount = nil
 	assert.Equal(t, expectedReply, reply)
 }
-
-// Claim tests are already added to escrow_test.go

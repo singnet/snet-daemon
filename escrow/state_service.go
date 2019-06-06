@@ -20,22 +20,14 @@ type PaymentChannelStateService struct {
 }
 
 // verifies whether storage channel nonce is equal to blockchain nonce or not
-func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonce(key *PaymentChannelKey) (equal bool, err error) {
+func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonce(storageChannel *PaymentChannelData) (equal bool, err error) {
 	h := service.channelService
-	//This will always give you the latest channel Nonce
-	storageChannel, storageOk, err := h.PaymentChannel(key)
-	if err != nil {
-		return
-	}
-	if !storageOk {
-		return false, errors.New("unable to read channel details from storage.")
-	}
 
-	blockchainChannel, blockchainOk, err := h.PaymentChannelFromBlockChain(key)
+	blockchainChannel, ok, err := h.PaymentChannelFromBlockChain(&PaymentChannelKey{ID: storageChannel.ChannelID})
 	if err != nil {
 		return false, errors.New("channel error:" + err.Error())
 	}
-	if !blockchainOk {
+	if !ok {
 		return false, errors.New("unable to read channel details from blockchain.")
 	}
 
@@ -119,7 +111,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	}
 
 	// check if nonce matches with blockchain or not
-	nonceEqual, err := service.StorageNonceMatchesWithBlockchainNonce(&PaymentChannelKey{ID: channelID})
+	nonceEqual, err := service.StorageNonceMatchesWithBlockchainNonce(channel)
 	if err != nil {
 		log.WithError(err).Infof("payment data not available in payment storage.")
 		return nil, err

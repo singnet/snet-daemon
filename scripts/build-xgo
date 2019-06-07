@@ -39,4 +39,4 @@ xgo -dest build -go $GO_VERSION -ldflags "-X github.com/singnet/snet-daemon/conf
  -X github.com/singnet/snet-daemon/config.versionTag=$1
  -X github.com/singnet/snet-daemon/config.buildTime=$now
  -X github.com/singnet/snet-daemon/config.registryAddressJson=$registryAddressJson
- -X github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson " -targets=$TARGETS ./snetd
+ -X github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson" -targets=$TARGETS ./snetd

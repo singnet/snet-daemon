@@ -30,6 +30,7 @@ type Components struct {
 	etcdLockerStorage          *escrow.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
+	paymentStorage             *escrow.PaymentStorage
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -166,6 +167,16 @@ func (components *Components) AtomicStorage() escrow.AtomicStorage {
 	return components.atomicStorage
 }
 
+func (components *Components) PaymentStorage() *escrow.PaymentStorage {
+	if components.paymentStorage != nil {
+		return components.paymentStorage
+	}
+
+	components.paymentStorage = escrow.NewPaymentStorage(components.AtomicStorage())
+
+	return components.paymentStorage
+}
+
 func (components *Components) PaymentChannelService() escrow.PaymentChannelService {
 	if components.paymentChannelService != nil {
 		return components.paymentChannelService
@@ -173,10 +184,10 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
-		escrow.NewPaymentStorage(components.AtomicStorage()),
+		components.PaymentStorage(),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()),func() ([32]byte, error) {
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()), func() ([32]byte, error) {
 			s := components.ServiceMetaData().GetDaemonGroupID()
 			return s, nil
 		},
@@ -239,7 +250,8 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 
 	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(
 		components.PaymentChannelService(),
-		escrow.NewPaymentStorage(components.AtomicStorage()),)
+		components.PaymentStorage(),
+	)
 
 	return components.paymentChannelStateService
 }
@@ -251,7 +263,7 @@ func (components *Components) ProviderControlService() (service *escrow.Provider
 		return components.providerControlService
 	}
 
-	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),components.ServiceMetaData())
+	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(), components.ServiceMetaData())
 	return components.providerControlService
 }
 
@@ -260,6 +272,6 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 		return components.daemonHeartbeat
 	}
 	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
-	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID:metrics.GetDaemonID()}
+	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID()}
 	return components.daemonHeartbeat
 }

@@ -15,7 +15,7 @@ jobs:
             sudo apt-get install protobuf-compiler
             # install golint
             sudo apt-get install golint
-            ./scripts/install_docker
+            sudo ./scripts/install_docker
       - run:
           name: Run install script
           command: ./scripts/install

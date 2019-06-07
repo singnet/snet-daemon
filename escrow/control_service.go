@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -39,7 +39,7 @@ func (service *ProviderControlService) GetListUnclaimed(ctx context.Context, req
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
 		return nil, err
 	}
-	if err := compareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
 		return nil, err
 	}
 	//Check if the signer is valid
@@ -61,7 +61,7 @@ func (service *ProviderControlService) GetListInProgress(ctx context.Context, re
 		return nil, err
 	}
 
-	if err := compareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
 		return nil, err
 	}
 
@@ -129,13 +129,13 @@ func (service *ProviderControlService) listChannels() (*PaymentsListReply, error
 }
 
 //message used to sign is of the form ("__list_unclaimed", mpe_address, current_block_number)
-func (service *ProviderControlService) verifySignerForListUnclaimed(request *GetPaymentsListRequest) (error) {
+func (service *ProviderControlService) verifySignerForListUnclaimed(request *GetPaymentsListRequest) error {
 	return service.verifySigner(service.getMessageBytes("__list_unclaimed", request), request.GetSignature())
 }
 
 func (service *ProviderControlService) getMessageBytes(prefixMessage string, request *GetPaymentsListRequest) []byte {
 	message := bytes.Join([][]byte{
-		[]byte (prefixMessage),
+		[]byte(prefixMessage),
 		service.serviceMetaData.GetMpeAddress().Bytes(),
 		abi.U256(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
@@ -143,12 +143,12 @@ func (service *ProviderControlService) getMessageBytes(prefixMessage string, req
 }
 
 func (service *ProviderControlService) verifySigner(message []byte, signature []byte) error {
-	signer, err := getSignerAddressFromMessage(message, signature)
+	signer, err := authutils.GetSignerAddressFromMessage(message, signature)
 	if err != nil {
 		log.Error(err)
 		return err
 	}
-	if err = service.verifyPaymentAddress(*signer); err != nil {
+	if err = authutils.VerifyAddress(*signer, service.serviceMetaData.GetPaymentAddress()); err != nil {
 		return err
 	}
 	return nil
@@ -174,7 +174,7 @@ func (service *ProviderControlService) beginClaimOnChannel(channelId *big.Int) (
 	paymentReply := &PaymentReply{
 		ChannelId:    bigIntToBytes(channelId),
 		ChannelNonce: bigIntToBytes(payment.ChannelNonce),
-		Signature:payment.Signature,
+		Signature:    payment.Signature,
 		SignedAmount: bigIntToBytes(payment.Amount),
 	}
 	return paymentReply, nil
@@ -190,7 +190,7 @@ func (service *ProviderControlService) verifySignerForStartClaim(startClaim *Sta
 		return err
 	}
 	message := bytes.Join([][]byte{
-		[]byte ("__start_claim"),
+		[]byte("__start_claim"),
 		service.serviceMetaData.GetMpeAddress().Bytes(),
 		bigIntToBytes(channelId),
 		bigIntToBytes(latestChannel.Nonce),
@@ -228,7 +228,7 @@ func (service *ProviderControlService) listClaims() (*PaymentsListReply, error) 
 }
 
 //message used to sign is of the form ("__list_in_progress", mpe_address, current_block_number)
-func (service *ProviderControlService) verifySignerForListInProgress(request *GetPaymentsListRequest) (error) {
+func (service *ProviderControlService) verifySignerForListInProgress(request *GetPaymentsListRequest) error {
 	return service.verifySigner(service.getMessageBytes("__list_in_progress", request), request.GetSignature())
 }
 
@@ -267,49 +267,11 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 	return nil
 }
 
-//Check if the payment address/signer passed matches to what is present in the metadata
-func (service *ProviderControlService) verifyPaymentAddress(address common.Address) (error) {
-	isSameAddress := service.serviceMetaData.GetPaymentAddress() == address
-	if !isSameAddress {
-		return fmt.Errorf("the payment Address: %s  does not match to what has been registered", blockchain.AddressToHex(&address))
-	}
-	return nil
-}
-
 //Check if the mpe address passed matches to what is present in the metadata.
-func (service *ProviderControlService) checkMpeAddress(mpeAddress string) (error) {
+func (service *ProviderControlService) checkMpeAddress(mpeAddress string) error {
 	isSameAddress := strings.Compare(service.serviceMetaData.MpeAddress, mpeAddress) == 0
 	if !isSameAddress {
 		return fmt.Errorf("the mpeAddress: %s passed does not match to what has been registered", mpeAddress)
 	}
 	return nil
-}
-
-//Check if the block number passed is not more +- 5 from the latest block number on chain
-func compareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
-	latestBlockNumber, err := currentBlock()
-	if err != nil {
-		return err
-	}
-	differenceInBlockNumber := latestBlockNumber.Cmp(blockNumberPassed)
-	if -5 <= differenceInBlockNumber || differenceInBlockNumber <= 5 {
-		return nil
-	}
-	return fmt.Errorf("difference between the latest block chain number and the block number passed is %v ", blockNumberPassed)
-}
-
-//Get the current block number from on chain
-func currentBlock() (*big.Int, error) {
-	if ethClient, err := blockchain.GetEthereumClient(); err != nil {
-		return nil, err
-	} else {
-		defer ethClient.RawClient.Close()
-		var currentBlockHex string
-		if err = ethClient.RawClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
-			log.WithError(err).Error("error determining current block")
-			return nil, fmt.Errorf("error determining current block: %v", err)
-		}
-		return new(big.Int).SetBytes(common.FromHex(currentBlockHex)), nil
-	}
-
 }

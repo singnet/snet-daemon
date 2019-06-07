@@ -123,8 +123,6 @@ message ConfigurationParameter {
     string defaultValue = 9 ;
 }
 
-
-
 //Response sent back by Daemon on Read or Successful update
 message ConfigurationResponse {
     //Signature will compromise of the below

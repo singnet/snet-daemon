@@ -77,7 +77,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	// signature verification
 	message := bytes.Join([][]byte{
 		[]byte("__get_channel_state"),
-		channelID.Bytes(),
+		bigIntToBytes(channelID),
 		abi.U256(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	signature := request.GetSignature()

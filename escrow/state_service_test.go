@@ -53,11 +53,13 @@ var stateServiceTest = func() stateServiceTestType {
 	}
 
 	paymentStorage := NewPaymentStorage(NewMemStorage())
+	verificationAddress:= common.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
 			channelService: channelServiceMock,
 			paymentStorage: paymentStorage,
+			mpeAddress: func() common.Address {return verificationAddress},
 		},
 		senderAddress:      senderAddress,
 		signerPrivateKey:   signerPrivateKey,

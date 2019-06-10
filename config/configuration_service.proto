@@ -7,7 +7,7 @@ package config;
 
 service ConfigurationService {
     //Used when you just need to read the current configuration
-    rpc GetConfiguration (ReadRequest) returns (ConfigurationResponse) {
+    rpc GetConfiguration (EmptyRequest) returns (ConfigurationResponse) {
     }
 
     //Used when you want to update the existing configuration
@@ -16,38 +16,40 @@ service ConfigurationService {
 
     //This is used to instruct the Daemon to stop taking in any new requests,
     //At this point , however any existing requests being processed will be honored.
-    // ("_Request_Stop", "block_number",authentication_address) should be sent in the signature
-    rpc StopProcessingRequests (CommandRequest) returns (Response) {
+    // ("_StopProcessingRequests", "block_number",authentication_address) should be sent in the signature
+    rpc StopProcessingRequests (EmptyRequest) returns (StatusResponse) {
     }
 
     //Restores the normal behavior to start processing new requests again
-    // ("_Request_Start", "block_number",authentication_address) should be sent in the signature
-    rpc StartProcessingRequests (CommandRequest) returns (Response) {
+    // ("_StartProcessingRequests", "block_number",authentication_address) should be sent in the signature
+    rpc StartProcessingRequests (EmptyRequest) returns (StatusResponse) {
     }
 
     //To Determine if the Daemon is processing requests are not.
-    // ("__Is_Daemon_Processing_Requests", "block_number",authentication_address) should be sent in the signature
-    rpc IsDaemonProcessingRequests (ReadRequest) returns (Response) {
+    // ("_IsDaemonProcessingRequests", "block_number",authentication_address) should be sent in the signature
+    rpc IsDaemonProcessingRequests (EmptyRequest) returns (StatusResponse) {
     }
 
 
 
 }
 
-//Used when you just need to read the current configuration
-message ReadRequest {
-    //Signature will compromise of the below
-    // ("_Request_Read", "block_number",authentication_address)
-    //OR
-    //("__Is_Daemon_Processing_Requests", "block_number",authentication_address)
+//Caller authentication message
+message CallerAuthentication {
+    //Signature will compromise the following data:
+    // (_method name, current block, user address) signed by private key
+    // Example ("_GetConfiguration", "block_number",authentication_address OR ("_IsDaemonProcessingRequests", "block_number",authentication_address)
     bytes signature = 1;
-
     //current block number (signature will be valid only for short time around this block number)
     uint64 current_block = 2;
-
     //The address of the person who has rights to make configuration changes on Daemon
-    string user_address = 4;
+    string user_address = 3;
+}
 
+//Used with methods which don't have other parameters except authentication data
+message EmptyRequest {
+    //Caller authentication data
+    CallerAuthentication auth = 1;
 }
 
 
@@ -68,24 +70,22 @@ message UpdateRequest {
 
 }
 
-message CommandRequest {
-    //Signature will compromise one of the below
-    // ("_Request_Start", "block_number",authentication_address) for the StartProcessingRequests
-    // ("_Request_Stop", "block_number",authentication_address) for the StopProcessingRequests
-    bytes signature = 1;
-    //current block number (signature will be valid only for short time around this block number)
-    uint64 current_block = 2;
-    //The address of the person who has rights to make configuration changes on Daemon
-    string user_address = 3;
-}
 
-
-message Response {
+message StatusResponse {
     //Signature will compromise of the below
     //(block_number,authentication_address)
     bytes signature = 1;
-    //Indicates the current processing status ( true means Daemon is processing and false means it is not processing any requests)
-    bool current_processing_status = 2;
+    //Indicates the current processing status
+    enum Status {
+        //Daemon has no request in progress ( but is ready to process requests
+        IDLE = 0;
+        //Daemon is processing requests currently
+        REQUEST_IN_PROGRESS = 1;
+        //Daemon will not process any requests in this state ( The Daemon gets in to this state when the StopProcessingRequests method is called)
+        HAS_STOPPED_PROCESSING_REQUESTS =2;
+    }
+    //Indicates the current processing status
+    Status current_processing_status = 2;
 }
 
 

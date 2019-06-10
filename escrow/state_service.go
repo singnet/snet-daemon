@@ -62,18 +62,6 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	}).Debug("GetChannelState called")
 
 	channelID := bytesToBigInt(request.GetChannelId())
-	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelID})
-	if err != nil {
-		return nil, errors.New("channel error:" + err.Error())
-	}
-	if !ok {
-		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
-	}
-
-	//For backward compatibility
-	oldProto := false
-	blockNumberPassed := int64(request.CurrentBlock)
-
 	// signature verification
 	message := bytes.Join([][]byte{
 		[]byte("__get_channel_state"),
@@ -86,6 +74,19 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	if err != nil {
 		return nil, errors.New("incorrect signature")
 	}
+	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelID})
+	if err != nil {
+		return nil, errors.New("channel error:" + err.Error())
+	}
+	if !ok {
+		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
+	}
+
+	//For backward compatibility
+	oldProto := false
+	blockNumberPassed := int64(request.CurrentBlock)
+
+
 
 	//TODO remove this fall back to older signature versions. this is temporary, only to enable backward compatibility
 	// with other components

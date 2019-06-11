@@ -93,12 +93,10 @@ message StatusResponse {
 message ConfigurationParameter {
     //Indicates the name of the Configuration
     string name = 1;
-    //Indicates the value of the parameter
-    string value = 2;
     //Used to help fill in details on the UI ( might be used to indicate if a field is mandatory or not)
-    bool mandatory = 3;
+    bool mandatory = 2;
     //Describes the usage of the this configuration
-    string description = 4;
+    string description = 3;
     //Used to indicate the type of the given field ( this will be used as validations while editing a field value)
     enum Type {
         STRING = 0;
@@ -107,20 +105,20 @@ message ConfigurationParameter {
         BOOLEAN =4;
         ADDRESS=5;
     }
-    Type type = 5;
+    Type type = 4;
     //An option to never edit some configurations ( by default, a configuration will be editable )
-    bool editable = 6;
+    bool editable = 5;
     //This is used to bucket possible impact of editing a configuration, for now we just have 2
     enum UpdateAction {
         RESTART_REQUIRED = 0;
         NO_IMPACT = 1;
     }
     //This will indicate if a restart of the Daemon is required or not and is tied to what configuration is changed.
-    UpdateAction restart_daemon = 7;
+    UpdateAction restart_daemon = 6;
     //This is used to group the Daemon configurations ( for example say all block chain related configurations will have the section 'blockchain'
-    string section = 8;
+    string section = 7;
     //This is used to indicate the default value that would have been used unless specified
-    string defaultValue = 9 ;
+    string defaultValue = 8 ;
 }
 
 //Response sent back by Daemon on Read or Successful update
@@ -128,7 +126,15 @@ message ConfigurationResponse {
     //Signature will compromise of the below
     //(block_number,authentication_address,ConfigurationParameter)
     bytes signature = 1;
+    //Holds the current configuration of the Daemon
+    map<string, string> current_configuration = 2;
 
-    //Holds the current configuration of Daemon and is sent back in the response.
-    repeated ConfigurationParameter configuration = 2;
+    //Holds the current static configuration of Daemon ( Various details of of every leaf level attribute )
+    //of Daemon.
+    ConfigurationSchema schema = 3;
+}
+
+//Holds the entire static attributes associated
+message ConfigurationSchema {
+    repeated  ConfigurationParameter details =1;
 }

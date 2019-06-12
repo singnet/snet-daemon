@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/blockchain/price"
 	"math/big"
 
 	"github.com/singnet/snet-daemon/handler"
@@ -32,16 +33,17 @@ type IncomeValidator interface {
 
 type incomeValidator struct {
 	priceInCogs *big.Int
+	priceStrategy *price.PricingStrategy
 }
 
 // NewIncomeValidator returns new income validator instance
-func NewIncomeValidator(priceInCogs *big.Int) (validator IncomeValidator) {
-	return &incomeValidator{priceInCogs: priceInCogs}
+func NewIncomeValidator(priceInCogs *big.Int,strategy *price.PricingStrategy) (validator IncomeValidator) {
+	return &incomeValidator{priceInCogs: priceInCogs,priceStrategy:strategy}
 }
 
 func (validator *incomeValidator) Validate(data *IncomeData) (err error) {
-
-	price := validator.priceInCogs
+//TO DO, the user request information from IncomeData needs to be passed here !!!!
+	price,_ := validator.priceStrategy.GetPrice(nil)
 
 	if data.Income.Cmp(price) != 0 {
 		err = NewPaymentError(Unauthenticated, "income %d does not equal to price %d", data.Income, price)

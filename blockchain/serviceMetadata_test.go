@@ -54,7 +54,9 @@ func TestInitServiceMetaDataFromJson(t *testing.T) {
 }
 
 func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
-	metadata, err := readServiceMetaDataFromLocalFile("../service_metadata.json")
+
+
+	metadata, err := ReadServiceMetaDataFromLocalFile("../service_metadata.json")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, metadata.Version, 1)
 

@@ -67,7 +67,7 @@ func ServiceMetaData() *ServiceMetadata {
 	} else {
 		//TO DO, have a snetd command to create a default metadata json file, for now just read from a local file
 		// when block chain reading is disabled
-		if metadata, err = readServiceMetaDataFromLocalFile("service_metadata.json");err != nil {
+		if metadata, err = ReadServiceMetaDataFromLocalFile("service_metadata.json");err != nil {
 			fmt.Print("When Block chain is disabled it is mandatory to have a service_metadata.json file to start Daemon.Please refer to a sample file at https://github.com/singnet/snet-daemon/blob/master/service_metadata.json\n")
 		}
 	}
@@ -78,7 +78,7 @@ func ServiceMetaData() *ServiceMetadata {
 	return metadata
 }
 
-func readServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {
+func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {
 	file, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read file: %v", filename)

@@ -24,7 +24,7 @@ func (pricing Pricing) determinePricingApplicable(GrpcContext *handler.GrpcStrea
 //Initialize all the pricing types
 func InitPricing(metadata *blockchain.ServiceMetadata) (*Pricing, error) {
 	pricing := &Pricing{}
-	pricing.pricingTypes = make([]iPrice, 0)
+
 	if err := pricing.initFromMetaData(metadata); err != nil {
 		log.WithError(err)
 		return nil, err
@@ -60,7 +60,7 @@ func (pricing *Pricing) initFromMetaData(metadata *blockchain.ServiceMetadata) (
 		err = methodPricing.initPricingData(metadata)
 		priceType = methodPricing
 	}
-	pricing.pricingTypes = append(pricing.pricingTypes, priceType)
+	pricing.AddPricingTypes(priceType)
 
 	if len(pricing.pricingTypes) == 0 {
 		err = fmt.Errorf("No Pricing strategy defined in Metadata ")

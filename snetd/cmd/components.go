@@ -253,7 +253,7 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(
 		components.PaymentChannelService(),
 		components.PaymentStorage(),
-	)
+		components.ServiceMetaData())
 
 	return components.paymentChannelStateService
 }

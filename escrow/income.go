@@ -32,18 +32,17 @@ type IncomeValidator interface {
 }
 
 type incomeValidator struct {
-	priceInCogs *big.Int
-	priceStrategy *price.PricingStrategy
+	priceStrategy *price.Pricing
 }
 
 // NewIncomeValidator returns new income validator instance
-func NewIncomeValidator(priceInCogs *big.Int,strategy *price.PricingStrategy) (validator IncomeValidator) {
-	return &incomeValidator{priceInCogs: priceInCogs,priceStrategy:strategy}
+func NewIncomeValidator(pricing *price.Pricing) (validator IncomeValidator) {
+	return &incomeValidator{priceStrategy: pricing}
 }
 
 func (validator *incomeValidator) Validate(data *IncomeData) (err error) {
 //TO DO, the user request information from IncomeData needs to be passed here !!!!
-	price,_ := validator.priceStrategy.GetPrice(nil)
+	price,_ := validator.priceStrategy.GetPrice(data.GrpcContext)
 
 	if data.Income.Cmp(price) != 0 {
 		err = NewPaymentError(Unauthenticated, "income %d does not equal to price %d", data.Income, price)

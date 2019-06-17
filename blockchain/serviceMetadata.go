@@ -25,7 +25,16 @@ type ServiceMetadata struct {
 	MpeAddress                 string   `json:"mpe_address"`
 	Pricing                    struct {
 		PriceModel  string   `json:"price_model"`
+		PackageName string `json:"package_name"`
+		//Price in cogs has been retained only to support backward compatibility
 		PriceInCogs *big.Int `json:"price_in_cogs"`
+		Details    []struct {
+			ServiceName   string `json:"service_name"`
+			MethodPricing []struct {
+				MethodName  string `json:"method_name"`
+				PriceInCogs *big.Int    `json:"price_in_cogs"`
+			} `json:"method_pricing"`
+		} `json:"details"`
 	} `json:"pricing"`
 	Groups []struct {
 		GroupName      string `json:"group_name"`
@@ -184,9 +193,6 @@ func (metaData *ServiceMetadata) GetPaymentExpirationThreshold() *big.Int {
 	return metaData.PaymentExpirationThreshold
 }
 
-func (metaData *ServiceMetadata) GetPriceInCogs() *big.Int {
-	return metaData.Pricing.PriceInCogs
-}
 
 func (metaData *ServiceMetadata) GetDaemonGroupName() string {
 	return metaData.daemonGroupName

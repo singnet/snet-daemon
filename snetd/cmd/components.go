@@ -32,7 +32,7 @@ type Components struct {
 	providerControlService     *escrow.ProviderControlService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
-	priceStrategy              *price.PricingStrategy
+	priceStrategy              *price.Pricing
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -206,7 +206,7 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	components.escrowPaymentHandler = escrow.NewPaymentHandler(
 		components.PaymentChannelService(),
 		components.Blockchain(),
-		escrow.NewIncomeValidator(components.ServiceMetaData().GetPriceInCogs(),components.PricingStrategy()),
+		escrow.NewIncomeValidator(components.PricingStrategy()),
 	)
 
 	return components.escrowPaymentHandler
@@ -280,12 +280,12 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 
 
 
-func (components *Components) PricingStrategy() *price.PricingStrategy {
+func (components *Components) PricingStrategy() *price.Pricing {
 	if components.priceStrategy != nil {
 		return components.priceStrategy
 	}
 
-	components.priceStrategy = price.InitStrategy(components.ServiceMetaData())
+	components.priceStrategy,_ = price.InitPricing(components.ServiceMetaData())
 
 	return components.priceStrategy
 }

@@ -2,6 +2,8 @@ package escrow
 
 import (
 	"fmt"
+	price2 "github.com/singnet/snet-daemon/blockchain/price"
+	"github.com/singnet/snet-daemon/handler"
 	"math/big"
 	"testing"
 
@@ -16,10 +18,20 @@ func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (er
 	return incomeValidator.err
 }
 
+type  MockPrice  struct{
+
+}
+func (priceType MockPrice) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int , err error) {
+	return big.NewInt(0),nil
+}
+
 func TestIncomeValidate(t *testing.T) {
 	one := big.NewInt(1)
 	income := big.NewInt(0)
-	incomeValidator := NewIncomeValidator(big.NewInt(0))
+
+	pricing := &price2.Pricing{}
+	pricing.AddPricingTypes(&MockPrice{})
+	incomeValidator := NewIncomeValidator(pricing)
 	price := big.NewInt(0)
 
 	income.Sub(price, one)

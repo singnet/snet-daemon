@@ -62,7 +62,7 @@ func (pricing *Pricing) initFromMetaData(metadata *blockchain.ServiceMetadata) (
 	}
 	pricing.AddPricingTypes(priceType)
 
-	if len(pricing.pricingTypes) == 0 {
+	if priceType == nil  {
 		err = fmt.Errorf("No Pricing strategy defined in Metadata ")
 		log.WithError(err)
 	}

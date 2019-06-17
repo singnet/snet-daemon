@@ -10,7 +10,7 @@ import (
 )
 
 func TestFixedPrice_GetPrice(t *testing.T) {
-	metadata, _ := blockchain.ReadServiceMetaDataFromLocalFile("../../service_metadata.json")
+	metadata, _ := blockchain.ReadServiceMetaDataFromLocalFile("../service_metadata.json")
 	grpcCtx := &handler.GrpcStreamContext{}
 	pricing,_ := InitPricing(metadata)
 

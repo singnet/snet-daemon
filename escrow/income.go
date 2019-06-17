@@ -1,7 +1,7 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/blockchain/price"
+	"github.com/singnet/snet-daemon/price"
 	"math/big"
 
 	"github.com/singnet/snet-daemon/handler"

@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/singnet/snet-daemon/blockchain/price"
+	"github.com/singnet/snet-daemon/price"
 	"github.com/singnet/snet-daemon/metrics"
 	"os"
 

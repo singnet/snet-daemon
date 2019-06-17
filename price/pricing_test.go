@@ -10,7 +10,7 @@ import (
 
 
 func TestPricing_GetPrice(t *testing.T) {
-	metadata, _ := blockchain.ReadServiceMetaDataFromLocalFile("../../service_metadata.json")
+	metadata, _ := blockchain.ReadServiceMetaDataFromLocalFile("../service_metadata.json")
 	metadata.Pricing.PriceModel ="undefined"
 
 	pricing,err := InitPricing(metadata)

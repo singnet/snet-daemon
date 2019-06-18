@@ -11,7 +11,7 @@ const (
 	 FIXED_PRICING="fixed_price"
 )
 //Based on the request passed, a particular strategy will be picked up for processing
-type iPrice interface {
+type PriceType interface {
 
 	//Based on the user input determine how will the price be determined
 	GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int , err error)

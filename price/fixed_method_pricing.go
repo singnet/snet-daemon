@@ -34,7 +34,7 @@ func (priceType *FixedMethodPrice) initPricingData(metadata *blockchain.ServiceM
 		}
 	}
 	if len(priceType.methodToPriceMap) == 0 {
-		return fmt.Errorf("service / method level pricing Not defined correctly")
+		return fmt.Errorf("service / method level pricing is not defined correctly")
 	}
 
 	return nil

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package config;
+package configuration_service;
 
 //Currently all monitoring and any configuration changes on Daemon are done manually,
 //goal is to provide a one stop place to remotely monitor and configure the Daemon in a secure way
@@ -57,16 +57,11 @@ message EmptyRequest {
 //Used when you want to update the existing configuration
 message UpdateRequest {
     //Signature will compromise of the below
-    // ("_Request_Update", "block_number",authentication_address)
-    bytes signature = 1;
+    // ("_UpdateRequest", "block_number",authentication_address)
+    CallerAuthentication auth = 1;
     //Indicates the updated configuration ( only the modified leaf and its changed value is passed ) Example (log.output.rotation_time_in_sec is a valid key )
     map<string, string> updated_configuration = 2;
 
-    //current block number (signature will be valid only for short time around this block number)
-    uint64 current_block = 3;
-
-    //The address of the person who has rights to make configuration changes on Daemon
-    string user_address = 4;
 
 }
 

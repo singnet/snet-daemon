@@ -17,7 +17,8 @@ import (
 )
 
 const (
-
+    //Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely through a user interface
+	AuthenticationAddress= "authentication_address"
 	AutoSSLDomainKey     = "auto_ssl_domain"
 	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
 	BlockchainEnabledKey = "blockchain_enabled"
@@ -51,7 +52,7 @@ const (
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	//none|grpc|http
-
+//This defaultConfigJson will eventually be replaced by default_daemon_configuration
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",

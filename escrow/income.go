@@ -42,7 +42,10 @@ func NewIncomeValidator(pricing *pricing.PricingStrategy) (validator IncomeValid
 
 func (validator *incomeValidator) Validate(data *IncomeData) (err error) {
 //TO DO, the user request information from IncomeData needs to be passed here !!!!
-	price,_ := validator.priceStrategy.GetPrice(data.GrpcContext)
+	price,err := validator.priceStrategy.GetPrice(data.GrpcContext)
+	if  err != nil {
+		return err
+	}
 
 	if data.Income.Cmp(price) != 0 {
 		err = NewPaymentError(Unauthenticated, "income %d does not equal to price %d", data.Income, price)

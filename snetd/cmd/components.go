@@ -32,7 +32,7 @@ type Components struct {
 	providerControlService     *escrow.ProviderControlService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
-	priceStrategy              *price.Pricing
+	priceStrategy              *price.PricingStrategy
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -280,12 +280,12 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 
 
 
-func (components *Components) PricingStrategy() *price.Pricing {
+func (components *Components) PricingStrategy() *price.PricingStrategy {
 	if components.priceStrategy != nil {
 		return components.priceStrategy
 	}
 
-	components.priceStrategy,_ = price.InitPricing(components.ServiceMetaData())
+	components.priceStrategy,_ = price.InitPricingStrategy(components.ServiceMetaData())
 
 	return components.priceStrategy
 }

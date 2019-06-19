@@ -9,21 +9,21 @@ import (
 	"strings"
 )
 
-type Pricing struct {
+type PricingStrategy struct {
 	//Holds all the pricing types possible
 	pricingTypes []PriceType
 }
 
 //Figure out which price type is to be used
-func (pricing Pricing) determinePricingApplicable(GrpcContext *handler.GrpcStreamContext) (priceType PriceType, err error) {
+func (pricing PricingStrategy) determinePricingApplicable(GrpcContext *handler.GrpcStreamContext) (priceType PriceType, err error) {
 	//For future , there could be multiple pricingTypes to select from and this method will help decide which pricing to pick
 	//but for now , we just have one pricing Type ( either Fixed Price or Fixed price per Method)
 	return pricing.pricingTypes[0], nil
 }
 
 //Initialize all the pricing types
-func InitPricing(metadata *blockchain.ServiceMetadata) (*Pricing, error) {
-	pricing := &Pricing{}
+func InitPricingStrategy(metadata *blockchain.ServiceMetadata) (*PricingStrategy, error) {
+	pricing := &PricingStrategy{}
 
 	if err := pricing.initFromMetaData(metadata); err != nil {
 		log.WithError(err)
@@ -32,14 +32,14 @@ func InitPricing(metadata *blockchain.ServiceMetadata) (*Pricing, error) {
 	return pricing, nil
 }
 
-func (pricing *Pricing) AddPricingTypes(priceType PriceType)  {
+func (pricing *PricingStrategy) AddPricingTypes(priceType PriceType)  {
 	if pricing.pricingTypes == nil {
 		pricing.pricingTypes = make([]PriceType, 0)
 	}
 	pricing.pricingTypes = append(pricing.pricingTypes, priceType)
 }
 
-func (pricing Pricing) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int, err error) {
+func (pricing PricingStrategy) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int, err error) {
 	//Based on the input request , determine which price type is to be used
 	if priceType, err := pricing.determinePricingApplicable(GrpcContext); err != nil {
 		return nil, err
@@ -48,8 +48,8 @@ func (pricing Pricing) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *
 	}
 }
 
-//Set all the Pricing Types in this method.
-func (pricing *Pricing) initFromMetaData(metadata *blockchain.ServiceMetadata) (err error) {
+//Set all the PricingStrategy Types in this method.
+func (pricing *PricingStrategy) initFromMetaData(metadata *blockchain.ServiceMetadata) (err error) {
 	var priceType PriceType
 
 	if strings.Compare(metadata.Pricing.PriceModel, FIXED_PRICING) == 0 {
@@ -63,7 +63,7 @@ func (pricing *Pricing) initFromMetaData(metadata *blockchain.ServiceMetadata) (
 	pricing.AddPricingTypes(priceType)
 
 	if priceType == nil  {
-		err = fmt.Errorf("No Pricing strategy defined in Metadata ")
+		err = fmt.Errorf("No PricingStrategy strategy defined in Metadata ")
 		log.WithError(err)
 	}
 	return err

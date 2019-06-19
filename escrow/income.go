@@ -32,11 +32,11 @@ type IncomeValidator interface {
 }
 
 type incomeValidator struct {
-	priceStrategy *price.Pricing
+	priceStrategy *price.PricingStrategy
 }
 
 // NewIncomeValidator returns new income validator instance
-func NewIncomeValidator(pricing *price.Pricing) (validator IncomeValidator) {
+func NewIncomeValidator(pricing *price.PricingStrategy) (validator IncomeValidator) {
 	return &incomeValidator{priceStrategy: pricing}
 }
 

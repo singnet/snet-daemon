@@ -29,7 +29,7 @@ func TestIncomeValidate(t *testing.T) {
 	one := big.NewInt(1)
 	income := big.NewInt(0)
 
-	pricing := &price2.Pricing{}
+	pricing := &price2.PricingStrategy{}
 	pricing.AddPricingTypes(&MockPrice{})
 	incomeValidator := NewIncomeValidator(pricing)
 	price := big.NewInt(0)

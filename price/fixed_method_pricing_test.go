@@ -16,7 +16,7 @@ import (
 func TestFixedMethodPrice_initPricingData(t *testing.T) {
 	metadata,_ := blockchain.ReadServiceMetaDataFromLocalFile("../service_metadata_method_pricing.json")
 	grpcCtx := &handler.GrpcStreamContext{Info:&grpc.StreamServerInfo{FullMethod:"/example_service.Calculator/add"}}
-	pricing,_ := InitPricing(metadata)
+	pricing,_ := InitPricingStrategy(metadata)
 	price,err := pricing.GetPrice(grpcCtx)
 	assert.Equal(t,price,big.NewInt(2))
 	assert.Nil(t,err)
@@ -28,7 +28,7 @@ func TestFixedMethodPrice_initPricingData(t *testing.T) {
 	//Test if the metadata is not properly defined
 	metadata.Pricing.Details = nil
 
-	pricing,err = InitPricing(metadata)
+	pricing,err = InitPricingStrategy(metadata)
 	assert.Equal(t,err.Error(),"service / method level pricing is not defined correctly")
 	assert.Nil(t,pricing)
 

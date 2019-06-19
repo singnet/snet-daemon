@@ -18,10 +18,10 @@ func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (er
 	return incomeValidator.err
 }
 
-type  MockPrice  struct{
+type  MockPriceType struct{
 
 }
-func (priceType MockPrice) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int , err error) {
+func (priceType MockPriceType) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int , err error) {
 	return big.NewInt(0),nil
 }
 
@@ -30,7 +30,7 @@ func TestIncomeValidate(t *testing.T) {
 	income := big.NewInt(0)
 
 	pricing := &price2.PricingStrategy{}
-	pricing.AddPricingTypes(&MockPrice{})
+	pricing.AddPricingTypes(&MockPriceType{})
 	incomeValidator := NewIncomeValidator(pricing)
 	price := big.NewInt(0)
 

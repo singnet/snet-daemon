@@ -1,4 +1,4 @@
-package price
+package pricing
 
 import (
 	"github.com/singnet/snet-daemon/handler"

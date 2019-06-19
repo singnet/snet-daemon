@@ -2,7 +2,7 @@ package escrow
 
 import (
 	"fmt"
-	price2 "github.com/singnet/snet-daemon/price"
+	price2 "github.com/singnet/snet-daemon/pricing"
 	"github.com/singnet/snet-daemon/handler"
 	"math/big"
 	"testing"

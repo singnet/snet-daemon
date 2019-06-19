@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/singnet/snet-daemon/price"
+	"github.com/singnet/snet-daemon/pricing"
 	"github.com/singnet/snet-daemon/metrics"
 	"os"
 
@@ -32,7 +32,7 @@ type Components struct {
 	providerControlService     *escrow.ProviderControlService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
-	priceStrategy              *price.PricingStrategy
+	priceStrategy              *pricing.PricingStrategy
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -280,12 +280,12 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 
 
 
-func (components *Components) PricingStrategy() *price.PricingStrategy {
+func (components *Components) PricingStrategy() *pricing.PricingStrategy {
 	if components.priceStrategy != nil {
 		return components.priceStrategy
 	}
 
-	components.priceStrategy,_ = price.InitPricingStrategy(components.ServiceMetaData())
+	components.priceStrategy,_ = pricing.InitPricingStrategy(components.ServiceMetaData())
 
 	return components.priceStrategy
 }

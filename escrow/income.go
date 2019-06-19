@@ -1,7 +1,7 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/price"
+	"github.com/singnet/snet-daemon/pricing"
 	"math/big"
 
 	"github.com/singnet/snet-daemon/handler"
@@ -32,11 +32,11 @@ type IncomeValidator interface {
 }
 
 type incomeValidator struct {
-	priceStrategy *price.PricingStrategy
+	priceStrategy *pricing.PricingStrategy
 }
 
 // NewIncomeValidator returns new income validator instance
-func NewIncomeValidator(pricing *price.PricingStrategy) (validator IncomeValidator) {
+func NewIncomeValidator(pricing *pricing.PricingStrategy) (validator IncomeValidator) {
 	return &incomeValidator{priceStrategy: pricing}
 }
 

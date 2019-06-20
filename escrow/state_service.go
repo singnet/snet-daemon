@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/authutils"
+	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"math/big"
@@ -17,6 +19,7 @@ import (
 type PaymentChannelStateService struct {
 	channelService PaymentChannelService
 	paymentStorage *PaymentStorage
+	mpeAddress func() (address common.Address)
 }
 
 // verifies whether storage channel nonce is equal to blockchain nonce or not
@@ -35,10 +38,11 @@ func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonc
 }
 
 // NewPaymentChannelStateService returns new instance of PaymentChannelStateService
-func NewPaymentChannelStateService(channelService PaymentChannelService, paymentStorage *PaymentStorage) *PaymentChannelStateService {
+func NewPaymentChannelStateService(channelService PaymentChannelService, paymentStorage *PaymentStorage,metaData *blockchain.ServiceMetadata) *PaymentChannelStateService {
 	return &PaymentChannelStateService{
 		channelService: channelService,
 		paymentStorage: paymentStorage,
+		mpeAddress:func() common.Address { return metaData.GetMpeAddress() },
 	}
 }
 
@@ -62,6 +66,19 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	}).Debug("GetChannelState called")
 
 	channelID := bytesToBigInt(request.GetChannelId())
+	// signature verification
+	message := bytes.Join([][]byte{
+		[]byte("__get_channel_state"),
+		service.mpeAddress().Bytes(),
+		bigIntToBytes(channelID),
+		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+	}, nil)
+	signature := request.GetSignature()
+
+	sender, err := authutils.GetSignerAddressFromMessage(message, signature)
+	if err != nil {
+		return nil, errors.New("incorrect signature")
+	}
 	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelID})
 	if err != nil {
 		return nil, errors.New("channel error:" + err.Error())
@@ -74,18 +91,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	oldProto := false
 	blockNumberPassed := int64(request.CurrentBlock)
 
-	// signature verification
-	message := bytes.Join([][]byte{
-		[]byte("__get_channel_state"),
-		bigIntToBytes(channelID),
-		abi.U256(big.NewInt(int64(request.CurrentBlock))),
-	}, nil)
-	signature := request.GetSignature()
 
-	sender, err := authutils.GetSignerAddressFromMessage(message, signature)
-	if err != nil {
-		return nil, errors.New("incorrect signature")
-	}
 
 	//TODO remove this fall back to older signature versions. this is temporary, only to enable backward compatibility
 	// with other components

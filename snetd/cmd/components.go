@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/singnet/snet-daemon/pricing"
 	"github.com/singnet/snet-daemon/metrics"
 	"os"
 
@@ -31,6 +32,7 @@ type Components struct {
 	providerControlService     *escrow.ProviderControlService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
+	priceStrategy              *pricing.PricingStrategy
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -204,7 +206,7 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	components.escrowPaymentHandler = escrow.NewPaymentHandler(
 		components.PaymentChannelService(),
 		components.Blockchain(),
-		escrow.NewIncomeValidator(components.ServiceMetaData().GetPriceInCogs()),
+		escrow.NewIncomeValidator(components.PricingStrategy()),
 	)
 
 	return components.escrowPaymentHandler
@@ -251,7 +253,7 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(
 		components.PaymentChannelService(),
 		components.PaymentStorage(),
-	)
+		components.ServiceMetaData())
 
 	return components.paymentChannelStateService
 }
@@ -274,4 +276,16 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
 	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID()}
 	return components.daemonHeartbeat
+}
+
+
+
+func (components *Components) PricingStrategy() *pricing.PricingStrategy {
+	if components.priceStrategy != nil {
+		return components.priceStrategy
+	}
+
+	components.priceStrategy,_ = pricing.InitPricingStrategy(components.ServiceMetaData())
+
+	return components.priceStrategy
 }

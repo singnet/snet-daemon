@@ -69,13 +69,15 @@ func (service ConfigurationService) authenticate(prefix string, auth *CallerAuth
 	if err = service.checkAuthenticationAddress(auth.UserAddress); err != nil {
 		return err
 	}
+
+	//Check if the Signature is not Expired
+	if err = authutils.CompareWithLatestBlockNumber(big.NewInt(int64(auth.CurrentBlock)));err != nil {
+		return err
+	}
+
 	//Check if the Signature is Valid and Signed accordingly
 	if err = authutils.VerifySigner(service.getMessageBytes("_IsDaemonProcessingRequests", auth.CurrentBlock),
 		auth.GetSignature(), blockchain.HexToAddress(service.address)); err != nil {
-		return err
-	}
-	//Check if the Signature is not Expired
-	if err = authutils.CompareWithLatestBlockNumber(big.NewInt(int64(auth.CurrentBlock)));err != nil {
 		return err
 	}
 

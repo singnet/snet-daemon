@@ -35,7 +35,6 @@ func (service ConfigurationService) UpdateConfiguration(ctx context.Context, req
 	if err = service.authenticate("_UpdateConfiguration",request.Auth); err != nil {
 		return nil, err
 	}
-
 	return nil, fmt.Errorf("work in progress")
 }
 
@@ -76,7 +75,7 @@ func (service ConfigurationService) authenticate(prefix string, auth *CallerAuth
 	}
 
 	//Check if the Signature is Valid and Signed accordingly
-	if err = authutils.VerifySigner(service.getMessageBytes("_IsDaemonProcessingRequests", auth.CurrentBlock),
+	if err = authutils.VerifySigner(service.getMessageBytes(prefix, auth.CurrentBlock),
 		auth.GetSignature(), blockchain.HexToAddress(service.address)); err != nil {
 		return err
 	}
@@ -112,7 +111,7 @@ func NewConfigurationService() *ConfigurationService {
 
 	return service
 }
-
+//Message format has been agreed to be as the below ( prefix,block number,and authenticating address)
 func (service *ConfigurationService) getMessageBytes(prefixMessage string, blocknumber uint64) []byte {
 	message := bytes.Join([][]byte{
 		[]byte (prefixMessage),

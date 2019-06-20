@@ -1,6 +1,11 @@
 package configuration_service
 
 import (
+	"bytes"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/singnet/snet-daemon/authutils"
+	"github.com/singnet/snet-daemon/blockchain"
+	"math/big"
 	"testing"
 
 	"github.com/singnet/snet-daemon/config"
@@ -44,27 +49,47 @@ func TestNewConfigurationService(t *testing.T) {
 func TestConfigurationService_authenticate(t *testing.T) {
 	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
 	config.Validate()
+	currBlk,_ := authutils.CurrentBlock()
 	tests := []struct {
-		address    string
-		auth   *CallerAuthentication
+		address string
+		auth    *CallerAuthentication
 		wantErr bool
+		prefix string
 		message string
 	}{
-		{address:"0xD6C6344f1D122dC6f4C1782A4622B683b9008081",
-			auth:&CallerAuthentication{CurrentBlock:2,UserAddress:"0xD6C6344f1D122dC6f4C1782A4622B683b9008081",
-				Signature:nil},wantErr:true,message:"authentication failed as the signature passed has expired",},
+		{address: "0xD6C6344f1D122dC6f4C1782A4622B683b9008081",
+			auth: &CallerAuthentication{CurrentBlock: 2, UserAddress: "0xD6C6344f1D122dC6f4C1782A4622B683b9008081",
+				Signature: nil}, wantErr: true, message: "authentication failed as the signature passed has expired",prefix:""},
+		{address: "0xD6C6344f1D122dC6f4C1782A4622B683b9008081",
+			auth: &CallerAuthentication{CurrentBlock: currBlk.Uint64(), UserAddress: "0xF6C6344f1D122dC6f4C1782A4622B683b9008081",
+				Signature: nil}, wantErr: true, message: "unauthorized access, 0xF6C6344f1D122dC6f4C1782A4622B683b9008081 is not authorized",prefix:""},
+		{address: "0xD6C6344f1D122dC6f4C1782A4622B683b9008081",
+			auth: &CallerAuthentication{CurrentBlock: currBlk.Uint64(), UserAddress: "0xD6C6344f1D122dC6f4C1782A4622B683b9008081",
+				Signature: nil}, wantErr: true, message: "incorrect signature length",prefix:""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.address, func(t *testing.T) {
 			service := ConfigurationService{
 				address: tt.address,
 			}
-			 err := service.authenticate(tt.address, tt.auth)
-			if(tt.wantErr) {
-				assert.Equal(t,tt.message,err.Error())
-			}else {
-				assert.Nil(t,err)
+			err := service.authenticate(tt.prefix, tt.auth)
+			if tt.wantErr {
+				assert.Equal(t, tt.message, err.Error())
+			} else {
+				assert.Nil(t, err)
 			}
 		})
 	}
+}
+
+func TestConfigurationService_getMessageBytes(t *testing.T) {
+	service := ConfigurationService{
+		address: "0xD6C6344f1D122dC6f4C1782A4622B683b9008081",
+	}
+	msg := service.getMessageBytes("ABC",123)
+	assert.Equal(t,bytes.Join([][]byte{
+		[]byte ("ABC"),
+		abi.U256(big.NewInt(int64(123))),
+		blockchain.HexToAddress("0xD6C6344f1D122dC6f4C1782A4622B683b9008081").Bytes(),
+	}, nil),msg)
 }

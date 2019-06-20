@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "display_name": "Example1",
+  "encoding": "proto",
+  "service_type": "grpc",
+  "payment_expiration_threshold": 40320,
+  "model_ipfs_hash": "QmUKGT6n8NUey2BQ9fqfrYZRcktZjZ1rDj6Qe7wc4o7Lwh",
+  "mpe_address": "0x27CFC34Aa127E4fb2Bee50563F15489fea20dA58",
+  "pricing": {
+    "package_name": "example_service",
+    "price_model": "fixed_price_per_method",
+    "details": [
+      {
+        "service_name": "Calculator",
+        "method_pricing": [
+          {
+            "method_name": "add",
+            "price_in_cogs": 2
+          },
+          {
+            "method_name": "sub",
+            "price_in_cogs": 1
+          },
+          {
+            "method_name": "div",
+            "price_in_cogs": 2
+          },
+          {
+            "method_name": "mul",
+            "price_in_cogs": 3
+          }
+        ]
+      },
+      {
+        "service_name": "Calculator2",
+        "method_pricing": [
+          {
+            "method_name": "add",
+            "price_in_cogs": 2
+          },
+          {
+            "method_name": "sub",
+            "price_in_cogs": 1
+          },
+          {
+            "method_name": "div",
+            "price_in_cogs": 3
+          },
+          {
+            "method_name": "mul",
+            "price_in_cogs": 2
+          }
+        ]
+      }
+    ]
+  },
+  "groups": [
+    {
+      "group_name": "default_group",
+      "group_id": "rBdcUlB+RYxSIpCJdDzTxJ25PM0z932Ln9FOgU52a/8=",
+      "payment_address": "0x3b2b3C2e2E7C93db335E69D827F3CC4bC2A2A2cB"
+    }
+  ],
+  "endpoints": [
+    {
+      "group_name": "default_group",
+      "endpoint": "127.0.0.1:8080"
+    }
+  ]
+}

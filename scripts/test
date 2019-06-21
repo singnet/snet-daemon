@@ -10,13 +10,5 @@ pushd $PARENT_PATH
 ./scripts/lint
 
 # Run integration tests
-go get golang.org/x/tools/cmd/cover
-go get github.com/mattn/goveralls
-for d in */ ; do
-  for entry in "$d"/*;do
-	  if `[[ $entry =~ [a-zA-Z-]{1,}(_test.go)$  ]]`;then echo `GOCACHE=off go test -v ./${d: 0:-1} -coverprofile ${d: 0:-1}.part`;fi
-  done
-done
-echo "mode: set">>coverage.out
-grep -h -v "mode: set" *.part >>coverage.out
+GOCACHE=off go test -v ./...
 popd

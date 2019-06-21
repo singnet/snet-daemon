@@ -5,28 +5,14 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-
-	"regexp"
+	"strings"
+	"time"
 )
 
 func GetIpfsFile(hash string) string {
 
-	log.WithField("hash", hash).Debug("Hash Retrieved from Contract")
-	reg, err := regexp.Compile("ipfs://")
-	if err != nil {
-		log.Fatal(err)
-	}
-	hash = reg.ReplaceAllString(hash, "")
-
-	reg, err = regexp.Compile("[^a-zA-Z0-9=+]+")
-	if err != nil {
-		log.Fatal(err)
-	}
-	hash = reg.ReplaceAllString(hash, "")
-
-	jsondata := string(hash)
 	log.WithField("hash", hash).Debug("Hash Used to retrieve from IPFS")
-	re := regexp.MustCompile("\\n")
+
 	sh := GetIpfsShell()
 	cid, err := sh.Cat(hash)
 	if err != nil {
@@ -40,15 +26,25 @@ func GetIpfsFile(hash string) string {
 	}
 	log.WithField("hash", hash).WithField("blob", string(blob)).Debug("Blob of IPFS file with hash")
 
-	jsondata = string(blob)
-	re = regexp.MustCompile("\\n")
-	jsondata = re.ReplaceAllString(jsondata, " ")
+	jsondata := string(blob)
+
+	//validating the file read from IPFS
+	newHash, err := sh.Add(strings.NewReader(jsondata), shell.OnlyHash(true))
+	if err != nil {
+		log.WithError(err).Panic("error in generating the hash for the meta data read from IPFS : %v", err)
+	}
+	if newHash != hash {
+		log.WithError(err).WithField("hashFromIPFSContent", newHash).
+			Panic("IPFS hash verification failed. Generated hash doesnt match with expected hash %s", hash)
+	}
+
 	cid.Close()
 	return jsondata
 }
 
 func GetIpfsShell() *shell.Shell {
-	//Read from Configuration file
 	sh := shell.NewShell(config.GetString(config.IpfsEndPoint))
+	// sets the timeout for accessing the ipfs content
+	sh.SetTimeout(time.Duration(config.GetInt(config.IpfsTimeout)) * time.Second)
 	return sh
 }

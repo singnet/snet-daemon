@@ -3,6 +3,8 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/singnet/snet-daemon/metrics"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
 	"os"
@@ -33,6 +35,7 @@ var corsOptions = []handlers.CORSOption{
 
 var ServeCmd = &cobra.Command{
 	Use: "serve",
+	Short: "Is the default option which starts the Daemon.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
@@ -84,13 +87,22 @@ func newDaemon(components *Components) (daemon, error) {
 		return d, err
 	}
 
+	// validate heartbeat configuration
+	if err := metrics.ValidateHeartbeatConfig(); err != nil {
+		return d, err
+	}
+
+	// validate alerts/notifications configuration
+	if err := metrics.ValidateNotificationConfig(); err != nil {
+		return d, err
+	}
+
 	d.components = components
 
 	var err error
-	d.lis, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%+v",
-		config.GetInt(config.DaemonListeningPortKey)))
+	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndPoint))
 	if err != nil {
-		return d, errors.Wrap(err, "error listening")
+		return d, errors.Wrap(err, "Expected format of daemon_end_point is <host>:<port>.Error binding to the endpoint:"+config.GetString(config.DaemonEndPoint))
 	}
 
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)
@@ -116,7 +128,8 @@ func newDaemon(components *Components) (daemon, error) {
 	return d, nil
 }
 
-func (d daemon) start() {
+
+func (d *daemon) start() {
 
 	var tlsConfig *tls.Config
 
@@ -159,12 +172,16 @@ func (d daemon) start() {
 	}
 
 	if config.GetString(config.DaemonTypeKey) == "grpc" {
+
+		maxsizeOpt := grpc.MaxRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB) * 1024 * 1024)
 		d.grpcServer = grpc.NewServer(
-			grpc.UnknownServiceHandler(handler.NewGrpcHandler()),
+			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
 			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
+			maxsizeOpt,
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
-
+		escrow.RegisterProviderControlServiceServer(d.grpcServer,d.components.ProviderControlService())
+		grpc_health_v1.RegisterHealthServer(d.grpcServer,d.components.DaemonHeartBeat())
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:
@@ -180,7 +197,10 @@ func (d daemon) start() {
 			} else {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprintln(resp, blockchain.GetWireEncoding())
+					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
+				} else if strings.Split(req.URL.Path, "/")[1] == "heartbeat" {
+					resp.Header().Set("Access-Control-Allow-Origin", "*")
+					metrics.HeartbeatHandler(resp, req)
 				} else {
 					http.NotFound(resp, req)
 				}
@@ -197,12 +217,13 @@ func (d daemon) start() {
 
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
+
 }
 
-func (d daemon) stop() {
+func (d *daemon) stop() {
 
 	if d.grpcServer != nil {
-		d.grpcServer.Stop()
+		d.grpcServer.GracefulStop()
 	}
 
 	d.lis.Close()

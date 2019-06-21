@@ -53,6 +53,8 @@ const (
 	ClaimPaymentIdFlag = "payment-id"
 	ClaimSendBackFlag  = "send-back"
 	ClaimTimeoutFlag   = "timeout"
+
+	UnlockChannelFlag = "unlock"
 )
 
 var (
@@ -63,7 +65,6 @@ var (
 	daemonType         = ServeCmd.PersistentFlags().StringP("type", "t", "grpc", "daemon type: one of 'grpc','http'")
 	blockchainEnabled  = ServeCmd.PersistentFlags().BoolP("blockchain", "b", true, "enable blockchain processing")
 	listenPort         = ServeCmd.PersistentFlags().IntP("port", "p", 5000, "daemon listen port")
-	ethEndpoint        = ServeCmd.PersistentFlags().String("ethereum-endpoint", "http://127.0.0.1:8545", "ethereum JSON-RPC endpoint")
 	mnemonic           = ServeCmd.PersistentFlags().String("mnemonic", "", "HD wallet mnemonic")
 	hdwIndex           = ServeCmd.PersistentFlags().Int("wallet-index", 0, "HD wallet index")
 	dbPath             = ServeCmd.PersistentFlags().String("db-path", "snetd.db", "database file path")
@@ -78,6 +79,7 @@ var (
 	claimPaymentId string
 	claimSendBack  bool
 	claimTimeout   string
+	paymentChannelId string
 )
 
 func init() {
@@ -86,34 +88,26 @@ func init() {
 
 	RootCmd.AddCommand(InitCmd)
 	RootCmd.AddCommand(ServeCmd)
-	RootCmd.AddCommand(ClaimCmd)
+
 	RootCmd.AddCommand(ListCmd)
+	RootCmd.AddCommand(ChannelCmd)
+	RootCmd.AddCommand(VersionCmd)
 
 	ListCmd.AddCommand(ListChannelsCmd)
 	ListCmd.AddCommand(ListClaimsCmd)
 
-	ClaimCmd.Flags().StringVar(&claimChannelId, ClaimChannelIdFlag, "", "id of the payment channel to claim money, see \"list channels\"")
-	ClaimCmd.Flags().StringVar(&claimPaymentId, ClaimPaymentIdFlag, "", "id of the payment to claim money, see \"list payments\"")
-	ClaimCmd.Flags().BoolVar(&claimSendBack, ClaimSendBackFlag, false, "send the rest of the channel value back to channel sender")
-	ClaimCmd.Flags().StringVar(&claimTimeout, ClaimTimeoutFlag, "5s", "timeout for blockchain transaction;"+
-		" timeout is specified as a sequence of decimal number with unit suffix;"+
-		" valid time units are \"ns\", \"us\", \"ms\", \"s\", \"m\", \"h\"")
+	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
+
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))
 	vip.BindPFlag(config.DaemonTypeKey, serveCmdFlags.Lookup("type"))
 	vip.BindPFlag(config.BlockchainEnabledKey, serveCmdFlags.Lookup("blockchain"))
-	vip.BindPFlag(config.DaemonListeningPortKey, serveCmdFlags.Lookup("port"))
-	vip.BindPFlag(config.EthereumJsonRpcEndpointKey, serveCmdFlags.Lookup("ethereum-endpoint"))
-	vip.BindPFlag(config.HdwalletMnemonicKey, serveCmdFlags.Lookup("mnemonic"))
-	vip.BindPFlag(config.HdwalletIndexKey, serveCmdFlags.Lookup("wallet-index"))
-	vip.BindPFlag(config.DbPathKey, serveCmdFlags.Lookup("db-path"))
+
+
 	vip.BindPFlag(config.PassthroughEnabledKey, serveCmdFlags.Lookup("passthrough"))
-	vip.BindPFlag(config.ServiceTypeKey, serveCmdFlags.Lookup("service-type"))
 	vip.BindPFlag(config.SSLCertPathKey, serveCmdFlags.Lookup("ssl-cert"))
 	vip.BindPFlag(config.SSLKeyPathKey, serveCmdFlags.Lookup("ssl-key"))
-	vip.BindPFlag(config.WireEncodingKey, serveCmdFlags.Lookup("wire-encoding"))
-	vip.BindPFlag(config.PollSleepKey, serveCmdFlags.Lookup("poll-sleep"))
 
 	cobra.OnInitialize(func() {
 

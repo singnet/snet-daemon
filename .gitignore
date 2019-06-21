@@ -10,7 +10,7 @@ snetd.config.json
 blockchain/registry.go
 blockchain/multi_party_escrow.go
 blockchain/singularity_net_token.go
-escrow/state_service.pb.go
+*.pb.go
 
 # Binaries for programs and plugins
 *.exe

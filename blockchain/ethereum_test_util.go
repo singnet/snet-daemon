@@ -52,7 +52,7 @@ func (env *SimulatedEthereumEnvironment) MpeDeposit(from *bind.TransactOpts, amo
 }
 
 func (env *SimulatedEthereumEnvironment) MpeOpenChannel(from *bind.TransactOpts, to *bind.TransactOpts, amount int64, expiration int64, groupId [32]byte) *SimulatedEthereumEnvironment {
-	_, err := env.MultiPartyEscrow.OpenChannel(EstimateGas(from), to.From, big.NewInt(amount), big.NewInt(expiration), groupId, from.From)
+	_, err := env.MultiPartyEscrow.OpenChannel(EstimateGas(from), from.From, to.From, groupId, big.NewInt(amount), big.NewInt(expiration))
 	if err != nil {
 		panic(fmt.Sprintf("Unable to open MPE payment channel: %v", err))
 	}

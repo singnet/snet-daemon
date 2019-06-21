@@ -30,7 +30,7 @@ type grpcHandler struct {
 	executable          string
 }
 
-func NewGrpcHandler() grpc.StreamHandler {
+func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHandler {
 	passthroughEnabled := config.GetBool(config.PassthroughEnabledKey)
 
 	if !passthroughEnabled {
@@ -38,13 +38,12 @@ func NewGrpcHandler() grpc.StreamHandler {
 	}
 
 	h := grpcHandler{
-		//enc:                 config.GetString(config.WireEncodingKey),
-		enc:                 blockchain.GetWireEncoding(),
+		enc:                 serviceMetadata.GetWireEncoding(),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 		executable:          config.GetString(config.ExecutablePathKey),
 	}
 
-	switch blockchain.GetServiceType() {
+	switch serviceMetadata.GetServiceType() {
 	case "grpc":
 		passthroughURL, err := url.Parse(h.passthroughEndpoint)
 		if err != nil {

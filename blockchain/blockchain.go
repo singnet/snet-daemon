@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	bolt "github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -36,20 +35,18 @@ type Processor struct {
 	privateKey              *ecdsa.PrivateKey
 	address                 string
 	jobCompletionQueue      chan *jobInfo
-	boltDB                  *bolt.DB
 	escrowContractAddress   common.Address
 	registryContractAddress common.Address
 	multiPartyEscrow        *MultiPartyEscrow
 }
 
 // NewProcessor creates a new blockchain processor
-func NewProcessor(boltDB *bolt.DB) (Processor, error) {
+func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	// TODO(aiden) accept configuration as a parameter
 
 	p := Processor{
 		jobCompletionQueue: make(chan *jobInfo, 1000),
 		enabled:            config.GetBool(config.BlockchainEnabledKey),
-		boltDB:             boltDB,
 	}
 
 	if !p.enabled {
@@ -57,31 +54,19 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 	}
 
 	// Setup ethereum client
-	if client, err := rpc.Dial(config.GetString(config.EthereumJsonRpcEndpointKey)); err != nil {
+
+	if ethclients, err := GetEthereumClient(); err != nil {
 		return p, errors.Wrap(err, "error creating RPC client")
 	} else {
-		p.rawClient = client
-		p.ethClient = ethclient.NewClient(client)
+		p.rawClient = ethclients.RawClient
+		p.ethClient = ethclients.EthClient
 	}
 
 	// TODO: if address is not in config, try to load it using network
 
-	orgName := StringToBytes32(config.GetString(config.OrganizationName))
-	serviceName := StringToBytes32(config.GetString(config.ServiceName))
-
 	//TODO: Read this from github
-	p.registryContractAddress = common.HexToAddress(config.GetString(config.RegistryAddressKey))
-	reg, err := NewRegistryCaller(p.registryContractAddress, p.ethClient)
-	if err != nil {
-		return p, errors.Wrap(err, "error instantiating Registry contract")
-	}
-	serviceRegistration, err := reg.GetServiceRegistrationByName(nil, orgName, serviceName)
-	if err != nil {
-		return p, errors.Wrap(err, "Error retriving from registry  service ")
-	}
 
-	SetServiceMetaData(string(serviceRegistration.MetadataURI[:]))
-	p.escrowContractAddress = common.HexToAddress(GetmpeAddress())
+	p.escrowContractAddress = metadata.GetMpeAddress()
 
 	if mpe, err := NewMultiPartyEscrow(p.escrowContractAddress, p.ethClient); err != nil {
 		return p, errors.Wrap(err, "error instantiating MultiPartyEscrow contract")
@@ -94,22 +79,7 @@ func NewProcessor(boltDB *bolt.DB) (Processor, error) {
 		return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 	}
 
-	// Setup identity
-	if privateKeyString := config.GetString(config.PrivateKeyKey); privateKeyString != "" {
-		if privKey, err := crypto.HexToECDSA(privateKeyString); err != nil {
-			return p, errors.Wrap(err, "error getting private key")
-		} else {
-			p.privateKey = privKey
-			p.address = crypto.PubkeyToAddress(p.privateKey.PublicKey).Hex()
-		}
-	} else if hdwalletMnemonic := config.GetString(config.HdwalletMnemonicKey); hdwalletMnemonic != "" {
-		if privKey, err := derivePrivateKey(hdwalletMnemonic, 44, 60, 0, 0, uint32(config.GetInt(config.HdwalletIndexKey))); err != nil {
-			log.WithError(err).Panic("error deriving private key")
-		} else {
-			p.privateKey = privKey
-			p.address = crypto.PubkeyToAddress(p.privateKey.PublicKey).Hex()
-		}
-	}
+
 
 	return p, nil
 }
@@ -139,4 +109,13 @@ func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
 	currentBlock = new(big.Int).SetBytes(currentBlockBytes)
 
 	return
+}
+
+func (processor *Processor) HasIdentity() bool {
+	return processor.address != ""
+}
+
+func (processor *Processor) Close() {
+	processor.ethClient.Close()
+	processor.rawClient.Close()
 }

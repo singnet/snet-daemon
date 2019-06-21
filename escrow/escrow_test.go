@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -78,8 +79,9 @@ func (transaction *paymentTransactionMock) Rollback() error {
 type PaymentChannelServiceSuite struct {
 	suite.Suite
 
-	senderPrivateKey   *ecdsa.PrivateKey
 	senderAddress      common.Address
+	signerPrivateKey   *ecdsa.PrivateKey
+	signerAddress      common.Address
 	recipientAddress   common.Address
 	mpeContractAddress common.Address
 	memoryStorage      *memoryStorage
@@ -90,8 +92,9 @@ type PaymentChannelServiceSuite struct {
 }
 
 func (suite *PaymentChannelServiceSuite) SetupSuite() {
-	suite.senderPrivateKey = GenerateTestPrivateKey()
-	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPrivateKey.PublicKey)
+	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
+	suite.signerPrivateKey = GenerateTestPrivateKey()
+	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	suite.memoryStorage = NewMemStorage()
@@ -107,17 +110,20 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 		suite.storage,
 		suite.paymentStorage,
 		&BlockchainChannelReader{
-			replicaGroupID: func() ([32]byte, error) {
-				return [32]byte{123}, nil
-			},
+
 			readChannelFromBlockchain: func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 				return suite.mpeChannel(), true, nil
+			},
+			recipientPaymentAddress: func() common.Address {
+				return suite.recipientAddress
 			},
 		},
 		NewEtcdLocker(suite.memoryStorage),
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
+		}, func() ([32]byte, error) {
+			return [32]byte{123}, nil
 		},
 	)
 }
@@ -138,6 +144,7 @@ func (suite *PaymentChannelServiceSuite) mpeChannel() *blockchain.MultiPartyEscr
 		Value:      big.NewInt(12345),
 		Nonce:      big.NewInt(3),
 		Expiration: big.NewInt(100),
+		Signer:     suite.signerAddress,
 	}
 }
 
@@ -148,7 +155,7 @@ func (suite *PaymentChannelServiceSuite) payment() *Payment {
 		ChannelNonce: big.NewInt(3),
 		//MpeContractAddress: suite.mpeContractAddress,
 	}
-	SignTestPayment(payment, suite.senderPrivateKey)
+	SignTestPayment(payment, suite.signerPrivateKey)
 	return payment
 }
 
@@ -167,6 +174,7 @@ func (suite *PaymentChannelServiceSuite) channel() *PaymentChannelData {
 		GroupID:          [32]byte{123},
 		FullAmount:       big.NewInt(12345),
 		Expiration:       big.NewInt(100),
+		Signer:           suite.signerAddress,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}
@@ -196,10 +204,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentParallelTransaction() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(17)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	transactionB, errB := suite.service.StartPaymentTransaction(paymentB)
@@ -218,10 +226,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentParallelTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransaction() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(17)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	errAC := transactionA.Commit()
@@ -241,10 +249,10 @@ func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransaction() {
 func (suite *PaymentChannelServiceSuite) TestPaymentSequentialTransactionAfterRollback() {
 	paymentA := suite.payment()
 	paymentA.Amount = big.NewInt(13)
-	SignTestPayment(paymentA, suite.senderPrivateKey)
+	SignTestPayment(paymentA, suite.signerPrivateKey)
 	paymentB := suite.payment()
 	paymentB.Amount = big.NewInt(13)
-	SignTestPayment(paymentB, suite.senderPrivateKey)
+	SignTestPayment(paymentB, suite.signerPrivateKey)
 
 	transactionA, errA := suite.service.StartPaymentTransaction(paymentA)
 	errAC := transactionA.Rollback()
@@ -272,4 +280,31 @@ func (suite *PaymentChannelServiceSuite) TestStartClaim() {
 	assert.Nil(suite.T(), errB, "Unexpected error: %v", errB)
 	assert.Equal(suite.T(), suite.payment(), claim.Payment())
 	assert.Equal(suite.T(), []*Payment{suite.payment()}, claims)
+}
+
+func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
+
+	service := suite.service
+	service.(*lockingPaymentChannelService).replicaGroupID =
+		func() ([32]byte, error) {
+			return [32]byte{125}, nil
+		}
+	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
+	//Group ID is different
+	channel, ok, err := service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
+	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: [125 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
+	assert.False(suite.T(), ok)
+	assert.Nil(suite.T(), channel)
+	assert.NotNil(suite.T(), err)
+	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
+	//Group ID is the same ( no error should happen)
+	//also re setting the value here again to make sure the original state is retained
+	service.(*lockingPaymentChannelService).replicaGroupID =
+		func() ([32]byte, error) {
+			return [32]byte{123}, nil
+		}
+	channel, ok, err = suite.service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
+	assert.True(suite.T(), ok)
+	assert.NotNil(suite.T(), channel)
+	assert.Nil(suite.T(), err)
 }

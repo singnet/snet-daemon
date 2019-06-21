@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
+	"net"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -14,62 +17,69 @@ import (
 )
 
 const (
-	RegistryAddressKey             = "REGISTRY_ADDRESS_KEY" //to be read from github
-	AutoSSLDomainKey               = "AUTO_SSL_DOMAIN"
-	AutoSSLCacheDirKey             = "AUTO_SSL_CACHE_DIR"
-	BlockchainEnabledKey           = "BLOCKCHAIN_ENABLED"
-	ConfigPathKey                  = "CONFIG_PATH"
-	DaemonListeningPortKey         = "DAEMON_LISTENING_PORT"
-	DaemonTypeKey                  = "DAEMON_TYPE"
-	DaemonEndPoint                 = "DAEMON_END_POINT"
-	DbPathKey                      = "DB_PATH"
-	EthereumJsonRpcEndpointKey     = "ETHEREUM_JSON_RPC_ENDPOINT"
-	ExecutablePathKey              = "EXECUTABLE_PATH"
-	HdwalletIndexKey               = "HDWALLET_INDEX"
-	HdwalletMnemonicKey            = "HDWALLET_MNEMONIC"
-	IpfsEndPoint                   = "IPFS_END_POINT"
-	LogKey                         = "LOG"
-	OrganizationName               = "ORGANIZATION_NAME"
-	ServiceName                    = "SERVICE_NAME"
-	PassthroughEnabledKey          = "PASSTHROUGH_ENABLED"
-	PassthroughEndpointKey         = "PASSTHROUGH_ENDPOINT"
-	PollSleepKey                   = "POLL_SLEEP"
-	PrivateKeyKey                  = "PRIVATE_KEY"
-	ServiceTypeKey                 = "SERVICE_TYPE"
-	SSLCertPathKey                 = "SSL_CERT"
-	SSLKeyPathKey                  = "SSL_KEY"
-	WireEncodingKey                = "WIRE_ENCODING"
-	PaymentChannelStorageTypeKey   = "PAYMENT_CHANNEL_STORAGE_TYPE"
-	PaymentChannelStorageClientKey = "PAYMENT_CHANNEL_STORAGE_CLIENT"
-	PaymentChannelStorageServerKey = "PAYMENT_CHANNEL_STORAGE_SERVER"
+
+	AutoSSLDomainKey     = "auto_ssl_domain"
+	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
+	BlockchainEnabledKey = "blockchain_enabled"
+	BlockChainNetworkSelected      = "blockchain_network_selected"
+	BurstSize            = "burst_size"
+	ConfigPathKey        = "config_path"
+
+	DaemonGroupName                = "daemon_group_name"
+	DaemonTypeKey                  = "daemon_type"
+	DaemonEndPoint                 = "daemon_end_point"
+	ExecutablePathKey              = "executable_path"
+	IpfsEndPoint                   = "ipfs_end_point"
+	IpfsTimeout                    = "ipfs_timeout"
+	LogKey                         = "log"
+	MaxMessageSizeInMB             = "max_message_size_in_mb"
+	MonitoringEnabled              = "monitoring_enabled"
+	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
+	OrganizationId                 = "organization_id"
+	ServiceId                      = "service_id"
+	PassthroughEnabledKey          = "passthrough_enabled"
+	PassthroughEndpointKey         = "passthrough_endpoint"
+	RateLimitPerMinute             = "rate_limit_per_minute"
+	SSLCertPathKey                 = "ssl_cert"
+	SSLKeyPathKey                  = "ssl_key"
+	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
+	PaymentChannelStorageClientKey = "payment_channel_storage_client"
+	PaymentChannelStorageServerKey = "payment_channel_storage_server"
+	//configs for Daemon Monitoring and Notification
+	AlertsEMail                 = "alerts_email"
+	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	NotificationServiceEndpoint = "notification_svc_end_point"
+	ServiceHeartbeatType        = "service_heartbeat_type"
+	//none|grpc|http
 
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",
+	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
-	"daemon_listening_port": 8080,
+	"blockchain_network_selected": "local",
+	"daemon_end_point": "127.0.0.1:8080",
+	"daemon_group_name":"default_group",
 	"daemon_type": "grpc",
-	"daemon_end_point": "http://localhost:8080",
-	"db_path": "snetd.db",
-	"ethereum_json_rpc_endpoint": "http://127.0.0.1:8545",
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
-	"organization_name": "ExampleOrganization", 
-	"price_per_call": 10,
+	"ipfs_timeout" : 30,
+	"max_message_size_in_mb" : 4,
+	"monitoring_enabled": true,
+	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
+	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
-	"poll_sleep": "5s",
-	"registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2",
-	"service_name": "ExampleService", 
-	"service_type": "grpc",
+	"service_id": "ExampleServiceId", 
+	"private_key": "",
 	"ssl_cert": "",
 	"ssl_key": "",
-	"wire_encoding": "proto",
 	"log":  {
 		"level": "info",
 		"timezone": "UTC",
 		"formatter": {
-			"type": "text"
+			"type": "text",
+			"timestamp_format": "2006-01-02T15:04:05.999999999Z07:00"
 		},
 		"output": {
 			"type": "file",
@@ -81,8 +91,6 @@ const (
 		},
 		"hooks": []
 	},
-	"replica_group_id": "0",
-	"payment_expiration_threshold_blocks": 5760,
 	"payment_channel_storage_type": "etcd",
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
@@ -101,7 +109,11 @@ const (
 		"data_dir": "storage-data-dir-1.etcd",
 		"log_level": "info",
 		"enabled": true
-	}
+	},
+	"alerts_email": "", 
+	"service_heartbeat_type": "http",
+	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
+	"notification_svc_end_point": "http://demo3208027.mockable.io"
 }
 `
 )
@@ -147,37 +159,46 @@ func Vip() *viper.Viper {
 func Validate() error {
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
-		switch sType := vip.GetString(ServiceTypeKey); sType {
-		case "grpc":
-		case "jsonrpc":
-		case "process":
-			if vip.GetString(ExecutablePathKey) == "" {
-				return errors.New("EXECUTABLE required with SERVICE_TYPE 'process'")
-			}
-		default:
-			return fmt.Errorf("unrecognized SERVICE_TYPE '%+v'", sType)
-		}
-
-		switch enc := vip.GetString(WireEncodingKey); enc {
-		case "proto":
-		case "json":
-		default:
-			return fmt.Errorf("unrecognized WIRE_ENCODING '%+v'", enc)
-		}
 	case "http":
 	default:
 		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)
 	}
-
-	if vip.GetBool(BlockchainEnabledKey) {
-		if vip.GetString(PrivateKeyKey) == "" && vip.GetString(HdwalletMnemonicKey) == "" {
-			return errors.New("either PRIVATE_KEY or HDWALLET_MNEMONIC are required")
-		}
+	if err := setBlockChainNetworkDetails(BlockChainNetworkFileName); err != nil {
+		return err
 	}
-
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
+	}
+	// validate monitoring service endpoints
+	if vip.GetBool(MonitoringEnabled) &&
+		vip.GetString(MonitoringServiceEndpoint) != "" &&
+		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
+		return errors.New("service endpoint must be a valid URL")
+	}
+
+	// Validate metrics URL and set state
+	passEndpoint := vip.GetString(PassthroughEndpointKey)
+	daemonEndpoint := vip.GetString(DaemonEndPoint)
+	var err error
+	err = ValidateEndpoints(daemonEndpoint, passEndpoint)
+	if err != nil {
+		return err
+	}
+
+	//Check if the Daemon is on the latest version or not
+	if message,err := CheckVersionOfDaemon(); err != nil {
+		//In case of any error on version check , just log it
+		log.Warning(err)
+	}else {
+		log.Info(message)
+	}
+
+
+	// the maximum that the server can receive to 2GB.
+	maxMessageSize:= vip.GetInt(MaxMessageSizeInMB)
+	if ( maxMessageSize <=0 || maxMessageSize > 2048)   {
+		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
 	}
 
 	return nil
@@ -228,25 +249,17 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	for subKey, value := range subMap {
 		sub.Set(subKey, value)
 	}
-
 	return sub
 }
 
-var hiddenKeys = map[string]bool{
-	strings.ToUpper(PrivateKeyKey):       true,
-	strings.ToUpper(HdwalletMnemonicKey): true,
-}
 
 func LogConfig() {
 	log.Info("Final configuration:")
 	keys := vip.AllKeys()
 	sort.Strings(keys)
 	for _, key := range keys {
-		if hiddenKeys[strings.ToUpper(key)] {
-			log.Infof("%v: ***", key)
-		} else {
-			log.Infof("%v: %v", key, vip.Get(key))
-		}
+		log.Infof("%v: %v", key, vip.Get(key))
+
 	}
 }
 
@@ -254,4 +267,42 @@ func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err er
 	value = &big.Int{}
 	err = value.UnmarshalText([]byte(config.GetString(key)))
 	return
+}
+
+// isValidUrl tests a string to determine if it is a url or not.
+func IsValidUrl(urlToTest string) bool {
+	_, err := url.ParseRequestURI(urlToTest)
+	if err != nil {
+		return false
+	} else {
+		return true
+	}
+}
+
+// validates in input URL
+func ValidateEmail(email string) bool {
+	Re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	return Re.MatchString(email)
+}
+
+func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error {
+	passthroughURL, err := url.Parse(passthroughEndpoint)
+	if err != nil {
+		return errors.New("passthrough endpoint must be a valid URL")
+	}
+	daemonHost, daemonPort, err := net.SplitHostPort(daemonEndpoint)
+	if err != nil {
+		return errors.New("couldn't split host:post of daemon endpoint")
+	}
+
+	if daemonHost == passthroughURL.Hostname() && daemonPort == passthroughURL.Port() {
+		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+	}
+
+	if ((daemonPort == passthroughURL.Port()) &&
+	    (daemonHost == "0.0.0.0") &&
+	    (passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost"))	{
+		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+	}
+	return nil
 }

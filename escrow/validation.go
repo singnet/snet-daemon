@@ -2,13 +2,11 @@ package escrow
 
 import (
 	"bytes"
-	"encoding/hex"
-	"errors"
-	"math/big"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/authutils"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"math/big"
 
 	"github.com/singnet/snet-daemon/blockchain"
 )
@@ -20,11 +18,11 @@ type ChannelPaymentValidator struct {
 }
 
 // NewChannelPaymentValidator returns new payment validator instance
-func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Viper) *ChannelPaymentValidator {
+func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Viper, metadata *blockchain.ServiceMetadata) *ChannelPaymentValidator {
 	return &ChannelPaymentValidator{
 		currentBlock: processor.CurrentBlock,
 		paymentExpirationThreshold: func() *big.Int {
-			return big.NewInt(blockchain.GetPaymentExpirationThreshold())
+			return metadata.GetPaymentExpirationThreshold()
 		},
 	}
 }
@@ -36,7 +34,7 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 
 	if payment.ChannelNonce.Cmp(channel.Nonce) != 0 {
 		log.Warn("Incorrect nonce is sent by client")
-		return NewPaymentError(Unauthenticated, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.ChannelNonce)
+		return NewPaymentError(IncorrectNonce, "incorrect payment channel nonce, latest: %v, sent: %v", channel.Nonce, payment.ChannelNonce)
 	}
 
 	signerAddress, err := getSignerAddressFromPayment(payment)
@@ -45,9 +43,9 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 	}
 
 	log = log.WithField("signerAddress", blockchain.AddressToHex(signerAddress))
-	if *signerAddress != channel.Sender {
-		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel sender is not equal to payment signer")
-		return NewPaymentError(Unauthenticated, "payment is not signed by channel sender")
+	if *signerAddress != channel.Signer {
+		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel signer is not equal to payment signer")
+		return NewPaymentError(Unauthenticated, "payment is not signed by channel signer")
 	}
 	currentBlock, e := validator.currentBlock()
 	if e != nil {
@@ -76,46 +74,15 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 		bigIntToBytes(payment.Amount),
 	}, nil)
 
-	signer, err = getSignerAddressFromMessage(message, payment.Signature)
+	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
-		return nil,err
+		return nil, err
 	}
 
 	return signer, err
 }
 
-func getSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
-	log := log.WithFields(log.Fields{
-		"message":   blockchain.BytesToBase64(message),
-		"signature": blockchain.BytesToBase64(signature),
-	})
-
-	messageHash := crypto.Keccak256(
-		blockchain.HashPrefix32Bytes,
-		crypto.Keccak256(message),
-	)
-	log = log.WithField("messageHash", hex.EncodeToString(messageHash))
-
-	v, _, _, e := blockchain.ParseSignature(signature)
-	if e != nil {
-		log.WithError(e).Warn("Error parsing signature")
-		return nil, errors.New("incorrect signature length")
-	}
-
-	modifiedSignature := bytes.Join([][]byte{signature[0:64], {v % 27}}, nil)
-	publicKey, e := crypto.SigToPub(messageHash, modifiedSignature)
-	if e != nil {
-		log.WithError(e).WithField("modifiedSignature", modifiedSignature).Warn("Incorrect signature")
-		return nil, errors.New("incorrect signature data")
-	}
-	log = log.WithField("publicKey", publicKey)
-
-	keyOwnerAddress := crypto.PubkeyToAddress(*publicKey)
-	log.WithField("keyOwnerAddress", keyOwnerAddress).Debug("Message signature parsed")
-
-	return &keyOwnerAddress, nil
-}
 
 func bigIntToBytes(value *big.Int) []byte {
 	return common.BigToHash(value).Bytes()

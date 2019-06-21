@@ -1,3 +1,9 @@
+//
+// FIXME: All changes all this file should manually be copied to the `snet-cli`
+// repo until https://github.com/singnet/snet-daemon/issues/99 and
+// https://github.com/singnet/snet-cli/issues/88 are fixed.
+//
+
 syntax = "proto3";
 
 package escrow;
@@ -18,9 +24,13 @@ service PaymentChannelStateService {
 message ChannelStateRequest {
     // channel_id contains id of the channel which state is requested.
     bytes channel_id = 1;
+
     // signature is a client signature of the message which contains
     // channel_id. It is used for client authorization.
     bytes signature = 2;
+
+    //current block number (signature will be valid only for short time around this block number)
+    uint64 current_block = 3;
 }
 
 // ChannelStateReply message contains a latest channel state. current_nonce and
@@ -36,6 +46,12 @@ message ChannelStateReply {
     bytes current_signed_amount = 2;
 
     // current_signature is a last signature sent by client with current_nonce
-    // it could be abset if none message was signed with current nonce
+    // it could be absent if none message was signed with current nonce
     bytes current_signature = 3;
+
+    // last amount which was signed by client with nonce=current_nonce - 1
+    bytes old_nonce_signed_amount = 4;
+
+    // last signature sent by client with nonce = current_nonce - 1
+    bytes old_nonce_signature = 5;
  }

@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/singnet/snet-daemon/pricing"
+	"github.com/singnet/snet-daemon/metrics"
 	"os"
 
-	"github.com/coreos/bbolt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -11,14 +13,13 @@ import (
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/db"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
 )
 
 type Components struct {
-	db                         *bbolt.DB
+	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
@@ -27,6 +28,11 @@ type Components struct {
 	escrowPaymentHandler       handler.PaymentHandler
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
+	etcdLockerStorage          *escrow.PrefixedAtomicStorage
+	providerControlService     *escrow.ProviderControlService
+	daemonHeartbeat            *metrics.DaemonHeartbeat
+	paymentStorage             *escrow.PaymentStorage
+	priceStrategy              *pricing.PricingStrategy
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -67,31 +73,15 @@ func isFileExist(fileName string) bool {
 }
 
 func (components *Components) Close() {
-	if components.db != nil {
-		components.db.Close()
-	}
 	if components.etcdClient != nil {
 		components.etcdClient.Close()
 	}
 	if components.etcdServer != nil {
 		components.etcdServer.Close()
 	}
-}
-
-func (components *Components) DB() *bbolt.DB {
-	if components.db != nil {
-		return components.db
+	if components.blockchain != nil {
+		components.blockchain.Close()
 	}
-
-	if config.GetBool(config.BlockchainEnabledKey) {
-		if database, err := db.Connect(config.GetString(config.DbPathKey)); err != nil {
-			log.WithError(err).Panic("unable to initialize bbolt DB for blockchain state")
-		} else {
-			components.db = database
-		}
-	}
-
-	return components.db
 }
 
 func (components *Components) Blockchain() *blockchain.Processor {
@@ -99,13 +89,21 @@ func (components *Components) Blockchain() *blockchain.Processor {
 		return components.blockchain
 	}
 
-	processor, err := blockchain.NewProcessor(components.DB())
+	processor, err := blockchain.NewProcessor(components.ServiceMetaData())
 	if err != nil {
 		log.WithError(err).Panic("unable to initialize blockchain processor")
 	}
 
 	components.blockchain = &processor
 	return components.blockchain
+}
+
+func (components *Components) ServiceMetaData() *blockchain.ServiceMetadata {
+	if components.serviceMetadata != nil {
+		return components.serviceMetadata
+	}
+	components.serviceMetadata = blockchain.ServiceMetaData()
+	return components.serviceMetadata
 }
 
 func (components *Components) EtcdServer() *etcddb.EtcdServer {
@@ -149,6 +147,14 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	return components.etcdClient
 }
 
+func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
+	if components.etcdLockerStorage != nil {
+		return components.etcdLockerStorage
+	}
+	components.etcdLockerStorage = escrow.NewLockerStorage(components.AtomicStorage())
+	return components.etcdLockerStorage
+}
+
 func (components *Components) AtomicStorage() escrow.AtomicStorage {
 	if components.atomicStorage != nil {
 		return components.atomicStorage
@@ -163,6 +169,16 @@ func (components *Components) AtomicStorage() escrow.AtomicStorage {
 	return components.atomicStorage
 }
 
+func (components *Components) PaymentStorage() *escrow.PaymentStorage {
+	if components.paymentStorage != nil {
+		return components.paymentStorage
+	}
+
+	components.paymentStorage = escrow.NewPaymentStorage(components.AtomicStorage())
+
+	return components.paymentStorage
+}
+
 func (components *Components) PaymentChannelService() escrow.PaymentChannelService {
 	if components.paymentChannelService != nil {
 		return components.paymentChannelService
@@ -170,10 +186,13 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
-		escrow.NewPaymentStorage(components.AtomicStorage()),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip()),
+		components.PaymentStorage(),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip()),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()), func() ([32]byte, error) {
+			s := components.ServiceMetaData().GetDaemonGroupID()
+			return s, nil
+		},
 	)
 
 	return components.paymentChannelService
@@ -187,28 +206,43 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	components.escrowPaymentHandler = escrow.NewPaymentHandler(
 		components.PaymentChannelService(),
 		components.Blockchain(),
-		escrow.NewIncomeValidator(),
+		escrow.NewIncomeValidator(components.PricingStrategy()),
 	)
 
 	return components.escrowPaymentHandler
 }
 
+//Add a chain of interceptors
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
+	//If monitoring is enabled and the endpoint URL is valid and if the
+	// Daemon has successfully registered itself and has obtained a valid token to publish metrics
+	// , ONLY then add this interceptor to the chain of interceptors
+	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
+	if config.GetBool(config.MonitoringEnabled) &&
+		config.IsValidUrl(config.GetString(config.MonitoringServiceEndpoint)) &&
+		metrics.RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint)+"/register") {
 
+		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
+			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(),
+			components.GrpcPaymentValidationInterceptor())
+	} else {
+		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(),
+			components.GrpcPaymentValidationInterceptor())
+	}
+	return components.grpcInterceptor
+}
+
+func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		log.Info("Blockchain is disabled: no payment validation")
-		components.grpcInterceptor = handler.NoOpInterceptor
+		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		components.grpcInterceptor = handler.GrpcStreamInterceptor(
-			components.EscrowPaymentHandler(),
-		)
+		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler())
 	}
-
-	return components.grpcInterceptor
 }
 
 func (components *Components) PaymentChannelStateService() (service *escrow.PaymentChannelStateService) {
@@ -216,7 +250,42 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 		return components.paymentChannelStateService
 	}
 
-	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelService())
+	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(
+		components.PaymentChannelService(),
+		components.PaymentStorage(),
+		components.ServiceMetaData())
 
 	return components.paymentChannelStateService
+}
+
+//NewProviderControlService
+
+func (components *Components) ProviderControlService() (service *escrow.ProviderControlService) {
+	if components.providerControlService != nil {
+		return components.providerControlService
+	}
+
+	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(), components.ServiceMetaData())
+	return components.providerControlService
+}
+
+func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbeat) {
+	if components.daemonHeartbeat != nil {
+		return components.daemonHeartbeat
+	}
+	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
+	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID()}
+	return components.daemonHeartbeat
+}
+
+
+
+func (components *Components) PricingStrategy() *pricing.PricingStrategy {
+	if components.priceStrategy != nil {
+		return components.priceStrategy
+	}
+
+	components.priceStrategy,_ = pricing.InitPricingStrategy(components.ServiceMetaData())
+
+	return components.priceStrategy
 }

@@ -1,27 +1,40 @@
 package blockchain
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	log "github.com/sirupsen/logrus"
+	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
+	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"math/big"
 	"strings"
-
 )
 
+const IpfsPrefix = "ipfs://"
+
 type ServiceMetadata struct {
-	Version                   int    `json:"version"`
-	DisplayName               string `json:"display_name"`
-	Encoding                  string `json:"encoding"`
-	ServiceType               string `json:"service_type"`
-	PaymentEpirationThreshold int64  `json:"payment_expiration_threshold"`
-	ModelIpfsHash             string `json:"model_ipfs_hash"`
-	MpeAddress                string `json:"mpe_address"`
-	Pricing                   struct {
+	Version                    int      `json:"version"`
+	DisplayName                string   `json:"display_name"`
+	Encoding                   string   `json:"encoding"`
+	ServiceType                string   `json:"service_type"`
+	PaymentExpirationThreshold *big.Int `json:"payment_expiration_threshold"`
+	ModelIpfsHash              string   `json:"model_ipfs_hash"`
+	MpeAddress                 string   `json:"mpe_address"`
+	Pricing                    struct {
 		PriceModel  string   `json:"price_model"`
+		PackageName string `json:"package_name"`
+		//Price in cogs has been retained only to support backward compatibility
 		PriceInCogs *big.Int `json:"price_in_cogs"`
+		Details    []struct {
+			ServiceName   string `json:"service_name"`
+			MethodPricing []struct {
+				MethodName  string `json:"method_name"`
+				PriceInCogs *big.Int    `json:"price_in_cogs"`
+			} `json:"method_pricing"`
+		} `json:"details"`
 	} `json:"pricing"`
 	Groups []struct {
 		GroupName      string `json:"group_name"`
@@ -32,97 +45,182 @@ type ServiceMetadata struct {
 		GroupName string `json:"group_name"`
 		Endpoint  string `json:"endpoint"`
 	} `json:"endpoints"`
-	DeamonReplicaGroupID string
-	DeamonGroupName      string
-	DaemonEndPoint       string
+	daemonReplicaGroupIDString string
+	daemonReplicaGroupID       [32]byte
+	daemonGroupName            string
+	daemonEndPoint             string
+	recipientPaymentAddress    common.Address
+	multiPartyEscrowAddress    common.Address
 }
 
-var metaData *ServiceMetadata
+func getRegistryAddressKey() common.Address {
+	address := config.GetRegistryAddress()
+	return common.HexToAddress(address)
+}
 
-func GetDaemonGroupID() [32]byte {
-	groupID := "0"
-	groupName := GetDaemonGroupName()
-	for _, group := range metaData.Groups {
-		if strings.Compare(groupName, group.GroupName) == 0 {
-			groupID = group.GroupID
-			metaData.DeamonReplicaGroupID = groupID
-			metaData.DeamonGroupName = group.GroupName
-			break
+func ServiceMetaData() *ServiceMetadata {
+	var metadata *ServiceMetadata
+	var err error
+	if config.GetBool(config.BlockchainEnabledKey) {
+		ipfsHash := string(getMetaDataUrifromRegistry())
+		metadata, err = GetServiceMetaDataFromIPFS(FormatHash(ipfsHash))
+	} else {
+		//TO DO, have a snetd command to create a default metadata json file, for now just read from a local file
+		// when block chain reading is disabled
+		if metadata, err = ReadServiceMetaDataFromLocalFile("service_metadata.json");err != nil {
+			fmt.Print("When Block chain is disabled it is mandatory to have a service_metadata.json file to start Daemon.Please refer to a sample file at https://github.com/singnet/snet-daemon/blob/master/service_metadata.json\n")
 		}
 	}
-
-	data, err := base64.StdEncoding.DecodeString(groupID)
 	if err != nil {
-		log.WithError(err).Panic("Error trying to base64.StdEncoding.DecodeString")
+		log.WithError(err).
+			Panic("error on determining service metadata from file")
 	}
-	var byte32 [32]byte
-	copy(byte32[:], data[:])
-	return byte32
+	return metadata
 }
 
-func GetPaymentAddress() string {
-	paymentAddress := "0" //to continue with current testing
-	groupName := GetDaemonGroupName()
+func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {
+	file, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not read file: %v", filename)
+	}
+	strJson := string(file)
+	metadata, err := InitServiceMetaDataFromJson(strJson)
+	if err != nil {
+		return nil, fmt.Errorf("error reading local file service_metadata.json ")
+	}
+	return metadata, nil
+}
+
+func getMetaDataUrifromRegistry() []byte {
+	ethClient, err := GetEthereumClient()
+	defer ethClient.Close()
+	registryContractAddress := getRegistryAddressKey()
+	reg, err := NewRegistryCaller(registryContractAddress, ethClient.EthClient)
+	if err != nil {
+		log.WithError(err).WithField("registryContractAddress", registryContractAddress).
+			Panic("Error instantiating Registry contract for the given Contract Address")
+	}
+	orgId := StringToBytes32(config.GetString(config.OrganizationId))
+	serviceId := StringToBytes32(config.GetString(config.ServiceId))
+
+	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
+	if err != nil || !serviceRegistration.Found {
+		log.WithError(err).WithField("OrganizationId", config.GetString(config.OrganizationId)).
+			WithField("ServiceId", config.GetString(config.ServiceId)).
+			Panic("Error Retrieving contract details for the Given Organization and Service Ids ")
+	}
+
+	return serviceRegistration.MetadataURI[:]
+}
+
+func GetServiceMetaDataFromIPFS(hash string) (*ServiceMetadata, error) {
+	jsondata := ipfsutils.GetIpfsFile(hash)
+	return InitServiceMetaDataFromJson(jsondata)
+}
+
+func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
+	metaData := new(ServiceMetadata)
+	err := json.Unmarshal([]byte(jsonData), &metaData)
+	if err != nil {
+		log.WithError(err).WithField("jsondata", jsonData)
+		return nil, err
+	}
+	err = setDerivedFields(metaData)
+	return metaData, err
+}
+
+func setDerivedFields(metaData *ServiceMetadata) error {
+	err := setDaemonGroupName(metaData)
+	if err != nil {
+		return err
+	}
+	err = setDaemonGroupIDAndPaymentAddress(metaData)
+	if err != nil {
+		return err
+	}
+	setMultiPartyEscrowAddress(metaData)
+	return nil
+
+}
+
+func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
+	metaData.multiPartyEscrowAddress = common.HexToAddress(metaData.MpeAddress)
+
+}
+
+
+func setDaemonGroupName(metaData *ServiceMetadata) error {
+	metaData.daemonGroupName = config.GetString(config.DaemonGroupName)
+	//Make sure the group name specified is in the config matches to some group name in metadata
+	for _, endpoints := range metaData.Endpoints {
+		if strings.Compare(metaData.daemonGroupName, endpoints.GroupName) == 0 {
+			return nil
+		}
+	}
+	log.WithField("daemon group name does not match any of the Group Names in Metadata", metaData.daemonGroupName)
+	return fmt.Errorf("please set the mandatory Daemon group Name corrrectly through the config %s ", config.DaemonGroupName)
+}
+
+func setDaemonGroupIDAndPaymentAddress(metaData *ServiceMetadata) error {
+	groupName := metaData.GetDaemonGroupName()
+
 	for _, group := range metaData.Groups {
 		if strings.Compare(groupName, group.GroupName) == 0 {
-			paymentAddress = group.PaymentAddress
+			var err error
+			metaData.daemonReplicaGroupIDString = group.GroupID
+			metaData.daemonReplicaGroupID, err = ConvertBase64Encoding(group.GroupID)
+			if err != nil {
+				return err
+			}
+			metaData.recipientPaymentAddress = common.HexToAddress(group.PaymentAddress)
+			return nil
 		}
 	}
-	return paymentAddress
+	log.WithField("groupName", groupName)
+	return fmt.Errorf("unable to determine the Daemon Group ID or the Recipient Payment Address, Daemon Group Name %s", groupName)
+
 }
 
-func SetServiceMetaData(hash string) {
-	jsondata := ipfsutils.GetIpfsFile(hash)
-	metaData = new(ServiceMetadata)
-	json.Unmarshal([]byte(jsondata), &metaData)
+func (metaData *ServiceMetadata) GetDaemonEndPoint() string {
+	return metaData.daemonEndPoint
 }
 
-func SetServiceMetaDataThroughJSON(jsondata string) {
-	metaData = new(ServiceMetadata)
-	json.Unmarshal([]byte(jsondata), &metaData)
+func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
+	return metaData.multiPartyEscrowAddress
 }
 
-func GetmpeAddress() string {
-	return metaData.MpeAddress
+func (metaData *ServiceMetadata) GetPaymentExpirationThreshold() *big.Int {
+	return metaData.PaymentExpirationThreshold
 }
 
-func GetPaymentExpirationThreshold() int64 {
-	return metaData.PaymentEpirationThreshold
+
+func (metaData *ServiceMetadata) GetDaemonGroupName() string {
+	return metaData.daemonGroupName
 }
-
-func GetPriceinCogs() *big.Int {
-	return metaData.Pricing.PriceInCogs
-}
-
-//Get the group name based on end point
-func GetDaemonGroupName() string {
-	groupName := "0"
-	for _, endpoints := range metaData.Endpoints {
-		if strings.Compare(config.GetString(config.DaemonEndPoint), endpoints.Endpoint) == 0 {
-			groupName = endpoints.GroupName
-		}
-	}
-	return groupName
-}
-
-func GetWireEncoding() string {
-
+func (metaData *ServiceMetadata) GetWireEncoding() string {
 	return metaData.Encoding
-
 }
 
-func GetVersion() string {
-
-	return metaData.Encoding
-
+func (metaData *ServiceMetadata) GetVersion() int {
+	return metaData.Version
 }
 
-func GetServiceType() string {
+func (metaData *ServiceMetadata) GetServiceType() string {
 	return metaData.ServiceType
 }
 
-func GetDisplayName() string {
-
+func (metaData *ServiceMetadata) GetDisplayName() string {
 	return metaData.DisplayName
+}
 
+func (metaData *ServiceMetadata) GetDaemonGroupID() [32]byte {
+	return metaData.daemonReplicaGroupID
+}
+
+func (metaData *ServiceMetadata) GetDaemonGroupIDString() string {
+	return metaData.daemonReplicaGroupIDString
+}
+
+func (metaData *ServiceMetadata) GetPaymentAddress() common.Address {
+	return metaData.recipientPaymentAddress
 }

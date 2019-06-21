@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -ex
+
+PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+pushd $PARENT_PATH
+
+if [ $# -eq 0 ]
+  then
+    echo "Please pass the latest tagged version of the Daemon as an argument.The version passed will be used by the ldflags to set accordingly."
+    exit 1
+fi
+# Make sure we have xgo
+go get -u github.com/karalabe/xgo
+
+# Apply patch for OSX, Go 1.10 and old notify version
+# https://stackoverflow.com/questions/54064293/cannot-use-nil-as-type-ctype-cfallocatorref-in-argument-to-func-literal
+# Can be removed if we upgrade notify (which probably requires upgrading go-ethereum etc.)
+pushd vendor/github.com/rjeczalik/notify
+patch -N < $PARENT_PATH/scripts/watcher_fsevents_cgo.go.patch || true
+popd
+
+mkdir -p build
+
+# Stuck on Go 1.10.x until https://github.com/singnet/snet-daemon/issues/201 is resolved.
+GO_VERSION=1.10.x
+
+# All targets compiled when Joel tried (2019-March), but we probably don't want to build them all!
+#TARGETS=*/*
+
+# See here for details
+# https://github.com/karalabe/xgo#limit-build-targets
+now=$(date +'%Y-%m-%d_%T')
+#latest version tag is passed as a param to this script.
+TARGETS=linux/amd64,linux/arm-6,darwin-10.6/amd64,windows/amd64
+registryAddressJson=`cat resources/blockchain/node_modules/singularitynet-platform-contracts/networks/Registry.json|sed -r 's/["]+/\\"/g'|tr '\n' ' '`
+networkJson=`cat resources/blockchain_network_config.json|tr '\n' ' '|sed -r 's/["]+/\\"/g'|sed 's/ //g'`
+xgo -dest build -go $GO_VERSION -ldflags "-X github.com/singnet/snet-daemon/config.sha1Revision=`git rev-parse HEAD`
+ -X github.com/singnet/snet-daemon/config.versionTag=$1
+ -X github.com/singnet/snet-daemon/config.buildTime=$now
+ -X github.com/singnet/snet-daemon/config.registryAddressJson=$registryAddressJson
+ -X github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson " -targets=$TARGETS ./snetd

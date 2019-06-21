@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -91,19 +92,19 @@ func (storage *PaymentChannelStorage) CompareAndSwap(key *PaymentChannelKey, pre
 
 // BlockchainChannelReader reads channel state from blockchain
 type BlockchainChannelReader struct {
-	replicaGroupID            func() ([32]byte, error)
+
 	readChannelFromBlockchain func(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
+	recipientPaymentAddress   func() common.Address
 }
 
 // NewBlockchainChannelReader returns new instance of blockchain channel reader
-func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Viper) *BlockchainChannelReader {
+func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Viper, metadata *blockchain.ServiceMetadata) *BlockchainChannelReader {
 	return &BlockchainChannelReader{
-		replicaGroupID: func() ([32]byte, error) {
-			s := blockchain.GetDaemonGroupID()
-
-			return s, nil
-		},
 		readChannelFromBlockchain: processor.MultiPartyEscrowChannel,
+		recipientPaymentAddress: func() common.Address {
+			address := metadata.GetPaymentAddress()
+			return address
+		},
 	}
 }
 
@@ -115,17 +116,16 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		return
 	}
 
-	configGroupID, err := reader.replicaGroupID()
-	if err != nil {
-		return nil, false, err
-	}
 
-	if ch.GroupId != configGroupID {
-		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
-		return nil, false, fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, ch.GroupId)
-	}
+	recipientPaymentAddress := reader.recipientPaymentAddress()
 
-	// TODO: check recipient
+
+	if recipientPaymentAddress != ch.Recipient {
+		log.WithField("recipientPaymentAddress", recipientPaymentAddress).
+			WithField("ch.Recipient", ch.Recipient).
+			Warn("Recipient Address from service metadata not Match on what was retrieved from Channel")
+		return nil, false, fmt.Errorf("recipient Address from service metadata does not Match on what was retrieved from Channel")
+	}
 	return &PaymentChannelData{
 		ChannelID:        key.ID,
 		Nonce:            ch.Nonce,
@@ -135,6 +135,7 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		GroupID:          ch.GroupId,
 		FullAmount:       ch.Value,
 		Expiration:       ch.Expiration,
+		Signer:           ch.Signer,
 		AuthorizedAmount: big.NewInt(0),
 		Signature:        nil,
 	}, true, nil

@@ -1,3 +1,4 @@
+//go:generate protoc -I . ./configuration_service.proto --go_out=plugins=grpc:.
 package configuration_service
 
 import (

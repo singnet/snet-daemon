@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/singnet/snet-daemon/pricing"
 	"github.com/singnet/snet-daemon/metrics"
 	"os"
 
@@ -30,6 +31,8 @@ type Components struct {
 	etcdLockerStorage          *escrow.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
+	paymentStorage             *escrow.PaymentStorage
+	priceStrategy              *pricing.PricingStrategy
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -166,6 +169,16 @@ func (components *Components) AtomicStorage() escrow.AtomicStorage {
 	return components.atomicStorage
 }
 
+func (components *Components) PaymentStorage() *escrow.PaymentStorage {
+	if components.paymentStorage != nil {
+		return components.paymentStorage
+	}
+
+	components.paymentStorage = escrow.NewPaymentStorage(components.AtomicStorage())
+
+	return components.paymentStorage
+}
+
 func (components *Components) PaymentChannelService() escrow.PaymentChannelService {
 	if components.paymentChannelService != nil {
 		return components.paymentChannelService
@@ -173,10 +186,10 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
-		escrow.NewPaymentStorage(components.AtomicStorage()),
+		components.PaymentStorage(),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()),func() ([32]byte, error) {
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()), func() ([32]byte, error) {
 			s := components.ServiceMetaData().GetDaemonGroupID()
 			return s, nil
 		},
@@ -193,7 +206,7 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	components.escrowPaymentHandler = escrow.NewPaymentHandler(
 		components.PaymentChannelService(),
 		components.Blockchain(),
-		escrow.NewIncomeValidator(components.ServiceMetaData().GetPriceInCogs()),
+		escrow.NewIncomeValidator(components.PricingStrategy()),
 	)
 
 	return components.escrowPaymentHandler
@@ -237,7 +250,10 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 		return components.paymentChannelStateService
 	}
 
-	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(components.PaymentChannelService())
+	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(
+		components.PaymentChannelService(),
+		components.PaymentStorage(),
+		components.ServiceMetaData())
 
 	return components.paymentChannelStateService
 }
@@ -249,7 +265,7 @@ func (components *Components) ProviderControlService() (service *escrow.Provider
 		return components.providerControlService
 	}
 
-	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),components.ServiceMetaData())
+	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(), components.ServiceMetaData())
 	return components.providerControlService
 }
 
@@ -258,6 +274,18 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 		return components.daemonHeartbeat
 	}
 	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
-	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID:metrics.GetDaemonID()}
+	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID()}
 	return components.daemonHeartbeat
+}
+
+
+
+func (components *Components) PricingStrategy() *pricing.PricingStrategy {
+	if components.priceStrategy != nil {
+		return components.priceStrategy
+	}
+
+	components.priceStrategy,_ = pricing.InitPricingStrategy(components.ServiceMetaData())
+
+	return components.priceStrategy
 }

@@ -1,0 +1,140 @@
+syntax = "proto3";
+
+package config;
+
+//Currently all monitoring and any configuration changes on Daemon are done manually,
+//goal is to provide a one stop place to remotely monitor and configure the Daemon in a secure way
+
+service ConfigurationService {
+    //Used when you just need to read the current configuration
+    rpc GetConfiguration (EmptyRequest) returns (ConfigurationResponse) {
+    }
+
+    //Used when you want to update the existing configuration
+    rpc UpdateConfiguration (UpdateRequest) returns (ConfigurationResponse) {
+    }
+
+    //This is used to instruct the Daemon to stop taking in any new requests,
+    //At this point , however any existing requests being processed will be honored.
+    // ("_StopProcessingRequests", "block_number",authentication_address) should be sent in the signature
+    rpc StopProcessingRequests (EmptyRequest) returns (StatusResponse) {
+    }
+
+    //Restores the normal behavior to start processing new requests again
+    // ("_StartProcessingRequests", "block_number",authentication_address) should be sent in the signature
+    rpc StartProcessingRequests (EmptyRequest) returns (StatusResponse) {
+    }
+
+    //To Determine if the Daemon is processing requests are not.
+    // ("_IsDaemonProcessingRequests", "block_number",authentication_address) should be sent in the signature
+    rpc IsDaemonProcessingRequests (EmptyRequest) returns (StatusResponse) {
+    }
+
+
+
+}
+
+//Caller authentication message
+message CallerAuthentication {
+    //Signature will compromise the following data:
+    // (_method name, current block, user address) signed by private key
+    // Example ("_GetConfiguration", "block_number",authentication_address OR ("_IsDaemonProcessingRequests", "block_number",authentication_address)
+    bytes signature = 1;
+    //current block number (signature will be valid only for short time around this block number)
+    uint64 current_block = 2;
+    //The address of the person who has rights to make configuration changes on Daemon
+    string user_address = 3;
+}
+
+//Used with methods which don't have other parameters except authentication data
+message EmptyRequest {
+    //Caller authentication data
+    CallerAuthentication auth = 1;
+}
+
+
+
+//Used when you want to update the existing configuration
+message UpdateRequest {
+    //Signature will compromise of the below
+    // ("_Request_Update", "block_number",authentication_address)
+    bytes signature = 1;
+    //Indicates the updated configuration ( only the modified leaf and its changed value is passed ) Example (log.output.rotation_time_in_sec is a valid key )
+    map<string, string> updated_configuration = 2;
+
+    //current block number (signature will be valid only for short time around this block number)
+    uint64 current_block = 3;
+
+    //The address of the person who has rights to make configuration changes on Daemon
+    string user_address = 4;
+
+}
+
+
+message StatusResponse {
+    //Signature will compromise of the below
+    //(block_number,authentication_address)
+    bytes signature = 1;
+    //Indicates the current processing status
+    enum Status {
+        //Daemon has no request in progress ( but is ready to process requests
+        IDLE = 0;
+        //Daemon is processing requests currently
+        REQUEST_IN_PROGRESS = 1;
+        //Daemon will not process any requests in this state ( The Daemon gets in to this state when the StopProcessingRequests method is called)
+        HAS_STOPPED_PROCESSING_REQUESTS =2;
+    }
+    //Indicates the current processing status
+    Status current_processing_status = 2;
+}
+
+
+//Represents the configuration of current Daemon, please note every leaf level will be filled with these details.
+message ConfigurationParameter {
+    //Indicates the name of the Configuration
+    string name = 1;
+    //Used to help fill in details on the UI ( might be used to indicate if a field is mandatory or not)
+    bool mandatory = 2;
+    //Describes the usage of the this configuration
+    string description = 3;
+    //Used to indicate the type of the given field ( this will be used as validations while editing a field value)
+    enum Type {
+        STRING = 0;
+        INTEGER = 1;
+        URL = 3;
+        BOOLEAN =4;
+        ADDRESS=5;
+    }
+    Type type = 4;
+    //An option to never edit some configurations ( by default, a configuration will be editable )
+    bool editable = 5;
+    //This is used to bucket possible impact of editing a configuration, for now we just have 2
+    enum UpdateAction {
+        RESTART_REQUIRED = 0;
+        NO_IMPACT = 1;
+    }
+    //This will indicate if a restart of the Daemon is required or not and is tied to what configuration is changed.
+    UpdateAction restart_daemon = 6;
+    //This is used to group the Daemon configurations ( for example say all block chain related configurations will have the section 'blockchain'
+    string section = 7;
+    //This is used to indicate the default value that would have been used unless specified
+    string defaultValue = 8 ;
+}
+
+//Response sent back by Daemon on Read or Successful update
+message ConfigurationResponse {
+    //Signature will compromise of the below
+    //(block_number,authentication_address,ConfigurationParameter)
+    bytes signature = 1;
+    //Holds the current configuration of the Daemon
+    map<string, string> current_configuration = 2;
+
+    //Holds the current static configuration of Daemon ( Various details of of every leaf level attribute )
+    //of Daemon.
+    ConfigurationSchema schema = 3;
+}
+
+//Holds the entire static attributes associated
+message ConfigurationSchema {
+    repeated  ConfigurationParameter details =1;
+}

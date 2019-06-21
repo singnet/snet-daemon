@@ -30,7 +30,11 @@ func (p *Payment) String() string {
 }
 
 func (p *Payment) ID() string {
-	return fmt.Sprintf("%v/%v", p.ChannelID, p.ChannelNonce)
+	return PaymentID(p.ChannelID, p.ChannelNonce)
+}
+
+func PaymentID(channelID *big.Int, channelNonce *big.Int) string {
+	return fmt.Sprintf("%v/%v", channelID, channelNonce)
 }
 
 // PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
@@ -198,7 +202,7 @@ var (
 		channel.FullAmount = big.NewInt(0)
 	}
 	// IncrementChannelNonce is an update which increments channel nonce and
-	// descreases full amount to allow channel sender continue working with
+	// decreases full amount to allow channel sender continue working with
 	// remaining amount.
 	IncrementChannelNonce ChannelUpdate = func(channel *PaymentChannelData) {
 		channel.Nonce = (&big.Int{}).Add(channel.Nonce, big.NewInt(1))

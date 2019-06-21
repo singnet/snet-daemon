@@ -16,6 +16,7 @@ type CommonStats struct {
 	ServiceID           string
 	GroupID             string
 	DaemonEndPoint      string
+	Version             string
 }
 
 func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
@@ -26,6 +27,7 @@ func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 		OrganizationID:      config.GetString(config.OrganizationId),
 		ServiceID:           config.GetString(config.ServiceId),
 		ServiceMethod:       methodName,
+		Version:             config.GetVersionTag(),
 	}
 	return commonStats
 
@@ -46,6 +48,7 @@ type ResponseStats struct {
 	ResponseTime               string `json:"response_time"`
 	ResponseCode               string `json:"response_code"`
 	ErrorMessage               string `json:"error_message"`
+	Version                    string `json:"version"`
 }
 
 //Publish response received as a payload for reporting /metrics analysis
@@ -70,6 +73,7 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		ResponseSentTime:           time.Now().String(),
 		ErrorMessage:               getErrorMessage(err),
 		ResponseCode:               getErrorCode(err),
+		Version:                    commonStat.Version,
 	}
 	return response
 }

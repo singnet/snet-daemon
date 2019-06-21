@@ -1,22 +1,28 @@
-package configuration_service
+package config
 
+import (
+	"encoding/json"
+	"github.com/spf13/viper"
+	"strings"
+)
 
 //TO DO, Work in Progress , this defines the complete Schema of the Daemon Configuration
 //Defined the schema of a few configurations to give an example, you need to define the schema of a given configuration here to see it on the UI
 
 //Used to map the attribute values to a struct
-type Configuration_Details struct {
-	Mandatory      bool `json:"mandatory"`
-	Value          string `json:"value"`
+type ConfigurationDetails struct {
+	Name           string //the key of the attribute becomes the Value of the Name
+	Mandatory      bool   `json:"mandatory"`
+	DefaultValue   string `json:"value"`
 	Description    string `json:"description"`
 	Type           string `json:"type"`
-	Editable       bool `json:"editable"`
-	Restart_daemon string `json:"restart_daemon"`
+	Editable       bool   `json:"editable"`
+	RestartDaemon bool   `json:"restart_daemon"`
 	Section        string `json:"section"`
 }
 
 
-const default_daemon_configuration = `
+const DefaultDaemonConfigurationSchema = `
 {
   "registry_address_key": {
     "mandatory": true,
@@ -58,3 +64,40 @@ const default_daemon_configuration = `
     "section": "general"
   }
 }`
+
+func isLeafNodeKey(key string) (bool,string) {
+	if strings.Contains(key,".restart_daemon") {
+		newKey := strings.Replace(key, ".restart_daemon", "",-1)
+		return true, newKey
+	}
+	return false,""
+}
+
+func GetConfigurationSchema() ([]ConfigurationDetails,error) {
+	allConfigurations := make([]ConfigurationDetails, 0) //CHECK THIS
+	defaultConfigSchema := viper.New()
+	if err := ReadConfigFromJsonString(defaultConfigSchema, DefaultDaemonConfigurationSchema);err != nil {
+		return nil,err
+	}
+	for _, key := range defaultConfigSchema.AllKeys() {
+		//Find out if the given key is the key of a Leaf or not .
+		if isLeaf,leafKey := isLeafNodeKey(key); isLeaf{
+			configurationDetailsJSON, _ := ConvertStructToJSON(defaultConfigSchema.Get(leafKey))
+			configDetails := &ConfigurationDetails{}
+			configDetails.Name = leafKey
+			_ = json.Unmarshal(configurationDetailsJSON, configDetails)
+			allConfigurations = append(allConfigurations, *configDetails)
+		}
+
+	}
+	return allConfigurations,nil
+}
+
+//ConvertStructToJSON converts the passed datastructure to a JSON
+func ConvertStructToJSON(payLoad interface{}) ([]byte, error) {
+	b, err := json.Marshal(&payLoad)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}

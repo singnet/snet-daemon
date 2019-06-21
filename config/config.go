@@ -52,7 +52,7 @@ const (
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	//none|grpc|http
-//This defaultConfigJson will eventually be replaced by default_daemon_configuration
+//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",

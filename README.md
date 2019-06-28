@@ -1,6 +1,7 @@
 # snet-daemon
 
 [![CircleCI](https://circleci.com/gh/singnet/snet-daemon.svg?style=svg)](https://circleci.com/gh/singnet/snet-daemon)
+[![Coverage Status](https://coveralls.io/repos/github/singnet/snet-daemon/badge.svg)](https://coveralls.io/github/singnet/snet-daemon)
 
 SingularityNET Daemon
 The daemon is the adapter with which an otherwise SingularityNET-unaware service implementation can be exposed to the SingularityNET platform. It is designed to be deployed as a sidecar proxy alongside the service on a given host.
@@ -153,7 +154,7 @@ configuration properties can be set using configuration file.
 These properties you should usually change before starting daemon for the first
 time.
 * **blockchain_network_selected**  (required; default: "local")
- - Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
+  Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
   Daemon will automatically read the Registry address associated with this network For local network ( you can also specify the registry address manually),see the blockchain_network_config.json
 
 * **daemon_end_point** (required;) - 
@@ -185,15 +186,19 @@ metadata][service-configuration-metadata].
 when passthrough is disabled, daemon echoes requests back as responses; `false`
 reserved mostly for testing purposes.
 
-* **passthrough_endpoint** (required iff `service_type` != `executable`) - 
+* **passthrough_endpoint** (required if `service_type` != `executable`) - 
 endpoint to which requests should be proxied for handling by service.
 
-* **executable_path** (required iff `service_type` == `executable`) - 
+* **executable_path** (required if `service_type` == `executable`) - 
 path to executable to expose as a service.
 
 #### Other properties
 
 This options are less frequently needed.
+
+* **authentication_address** (required if `You need to update Daemon configurations remotely`) 
+Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely 
+through a user interface ( Operator UI) 
 
 * **auto_ssl_domain** (optional; default: `""`) -  
 domain name for which the daemon should automatically acquire SSL certs from [Let's Encrypt](https://letsencrypt.org/).

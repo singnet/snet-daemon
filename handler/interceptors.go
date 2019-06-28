@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/ratelimit"
 	log "github.com/sirupsen/logrus"
@@ -82,6 +83,10 @@ func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcErr
 	}
 }
 
+const (
+	START_PROCESSING_ANY_REQUEST = 1
+	STOP_PROCESING_ANY_REQUEST = 0
+)
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
 // jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
@@ -102,13 +107,26 @@ type PaymentHandler interface {
 
 type rateLimitInterceptor struct {
 	rateLimiter rate.Limiter
+	subscribeToNotification *configuration_service.MessageBroadcaster
+	processRequest int
+	startStopNotification chan int
 }
 
-func GrpcRateLimitInterceptor() grpc.StreamServerInterceptor {
+func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaster) grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
 		rateLimiter: ratelimit.NewRateLimiter(),
+		subscribeToNotification:broadcast,
+		processRequest : START_PROCESSING_ANY_REQUEST,
+		startStopNotification: broadcast.NewSubscriber(),
 	}
+	go interceptor.startOrStopProcessingAnyRequests()
 	return interceptor.intercept
+}
+
+func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests () {
+	for {
+		interceptor.processRequest =<- interceptor.startStopNotification
+	}
 }
 
 func GrpcMonitoringInterceptor() grpc.StreamServerInterceptor {
@@ -137,6 +155,10 @@ func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.Strea
 }
 
 func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+
+	if (interceptor.processRequest == STOP_PROCESING_ANY_REQUEST) {
+		return fmt.Errorf("No requests are currently being processed, please try again later")
+	}
 	if !interceptor.rateLimiter.Allow() {
 		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")
 		return status.New(codes.ResourceExhausted, "rate limiting , too many requests to handle").Err()

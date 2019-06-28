@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/pricing"
 	"github.com/singnet/snet-daemon/metrics"
 	"os"
@@ -33,6 +34,8 @@ type Components struct {
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
 	priceStrategy              *pricing.PricingStrategy
+	configurationService       *configuration_service.ConfigurationService
+	channelBroadcast           *configuration_service.MessageBroadcaster
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -226,10 +229,10 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 		metrics.RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint)+"/register") {
 
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
-			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(),
+			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcPaymentValidationInterceptor())
 	} else {
-		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(),
+		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcPaymentValidationInterceptor())
 	}
 	return components.grpcInterceptor
@@ -288,4 +291,25 @@ func (components *Components) PricingStrategy() *pricing.PricingStrategy {
 	components.priceStrategy,_ = pricing.InitPricingStrategy(components.ServiceMetaData())
 
 	return components.priceStrategy
+}
+
+
+func (components *Components) ChannelBroadcast() *configuration_service.MessageBroadcaster {
+	if components.channelBroadcast != nil {
+		return components.channelBroadcast
+	}
+
+	components.channelBroadcast = configuration_service.NewChannelBroadcaster()
+
+	return components.channelBroadcast
+}
+
+func (components *Components) ConfigurationService() *configuration_service.ConfigurationService {
+	if components.configurationService != nil {
+		return components.configurationService
+	}
+
+	components.configurationService = configuration_service.NewConfigurationService(components.ChannelBroadcast())
+
+	return components.configurationService
 }

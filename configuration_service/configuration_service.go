@@ -19,6 +19,7 @@ import (
 type ConfigurationService struct {
 	//Has the authentication address that will be used to validate any incoming requests for Configuration Service
 	address string
+	broadcast *MessageBroadcaster
 }
 
 //TO DO Separate PRs will be submitted to implement all the function below
@@ -51,7 +52,8 @@ func (service ConfigurationService) StopProcessingRequests(ctx context.Context, 
 	if err = service.authenticate("_StopProcessingRequests", request.Auth); err != nil {
 		return nil, err
 	}
-	return nil, fmt.Errorf("work in progress")
+	service.broadcast.trigger <- 0
+	return &StatusResponse{CurrentProcessingStatus:StatusResponse_HAS_STOPPED_PROCESSING_REQUESTS}, nil
 }
 
 func (service ConfigurationService) StartProcessingRequests(ctx context.Context, request *EmptyRequest) (response *StatusResponse, err error) {
@@ -59,7 +61,8 @@ func (service ConfigurationService) StartProcessingRequests(ctx context.Context,
 	if err = service.authenticate("_StartProcessingRequests", request.Auth); err != nil {
 		return nil, err
 	}
-	return nil, fmt.Errorf("work in progress")
+	service.broadcast.trigger <- 1
+	return &StatusResponse{CurrentProcessingStatus:StatusResponse_REQUEST_IN_PROGRESS}, nil
 }
 
 func (service ConfigurationService) IsDaemonProcessingRequests(ctx context.Context, request *EmptyRequest) (response *StatusResponse, err error) {
@@ -106,9 +109,10 @@ func (service ConfigurationService) checkAuthenticationAddress(address string) e
 
 //You will be able to start the Daemon without an Authentication Address for now
 //but without Authentication address , you cannot use the operator UI functionality
-func NewConfigurationService() *ConfigurationService {
+func NewConfigurationService(messageBroadcaster *MessageBroadcaster) *ConfigurationService {
 	service := &ConfigurationService{
 		address: config.GetString(config.AuthenticationAddress),
+		broadcast:messageBroadcaster,
 	}
 	authAddress := config.GetString(config.AuthenticationAddress)
 	//Make sure the address is a valid Hex Address

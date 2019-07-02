@@ -21,7 +21,10 @@ type ConfigurationService struct {
 	address string
 	broadcast *MessageBroadcaster
 }
-
+const (
+	START_PROCESSING_ANY_REQUEST = 1
+	STOP_PROCESING_ANY_REQUEST = 0
+)
 //TO DO Separate PRs will be submitted to implement all the function below
 func (service ConfigurationService) GetConfiguration(ctx context.Context, request *EmptyRequest) (response *ConfigurationResponse, err error) {
 	//Authentication checks
@@ -52,7 +55,7 @@ func (service ConfigurationService) StopProcessingRequests(ctx context.Context, 
 	if err = service.authenticate("_StopProcessingRequests", request.Auth); err != nil {
 		return nil, err
 	}
-	service.broadcast.trigger <- 0
+	service.broadcast.trigger <- STOP_PROCESING_ANY_REQUEST
 	return &StatusResponse{CurrentProcessingStatus:StatusResponse_HAS_STOPPED_PROCESSING_REQUESTS}, nil
 }
 
@@ -61,7 +64,7 @@ func (service ConfigurationService) StartProcessingRequests(ctx context.Context,
 	if err = service.authenticate("_StartProcessingRequests", request.Auth); err != nil {
 		return nil, err
 	}
-	service.broadcast.trigger <- 1
+	service.broadcast.trigger <- START_PROCESSING_ANY_REQUEST
 	return &StatusResponse{CurrentProcessingStatus:StatusResponse_REQUEST_IN_PROGRESS}, nil
 }
 

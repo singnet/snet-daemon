@@ -83,10 +83,7 @@ func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcErr
 	}
 }
 
-const (
-	START_PROCESSING_ANY_REQUEST = 1
-	STOP_PROCESING_ANY_REQUEST = 0
-)
+
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
 // jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
@@ -116,7 +113,7 @@ func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaste
 	interceptor := &rateLimitInterceptor{
 		rateLimiter:                   ratelimit.NewRateLimiter(),
 		requestProcessingNotification: broadcast,
-		processRequest :               START_PROCESSING_ANY_REQUEST,
+		processRequest :               configuration_service.START_PROCESSING_ANY_REQUEST,
 		startStopNotification:         broadcast.NewSubscriber(),
 	}
 	go interceptor.startOrStopProcessingAnyRequests()
@@ -156,8 +153,8 @@ func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.Strea
 
 func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
-	if (interceptor.processRequest == STOP_PROCESING_ANY_REQUEST) {
-		return fmt.Errorf("No requests are currently being processed, please try again later")
+	if (interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST) {
+		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {
 		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")

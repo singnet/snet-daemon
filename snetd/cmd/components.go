@@ -35,7 +35,7 @@ type Components struct {
 	paymentStorage             *escrow.PaymentStorage
 	priceStrategy              *pricing.PricingStrategy
 	configurationService       *configuration_service.ConfigurationService
-	channelBroadcast           *configuration_service.MessageBroadcaster
+	configurationBroadcaster   *configuration_service.MessageBroadcaster
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -295,13 +295,13 @@ func (components *Components) PricingStrategy() *pricing.PricingStrategy {
 
 
 func (components *Components) ChannelBroadcast() *configuration_service.MessageBroadcaster {
-	if components.channelBroadcast != nil {
-		return components.channelBroadcast
+	if components.configurationBroadcaster != nil {
+		return components.configurationBroadcaster
 	}
 
-	components.channelBroadcast = configuration_service.NewChannelBroadcaster()
+	components.configurationBroadcaster = configuration_service.NewChannelBroadcaster()
 
-	return components.channelBroadcast
+	return components.configurationBroadcaster
 }
 
 func (components *Components) ConfigurationService() *configuration_service.ConfigurationService {

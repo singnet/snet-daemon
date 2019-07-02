@@ -103,18 +103,18 @@ type PaymentHandler interface {
 }
 
 type rateLimitInterceptor struct {
-	rateLimiter                   rate.Limiter
-	requestProcessingNotification *configuration_service.MessageBroadcaster
-	processRequest                int
-	startStopNotification         chan int
+	rateLimiter           rate.Limiter
+	messageBroadcaster    *configuration_service.MessageBroadcaster
+	processRequest        int
+	requestProcessingNotification chan int
 }
 
 func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaster) grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
-		rateLimiter:                   ratelimit.NewRateLimiter(),
-		requestProcessingNotification: broadcast,
-		processRequest :               configuration_service.START_PROCESSING_ANY_REQUEST,
-		startStopNotification:         broadcast.NewSubscriber(),
+		rateLimiter:           ratelimit.NewRateLimiter(),
+		messageBroadcaster:    broadcast,
+		processRequest :       configuration_service.START_PROCESSING_ANY_REQUEST,
+		requestProcessingNotification: broadcast.NewSubscriber(),
 	}
 	go interceptor.startOrStopProcessingAnyRequests()
 	return interceptor.intercept
@@ -122,7 +122,7 @@ func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaste
 
 func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests () {
 	for {
-		interceptor.processRequest =<- interceptor.startStopNotification
+		interceptor.processRequest =<- interceptor.requestProcessingNotification
 	}
 }
 

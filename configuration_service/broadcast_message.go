@@ -32,7 +32,7 @@ func (broadcast *MessageBroadcaster) NewSubscriber() chan int {
 		broadcast.subscribers = make([]chan int,0)
 	}
 	broadcast.subscribers = append(broadcast.subscribers, ch)
-	broadcast.mutex.Unlock()
+	defer broadcast.mutex.Unlock()
 	return ch
 }
 
@@ -47,6 +47,6 @@ func (broadcast *MessageBroadcaster) Publish() {
 			//Now broad the message to all the subscribers.
 			subscriber <- msg
 		}
-		broadcast.mutex.Unlock()
+		defer broadcast.mutex.Unlock()
 	}
 }

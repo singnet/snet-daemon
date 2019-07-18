@@ -34,4 +34,5 @@ func TestGetOrganizationMetaDataForError(t *testing.T) {
 		assert.Nil(t, metadata)
 		assert.Equal(t, "group name unknow in config is invalid, there was no group found with this name in the metadata", err.Error())
 	}
+	config.Vip().Set(config.DaemonGroupName, "default_group")
 }

@@ -28,11 +28,12 @@ func NewChannelBroadcaster() *MessageBroadcaster {
 func (broadcast *MessageBroadcaster) NewSubscriber() chan int {
 	ch := make(chan int, 1)
 	broadcast.mutex.Lock()
+	defer broadcast.mutex.Unlock()
 	if broadcast.subscribers == nil {
 		broadcast.subscribers = make([]chan int,0)
 	}
 	broadcast.subscribers = append(broadcast.subscribers, ch)
-	broadcast.mutex.Unlock()
+
 	return ch
 }
 
@@ -43,10 +44,11 @@ func (broadcast *MessageBroadcaster) Publish() {
 		//Wait for the message to trigger the broadcast
 		msg := <- broadcast.trigger
 		broadcast.mutex.Lock()
+		defer broadcast.mutex.Unlock()
 		for _, subscriber := range broadcast.subscribers {
 			//Now broad the message to all the subscribers.
 			subscriber <- msg
 		}
-		broadcast.mutex.Unlock()
+
 	}
 }

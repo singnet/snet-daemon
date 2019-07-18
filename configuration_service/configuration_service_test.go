@@ -39,11 +39,11 @@ func TestConfiguration_Service_checkAuthenticationAddress(t *testing.T) {
 
 func TestNewConfigurationService(t *testing.T) {
 	config.Vip().Set(config.AuthenticationAddress, "sdsdds")
-	service := NewConfigurationService()
+	service := NewConfigurationService(nil)
 	assert.Equal(t, service.address, "")
 
 	config.Vip().Set(config.AuthenticationAddress, "0xD6C6344f1D122dC6f4C1782A4622B683b9008081")
-	service = NewConfigurationService()
+	service = NewConfigurationService(nil)
 	assert.Equal(t, service.address, "0xD6C6344f1D122dC6f4C1782A4622B683b9008081")
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
 	log "github.com/sirupsen/logrus"
+	"math/big"
 	"strings"
 )
 
@@ -19,38 +20,44 @@ Please note that all the services that belong to a given group in an organizatio
 */
 
 /*
-
 {
-"org_name": "organization_name",
-"org_id": "org_id1",
-"groups": [
-		{
-			"group_name": "group1",
-			"group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
-			"payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
-			"payment_channel_storage_type": "etcd",
-			"payment_channel_storage_client": {
-			"connection_timeout": "5s",
-			"request_timeout": "3s",
-			"endpoints": [
-			"http://127.0.0.1:2379"
-			]
-			}
-		},
-		{
-			"group_name": "default_group",
-			"group_id": "88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
-			"payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
-			"payment_channel_storage_type": "etcd",
-			"payment_channel_storage_client": {
-			"connection_timeout": "5s",
-			"request_timeout": "3s",
-			"endpoints": [
-			"http://127.0.0.1:2479"
-			]
-		}
-		}
-]
+  "org_name": "organization_name",
+  "org_id": "org_id1",
+  "groups": [
+    {
+      "group_name": "default_group2",
+      "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
+      "payment": {
+        "payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
+        "payment_expiration_threshold": 40320,
+        "payment_channel_storage_type": "etcd",
+        "payment_channel_storage_client": {
+          "connection_timeout": "5s",
+          "request_timeout": "3s",
+          "endpoints": [
+            "http://127.0.0.1:2379"
+          ]
+        }
+      }
+    },
+
+    {
+      "group_name": "default_group2",
+      "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
+      "payment": {
+        "payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
+        "payment_expiration_threshold": 40320,
+        "payment_channel_storage_type": "etcd",
+        "payment_channel_storage_client": {
+          "connection_timeout": "5s",
+          "request_timeout": "3s",
+          "endpoints": [
+            "http://127.0.0.1:2379"
+          ]
+        }
+      }
+    }
+  ]
 }*/
 
 type OrganizationMetaData struct {
@@ -59,17 +66,22 @@ type OrganizationMetaData struct {
 	Groups  []Group `json:"groups"`
 	//This will used to determine which group the daemon belongs to
 	daemonGroup             *Group
-	daemonReplicaGroupID    [32]byte
+	daemonGroupID           [32]byte
 	recipientPaymentAddress common.Address
+}
+
+type Payment struct {
+	PaymentAddress              string                      `json:"payment_address"`
+	PaymentExpirationThreshold  *big.Int                    `json:"payment_expiration_threshold"`
+	PaymentChannelStorageType   string                      `json:"payment_channel_storage_type"`
+	PaymentChannelStorageClient PaymentChannelStorageClient `json:"payment_channel_storage_client"`
 }
 
 //Structure to hold the individual group details , an Organization can have multiple groups
 type Group struct {
-	GroupName                   string                      `json:"group_name"`
-	GroupID                     string                      `json:"group_id"`
-	PaymentAddress              string                      `json:"payment_address"`
-	PaymentChannelStorageType   string                      `json:"payment_channel_storage_type"`
-	PaymentChannelStorageClient PaymentChannelStorageClient `json:"payment_channel_storage_client"`
+	GroupName      string  `json:"group_name"`
+	GroupID        string  `json:"group_id"`
+	PaymentDetails Payment `json:"payment"`
 }
 
 //Structure to hold the storage details of the payment
@@ -77,14 +89,6 @@ type PaymentChannelStorageClient struct {
 	ConnectionTimeout string   `json:"connection_timeout"`
 	RequestTimeout    string   `json:"request_timeout"`
 	Endpoints         []string `json:"endpoints"`
-}
-
-//Get the Group ID the Daemon needs to associate itself to , requests belonging to a different group if will be rejected
-func (orgMetaData OrganizationMetaData) GetGroupId() (groupId string, err error) {
-	if group, err := orgMetaData.getDaemonGroup(); err == nil {
-		return group.GroupID, nil
-	}
-	return groupId, err
 }
 
 //Construct the Organization metadata from the JSON Passed
@@ -97,44 +101,34 @@ func InitOrganizationMetaDataFromJson(jsonData string) (metaData *OrganizationMe
 	}
 
 	if err = setDerivedAttributes(metaData); err != nil {
+		log.WithError(err)
 		return nil, err
 	}
 
-	return metaData, err
+	return metaData, nil
 }
 
 func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
-	if metaData.daemonGroup, err = metaData.getDaemonGroup(); err != nil {
+	if metaData.daemonGroup, err = getDaemonGroup(*metaData); err != nil {
 		return err
 	}
-	metaData.daemonReplicaGroupID, err = ConvertBase64Encoding(metaData.daemonGroup.GroupID)
-	metaData.recipientPaymentAddress = common.HexToAddress(metaData.daemonGroup.PaymentAddress)
+	metaData.daemonGroupID, err = ConvertBase64Encoding(metaData.daemonGroup.GroupID)
+	metaData.recipientPaymentAddress = common.HexToAddress(metaData.daemonGroup.PaymentDetails.PaymentAddress)
 	return err
 }
 
-//Pass the group Name and retrieve the details of the payment address/ recipient address.
-func (orgMetaData OrganizationMetaData) GetPaymentAddress() (address string) {
-	return orgMetaData.daemonGroup.PaymentAddress
-}
-
-func (orgMetaData OrganizationMetaData) getDaemonGroup() (group *Group, err error) {
+//Determine the group this Daemon belongs to
+func getDaemonGroup(metaData OrganizationMetaData) (group *Group, err error) {
 	groupName := config.GetString(config.DaemonGroupName)
-	for _, group := range orgMetaData.Groups {
+	for _, group := range metaData.Groups {
 		if strings.Compare(group.GroupName, groupName) == 0 {
 			return &group, nil
 		}
 	}
-	return nil, fmt.Errorf("group Name %v in config is invalid, "+
+	err = fmt.Errorf("group name %v in config is invalid, "+
 		"there was no group found with this name in the metadata", groupName)
-}
-
-//Get the End points of the Payment Storage used to update the storage state
-func (orgMetaData OrganizationMetaData) GetPaymentStorageEndPoint() (endpoint []string) {
-	return orgMetaData.daemonGroup.PaymentChannelStorageClient.Endpoints
-}
-
-func (metaData OrganizationMetaData) GetDaemonGroupID() [32]byte {
-	return metaData.daemonReplicaGroupID
+	log.WithError(err)
+	return nil, err
 }
 
 //Will be used to load the Organization metadata when Daemon starts
@@ -143,12 +137,12 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 	var metadata *OrganizationMetaData
 	var err error
 	if config.GetBool(config.BlockchainEnabledKey) {
-		ipfsHash := string(getOrgMetadataURI())
+		ipfsHash := string(getMetaDataURI())
 		metadata, err = GetOrganizationMetaDataFromIPFS(FormatHash(ipfsHash))
 	}
 	if err != nil {
 		log.WithError(err).
-			Panic("error on determining organization metadata from block chain")
+			Panic("error on retrieving / parsing organization metadata from block chain")
 	}
 	return metadata
 }
@@ -159,7 +153,7 @@ func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error)
 }
 
 //TODO , once the latest contract is pushed , the below method will be called
-func getOrgMetadataURI() []byte {
+func getMetaDataURI() []byte {
 	//Block chain call here to get the hash of the metadata for the given Organization
 	reg := getRegistryCaller()
 	orgId := StringToBytes32(config.GetString(config.OrganizationId))
@@ -170,7 +164,31 @@ func getOrgMetadataURI() []byte {
 			WithField("ServiceId", config.GetString(config.ServiceId)).
 			Panic("Error Retrieving contract details for the Given Organization and Service Ids ")
 	}
-
-	//return organizationRegistered.orgMetadataURI[:] //TODO , once the latest version of the registry is published, this line will be uncommented.
+	//return organizationRegistered.metaDataURI[:] //TODO , once the latest version of the registry is published, this line will be uncommented.
 	return nil
+}
+
+//Get the Group ID the Daemon needs to associate itself to , requests belonging to a different group if will be rejected
+func (metaData OrganizationMetaData) GetGroupIdString() string {
+	return metaData.daemonGroup.GroupID
+}
+
+// Return the group id in bytes
+func (metaData OrganizationMetaData) GetGroupId() [32]byte {
+	return metaData.daemonGroupID
+}
+
+//Pass the group Name and retrieve the details of the payment address/ recipient address.
+func (metaData OrganizationMetaData) GetPaymentAddress() string {
+	return metaData.daemonGroup.PaymentDetails.PaymentAddress
+}
+
+//Payment expiration threshold
+func (metaData *OrganizationMetaData) GetPaymentExpirationThreshold() *big.Int {
+	return metaData.daemonGroup.PaymentDetails.PaymentExpirationThreshold
+}
+
+//Get the End points of the Payment Storage used to update the storage state
+func (metaData OrganizationMetaData) GetPaymentStorageEndPoint() []string {
+	return metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints
 }

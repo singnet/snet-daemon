@@ -91,11 +91,17 @@ func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 	return metadata, nil
 }
 
-func getRegistryCaller() *RegistryCaller {
+func getRegistryCaller() (reg *RegistryCaller) {
 	ethClient, err := GetEthereumClient()
+	if err != nil {
+
+		log.WithError(err).
+			Panic("Unable to get Blockchain client ")
+
+	}
 	defer ethClient.Close()
 	registryContractAddress := getRegistryAddressKey()
-	reg, err := NewRegistryCaller(registryContractAddress, ethClient.EthClient)
+	reg, err = NewRegistryCaller(registryContractAddress, ethClient.EthClient)
 	if err != nil {
 		log.WithError(err).WithField("registryContractAddress", registryContractAddress).
 			Panic("Error instantiating Registry contract for the given Contract Address")
@@ -105,6 +111,7 @@ func getRegistryCaller() *RegistryCaller {
 
 func getServiceMetaDataUrifromRegistry() []byte {
 	reg := getRegistryCaller()
+
 	orgId := StringToBytes32(config.GetString(config.OrganizationId))
 	serviceId := StringToBytes32(config.GetString(config.ServiceId))
 

@@ -21,6 +21,9 @@ type RequestStats struct {
 	GroupID                    string `json:"group_id"`
 	DaemonEndPoint             string `json:"daemon_end_point"`
 	Version                    string `json:"version"`
+	ClientType                 string `json:"client_type"`
+	UserDetails                string `json:"user_details"`
+	UserAgent                  string `json:"user_agent"`
 }
 
 //Create a request Object and Publish this to a service end point
@@ -50,6 +53,9 @@ func createRequestStat(commonStat *CommonStats) *RequestStats {
 		RequestReceivedTime:        commonStat.RequestReceivedTime,
 		ServiceMethod:              commonStat.ServiceMethod,
 		Version:                    commonStat.Version,
+		ClientType:                 commonStat.ClientType,
+		UserDetails:                commonStat.UserDetails,
+		UserAgent:                  commonStat.UserAgent,
 	}
 	return request
 }

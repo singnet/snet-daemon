@@ -21,6 +21,12 @@ const (
 	// Supported types are: "escrow".
 	// Note: "job" Payment type is deprecated
 	PaymentTypeHeader = "snet-payment-type"
+	//Client that calls the Daemon ( example can be "snet-cli","snet-dapp","snet-sdk")
+	ClientTypeHeader = "snet-client-type"
+	//Value is a user address , example "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
+	UserInfoHeader = "snet-user-info"
+	//User Agent details set in on the server stream info
+	UserAgentHeader = "user-agent"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to
@@ -122,8 +128,13 @@ func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.Strea
 	start = time.Now()
 	//Get the method name
 	methodName, _ := grpc.MethodFromServerStream(ss)
+	//Get the Context
+
 	//Build common stats and use this to set request stats and response stats
 	commonStats := metrics.BuildCommonStats(start, methodName)
+	if context, err := getGrpcContext(ss, info); err == nil {
+		setAdditionalDetails(context, commonStats)
+	}
 	go metrics.PublishRequestStats(commonStats, ss)
 	defer func() {
 		go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), e)
@@ -314,4 +325,22 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 	return handler(srv, ss)
+}
+
+func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
+
+	md := context.MD
+	str, err := GetSingleValue(md, ClientTypeHeader)
+	if err == nil {
+		stats.ClientType = str
+	}
+	str, err = GetSingleValue(md, UserInfoHeader)
+	if err == nil {
+		stats.UserDetails = str
+	}
+	str, err = GetSingleValue(md, UserAgentHeader)
+	if err == nil {
+		stats.UserAgent = str
+	}
+
 }

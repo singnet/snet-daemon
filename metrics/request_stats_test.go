@@ -17,6 +17,9 @@ func TestSetDataFromContext(t *testing.T) {
 func TestCreateRequestStat(t *testing.T) {
 	arrivalTime := time.Now()
 	commonStat := BuildCommonStats(arrivalTime, "TestMethod")
+	commonStat.ClientType = "snet-cli"
+	commonStat.UserDetails = "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
+	commonStat.UserAgent = "python/cli"
 	request := createRequestStat(commonStat)
 	assert.Equal(t, request.RequestID, commonStat.ID)
 	assert.Equal(t, request.GroupID, daemonGroupId)
@@ -25,4 +28,7 @@ func TestCreateRequestStat(t *testing.T) {
 	assert.Equal(t, request.RequestReceivedTime, arrivalTime.String())
 	assert.Equal(t, request.Version, commonStat.Version)
 	assert.Equal(t, request.Type, "request")
+	assert.Equal(t, request.ClientType, "snet-cli")
+	assert.Equal(t, request.UserDetails, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
+	assert.Equal(t, request.UserAgent, "python/cli")
 }

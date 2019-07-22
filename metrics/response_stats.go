@@ -20,6 +20,7 @@ type CommonStats struct {
 	ClientType          string
 	UserDetails         string
 	UserAgent           string
+	ChannelId           string
 }
 
 func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
@@ -58,6 +59,7 @@ type ResponseStats struct {
 	ClientType                 string `json:"client_type"`
 	UserDetails                string `json:"user_details"`
 	UserAgent                  string `json:"user_agent"`
+	ChannelId                  string `json:"channel_id"`
 }
 
 //Publish response received as a payload for reporting /metrics analysis
@@ -86,6 +88,7 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		ClientType:                 commonStat.ClientType,
 		UserDetails:                commonStat.UserDetails,
 		UserAgent:                  commonStat.UserAgent,
+		ChannelId:                  commonStat.ChannelId,
 	}
 	return response
 }

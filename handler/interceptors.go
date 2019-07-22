@@ -28,6 +28,19 @@ const (
 	UserInfoHeader = "snet-user-info"
 	//User Agent details set in on the server stream info
 	UserAgentHeader = "user-agent"
+	// PaymentChannelIDHeader is a MultiPartyEscrow contract payment channel
+	// id. Value is a string containing a decimal number.
+	PaymentChannelIDHeader = "snet-payment-channel-id"
+	// PaymentChannelNonceHeader is a payment channel nonce value. Value is a
+	// string containing a decimal number.
+	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
+	// PaymentChannelAmountHeader is an amount of payment channel value
+	// which server is authorized to withdraw after handling the RPC call.
+	// Value is a string containing a decimal number.
+	PaymentChannelAmountHeader = "snet-payment-channel-amount"
+	// PaymentChannelSignatureHeader is a signature of the client to confirm
+	// amount withdrawing authorization. Value is an array of bytes.
+	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to
@@ -89,7 +102,6 @@ func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcErr
 	}
 }
 
-
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
 // jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
@@ -109,26 +121,26 @@ type PaymentHandler interface {
 }
 
 type rateLimitInterceptor struct {
-	rateLimiter           rate.Limiter
-	messageBroadcaster    *configuration_service.MessageBroadcaster
-	processRequest        int
+	rateLimiter                   rate.Limiter
+	messageBroadcaster            *configuration_service.MessageBroadcaster
+	processRequest                int
 	requestProcessingNotification chan int
 }
 
 func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaster) grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
-		rateLimiter:           ratelimit.NewRateLimiter(),
-		messageBroadcaster:    broadcast,
-		processRequest :       configuration_service.START_PROCESSING_ANY_REQUEST,
+		rateLimiter:                   ratelimit.NewRateLimiter(),
+		messageBroadcaster:            broadcast,
+		processRequest:                configuration_service.START_PROCESSING_ANY_REQUEST,
 		requestProcessingNotification: broadcast.NewSubscriber(),
 	}
 	go interceptor.startOrStopProcessingAnyRequests()
 	return interceptor.intercept
 }
 
-func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests () {
+func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests() {
 	for {
-		interceptor.processRequest =<- interceptor.requestProcessingNotification
+		interceptor.processRequest = <-interceptor.requestProcessingNotification
 	}
 }
 
@@ -164,7 +176,7 @@ func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.Strea
 
 func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
-	if (interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST) {
+	if interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {
@@ -346,20 +358,19 @@ func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamSer
 	return handler(srv, ss)
 }
 
+//set Additional details on the metrics persisted , this is to keep track of how many calls were made per channel
 func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
-
 	md := context.MD
-	str, err := GetSingleValue(md, ClientTypeHeader)
-	if err == nil {
+	if str, err := GetSingleValue(md, ClientTypeHeader); err == nil {
 		stats.ClientType = str
 	}
-	str, err = GetSingleValue(md, UserInfoHeader)
-	if err == nil {
+	if str, err := GetSingleValue(md, UserInfoHeader); err == nil {
 		stats.UserDetails = str
 	}
-	str, err = GetSingleValue(md, UserAgentHeader)
-	if err == nil {
+	if str, err := GetSingleValue(md, UserAgentHeader); err == nil {
 		stats.UserAgent = str
 	}
-
+	if str, err := GetSingleValue(md, PaymentChannelIDHeader); err == nil {
+		stats.ChannelId = str
+	}
 }

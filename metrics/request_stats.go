@@ -24,6 +24,7 @@ type RequestStats struct {
 	ClientType                 string `json:"client_type"`
 	UserDetails                string `json:"user_details"`
 	UserAgent                  string `json:"user_agent"`
+	ChannelId                  string `json:"channel_id"`
 }
 
 //Create a request Object and Publish this to a service end point
@@ -56,6 +57,7 @@ func createRequestStat(commonStat *CommonStats) *RequestStats {
 		ClientType:                 commonStat.ClientType,
 		UserDetails:                commonStat.UserDetails,
 		UserAgent:                  commonStat.UserAgent,
+		ChannelId:                  commonStat.ChannelId,
 	}
 	return request
 }

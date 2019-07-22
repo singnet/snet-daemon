@@ -14,6 +14,7 @@ func TestCreateResponseStats(t *testing.T) {
 	commonStat.ClientType = "snet-cli"
 	commonStat.UserDetails = "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
 	commonStat.UserAgent = "python/cli"
+	commonStat.ChannelId = "1"
 	response := createResponseStats(commonStat, time.Duration(1234566000), nil)
 	assert.Equal(t, response.RequestID, commonStat.ID)
 	assert.Equal(t, response.Version, commonStat.Version)
@@ -24,6 +25,7 @@ func TestCreateResponseStats(t *testing.T) {
 	assert.Equal(t, response.ClientType, "snet-cli")
 	assert.Equal(t, response.UserDetails, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 	assert.Equal(t, response.UserAgent, "python/cli")
+	assert.Equal(t, response.ChannelId, "1")
 }
 
 func TestGetErrorMessage(t *testing.T) {

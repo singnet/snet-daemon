@@ -31,4 +31,5 @@ func TestCreateRequestStat(t *testing.T) {
 	assert.Equal(t, request.ClientType, "snet-cli")
 	assert.Equal(t, request.UserDetails, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 	assert.Equal(t, request.UserAgent, "python/cli")
+	assert.Equal(t, request.ChannelId, "1")
 }

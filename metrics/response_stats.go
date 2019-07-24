@@ -32,9 +32,6 @@ func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 		ServiceID:           config.GetString(config.ServiceId),
 		ServiceMethod:       methodName,
 		Version:             config.GetVersionTag(),
-		ClientType:          "",
-		UserDetails:         "",
-		UserAgent:           "",
 	}
 	return commonStats
 

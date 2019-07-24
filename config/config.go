@@ -112,9 +112,8 @@ const (
 		"enabled": true
 	},
 	"alerts_email": "", 
-	"service_heartbeat_type": "http",
-	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
-	"notification_svc_end_point": "http://demo3208027.mockable.io"
+	"service_heartbeat_type": "http"
+
 }
 `
 )

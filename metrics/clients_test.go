@@ -71,7 +71,7 @@ func Test_callgRPCServiceHeartbeat(t *testing.T) {
 }
 
 func Test_callHTTPServiceHeartbeat(t *testing.T) {
-	serviceURL := "http://demo3208027.mockable.io/heartbeat"
+	serviceURL := "http://demo8325345.mockable.io/heartbeat"
 	heartbeat, err := callHTTPServiceHeartbeat(serviceURL)
 	assert.False(t, err != nil)
 	assert.NotEqual(t, string(heartbeat), `{}`, "Service Heartbeat must not be empty.")
@@ -83,19 +83,19 @@ func Test_callHTTPServiceHeartbeat(t *testing.T) {
 	assert.True(t, err != nil)
 	assert.Equal(t, sHeartbeat.ServiceID, "SERVICE001", "Unexpected service ID")
 
-*/	serviceURL = "http://demo3208027.mockable.io"
+*/	serviceURL = "http://demo8325345.mockable.io"
 	heartbeat, err = callHTTPServiceHeartbeat(serviceURL)
 	assert.True(t, err != nil)
 }
 
 func Test_callRegisterService(t *testing.T) {
-	serviceURL := "https://demo3208027.mockable.io/register"
+	serviceURL := "https://demo8325345.mockable.io/register"
 	daemonID := GetDaemonID()
 
 	result := callRegisterService(daemonID, serviceURL)
 	assert.Equal(t, true, result)
 
-	serviceURL = "https://demo3208027.mockable.io/registererror"
+	serviceURL = "https://demo8325345.mockable.io/registererror"
 	result = callRegisterService(daemonID, serviceURL)
 	assert.Equal(t, false, result)
 

@@ -44,23 +44,23 @@ func TestHeartbeatHandler(t *testing.T) {
 	assert.False(t, err != nil)
 	assert.NotNil(t, dHeartbeat, "heartbeat must not be nil")
 
-	assert.Equal(t, dHeartbeat.Status, Online.String(), "Invalid State")
+	assert.Equal(t, dHeartbeat.Status, Warning.String(), "Invalid State")
 	assert.NotEqual(t, dHeartbeat.Status, Offline.String(), "Invalid State")
 
 	assert.Equal(t, dHeartbeat.DaemonID, "f940de0eb33eeddb283ac725478900deac24151b019e496c476d59f72c38abb3",
 		"Incorrect daemon ID")
 
 	assert.NotEqual(t, dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
-	assert.Equal(t, dHeartbeat.ServiceHeartbeat, `{"serviceID":"SERVICE001", "status":"SERVING"}`,
+	assert.Equal(t, dHeartbeat.ServiceHeartbeat, `{"serviceID":"ExampleServiceId","status":"NOT_SERVING"}`,
 		"Unexpected service heartbeat")
 }
 
 func Test_GetHeartbeat(t *testing.T) {
-	serviceURL := "http://demo3208027.mockable.io/heartbeat"
+	serviceURL := "http://demo8325345.mockable.io/heartbeat"
 	serviceType := "http"
 	serviveID := "SERVICE001"
 
-	dHeartbeat,_ := GetHeartbeat(serviceURL, serviceType, serviveID)
+	dHeartbeat, _ := GetHeartbeat(serviceURL, serviceType, serviveID)
 	assert.NotNil(t, dHeartbeat, "heartbeat must not be nil")
 
 	assert.Equal(t, dHeartbeat.Status, Online.String(), "Invalid State")
@@ -79,8 +79,8 @@ func Test_GetHeartbeat(t *testing.T) {
 	assert.Equal(t, sHeartbeat.Status, grpc_health_v1.HealthCheckResponse_SERVING.String())
 
 	// check with some timeout URL
-	serviceURL = "http://demo3208027.mockable.io"
-	dHeartbeat,_ = GetHeartbeat(serviceURL, serviceType, serviveID)
+	serviceURL = "http://demo8325345.mockable.io"
+	dHeartbeat, _ = GetHeartbeat(serviceURL, serviceType, serviveID)
 	assert.NotNil(t, dHeartbeat, "heartbeat must not be nil")
 
 	assert.Equal(t, dHeartbeat.Status, Warning.String(), "Invalid State")
@@ -116,5 +116,5 @@ func TestSetNoHeartbeatURLState(t *testing.T) {
 func TestValidateHeartbeatConfig(t *testing.T) {
 	err := ValidateHeartbeatConfig()
 	assert.Nil(t, err)
-	assert.Equal(t, false, isNoHeartbeatURL)
+	assert.Equal(t, true, isNoHeartbeatURL)
 }

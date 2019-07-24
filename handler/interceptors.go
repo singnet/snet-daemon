@@ -22,6 +22,25 @@ const (
 	// Supported types are: "escrow".
 	// Note: "job" Payment type is deprecated
 	PaymentTypeHeader = "snet-payment-type"
+	//Client that calls the Daemon ( example can be "snet-cli","snet-dapp","snet-sdk")
+	ClientTypeHeader = "snet-client-type"
+	//Value is a user address , example "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
+	UserInfoHeader = "snet-user-info"
+	//User Agent details set in on the server stream info
+	UserAgentHeader = "user-agent"
+	// PaymentChannelIDHeader is a MultiPartyEscrow contract payment channel
+	// id. Value is a string containing a decimal number.
+	PaymentChannelIDHeader = "snet-payment-channel-id"
+	// PaymentChannelNonceHeader is a payment channel nonce value. Value is a
+	// string containing a decimal number.
+	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
+	// PaymentChannelAmountHeader is an amount of payment channel value
+	// which server is authorized to withdraw after handling the RPC call.
+	// Value is a string containing a decimal number.
+	PaymentChannelAmountHeader = "snet-payment-channel-amount"
+	// PaymentChannelSignatureHeader is a signature of the client to confirm
+	// amount withdrawing authorization. Value is an array of bytes.
+	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to
@@ -83,7 +102,6 @@ func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcErr
 	}
 }
 
-
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
 // jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
@@ -137,8 +155,13 @@ func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.Strea
 	start = time.Now()
 	//Get the method name
 	methodName, _ := grpc.MethodFromServerStream(ss)
+	//Get the Context
+
 	//Build common stats and use this to set request stats and response stats
 	commonStats := metrics.BuildCommonStats(start, methodName)
+	if context, err := getGrpcContext(ss, info); err == nil {
+		setAdditionalDetails(context, commonStats)
+	}
 	go metrics.PublishRequestStats(commonStats, ss)
 	defer func() {
 		go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), e)
@@ -333,4 +356,21 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 	return handler(srv, ss)
+}
+
+//set Additional details on the metrics persisted , this is to keep track of how many calls were made per channel
+func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
+	md := context.MD
+	if str, err := GetSingleValue(md, ClientTypeHeader); err == nil {
+		stats.ClientType = str
+	}
+	if str, err := GetSingleValue(md, UserInfoHeader); err == nil {
+		stats.UserDetails = str
+	}
+	if str, err := GetSingleValue(md, UserAgentHeader); err == nil {
+		stats.UserAgent = str
+	}
+	if str, err := GetSingleValue(md, PaymentChannelIDHeader); err == nil {
+		stats.ChannelId = str
+	}
 }

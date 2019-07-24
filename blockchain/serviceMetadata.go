@@ -24,15 +24,15 @@ type ServiceMetadata struct {
 	ModelIpfsHash              string   `json:"model_ipfs_hash"`
 	MpeAddress                 string   `json:"mpe_address"`
 	Pricing                    struct {
-		PriceModel  string   `json:"price_model"`
+		PriceModel  string `json:"price_model"`
 		PackageName string `json:"package_name"`
 		//Price in cogs has been retained only to support backward compatibility
 		PriceInCogs *big.Int `json:"price_in_cogs"`
-		Details    []struct {
+		Details     []struct {
 			ServiceName   string `json:"service_name"`
 			MethodPricing []struct {
-				MethodName  string `json:"method_name"`
-				PriceInCogs *big.Int    `json:"price_in_cogs"`
+				MethodName  string   `json:"method_name"`
+				PriceInCogs *big.Int `json:"price_in_cogs"`
 			} `json:"method_pricing"`
 		} `json:"details"`
 	} `json:"pricing"`
@@ -62,12 +62,12 @@ func ServiceMetaData() *ServiceMetadata {
 	var metadata *ServiceMetadata
 	var err error
 	if config.GetBool(config.BlockchainEnabledKey) {
-		ipfsHash := string(getMetaDataUrifromRegistry())
+		ipfsHash := string(getServiceMetaDataUrifromRegistry())
 		metadata, err = GetServiceMetaDataFromIPFS(FormatHash(ipfsHash))
 	} else {
 		//TO DO, have a snetd command to create a default metadata json file, for now just read from a local file
 		// when block chain reading is disabled
-		if metadata, err = ReadServiceMetaDataFromLocalFile("service_metadata.json");err != nil {
+		if metadata, err = ReadServiceMetaDataFromLocalFile("service_metadata.json"); err != nil {
 			fmt.Print("When Block chain is disabled it is mandatory to have a service_metadata.json file to start Daemon.Please refer to a sample file at https://github.com/singnet/snet-daemon/blob/master/service_metadata.json\n")
 		}
 	}
@@ -91,15 +91,27 @@ func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 	return metadata, nil
 }
 
-func getMetaDataUrifromRegistry() []byte {
+func getRegistryCaller() (reg *RegistryCaller) {
 	ethClient, err := GetEthereumClient()
+	if err != nil {
+
+		log.WithError(err).
+			Panic("Unable to get Blockchain client ")
+
+	}
 	defer ethClient.Close()
 	registryContractAddress := getRegistryAddressKey()
-	reg, err := NewRegistryCaller(registryContractAddress, ethClient.EthClient)
+	reg, err = NewRegistryCaller(registryContractAddress, ethClient.EthClient)
 	if err != nil {
 		log.WithError(err).WithField("registryContractAddress", registryContractAddress).
 			Panic("Error instantiating Registry contract for the given Contract Address")
 	}
+	return reg
+}
+
+func getServiceMetaDataUrifromRegistry() []byte {
+	reg := getRegistryCaller()
+
 	orgId := StringToBytes32(config.GetString(config.OrganizationId))
 	serviceId := StringToBytes32(config.GetString(config.ServiceId))
 
@@ -148,7 +160,6 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 
 }
 
-
 func setDaemonGroupName(metaData *ServiceMetadata) error {
 	metaData.daemonGroupName = config.GetString(config.DaemonGroupName)
 	//Make sure the group name specified is in the config matches to some group name in metadata
@@ -192,7 +203,6 @@ func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
 func (metaData *ServiceMetadata) GetPaymentExpirationThreshold() *big.Int {
 	return metaData.PaymentExpirationThreshold
 }
-
 
 func (metaData *ServiceMetadata) GetDaemonGroupName() string {
 	return metaData.daemonGroupName

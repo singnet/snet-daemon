@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/big"
-	"strings"
+
 )
 
 const IpfsPrefix = "ipfs://"
@@ -45,9 +45,6 @@ type ServiceMetadata struct {
 		GroupName string `json:"group_name"`
 		Endpoint  string `json:"endpoint"`
 	} `json:"endpoints"`
-	daemonReplicaGroupIDString string
-	daemonReplicaGroupID       [32]byte
-	daemonGroupName            string
 	daemonEndPoint             string
 	recipientPaymentAddress    common.Address
 	multiPartyEscrowAddress    common.Address
@@ -142,14 +139,8 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 }
 
 func setDerivedFields(metaData *ServiceMetadata) error {
-	err := setDaemonGroupName(metaData)
-	if err != nil {
-		return err
-	}
-	err = setDaemonGroupIDAndPaymentAddress(metaData)
-	if err != nil {
-		return err
-	}
+
+
 	setMultiPartyEscrowAddress(metaData)
 	return nil
 
@@ -160,37 +151,9 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 
 }
 
-func setDaemonGroupName(metaData *ServiceMetadata) error {
-	metaData.daemonGroupName = config.GetString(config.DaemonGroupName)
-	//Make sure the group name specified is in the config matches to some group name in metadata
-	for _, endpoints := range metaData.Endpoints {
-		if strings.Compare(metaData.daemonGroupName, endpoints.GroupName) == 0 {
-			return nil
-		}
-	}
-	log.WithField("daemon group name does not match any of the Group Names in Metadata", metaData.daemonGroupName)
-	return fmt.Errorf("please set the mandatory Daemon group Name corrrectly through the config %s ", config.DaemonGroupName)
-}
 
-func setDaemonGroupIDAndPaymentAddress(metaData *ServiceMetadata) error {
-	groupName := metaData.GetDaemonGroupName()
 
-	for _, group := range metaData.Groups {
-		if strings.Compare(groupName, group.GroupName) == 0 {
-			var err error
-			metaData.daemonReplicaGroupIDString = group.GroupID
-			metaData.daemonReplicaGroupID, err = ConvertBase64Encoding(group.GroupID)
-			if err != nil {
-				return err
-			}
-			metaData.recipientPaymentAddress = common.HexToAddress(group.PaymentAddress)
-			return nil
-		}
-	}
-	log.WithField("groupName", groupName)
-	return fmt.Errorf("unable to determine the Daemon Group ID or the Recipient Payment Address, Daemon Group Name %s", groupName)
 
-}
 
 func (metaData *ServiceMetadata) GetDaemonEndPoint() string {
 	return metaData.daemonEndPoint
@@ -201,9 +164,6 @@ func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
 }
 
 
-func (metaData *ServiceMetadata) GetDaemonGroupName() string {
-	return metaData.daemonGroupName
-}
 func (metaData *ServiceMetadata) GetWireEncoding() string {
 	return metaData.Encoding
 }
@@ -220,13 +180,6 @@ func (metaData *ServiceMetadata) GetDisplayName() string {
 	return metaData.DisplayName
 }
 
-func (metaData *ServiceMetadata) GetDaemonGroupID() [32]byte {
-	return metaData.daemonReplicaGroupID
-}
-
-func (metaData *ServiceMetadata) GetDaemonGroupIDString() string {
-	return metaData.daemonReplicaGroupIDString
-}
 
 func (metaData *ServiceMetadata) GetPaymentAddress() common.Address {
 	return metaData.recipientPaymentAddress

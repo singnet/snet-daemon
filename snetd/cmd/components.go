@@ -203,7 +203,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()), func() ([32]byte, error) {
-			s := components.ServiceMetaData().GetDaemonGroupID()
+			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil
 		},
 	)
@@ -233,7 +233,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	//If monitoring is enabled and the endpoint URL is valid and if the
 	// Daemon has successfully registered itself and has obtained a valid token to publish metrics
 	// , ONLY then add this interceptor to the chain of interceptors
-	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
+	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if config.GetBool(config.MonitoringEnabled) &&
 		config.IsValidUrl(config.GetString(config.MonitoringServiceEndpoint)) &&
 		metrics.RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint)+"/register") {
@@ -286,7 +286,7 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 	if components.daemonHeartbeat != nil {
 		return components.daemonHeartbeat
 	}
-	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
+	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID()}
 	return components.daemonHeartbeat
 }

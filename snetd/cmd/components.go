@@ -36,6 +36,7 @@ type Components struct {
 	priceStrategy              *pricing.PricingStrategy
 	configurationService       *configuration_service.ConfigurationService
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
+	organizationMetaData       *blockchain.OrganizationMetaData
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -108,6 +109,15 @@ func (components *Components) ServiceMetaData() *blockchain.ServiceMetadata {
 	components.serviceMetadata = blockchain.ServiceMetaData()
 	return components.serviceMetadata
 }
+
+func (components *Components) OrganizationMetaData() *blockchain.OrganizationMetaData {
+	if components.organizationMetaData != nil {
+		return components.organizationMetaData
+	}
+	components.organizationMetaData = blockchain.GetOrganizationMetaData()
+	return components.organizationMetaData
+}
+
 
 func (components *Components) EtcdServer() *etcddb.EtcdServer {
 	if components.etcdServer != nil {
@@ -192,7 +202,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 		components.PaymentStorage(),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()), func() ([32]byte, error) {
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()), func() ([32]byte, error) {
 			s := components.ServiceMetaData().GetDaemonGroupID()
 			return s, nil
 		},

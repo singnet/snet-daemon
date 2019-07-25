@@ -20,7 +20,7 @@ type ServiceMetadata struct {
 	DisplayName                string   `json:"display_name"`
 	Encoding                   string   `json:"encoding"`
 	ServiceType                string   `json:"service_type"`
-	PaymentExpirationThreshold *big.Int `json:"payment_expiration_threshold"`
+
 	ModelIpfsHash              string   `json:"model_ipfs_hash"`
 	MpeAddress                 string   `json:"mpe_address"`
 	Pricing                    struct {
@@ -200,9 +200,6 @@ func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
 	return metaData.multiPartyEscrowAddress
 }
 
-func (metaData *ServiceMetadata) GetPaymentExpirationThreshold() *big.Int {
-	return metaData.PaymentExpirationThreshold
-}
 
 func (metaData *ServiceMetadata) GetDaemonGroupName() string {
 	return metaData.daemonGroupName

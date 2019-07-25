@@ -51,10 +51,10 @@ func (suite *PaymentHandlerTestSuite) channel() *PaymentChannelData {
 func (suite *PaymentHandlerTestSuite) grpcMetadata(channelID, channelNonce, amount int64, signature []byte) metadata.MD {
 	md := metadata.New(map[string]string{})
 
-	md.Set(PaymentChannelIDHeader, strconv.FormatInt(channelID, 10))
-	md.Set(PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10))
-	md.Set(PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
-	md.Set(PaymentChannelSignatureHeader, string(signature))
+	md.Set(handler.PaymentChannelIDHeader, strconv.FormatInt(channelID, 10))
+	md.Set(handler.PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10))
+	md.Set(handler.PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
+	md.Set(handler.PaymentChannelSignatureHeader, string(signature))
 
 	return md
 }
@@ -77,7 +77,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPayment() {
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelId() {
 	context := suite.grpcContext(func(md *metadata.MD) {
-		delete(*md, PaymentChannelIDHeader)
+		delete(*md, handler.PaymentChannelIDHeader)
 	})
 
 	payment, err := suite.paymentHandler.Payment(context)
@@ -88,7 +88,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelId() {
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelNonce() {
 	context := suite.grpcContext(func(md *metadata.MD) {
-		delete(*md, PaymentChannelNonceHeader)
+		delete(*md, handler.PaymentChannelNonceHeader)
 	})
 
 	payment, err := suite.paymentHandler.Payment(context)
@@ -99,7 +99,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelNonce() {
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelAmount() {
 	context := suite.grpcContext(func(md *metadata.MD) {
-		delete(*md, PaymentChannelAmountHeader)
+		delete(*md, handler.PaymentChannelAmountHeader)
 	})
 
 	payment, err := suite.paymentHandler.Payment(context)
@@ -110,7 +110,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelAmount() {
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoSignature() {
 	context := suite.grpcContext(func(md *metadata.MD) {
-		delete(*md, PaymentChannelSignatureHeader)
+		delete(*md, handler.PaymentChannelSignatureHeader)
 	})
 
 	payment, err := suite.paymentHandler.Payment(context)

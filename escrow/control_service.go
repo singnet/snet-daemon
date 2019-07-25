@@ -17,12 +17,15 @@ import (
 type ProviderControlService struct {
 	channelService  PaymentChannelService
 	serviceMetaData *blockchain.ServiceMetadata
+	organizationMetaData *blockchain.OrganizationMetaData
 }
 
-func NewProviderControlService(channelService PaymentChannelService, metaData *blockchain.ServiceMetadata) *ProviderControlService {
+func NewProviderControlService(channelService PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
+	orgMetadata *blockchain.OrganizationMetaData) *ProviderControlService {
 	return &ProviderControlService{
 		channelService:  channelService,
-		serviceMetaData: metaData,
+		serviceMetaData: serMetaData,
+		organizationMetaData:orgMetadata,
 	}
 }
 
@@ -148,7 +151,7 @@ func (service *ProviderControlService) verifySigner(message []byte, signature []
 		log.Error(err)
 		return err
 	}
-	if err = authutils.VerifyAddress(*signer, service.serviceMetaData.GetPaymentAddress()); err != nil {
+	if err = authutils.VerifyAddress(*signer, service.organizationMetaData.GetPaymentAddress()); err != nil {
 		return err
 	}
 	return nil

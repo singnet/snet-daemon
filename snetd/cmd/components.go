@@ -200,7 +200,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
 		components.PaymentStorage(),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(),components.OrganizationMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()), func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
@@ -278,7 +278,8 @@ func (components *Components) ProviderControlService() (service *escrow.Provider
 		return components.providerControlService
 	}
 
-	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(), components.ServiceMetaData())
+	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),
+		components.ServiceMetaData(),components.OrganizationMetaData())
 	return components.providerControlService
 }
 

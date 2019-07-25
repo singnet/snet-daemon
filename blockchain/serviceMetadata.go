@@ -46,7 +46,6 @@ type ServiceMetadata struct {
 		Endpoint  string `json:"endpoint"`
 	} `json:"endpoints"`
 	daemonEndPoint             string
-	recipientPaymentAddress    common.Address
 	multiPartyEscrowAddress    common.Address
 }
 
@@ -180,7 +179,3 @@ func (metaData *ServiceMetadata) GetDisplayName() string {
 	return metaData.DisplayName
 }
 
-
-func (metaData *ServiceMetadata) GetPaymentAddress() common.Address {
-	return metaData.recipientPaymentAddress
-}

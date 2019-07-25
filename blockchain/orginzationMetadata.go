@@ -179,8 +179,8 @@ func (metaData OrganizationMetaData) GetGroupId() [32]byte {
 }
 
 //Pass the group Name and retrieve the details of the payment address/ recipient address.
-func (metaData OrganizationMetaData) GetPaymentAddress() string {
-	return metaData.daemonGroup.PaymentDetails.PaymentAddress
+func (metaData OrganizationMetaData) GetPaymentAddress() common.Address {
+	return metaData.recipientPaymentAddress
 }
 
 //Payment expiration threshold

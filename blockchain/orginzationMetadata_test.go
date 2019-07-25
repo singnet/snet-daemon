@@ -15,7 +15,7 @@ func TestGetOrganizationMetaData(t *testing.T) {
 	assert.NotNil(t, metadata)
 	assert.Equal(t, "organization_name", metadata.OrgName)
 	address := metadata.GetPaymentAddress()
-	assert.Equal(t, "0x671276c61943A35D5F230d076bDFd91B0c47bF09", address)
+	assert.Equal(t, "0x671276c61943A35D5F230d076bDFd91B0c47bF09", address.Hex())
 	assert.Equal(t, "http://127.0.0.1:2379", metadata.GetPaymentStorageEndPoint()[0])
 	assert.Equal(t, "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=", metadata.GetGroupIdString())
 	assert.Equal(t, big.NewInt(40320), metadata.GetPaymentExpirationThreshold())

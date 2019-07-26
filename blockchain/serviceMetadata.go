@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/big"
-
+	"strings"
 )
 
 const IpfsPrefix = "ipfs://"
@@ -20,38 +20,48 @@ type ServiceMetadata struct {
 	DisplayName                string   `json:"display_name"`
 	Encoding                   string   `json:"encoding"`
 	ServiceType                string   `json:"service_type"`
-
+    Groups                     []OrganizationGroup `json:"groups"`
 	ModelIpfsHash              string   `json:"model_ipfs_hash"`
 	MpeAddress                 string   `json:"mpe_address"`
-	Pricing                    struct {
-		PriceModel  string `json:"price_model"`
-		PackageName string `json:"package_name"`
-		//Price in cogs has been retained only to support backward compatibility
-		PriceInCogs *big.Int `json:"price_in_cogs"`
-		Details     []struct {
-			ServiceName   string `json:"service_name"`
-			MethodPricing []struct {
-				MethodName  string   `json:"method_name"`
-				PriceInCogs *big.Int `json:"price_in_cogs"`
-			} `json:"method_pricing"`
-		} `json:"details"`
-	} `json:"pricing"`
-	Groups []struct {
-		GroupName      string `json:"group_name"`
-		GroupID        string `json:"group_id"`
-		PaymentAddress string `json:"payment_address"`
-	} `json:"groups"`
-	Endpoints []struct {
-		GroupName string `json:"group_name"`
-		Endpoint  string `json:"endpoint"`
-	} `json:"endpoints"`
-	daemonEndPoint             string
+
 	multiPartyEscrowAddress    common.Address
+	defaultPricing Pricing
+
+	defaultGroup                OrganizationGroup
 }
+
+type OrganizationGroup struct {
+	Endpoints []string `json:"endpoints"`
+	GroupID   string   `json:"group_id"`
+	GroupName      string  `json:"group_name"`
+	Pricing   []Pricing  `json:"pricing"`
+}
+type Pricing struct {
+	PriceModel  string `json:"price_model"`
+	PriceInCogs *big.Int    `json:"price_in_cogs,omitempty"`
+	PackageName string `json:"package_name,omitempty"`
+	Default     bool   `json:"default,omitempty"`
+	PricingDetails []PricingDetails `json:"details,omitempty"`
+}
+
+type PricingDetails struct {
+	ServiceName   string               `json:"service_name"`
+	MethodPricing []MethodPricing `json:"method_pricing"`
+}
+type MethodPricing struct {
+	MethodName  string `json:"method_name"`
+	PriceInCogs *big.Int    `json:"price_in_cogs"`
+}
+
+
 
 func getRegistryAddressKey() common.Address {
 	address := config.GetRegistryAddress()
 	return common.HexToAddress(address)
+}
+
+func (metaData ServiceMetadata) GetDefaultPricing() Pricing {
+	return metaData.defaultPricing
 }
 
 func ServiceMetaData() *ServiceMetadata {
@@ -71,6 +81,7 @@ func ServiceMetaData() *ServiceMetadata {
 		log.WithError(err).
 			Panic("error on determining service metadata from file")
 	}
+
 	return metadata
 }
 
@@ -133,16 +144,50 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 		log.WithError(err).WithField("jsondata", jsonData)
 		return nil, err
 	}
-	err = setDerivedFields(metaData)
+
+	if err := setDerivedFields(metaData); err != nil {
+		return nil,err
+	}
+
 	return metaData, err
 }
 
-func setDerivedFields(metaData *ServiceMetadata) error {
-
-
+func setDerivedFields(metaData *ServiceMetadata) (err error) {
+	if err= setDefaultPricing(metaData); err != nil {
+		return err
+	}
 	setMultiPartyEscrowAddress(metaData)
 	return nil
 
+}
+
+func setGroup(metaData *ServiceMetadata) (err error) {
+	groupName := config.GetString(config.DaemonGroupName)
+	for _, group := range metaData.Groups {
+		if strings.Compare(group.GroupName, groupName) == 0 {
+			metaData.defaultGroup = group
+			return  nil
+		}
+	}
+	err = fmt.Errorf("group name %v in config is invalid, "+
+		"there was no group found with this name in the metadata", groupName)
+	log.WithError(err)
+	return  err
+}
+
+func setDefaultPricing(metaData *ServiceMetadata) (err error) {
+	if err = setGroup(metaData);err != nil {
+		return err
+	}
+	for _, pricing := range metaData.defaultGroup.Pricing {
+		if pricing.Default {
+			metaData.defaultPricing = pricing
+			return  nil
+		}
+	}
+	err = fmt.Errorf("MetaData does not have the default pricing set ")
+	log.WithError(err)
+	return nil
 }
 
 func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
@@ -150,13 +195,6 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 
 }
 
-
-
-
-
-func (metaData *ServiceMetadata) GetDaemonEndPoint() string {
-	return metaData.daemonEndPoint
-}
 
 func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
 	return metaData.multiPartyEscrowAddress

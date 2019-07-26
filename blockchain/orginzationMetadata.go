@@ -152,7 +152,7 @@ func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error)
 	return InitOrganizationMetaDataFromJson(jsondata)
 }
 
-//TODO , once the latest contract is pushed , the below method will be called
+
 func getMetaDataURI() []byte {
 	//Block chain call here to get the hash of the metadata for the given Organization
 	reg := getRegistryCaller()
@@ -161,11 +161,9 @@ func getMetaDataURI() []byte {
 	organizationRegistered, err := reg.GetOrganizationById(nil, orgId)
 	if err != nil || !organizationRegistered.Found {
 		log.WithError(err).WithField("OrganizationId", config.GetString(config.OrganizationId)).
-			WithField("ServiceId", config.GetString(config.ServiceId)).
-			Panic("Error Retrieving contract details for the Given Organization and Service Ids ")
+			Panic("Error Retrieving contract details for the Given Organization")
 	}
-	//return organizationRegistered.metaDataURI[:] //TODO , once the latest version of the registry is published, this line will be uncommented.
-	return nil
+	return nil//organizationRegistered.OrgMetadataURI[:] //TODO , once the latest contract is pushed , the below method will be called
 }
 
 //Get the Group ID the Daemon needs to associate itself to , requests belonging to a different group if will be rejected

@@ -187,7 +187,7 @@ func setDefaultPricing(metaData *ServiceMetadata) (err error) {
 	}
 	err = fmt.Errorf("MetaData does not have the default pricing set ")
 	log.WithError(err)
-	return nil
+	return err
 }
 
 func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {

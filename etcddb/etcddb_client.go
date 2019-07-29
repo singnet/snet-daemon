@@ -3,6 +3,7 @@ package etcddb
 import (
 	"context"
 	"fmt"
+	"github.com/singnet/snet-daemon/blockchain"
 	"strings"
 	"time"
 
@@ -37,14 +38,14 @@ type EtcdClient struct {
 }
 
 // NewEtcdClient create new etcd storage client.
-func NewEtcdClient() (client *EtcdClient, err error) {
-	return NewEtcdClientFromVip(config.Vip())
+func NewEtcdClient(metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
+	return NewEtcdClientFromVip(config.Vip(),metaData)
 }
 
 // NewEtcdClientFromVip create new etcd storage client from viper.
-func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
+func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
 
-	conf, err := GetEtcdClientConf(vip)
+	conf, err := GetEtcdClientConf(vip,metaData)
 
 	if err != nil {
 		return
@@ -53,7 +54,7 @@ func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 	log.WithField("PaymentChannelStorageClient", fmt.Sprintf("%+v", conf)).Info()
 
 	etcdv3, err := clientv3.New(clientv3.Config{
-		Endpoints:   conf.Endpoints,
+		Endpoints:   metaData.GetPaymentStorageEndPoints(),
 		DialTimeout: conf.ConnectionTimeout,
 	})
 

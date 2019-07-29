@@ -151,7 +151,7 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 		return components.etcdClient
 	}
 
-	client, err := etcddb.NewEtcdClient()
+	client, err := etcddb.NewEtcdClient(components.OrganizationMetaData())
 	if err != nil {
 		log.WithError(err).Panic("unable to create etcd client")
 	}

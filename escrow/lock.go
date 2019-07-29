@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -27,7 +28,7 @@ func NewEtcdLocker(storage AtomicStorage) Locker {
 func NewLockerStorage(storage AtomicStorage) *PrefixedAtomicStorage {
 	return &PrefixedAtomicStorage{
 		delegate:  storage,
-		keyPrefix: "/payment-channel/lock",
+		keyPrefix: config.GetString(config.BlockChainNetworkSelected)+"/payment-channel/lock",
 	}
 }
 

@@ -161,6 +161,17 @@ time.
 Defines the ip and the port on which the daemon listens to.
 format is :`<host>:<port>`.
 
+* **etcd_password** (mandatory) - 
+Daemon of all the services under a given organization / group Id will share the same etcd state,
+the local configuration file of the daemon will have the user name and password to connect to the etcd client 
+This configuration is to define the password used to connect
+
+* **etcd_user_name** (mandatory) - 
+Daemon of all the services under a given organization / group Id will share the same etcd state,
+the local configuration file of the daemon will have the user name and password to connect to the etcd client.
+This configuration is to define the user used to connect  
+
+
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
 endpoint to which daemon sends ethereum JSON-RPC requests; 
 Based on the network selected blockchain_network_selected the end point is auto determined

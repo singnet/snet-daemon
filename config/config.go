@@ -29,6 +29,8 @@ const (
 	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
+	EtcdClientUserName             = "etcd_user_name"
+	EtcdClientPassword             = "etcd_password"
 	ExecutablePathKey              = "executable_path"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"

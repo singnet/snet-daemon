@@ -55,6 +55,8 @@ func NewEtcdClientFromVip(vip *viper.Viper) (client *EtcdClient, err error) {
 	etcdv3, err := clientv3.New(clientv3.Config{
 		Endpoints:   conf.Endpoints,
 		DialTimeout: conf.ConnectionTimeout,
+		Username:config.GetString(config.EtcdClientUserName),
+		Password:config.GetString(config.EtcdClientPassword),
 	})
 
 	if err != nil {

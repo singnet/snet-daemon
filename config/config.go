@@ -113,7 +113,7 @@ const (
 		"startup_timeout": "1m",
 		"data_dir": "storage-data-dir-1.etcd",
 		"log_level": "info",
-		"enabled": true
+		"enabled": false
 	},
 	"alerts_email": "", 
 	"service_heartbeat_type": "http"

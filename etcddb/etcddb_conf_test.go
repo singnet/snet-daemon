@@ -58,7 +58,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 
 	enabled, err := IsEtcdServerEnabled()
 	assert.Nil(t, err)
-	assert.True(t, enabled)
+	assert.False(t, enabled)
 
 	conf, err := GetEtcdServerConf(config.Vip())
 
@@ -75,12 +75,12 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, time.Minute, conf.StartupTimeout)
 	assert.Equal(t, "storage-data-dir-1.etcd", conf.DataDir)
 	assert.Equal(t, "info", conf.LogLevel)
-	assert.Equal(t, true, conf.Enabled)
+	assert.Equal(t, false, conf.Enabled)
 
 	server, err := GetEtcdServer()
 
 	assert.Nil(t, err)
-	assert.NotNil(t, server)
+	assert.Nil(t, server)
 }
 
 func TestDisabledEtcdServerConf(t *testing.T) {

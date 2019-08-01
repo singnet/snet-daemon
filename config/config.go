@@ -58,6 +58,7 @@ const (
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
+	"blockchain_network_selected": "local",
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"daemon_type": "grpc",

@@ -179,7 +179,7 @@ func getMetaDataURI() []byte {
 		log.WithError(err).WithField("OrganizationId", config.GetString(config.OrganizationId)).
 			Panic("Error Retrieving contract details for the Given Organization")
 	}
-	return nil//organizationRegistered.OrgMetadataURI[:] //TODO , once the latest contract is pushed , the below method will be called
+	return organizationRegistered.OrgMetadataURI[:]
 }
 
 //Get the Group ID the Daemon needs to associate itself to , requests belonging to a different group if will be rejected

@@ -70,18 +70,13 @@ func ServiceMetaData() *ServiceMetadata {
 	if config.GetBool(config.BlockchainEnabledKey) {
 		ipfsHash := string(getServiceMetaDataUrifromRegistry())
 		metadata, err = GetServiceMetaDataFromIPFS(FormatHash(ipfsHash))
-	} else {
-		//TO DO, have a snetd command to create a default metadata json file, for now just read from a local file
-		// when block chain reading is disabled
-		if metadata, err = ReadServiceMetaDataFromLocalFile("service_metadata.json"); err != nil {
-			fmt.Print("When Block chain is disabled it is mandatory to have a service_metadata.json file to start Daemon.Please refer to a sample file at https://github.com/singnet/snet-daemon/blob/master/service_metadata.json\n")
+		if err != nil {
+			log.WithError(err).
+				Panic("error on determining service metadata from file")
 		}
+	} else {
+		metadata = &ServiceMetadata{Encoding:"proto",ServiceType:"grpc"}
 	}
-	if err != nil {
-		log.WithError(err).
-			Panic("error on determining service metadata from file")
-	}
-
 	return metadata
 }
 

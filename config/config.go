@@ -43,6 +43,9 @@ const (
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
+    PaymentChannelCertPath         = "payent_channel_cert_path"
+	PaymentChannelCaPath           = "payent_channel_ca_path"
+	PaymentChannelKeyPath          = "payent_channel_key_path"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
@@ -93,6 +96,7 @@ const (
 		"hooks": []
 	},
 	"payment_channel_storage_type": "etcd",
+
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
 		"request_timeout": "3s",

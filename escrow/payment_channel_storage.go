@@ -27,7 +27,7 @@ func NewPaymentChannelStorage(atomicStorage AtomicStorage,metadata *blockchain.S
 			atomicStorage: &PrefixedAtomicStorage{
 				delegate:  atomicStorage,
 				//Add the MPE Network address as the prefix on the key for storage
-				keyPrefix: metadata.MpeAddress+"/payment-channel/storage",
+				keyPrefix: "/"+metadata.MpeAddress+"/payment-channel/storage",
 			},
 			keySerializer:     serialize,
 			valueSerializer:   serialize,

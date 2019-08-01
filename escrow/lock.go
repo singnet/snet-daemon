@@ -28,7 +28,7 @@ func NewEtcdLocker(storage AtomicStorage,metadata *blockchain.ServiceMetadata) L
 func NewLockerStorage(storage AtomicStorage,metadata *blockchain.ServiceMetadata) *PrefixedAtomicStorage {
 	return &PrefixedAtomicStorage{
 		delegate:  storage,
-		keyPrefix: metadata.MpeAddress+"/payment-channel/lock",
+		keyPrefix:  "/"+metadata.MpeAddress+"/payment-channel/lock",
 	}
 }
 

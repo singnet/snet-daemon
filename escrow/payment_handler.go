@@ -11,19 +11,6 @@ import (
 )
 
 const (
-	// PaymentChannelIDHeader is a MultiPartyEscrow contract payment channel
-	// id. Value is a string containing a decimal number.
-	PaymentChannelIDHeader = "snet-payment-channel-id"
-	// PaymentChannelNonceHeader is a payment channel nonce value. Value is a
-	// string containing a decimal number.
-	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
-	// PaymentChannelAmountHeader is an amount of payment channel value
-	// which server is authorized to withdraw after handling the RPC call.
-	// Value is a string containing a decimal number.
-	PaymentChannelAmountHeader = "snet-payment-channel-amount"
-	// PaymentChannelSignatureHeader is a signature of the client to confirm
-	// amount withdrawing authorization. Value is an array of bytes.
-	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 
 	// EscrowPaymentType each call should have id and nonce of payment channel
 	// in metadata.
@@ -76,22 +63,22 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 }
 
 func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *handler.GrpcError) {
-	channelID, err := handler.GetBigInt(context.MD, PaymentChannelIDHeader)
+	channelID, err := handler.GetBigInt(context.MD, handler.PaymentChannelIDHeader)
 	if err != nil {
 		return
 	}
 
-	channelNonce, err := handler.GetBigInt(context.MD, PaymentChannelNonceHeader)
+	channelNonce, err := handler.GetBigInt(context.MD, handler.PaymentChannelNonceHeader)
 	if err != nil {
 		return
 	}
 
-	amount, err := handler.GetBigInt(context.MD, PaymentChannelAmountHeader)
+	amount, err := handler.GetBigInt(context.MD, handler.PaymentChannelAmountHeader)
 	if err != nil {
 		return
 	}
 
-	signature, err := handler.GetBytes(context.MD, PaymentChannelSignatureHeader)
+	signature, err := handler.GetBytes(context.MD, handler.PaymentChannelSignatureHeader)
 	if err != nil {
 		return
 	}

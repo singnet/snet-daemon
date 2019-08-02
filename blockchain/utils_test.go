@@ -30,5 +30,9 @@ func TestConvertBase64Encoding(t *testing.T) {
 
 func TestToChecksumAddress(t *testing.T) {
 
-	assert.Equal(t,"0xe9D09a6C296aCdd4c01b21f407ac93fdfC63E78C",toChecksumAddress("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
+	assert.Equal(t,"0xE9D09A6C296ACDd4C01b21F407aC93FDfC63e78c",toChecksumAddress("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
+
+	assert.Equal(t,"0xE9D09A6C296ACDd4C01b21F407aC93FDfC63e78c",toChecksumAddress("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
 }
+
+

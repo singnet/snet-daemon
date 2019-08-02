@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"math/big"
@@ -22,12 +21,13 @@ type PaymentChannelStorage struct {
 
 // NewPaymentChannelStorage returns new instance of PaymentChannelStorage
 // implementation
-func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorage {
+func NewPaymentChannelStorage(atomicStorage AtomicStorage,metadata *blockchain.ServiceMetadata) *PaymentChannelStorage {
 	return &PaymentChannelStorage{
 		delegate: &TypedAtomicStorageImpl{
 			atomicStorage: &PrefixedAtomicStorage{
 				delegate:  atomicStorage,
-				keyPrefix: "/payment-channel/storage",
+				//Add the MPE Network address as the prefix on the key for storage
+				keyPrefix: "/"+metadata.MpeAddress+"/payment-channel/storage",
 			},
 			keySerializer:     serialize,
 			valueSerializer:   serialize,

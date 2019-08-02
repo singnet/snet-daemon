@@ -164,7 +164,7 @@ func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
 	if components.etcdLockerStorage != nil {
 		return components.etcdLockerStorage
 	}
-	components.etcdLockerStorage = escrow.NewLockerStorage(components.AtomicStorage())
+	components.etcdLockerStorage = escrow.NewLockerStorage(components.AtomicStorage(),components.ServiceMetaData())
 	return components.etcdLockerStorage
 }
 
@@ -198,7 +198,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	}
 
 	components.paymentChannelService = escrow.NewPaymentChannelService(
-		escrow.NewPaymentChannelStorage(components.AtomicStorage()),
+		escrow.NewPaymentChannelStorage(components.AtomicStorage(),components.ServiceMetaData()),
 		components.PaymentStorage(),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(),components.OrganizationMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage()),

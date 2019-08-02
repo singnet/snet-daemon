@@ -153,7 +153,7 @@ configuration properties can be set using configuration file.
 
 These properties you should usually change before starting daemon for the first
 time.
-* **blockchain_network_selected**  (required; default: "local")
+* **blockchain_network_selected**  (required)
   Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
   Daemon will automatically read the Registry address associated with this network For local network ( you can also specify the registry address manually),see the blockchain_network_config.json
 

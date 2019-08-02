@@ -6,18 +6,20 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"math/big"
-	"strings"
+
 )
 
 type ProviderControlService struct {
 	channelService  PaymentChannelService
 	serviceMetaData *blockchain.ServiceMetadata
 	organizationMetaData *blockchain.OrganizationMetaData
+	mpeAddress common.Address
 }
 
 func NewProviderControlService(channelService PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
@@ -26,6 +28,7 @@ func NewProviderControlService(channelService PaymentChannelService, serMetaData
 		channelService:  channelService,
 		serviceMetaData: serMetaData,
 		organizationMetaData:orgMetadata,
+		mpeAddress: common.HexToAddress(serMetaData.MpeAddress),
 	}
 }
 
@@ -272,8 +275,9 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 
 //Check if the mpe address passed matches to what is present in the metadata.
 func (service *ProviderControlService) checkMpeAddress(mpeAddress string) error {
-	isSameAddress := strings.Compare(service.serviceMetaData.MpeAddress, mpeAddress) == 0
-	if !isSameAddress {
+	passedAddress := common.HexToAddress(mpeAddress)
+
+	if !(service.mpeAddress == passedAddress) {
 		return fmt.Errorf("the mpeAddress: %s passed does not match to what has been registered", mpeAddress)
 	}
 	return nil

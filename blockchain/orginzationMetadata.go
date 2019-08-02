@@ -130,6 +130,8 @@ func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
 	}
 	metaData.daemonGroupID, err = ConvertBase64Encoding(metaData.daemonGroup.GroupID)
 	metaData.recipientPaymentAddress = common.HexToAddress(metaData.daemonGroup.PaymentDetails.PaymentAddress)
+	//use the checksum address ( convert the address in to a checksum address and set it back)
+	metaData.daemonGroup.PaymentDetails.PaymentAddress = metaData.recipientPaymentAddress.Hex()
 	return err
 }
 

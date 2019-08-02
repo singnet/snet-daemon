@@ -87,6 +87,7 @@ func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 	}
 	strJson := string(file)
 	metadata, err := InitServiceMetaDataFromJson(strJson)
+
 	if err != nil {
 		return nil, fmt.Errorf("error reading local file service_metadata.json ")
 	}
@@ -187,6 +188,8 @@ func setDefaultPricing(metaData *ServiceMetadata) (err error) {
 
 func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 	metaData.multiPartyEscrowAddress = common.HexToAddress(metaData.MpeAddress)
+	//set the checksum address ( standardized way)
+	metaData.MpeAddress = metaData.multiPartyEscrowAddress.Hex()
 
 }
 

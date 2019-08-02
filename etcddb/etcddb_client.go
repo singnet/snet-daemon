@@ -62,15 +62,16 @@ func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMeta
 		return nil,err
 	}
 
-	if tlsConfig,err := getTlsConfig(metaData); err != nil {
-		return nil,err
-	}else if tlsConfig != nil {//https call, with tls config
-		etcdv3, err = clientv3.New(clientv3.Config{
-			Endpoints:   metaData.GetPaymentStorageEndPoints(),
-			DialTimeout: conf.ConnectionTimeout,
-			TLS:tlsConfig,
-
-		})
+	if checkIfHttps(metaData.GetPaymentStorageEndPoints()) {
+		if tlsConfig,err := getTlsConfig();err == nil {
+			etcdv3, err = clientv3.New(clientv3.Config{
+				Endpoints:   metaData.GetPaymentStorageEndPoints(),
+				DialTimeout: conf.ConnectionTimeout,
+				TLS:         tlsConfig,
+			})
+		}else {
+			return nil,err
+		}
 
 	}else {
 		//Regular http call
@@ -97,9 +98,8 @@ func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMeta
 	}
 	return
 }
-func getTlsConfig(metaData *blockchain.OrganizationMetaData) (*tls.Config, error) {
+func getTlsConfig() (*tls.Config, error) {
 
-	if checkIfHttps(metaData.GetPaymentStorageEndPoints()) {
 		log.Debug("enabling SSL support via X509 keypair")
 		cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
 
@@ -117,9 +117,7 @@ func getTlsConfig(metaData *blockchain.OrganizationMetaData) (*tls.Config, error
 			RootCAs:      caCertPool,
 		}
 		return tlsConfig, nil
-	} else {
-		return nil, nil
-	}
+
 }
 
 func checkIfHttps(endpoints []string ) bool {

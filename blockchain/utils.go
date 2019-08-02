@@ -1,39 +1,14 @@
 package blockchain
 
 import (
-	"crypto/ecdsa"
 	"encoding/base64"
 	"fmt"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcutil/hdkeychain"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
-	"github.com/tyler-smith/go-bip39"
 	"regexp"
 	"strings"
 )
 
-func derivePrivateKey(mnemonic string, path ...uint32) (*ecdsa.PrivateKey, error) {
-	seed := bip39.NewSeed(mnemonic, "")
-	curr, err := hdkeychain.NewMaster(seed, &chaincfg.Params{})
-	if err != nil {
-		return nil, err
-	}
-	for i, childIndex := range path {
-		if i < 3 {
-			childIndex += hdkeychain.HardenedKeyStart
-		}
-		curr, err = curr.Child(childIndex)
-		if err != nil {
-			return nil, err
-		}
-	}
-	privKey, err := curr.ECPrivKey()
-	if err != nil {
-		return nil, err
-	}
-	return privKey.ToECDSA(), nil
-}
 
 // ParseSignature parses Ethereum signature.
 func ParseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error) {
@@ -103,4 +78,11 @@ func FormatHash(ipfsHash string) string {
 	ipfsHash = RemoveSpecialCharactersfromHash(ipfsHash)
 	log.WithField("metadataUri", ipfsHash).Debug("After Formatting")
 	return ipfsHash
+}
+
+
+func toChecksumAddress(hexAddress string) string {
+	address := common.HexToAddress(hexAddress)
+	mixedAddress := common.NewMixedcaseAddress(address)
+	return mixedAddress.Address().String()
 }

@@ -22,7 +22,13 @@ func TestFormatHash(t *testing.T) {
 }
 func TestConvertBase64Encoding(t *testing.T) {
 
-	_, err := ConvertBase64Encoding("n@@###zNEetD1kzU3PZqR4nHPS8erDkrUK0hN4iCBQ4vH5U")
-	assert.Equal(t, err.Error(), "illegal base64 data at input byte 1")
+	if _, err := ConvertBase64Encoding("n@@###zNEetD1kzU3PZqR4nHPS8erDkrUK0hN4iCBQ4vH5U");err != nil {
+		assert.Equal(t, err.Error(), "illegal base64 data at input byte 1")
+	}
 
+}
+
+func TestToChecksumAddress(t *testing.T) {
+
+	assert.Equal(t,"0xe9D09a6C296aCdd4c01b21f407ac93fdfC63E78C",toChecksumAddress("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
 }

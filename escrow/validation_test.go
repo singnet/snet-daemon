@@ -25,6 +25,7 @@ func ChannelPaymentValidatorMock() *ChannelPaymentValidator {
 
 func SignTestPayment(payment *Payment, privateKey *ecdsa.PrivateKey) {
 	message := bytes.Join([][]byte{
+		[]byte(PrefixInSignature),
 		payment.MpeContractAddress.Bytes(),
 		bigIntToBytes(payment.ChannelID),
 		bigIntToBytes(payment.ChannelNonce),
@@ -218,9 +219,8 @@ func (suite *ValidationTestSuite) TestGetPublicKeyFromPayment() {
 	}
 
 	address, err := getSignerAddressFromPayment(&payment)
-
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
-	assert.Equal(suite.T(), blockchain.HexToAddress("0xc5fdf4076b8f3a5357c5e395ab970b5b54098fef"), *address)
+	assert.Equal(suite.T(), blockchain.HexToAddress("0x77D524c6e0FD652aA9A9bFcAd1d92Fe0781767dF"), *address)
 }
 
 func (suite *ValidationTestSuite) TestGetPublicKeyFromPayment2() {
@@ -233,7 +233,6 @@ func (suite *ValidationTestSuite) TestGetPublicKeyFromPayment2() {
 	}
 
 	address, err := getSignerAddressFromPayment(&payment)
-
 	assert.Nil(suite.T(), err)
-	assert.Equal(suite.T(), blockchain.HexToAddress("0x592E3C0f3B038A0D673F19a18a773F993d4b2610"), *address)
+	assert.Equal(suite.T(), blockchain.HexToAddress("0x6b1E951a2F9dE2480C613C1dCDDee4DD4CaE1e4e"), *address)
 }

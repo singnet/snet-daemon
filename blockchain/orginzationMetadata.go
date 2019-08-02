@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"math/big"
 	"strings"
+	"time"
 )
 
 /*
@@ -86,8 +87,8 @@ type Group struct {
 
 //Structure to hold the storage details of the payment
 type PaymentChannelStorageClient struct {
-	ConnectionTimeout string   `json:"connection_timeout"`
-	RequestTimeout    string   `json:"request_timeout"`
+	ConnectionTimeout string `json:"connection_timeout" mapstructure:"connection_timeout"`
+	RequestTimeout    string `json:"request_timeout" mapstructure:"request_timeout"`
 	Endpoints         []string `json:"endpoints"`
 }
 
@@ -100,12 +101,27 @@ func InitOrganizationMetaDataFromJson(jsonData string) (metaData *OrganizationMe
 		return nil, err
 	}
 
+	//Check for mandatory validations
+
 	if err = setDerivedAttributes(metaData); err != nil {
 		log.WithError(err)
 		return nil, err
 	}
+	if err = checkMandatoryFields(metaData); err != nil {
+		return nil,err
+	}
 
 	return metaData, nil
+}
+
+func checkMandatoryFields(metaData *OrganizationMetaData) (err error ){
+	if metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints == nil {
+		err = fmt.Errorf("Mandatory field : ETCD Client Endpoints are mising for the Group %v ",metaData.daemonGroup.GroupName)
+	}
+	if &metaData.recipientPaymentAddress == nil {
+		err = fmt.Errorf("Mandatory field : Recepient Address is missing for the Group %v ",metaData.daemonGroup.GroupName)
+	}
+	return
 }
 
 func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
@@ -114,6 +130,8 @@ func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
 	}
 	metaData.daemonGroupID, err = ConvertBase64Encoding(metaData.daemonGroup.GroupID)
 	metaData.recipientPaymentAddress = common.HexToAddress(metaData.daemonGroup.PaymentDetails.PaymentAddress)
+	//use the checksum address ( convert the address in to a checksum address and set it back)
+	metaData.daemonGroup.PaymentDetails.PaymentAddress = metaData.recipientPaymentAddress.Hex()
 	return err
 }
 
@@ -152,7 +170,7 @@ func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error)
 	return InitOrganizationMetaDataFromJson(jsondata)
 }
 
-//TODO , once the latest contract is pushed , the below method will be called
+
 func getMetaDataURI() []byte {
 	//Block chain call here to get the hash of the metadata for the given Organization
 	reg := getRegistryCaller()
@@ -161,11 +179,9 @@ func getMetaDataURI() []byte {
 	organizationRegistered, err := reg.GetOrganizationById(nil, orgId)
 	if err != nil || !organizationRegistered.Found {
 		log.WithError(err).WithField("OrganizationId", config.GetString(config.OrganizationId)).
-			WithField("ServiceId", config.GetString(config.ServiceId)).
-			Panic("Error Retrieving contract details for the Given Organization and Service Ids ")
+			Panic("Error Retrieving contract details for the Given Organization")
 	}
-	//return organizationRegistered.metaDataURI[:] //TODO , once the latest version of the registry is published, this line will be uncommented.
-	return nil
+	return organizationRegistered.OrgMetadataURI[:]
 }
 
 //Get the Group ID the Daemon needs to associate itself to , requests belonging to a different group if will be rejected
@@ -179,8 +195,8 @@ func (metaData OrganizationMetaData) GetGroupId() [32]byte {
 }
 
 //Pass the group Name and retrieve the details of the payment address/ recipient address.
-func (metaData OrganizationMetaData) GetPaymentAddress() string {
-	return metaData.daemonGroup.PaymentDetails.PaymentAddress
+func (metaData OrganizationMetaData) GetPaymentAddress() common.Address {
+	return metaData.recipientPaymentAddress
 }
 
 //Payment expiration threshold
@@ -189,6 +205,25 @@ func (metaData *OrganizationMetaData) GetPaymentExpirationThreshold() *big.Int {
 }
 
 //Get the End points of the Payment Storage used to update the storage state
-func (metaData OrganizationMetaData) GetPaymentStorageEndPoint() []string {
+func (metaData OrganizationMetaData) GetPaymentStorageEndPoints() []string {
 	return metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints
+}
+
+
+//Get the connection time out defined
+func (metaData OrganizationMetaData) GetConnectionTimeOut() ( connectionTimeOut time.Duration) {
+	 connectionTimeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.ConnectionTimeout);
+	 if err != nil {
+		log.Errorf(err.Error())
+	}
+	return connectionTimeOut
+}
+
+//Get the Request time out defined
+func (metaData OrganizationMetaData) GetRequestTimeOut() time.Duration {
+	timeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.RequestTimeout);
+	if err != nil {
+		log.Errorf(err.Error())
+	}
+	return timeOut
 }

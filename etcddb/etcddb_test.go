@@ -3,6 +3,7 @@ package etcddb
 import (
 	"context"
 	"fmt"
+	"github.com/singnet/snet-daemon/blockchain"
 	"os"
 	"strconv"
 	"sync"
@@ -19,6 +20,7 @@ type EtcdTestSuite struct {
 	suite.Suite
 	client *EtcdClient
 	server *EtcdServer
+	metaData *blockchain.OrganizationMetaData
 }
 
 func TestEtcdTestSuite(t *testing.T) {
@@ -26,6 +28,8 @@ func TestEtcdTestSuite(t *testing.T) {
 }
 
 func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
+	var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"org_id1\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
+	suite.metaData, _ = blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
 
 	const confJSON = `
 	{
@@ -58,7 +62,7 @@ func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 	err = server.Start()
 	assert.Nil(t, err)
 
-	client, err := NewEtcdClientFromVip(vip)
+	client, err := NewEtcdClientFromVip(vip,suite.metaData)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
@@ -297,7 +301,7 @@ func (suite *EtcdTestSuite) TestEtcdMutex() {
 
 	runWithLock := func(i int) {
 
-		client, err := NewEtcdClient()
+		client, err := NewEtcdClient(suite.metaData)
 		assert.Nil(t, err)
 		defer client.Close()
 

@@ -36,6 +36,7 @@ type Components struct {
 	priceStrategy              *pricing.PricingStrategy
 	configurationService       *configuration_service.ConfigurationService
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
+	organizationMetaData       *blockchain.OrganizationMetaData
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -109,6 +110,15 @@ func (components *Components) ServiceMetaData() *blockchain.ServiceMetadata {
 	return components.serviceMetadata
 }
 
+func (components *Components) OrganizationMetaData() *blockchain.OrganizationMetaData {
+	if components.organizationMetaData != nil {
+		return components.organizationMetaData
+	}
+	components.organizationMetaData = blockchain.GetOrganizationMetaData()
+	return components.organizationMetaData
+}
+
+
 func (components *Components) EtcdServer() *etcddb.EtcdServer {
 	if components.etcdServer != nil {
 		return components.etcdServer
@@ -141,7 +151,7 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 		return components.etcdClient
 	}
 
-	client, err := etcddb.NewEtcdClient()
+	client, err := etcddb.NewEtcdClient(components.OrganizationMetaData())
 	if err != nil {
 		log.WithError(err).Panic("unable to create etcd client")
 	}
@@ -190,10 +200,10 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.AtomicStorage(),components.ServiceMetaData()),
 		components.PaymentStorage(),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.ServiceMetaData()),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(),components.OrganizationMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage(),components.ServiceMetaData()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.ServiceMetaData()), func() ([32]byte, error) {
-			s := components.ServiceMetaData().GetDaemonGroupID()
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()), func() ([32]byte, error) {
+			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil
 		},
 	)
@@ -223,7 +233,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	//If monitoring is enabled and the endpoint URL is valid and if the
 	// Daemon has successfully registered itself and has obtained a valid token to publish metrics
 	// , ONLY then add this interceptor to the chain of interceptors
-	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
+	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if config.GetBool(config.MonitoringEnabled) &&
 		config.IsValidUrl(config.GetString(config.MonitoringServiceEndpoint)) &&
 		metrics.RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint)+"/register") {
@@ -268,7 +278,8 @@ func (components *Components) ProviderControlService() (service *escrow.Provider
 		return components.providerControlService
 	}
 
-	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(), components.ServiceMetaData())
+	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),
+		components.ServiceMetaData(),components.OrganizationMetaData())
 	return components.providerControlService
 }
 
@@ -276,7 +287,7 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 	if components.daemonHeartbeat != nil {
 		return components.daemonHeartbeat
 	}
-	metrics.SetDaemonGrpId(components.ServiceMetaData().GetDaemonGroupIDString())
+	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID()}
 	return components.daemonHeartbeat
 }

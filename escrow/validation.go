@@ -10,6 +10,9 @@ import (
 
 	"github.com/singnet/snet-daemon/blockchain"
 )
+const (
+	PrefixInSignature = "__MPE_claim_message"
+)
 
 // ChannelPaymentValidator validates payment using payment channel state.
 type ChannelPaymentValidator struct {
@@ -68,6 +71,7 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 
 func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err error) {
 	message := bytes.Join([][]byte{
+		[]byte(PrefixInSignature),
 		payment.MpeContractAddress.Bytes(),
 		bigIntToBytes(payment.ChannelID),
 		bigIntToBytes(payment.ChannelNonce),

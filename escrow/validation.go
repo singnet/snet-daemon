@@ -39,6 +39,7 @@ func (validator *FreeCallPaymentValidator) Validate (payment *FreeCallPayment) (
      if signerAddress != &validator.freeCallSigner {
 		 return NewPaymentError(Unauthenticated, "payment signer is not valid")
 	 }
+	// todo Calls to Metering service to check for allowed calls will go here
 	return nil
 
 }

@@ -41,6 +41,26 @@ const (
 	// PaymentChannelSignatureHeader is a signature of the client to confirm
 	// amount withdrawing authorization. Value is an array of bytes.
 	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
+
+	//Added for free call support in Daemon
+
+    //The user Id of the person making the call
+	FreeCallUserIdHeader = "snet-free-call-user-id"
+	//Mention the Organization Id
+	FreeCallOrganizationIdHeader = "snet-free-call-organization-id"
+	//Service Id of the call
+	FreeCallServiceIdHeader = "snet-free-call-service-id"
+	//Will be used to check if the Signature is still valid
+	CurrentBlockNumberHeader = "snet-current-block-number"
+	//Signature for free calls
+	/* __prefix_free_trial
+	- user Id
+	- OrgID
+	- ServiceID
+	- current block number */
+	FreeCallSignatureHeader = "snet-free-call-signature"
+
+
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to

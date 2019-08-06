@@ -37,6 +37,7 @@ type Components struct {
 	configurationService       *configuration_service.ConfigurationService
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
 	organizationMetaData       *blockchain.OrganizationMetaData
+	freeCallPaymentHandler      handler.PaymentHandler
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -225,6 +226,17 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	return components.escrowPaymentHandler
 }
 
+func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
+	if components.freeCallPaymentHandler != nil {
+		return components.freeCallPaymentHandler
+	}
+
+	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(
+		components.Blockchain())
+
+	return components.freeCallPaymentHandler
+}
+
 //Add a chain of interceptors
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
@@ -254,7 +266,7 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler())
+		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(),components.FreeCallPaymentHandler())
 	}
 }
 

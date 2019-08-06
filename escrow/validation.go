@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/authutils"
+	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"math/big"
@@ -12,8 +13,35 @@ import (
 )
 const (
 	PrefixInSignature = "__MPE_claim_message"
+	//Agreed constant value
+	FreeCallPrefixValue = "__prefix_free_trial"
 )
 
+type FreeCallPaymentValidator struct {
+	currentBlock               func() (currentBlock *big.Int, err error)
+	freeCallSigner common.Address
+}
+
+func NewFreeCallPaymentValidator (processor *blockchain.Processor) *FreeCallPaymentValidator {
+	return &FreeCallPaymentValidator{
+		currentBlock:processor.CurrentBlock,
+		freeCallSigner: common.HexToAddress(config.GetString(config.FreeCallSignerAddress)),
+	}
+
+}
+
+func (validator *FreeCallPaymentValidator) Validate (payment *FreeCallPayment) (err error) {
+
+	signerAddress, err := validator.getSignerAddressForFreeCall(payment)
+	if err != nil {
+		return NewPaymentError(Unauthenticated, "payment signature is not valid")
+	}
+     if signerAddress != &validator.freeCallSigner {
+		 return NewPaymentError(Unauthenticated, "payment signer is not valid")
+	 }
+	return nil
+
+}
 // ChannelPaymentValidator validates payment using payment channel state.
 type ChannelPaymentValidator struct {
 	currentBlock               func() (currentBlock *big.Int, err error)
@@ -68,6 +96,31 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 
 	return
 }
+
+
+func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
+     //Check for the current block Number
+	if err := authutils.CompareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
+		return nil, err
+	}
+
+	message := bytes.Join([][]byte{
+		[]byte(FreeCallPrefixValue),
+		[]byte(payment.UserId),
+		[]byte(config.GetString(config.OrganizationId)),
+		[]byte(config.GetString(config.ServiceId)),
+		bigIntToBytes(payment.CurrentBlockNumber),
+	}, nil)
+
+	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
+	if err != nil {
+		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
+		return nil, err
+	}
+	return signer, err
+}
+
+
 
 func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err error) {
 	message := bytes.Join([][]byte{

@@ -22,9 +22,9 @@ type FreeCallPaymentValidator struct {
 	freeCallSigner common.Address
 }
 
-func NewFreeCallPaymentValidator (processor *blockchain.Processor) *FreeCallPaymentValidator {
+func NewFreeCallPaymentValidator (funcCurrentBlock func() (currentBlock *big.Int, err error)) *FreeCallPaymentValidator {
 	return &FreeCallPaymentValidator{
-		currentBlock:processor.CurrentBlock,
+		currentBlock:funcCurrentBlock,
 		freeCallSigner: common.HexToAddress(config.GetString(config.FreeCallSignerAddress)),
 	}
 

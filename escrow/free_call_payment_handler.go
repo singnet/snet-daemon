@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 )
 
@@ -21,7 +22,7 @@ type freeCallPaymentHandler struct {
 func FreeCallPaymentHandler(
 	processor *blockchain.Processor) handler.PaymentHandler {
 	return &freeCallPaymentHandler{
-		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor),
+		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock),
 	}
 }
 
@@ -45,12 +46,12 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 
 func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *FreeCallPayment, err *handler.GrpcError) {
 
-	organizationId , err := handler.GetSingleValue(context.MD, handler.FreeCallOrganizationIdHeader)
+	organizationId , err := handler.GetSingleValue(context.MD, config.GetString(config.OrganizationId))
 	if err != nil {
 		return
 	}
 
-	serviceId , err := handler.GetSingleValue(context.MD, handler.FreeCallServiceIdHeader)
+	serviceId , err := handler.GetSingleValue(context.MD, config.GetString(config.ServiceId))
 	if err != nil {
 		return
 	}
@@ -65,7 +66,7 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 		return
 	}
 
-	signature,err := handler.GetBytes(context.MD, handler.FreeCallSignatureHeader)
+	signature,err := handler.GetBytes(context.MD, handler.PaymentChannelSignatureHeader)
 	if err != nil {
 		return
 	}

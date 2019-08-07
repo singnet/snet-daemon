@@ -187,7 +187,7 @@ func setDefaultPricing(metaData *ServiceMetadata) (err error) {
 }
 
 func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
-	metaData.MpeAddress = toChecksumAddress(metaData.MpeAddress)
+	metaData.MpeAddress = ToChecksumAddress(metaData.MpeAddress)
 	metaData.multiPartyEscrowAddress = common.HexToAddress(metaData.MpeAddress)
 
 }

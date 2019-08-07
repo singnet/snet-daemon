@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
@@ -22,7 +23,8 @@ type freeCallPaymentHandler struct {
 func FreeCallPaymentHandler(
 	processor *blockchain.Processor) handler.PaymentHandler {
 	return &freeCallPaymentHandler{
-		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock),
+		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock,
+			common.HexToAddress(blockchain.ToChecksumAddress(config.FreeCallSignerAddress))),
 	}
 }
 
@@ -46,15 +48,8 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 
 func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *FreeCallPayment, err *handler.GrpcError) {
 
-	organizationId , err := handler.GetSingleValue(context.MD, config.GetString(config.OrganizationId))
-	if err != nil {
-		return
-	}
-
-	serviceId , err := handler.GetSingleValue(context.MD, config.GetString(config.ServiceId))
-	if err != nil {
-		return
-	}
+	organizationId := config.GetString(config.OrganizationId)
+	serviceId := config.GetString(config.ServiceId)
 
 	userID , err := handler.GetSingleValue(context.MD, handler.FreeCallUserIdHeader)
 	if err != nil {

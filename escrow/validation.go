@@ -2,14 +2,15 @@ package escrow
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/authutils"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"math/big"
-
-	"github.com/singnet/snet-daemon/blockchain"
+	"strings"
 )
 const (
 	PrefixInSignature = "__MPE_claim_message"
@@ -22,10 +23,10 @@ type FreeCallPaymentValidator struct {
 	freeCallSigner common.Address
 }
 
-func NewFreeCallPaymentValidator (funcCurrentBlock func() (currentBlock *big.Int, err error)) *FreeCallPaymentValidator {
+func NewFreeCallPaymentValidator (funcCurrentBlock func() (currentBlock *big.Int, err error),signer common.Address) *FreeCallPaymentValidator {
 	return &FreeCallPaymentValidator{
 		currentBlock:funcCurrentBlock,
-		freeCallSigner: common.HexToAddress(config.GetString(config.FreeCallSignerAddress)),
+		freeCallSigner: signer,
 	}
 
 }
@@ -36,8 +37,8 @@ func (validator *FreeCallPaymentValidator) Validate (payment *FreeCallPayment) (
 	if err != nil {
 		return NewPaymentError(Unauthenticated, "payment signature is not valid")
 	}
-     if signerAddress != &validator.freeCallSigner {
-		 return NewPaymentError(Unauthenticated, "payment signer is not valid")
+     if strings.Compare(signerAddress.Hex() , validator.freeCallSigner.Hex()) ==0  {
+		 return NewPaymentError(Unauthenticated, "payment signer is not valid %v , %v", signerAddress.Hex(),validator.freeCallSigner.Hex())
 	 }
 	// todo Calls to Metering service to check for allowed calls will go here
 	return nil
@@ -47,6 +48,8 @@ func (validator *FreeCallPaymentValidator) Validate (payment *FreeCallPayment) (
 type ChannelPaymentValidator struct {
 	currentBlock               func() (currentBlock *big.Int, err error)
 	paymentExpirationThreshold func() (threshold *big.Int)
+
+
 }
 
 // NewChannelPaymentValidator returns new payment validator instance
@@ -98,10 +101,22 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 	return
 }
 
+//Check if the block number passed is not more +- 5 from the latest block number on chain
+func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
+	latestBlockNumber, err := validator.currentBlock()
+	if err != nil {
+		return err
+	}
+	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
+	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > authutils.AllowedBlockChainDifference {
+		return fmt.Errorf("authentication failed as the signature passed has expired")
+	}
+	return nil
+}
 
 func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
      //Check for the current block Number
-	if err := authutils.CompareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
+	if err := validator.compareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
 		return nil, err
 	}
 

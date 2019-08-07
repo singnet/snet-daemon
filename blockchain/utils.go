@@ -81,7 +81,7 @@ func FormatHash(ipfsHash string) string {
 }
 
 
-func toChecksumAddress(hexAddress string) string {
+func ToChecksumAddress(hexAddress string) string {
 	address := common.HexToAddress(hexAddress)
 	mixedAddress := common.NewMixedcaseAddress(address)
 	return mixedAddress.Address().String()

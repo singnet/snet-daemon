@@ -1,6 +1,7 @@
 package etcddb
 
 import (
+	"github.com/singnet/snet-daemon/blockchain"
 	"strings"
 	"time"
 
@@ -23,12 +24,15 @@ type EtcdClientConf struct {
 // GetEtcdClientConf gets EtcdServerConf from viper
 // The DefaultEtcdClientConf is used in case the PAYMENT_CHANNEL_STORAGE_CLIENT field
 // is not set in the configuration file
-func GetEtcdClientConf(vip *viper.Viper) (conf *EtcdClientConf, err error) {
+//Left Vip, just in case we need to read something from configuration in the future
+func GetEtcdClientConf(vip *viper.Viper,metaData *blockchain.OrganizationMetaData) (conf *EtcdClientConf, err error) {
 
-	key := config.PaymentChannelStorageClientKey
-	conf = &EtcdClientConf{}
-	subVip := config.SubWithDefault(vip, key)
-	err = subVip.Unmarshal(conf)
+	conf = &EtcdClientConf{
+		ConnectionTimeout:metaData.GetConnectionTimeOut(),
+		RequestTimeout:metaData.GetRequestTimeOut(),
+		Endpoints:metaData.GetPaymentStorageEndPoints(),
+	}
+
 	return
 }
 

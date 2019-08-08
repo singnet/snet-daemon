@@ -30,6 +30,7 @@ const (
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	ExecutablePathKey              = "executable_path"
+	FreeCallSignerAddress          = "free_call_signer_address"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
@@ -43,6 +44,9 @@ const (
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
+    PaymentChannelCertPath         = "payent_channel_cert_path"
+	PaymentChannelCaPath           = "payent_channel_ca_path"
+	PaymentChannelKeyPath          = "payent_channel_key_path"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
@@ -93,6 +97,7 @@ const (
 		"hooks": []
 	},
 	"payment_channel_storage_type": "etcd",
+
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
 		"request_timeout": "3s",
@@ -109,7 +114,7 @@ const (
 		"startup_timeout": "1m",
 		"data_dir": "storage-data-dir-1.etcd",
 		"log_level": "info",
-		"enabled": true
+		"enabled": false
 	},
 	"alerts_email": "", 
 	"service_heartbeat_type": "http"

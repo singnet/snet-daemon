@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/singnet/snet-daemon/config"
 	"math/big"
 	"testing"
 
@@ -16,12 +17,7 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 )
 
-func ChannelPaymentValidatorMock() *ChannelPaymentValidator {
-	return &ChannelPaymentValidator{
-		currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
-		paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
-	}
-}
+
 
 func SignTestPayment(payment *Payment, privateKey *ecdsa.PrivateKey) {
 	message := bytes.Join([][]byte{
@@ -32,6 +28,19 @@ func SignTestPayment(payment *Payment, privateKey *ecdsa.PrivateKey) {
 		bigIntToBytes(payment.Amount),
 	}, nil)
 
+	payment.Signature = getSignature(message, privateKey)
+}
+
+func SignFreeTestPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey) {
+	message := bytes.Join([][]byte{
+		[]byte(FreeCallPrefixSignature),
+		[]byte(payment.UserId),
+		[]byte(config.GetString(config.OrganizationId)),
+		[]byte(config.GetString(config.ServiceId)),
+		bigIntToBytes(payment.CurrentBlockNumber),
+	}, nil)
+	println("Bytes Generated in TEST Validation")
+	println(string(message))
 	payment.Signature = getSignature(message, privateKey)
 }
 
@@ -67,6 +76,8 @@ type ValidationTestSuite struct {
 	mpeContractAddress common.Address
 
 	validator ChannelPaymentValidator
+	freeCallPaymentValidator FreeCallPaymentValidator
+
 }
 
 func TestValidationTestSuite(t *testing.T) {
@@ -76,7 +87,10 @@ func TestValidationTestSuite(t *testing.T) {
 func (suite *ValidationTestSuite) SetupSuite() {
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerPrivateKey = GenerateTestPrivateKey()
+
+
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
+
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
@@ -84,7 +98,21 @@ func (suite *ValidationTestSuite) SetupSuite() {
 		currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 	}
+	suite.freeCallPaymentValidator = FreeCallPaymentValidator{freeCallSigner:suite.signerAddress,
+		currentBlock:func() (*big.Int, error) { return big.NewInt(8308168), nil }}
 }
+
+func (suite *ValidationTestSuite) FreeCallPayment() *FreeCallPayment {
+	payment := &FreeCallPayment{
+		UserId:"user1",
+		ServiceId:config.GetString(config.ServiceId),
+		OrganizationId:config.GetString(config.OrganizationId),
+		CurrentBlockNumber:big.NewInt(8308167),
+	}
+	SignFreeTestPayment(payment, suite.signerPrivateKey)
+	return payment
+}
+
 
 func (suite *ValidationTestSuite) payment() *Payment {
 	payment := &Payment{
@@ -110,6 +138,16 @@ func (suite *ValidationTestSuite) channel() *PaymentChannelData {
 		AuthorizedAmount: big.NewInt(12300),
 		Signature:        nil,
 	}
+}
+
+func (suite *ValidationTestSuite) TestFreeCallPaymentIsValid(){
+	payment := suite.FreeCallPayment()
+
+	address, err := suite.freeCallPaymentValidator.getSignerAddressForFreeCall(payment)
+	println(address.Hex())
+	println(suite.signerAddress.Hex())
+	err= suite.freeCallPaymentValidator.Validate(payment)
+	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 }
 
 func (suite *ValidationTestSuite) TestPaymentIsValid() {

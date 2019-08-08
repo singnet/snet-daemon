@@ -159,6 +159,8 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 	if config.GetBool(config.BlockchainEnabledKey) {
 		ipfsHash := string(getMetaDataURI())
 		metadata, err = GetOrganizationMetaDataFromIPFS(FormatHash(ipfsHash))
+	} else {
+		metadata = &OrganizationMetaData{daemonGroup:&Group{}}
 	}
 	if err != nil {
 		log.WithError(err).

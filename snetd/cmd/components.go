@@ -270,7 +270,11 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 	}
 }
 
-func (components *Components) PaymentChannelStateService() (service *escrow.PaymentChannelStateService) {
+func (components *Components) PaymentChannelStateService() (service escrow.PaymentChannelStateServiceServer) {
+	if !config.GetBool(config.BlockchainEnabledKey){
+		return &escrow.BlockChainDisabledStateService{}
+	}
+
 	if components.paymentChannelStateService != nil {
 		return components.paymentChannelStateService
 	}
@@ -285,7 +289,11 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 
 //NewProviderControlService
 
-func (components *Components) ProviderControlService() (service *escrow.ProviderControlService) {
+func (components *Components) ProviderControlService() (service escrow.ProviderControlServiceServer) {
+
+	if !config.GetBool(config.BlockchainEnabledKey){
+		return &escrow.BlockChainDisabledProviderControlService{}
+	}
 	if components.providerControlService != nil {
 		return components.providerControlService
 	}

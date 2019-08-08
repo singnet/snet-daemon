@@ -30,6 +30,7 @@ const (
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	ExecutablePathKey              = "executable_path"
+	FreeCallSignerAddress          = "free_call_signer_address"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"

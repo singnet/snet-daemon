@@ -53,6 +53,7 @@ const (
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	MeteringEndPoint            =  "metering_end_point"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	//none|grpc|http

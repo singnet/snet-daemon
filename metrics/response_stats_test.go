@@ -3,6 +3,7 @@ package metrics
 import (
 	"fmt"
 	"github.com/magiconair/properties/assert"
+	"github.com/singnet/snet-daemon/config"
 	assert2 "github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -41,4 +42,47 @@ func TestGetErrorCode(t *testing.T) {
 	code := getErrorCode(err)
 	assert.Equal(t, code, "Unknown")
 	assert.Equal(t, getErrorCode(nil), "OK")
+}
+
+func TestJsonCreated(t *testing.T) {
+
+	tim := time.Now()
+	zone, offset := tim.Zone()
+	fmt.Println(zone, offset)
+	payload := &ResponseStats{
+
+		Type:"grpc",
+		ChannelId:"123",
+
+		RegistryAddressKey:"",
+		EthereumJsonRpcEndpointKey:"",
+		RequestID:"",
+		OrganizationID:config.GetString(config.OrganizationId),
+		GroupID:"",
+		ServiceMethod:"",
+		ResponseSentTime:"",
+		RequestReceivedTime:"",
+		ResponseTime:"",
+		ResponseCode:"",
+		ErrorMessage:"",
+		Version:"",
+		ClientType:"",
+		UserDetails:"",
+		UserAgent:"",
+		UserId:"whateverDappPasses",
+		Operation:"",
+		UsageType:"",
+		Status:"",
+		StartTime:"",
+		EndTime:"",
+		UsageValue:"1",
+		TimeZone:zone,
+
+
+	}
+	jsonBytes, err := ConvertStructToJSON(payload)
+	println(string(jsonBytes))
+	assert2.NotNil(t,jsonBytes)
+	assert2.Nil(t,err)
+
 }

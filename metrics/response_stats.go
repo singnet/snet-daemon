@@ -21,6 +21,7 @@ type CommonStats struct {
 	UserDetails         string
 	UserAgent           string
 	ChannelId           string
+	UserId              string
 }
 
 func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
@@ -57,16 +58,27 @@ type ResponseStats struct {
 	UserDetails                string `json:"user_details"`
 	UserAgent                  string `json:"user_agent"`
 	ChannelId                  string `json:"channel_id"`
+	UserId                     string `json:"user_id"`
+	Operation                  string `json:"operation"`
+	UsageType                  string `json:"usage_type"`
+	Status                     string `json:"status"`
+	StartTime                  string `json:"start_time"`
+	EndTime                    string `json:"end_time"`
+	UsageValue                 string `json:"usage_value"`
+	TimeZone                   string `json:"time_zone"`
 }
 
 //Publish response received as a payload for reporting /metrics analysis
 //If there is an error in the response received from the service, then send out a notification as well.
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
+	Publish(response, config.GetString(config.MeteringEndPoint)+"/usage")
 	return Publish(response, config.GetString(config.MonitoringServiceEndpoint)+"/event")
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {
+	currentTime := time.Now()
+	zone, _ := currentTime.Zone()
 	response := &ResponseStats{
 		Type:                       "response",
 		RegistryAddressKey:         config.GetRegistryAddress(),
@@ -78,7 +90,7 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		ServiceID:                  commonStat.ServiceID,
 		ServiceMethod:              commonStat.ServiceMethod,
 		RequestReceivedTime:        commonStat.RequestReceivedTime,
-		ResponseSentTime:           time.Now().String(),
+		ResponseSentTime:           currentTime.String(),
 		ErrorMessage:               getErrorMessage(err),
 		ResponseCode:               getErrorCode(err),
 		Version:                    commonStat.Version,
@@ -86,8 +98,22 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		UserDetails:                commonStat.UserDetails,
 		UserAgent:                  commonStat.UserAgent,
 		ChannelId:                  commonStat.ChannelId,
+		UserId:commonStat.UserId,
+		StartTime:commonStat.RequestReceivedTime,
+		EndTime:currentTime.String(),
+		Status:getStatus(err),
+		UsageValue:"1",
+		UsageType:"apicall",
+		Operation:"read",
+		TimeZone:zone,
 	}
 	return response
+}
+
+func getStatus(err error) string {
+	if err != nil {}
+	return "failed"
+	return "success"
 }
 
 func getErrorMessage(err error) string {

@@ -77,10 +77,10 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 }
 
 func (h *freeCallPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
-	return nil //todo , will make a call to metering service indicating success state of the service call
+	return nil
 }
 
 func (h *freeCallPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
-	return nil // todo , will make a call to the metering service indicating Failed state of the service call
+	return nil
 }
 

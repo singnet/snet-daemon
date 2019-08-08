@@ -10,12 +10,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"math/big"
-	"strings"
 )
 const (
 	PrefixInSignature = "__MPE_claim_message"
 	//Agreed constant value
-	FreeCallPrefixValue = "__prefix_free_trial"
+	FreeCallPrefixSignature = "__prefix_free_trial"
 )
 
 type FreeCallPaymentValidator struct {
@@ -37,9 +36,14 @@ func (validator *FreeCallPaymentValidator) Validate (payment *FreeCallPayment) (
 	if err != nil {
 		return NewPaymentError(Unauthenticated, "payment signature is not valid")
 	}
-     if strings.Compare(signerAddress.Hex() , validator.freeCallSigner.Hex()) ==0  {
+     if *signerAddress != validator.freeCallSigner  {
 		 return NewPaymentError(Unauthenticated, "payment signer is not valid %v , %v", signerAddress.Hex(),validator.freeCallSigner.Hex())
 	 }
+
+	//Check for the current block Number
+	if err := validator.compareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
+		return  err
+	}
 	// todo Calls to Metering service to check for allowed calls will go here
 	return nil
 
@@ -115,19 +119,17 @@ func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNum
 }
 
 func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
-     //Check for the current block Number
-	if err := validator.compareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
-		return nil, err
-	}
 
+	println("block number:"+payment.CurrentBlockNumber.String())
 	message := bytes.Join([][]byte{
-		[]byte(FreeCallPrefixValue),
+		[]byte(FreeCallPrefixSignature),
 		[]byte(payment.UserId),
 		[]byte(config.GetString(config.OrganizationId)),
 		[]byte(config.GetString(config.ServiceId)),
 		bigIntToBytes(payment.CurrentBlockNumber),
 	}, nil)
-
+	println("Bytes Generated in Validation")
+	println(string(message))
 	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")

@@ -64,7 +64,7 @@ type ResponseStats struct {
 	Status                     string `json:"status"`
 	StartTime                  string `json:"start_time"`
 	EndTime                    string `json:"end_time"`
-	UsageValue                 string `json:"usage_value"`
+	UsageValue                 int `json:"usage_value"`
 	TimeZone                   string `json:"time_zone"`
 }
 
@@ -102,7 +102,7 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		StartTime:commonStat.RequestReceivedTime,
 		EndTime:currentTime.String(),
 		Status:getStatus(err),
-		UsageValue:"1",
+		UsageValue:1,
 		UsageType:"apicall",
 		Operation:"read",
 		TimeZone:zone,
@@ -111,8 +111,7 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 }
 
 func getStatus(err error) string {
-	if err != nil {}
-	return "failed"
+	if err != nil {return "failed"}
 	return "success"
 }
 

@@ -24,7 +24,7 @@ type CommonStats struct {
 	UserDetails         string
 	UserAgent           string
 	ChannelId           string
-	UserId              string
+	UserName            string
 }
 
 func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
@@ -61,13 +61,13 @@ type ResponseStats struct {
 	UserDetails                string `json:"user_details"`
 	UserAgent                  string `json:"user_agent"`
 	ChannelId                  string `json:"channel_id"`
-	UserId                     string `json:"user_id"`
+	UserName                   string `json:"username"`
 	Operation                  string `json:"operation"`
 	UsageType                  string `json:"usage_type"`
 	Status                     string `json:"status"`
 	StartTime                  string `json:"start_time"`
 	EndTime                    string `json:"end_time"`
-	UsageValue                 int `json:"usage_value"`
+	UsageValue                 int    `json:"usage_value"`
 	TimeZone                   string `json:"time_zone"`
 }
 
@@ -101,7 +101,7 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		UserDetails:                commonStat.UserDetails,
 		UserAgent:                  commonStat.UserAgent,
 		ChannelId:                  commonStat.ChannelId,
-		UserId:commonStat.UserId,
+		UserName:commonStat.UserName,
 		StartTime:commonStat.RequestReceivedTime,
 		EndTime:currentTime,
 		Status:getStatus(err),

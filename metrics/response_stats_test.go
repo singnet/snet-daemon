@@ -70,7 +70,7 @@ func TestJsonCreated(t *testing.T) {
 		ClientType:"",
 		UserDetails:"",
 		UserAgent:"",
-		UserId:"whateverDappPasses",
+		UserName:"whateverDappPasses",
 		Operation:"",
 		UsageType:"",
 		Status:"",

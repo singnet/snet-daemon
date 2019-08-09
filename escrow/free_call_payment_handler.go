@@ -50,7 +50,7 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 		return nil, paymentErrorToGrpcError(e)
 	}
 
-	allowed,_ := checkIfFreeCallsAreAllowed()
+	allowed,_ := checkIfFreeCallsAreAllowed(internalPayment.UserId)
 	if !allowed {
 		return nil,paymentErrorToGrpcError(fmt.Errorf("free call limit has been exceeded."))
 	}
@@ -96,13 +96,13 @@ func (h *freeCallPaymentHandler) CompleteAfterError(payment handler.Payment, res
 	return nil
 }
 
-func checkIfFreeCallsAreAllowed() (allowed bool, err error) {
-	response,err := sendRequest(nil,config.GetString(config.MeteringEndPoint)+"/usage/freecalls")
+func checkIfFreeCallsAreAllowed(username string) (allowed bool, err error) {
+	response,err := sendRequest(nil,config.GetString(config.MeteringEndPoint)+"/usage/freecalls",username)
 	return checkResponse(response)
 }
 
 //Set all the headers before publishing
-func sendRequest(json []byte, serviceURL string) (*http.Response, error) {
+func sendRequest(json []byte, serviceURL string,username string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", serviceURL, bytes.NewBuffer(json))
 	if err != nil {
 		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
@@ -112,7 +112,7 @@ func sendRequest(json []byte, serviceURL string) (*http.Response, error) {
 	q := req.URL.Query()
 	q.Add(config.OrganizationId, config.GetString(config.OrganizationId))
 	q.Add(config.ServiceId, config.GetString(config.ServiceId))
-	q.Add("username", "foo & bar")
+	q.Add("username", username)
 	req.URL.RawQuery = q.Encode()
 	client := &http.Client{}
 	req.Header.Set("Content-Type", "application/json")

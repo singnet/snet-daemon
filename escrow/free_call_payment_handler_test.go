@@ -80,7 +80,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) Test_freeCallPaymentHandler_Type()
 
 func Test_checkResponse(t *testing.T) {
 	response, err := sendRequest(nil,
-		"http://demo8325345.mockable.io/usage/freecalls")
+		"http://demo8325345.mockable.io/usage/freecalls","testuser")
 	assert.NotNil(t,response)
 	assert.Nil(t,err)
 	allowed , err := checkResponse(response)

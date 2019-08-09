@@ -26,7 +26,7 @@ func TestCreateRequestStat(t *testing.T) {
 	assert.Equal(t, request.GroupID, daemonGroupId)
 	assert.Equal(t, request.OrganizationID, config.GetString(config.OrganizationId))
 	assert.Equal(t, request.ServiceID, config.GetString(config.ServiceId))
-	assert.Equal(t, request.RequestReceivedTime, arrivalTime.String())
+	assert.Equal(t, request.RequestReceivedTime, arrivalTime.UTC().Format(timeFormat))
 	assert.Equal(t, request.Version, commonStat.Version)
 	assert.Equal(t, request.Type, "request")
 	assert.Equal(t, request.ClientType, "snet-cli")

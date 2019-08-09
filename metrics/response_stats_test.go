@@ -2,8 +2,9 @@ package metrics
 
 import (
 	"fmt"
-	"github.com/magiconair/properties/assert"
-	assert2 "github.com/stretchr/testify/assert"
+
+	"github.com/singnet/snet-daemon/config"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -21,11 +22,12 @@ func TestCreateResponseStats(t *testing.T) {
 	assert.Equal(t, response.GroupID, daemonGroupId)
 	assert.Equal(t, response.ResponseTime, "1.2346")
 	assert.Equal(t, response.Type, "response")
-	assert2.NotEqual(t, response.ResponseSentTime, "")
+	assert.NotEqual(t, response.ResponseSentTime, "")
 	assert.Equal(t, response.ClientType, "snet-cli")
 	assert.Equal(t, response.UserDetails, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 	assert.Equal(t, response.UserAgent, "python/cli")
 	assert.Equal(t, response.ChannelId, "1")
+	assert.NotNil(t, response.EndTime)
 }
 
 func TestGetErrorMessage(t *testing.T) {
@@ -41,4 +43,47 @@ func TestGetErrorCode(t *testing.T) {
 	code := getErrorCode(err)
 	assert.Equal(t, code, "Unknown")
 	assert.Equal(t, getErrorCode(nil), "OK")
+}
+
+func TestJsonCreated(t *testing.T) {
+
+	tim := time.Now()
+	zone, offset := tim.Zone()
+	fmt.Println(zone, offset)
+	payload := &ResponseStats{
+
+		Type:"grpc",
+		ChannelId:"123",
+
+		RegistryAddressKey:"",
+		EthereumJsonRpcEndpointKey:"",
+		RequestID:"",
+		OrganizationID:config.GetString(config.OrganizationId),
+		GroupID:"",
+		ServiceMethod:"",
+		ResponseSentTime:"",
+		RequestReceivedTime:"",
+		ResponseTime:"",
+		ResponseCode:"",
+		ErrorMessage:"",
+		Version:"",
+		ClientType:"",
+		UserDetails:"",
+		UserAgent:"",
+		UserName:"whateverDappPasses",
+		Operation:"",
+		UsageType:"",
+		Status:"",
+		StartTime:"",
+		EndTime:"",
+		UsageValue:1,
+		TimeZone:zone,
+
+
+	}
+	jsonBytes, err := ConvertStructToJSON(payload)
+	assert.NotNil(t,jsonBytes)
+	assert.Contains(t,string(jsonBytes),"whateverDappPasses")
+	assert.Nil(t,err)
+
 }

@@ -39,10 +39,10 @@ func SignFreeTestPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey)
 		[]byte(config.GetString(config.ServiceId)),
 		bigIntToBytes(payment.CurrentBlockNumber),
 	}, nil)
-	println("Bytes Generated in TEST Validation")
-	println(string(message))
+
 	payment.Signature = getSignature(message, privateKey)
 }
+
 
 func getSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	hash := crypto.Keccak256(
@@ -143,10 +143,8 @@ func (suite *ValidationTestSuite) channel() *PaymentChannelData {
 func (suite *ValidationTestSuite) TestFreeCallPaymentIsValid(){
 	payment := suite.FreeCallPayment()
 
-	address, err := suite.freeCallPaymentValidator.getSignerAddressForFreeCall(payment)
-	println(address.Hex())
-	println(suite.signerAddress.Hex())
-	err= suite.freeCallPaymentValidator.Validate(payment)
+
+	err:= suite.freeCallPaymentValidator.Validate(payment)
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 }
 

@@ -24,7 +24,7 @@ func FreeCallPaymentHandler(
 	processor *blockchain.Processor) handler.PaymentHandler {
 	return &freeCallPaymentHandler{
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock,
-			common.HexToAddress(blockchain.ToChecksumAddress(config.FreeCallSignerAddress))),
+			common.HexToAddress(blockchain.ToChecksumAddress(config.GetString(config.FreeCallSignerAddress)))),
 	}
 }
 

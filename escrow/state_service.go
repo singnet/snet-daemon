@@ -22,6 +22,14 @@ type PaymentChannelStateService struct {
 	mpeAddress func() (address common.Address)
 }
 
+type BlockChainDisabledStateService struct {
+
+}
+
+func (service *BlockChainDisabledStateService) GetChannelState(context context.Context, request *ChannelStateRequest) (reply *ChannelStateReply, err error) {
+ return &ChannelStateReply{},nil
+}
+
 // verifies whether storage channel nonce is equal to blockchain nonce or not
 func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonce(storageChannel *PaymentChannelData) (equal bool, err error) {
 	h := service.channelService

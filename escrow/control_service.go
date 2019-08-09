@@ -22,6 +22,23 @@ type ProviderControlService struct {
 	mpeAddress common.Address
 }
 
+
+type BlockChainDisabledProviderControlService struct {
+
+}
+
+func (service *BlockChainDisabledProviderControlService) GetListUnclaimed(ctx context.Context, request *GetPaymentsListRequest) (paymentReply *PaymentsListReply, err error) {
+ return &PaymentsListReply{},nil
+}
+
+func (service *BlockChainDisabledProviderControlService) GetListInProgress(ctx context.Context, request *GetPaymentsListRequest) (reply *PaymentsListReply, err error) {
+	return &PaymentsListReply{},nil
+}
+
+func (service *BlockChainDisabledProviderControlService) StartClaim(ctx context.Context, startClaim *StartClaimRequest) (paymentReply *PaymentReply, err error) {
+	return &PaymentReply{},nil
+}
+
 func NewProviderControlService(channelService PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData) *ProviderControlService {
 	return &ProviderControlService{

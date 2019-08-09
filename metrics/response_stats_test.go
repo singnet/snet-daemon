@@ -2,9 +2,9 @@ package metrics
 
 import (
 	"fmt"
-	"github.com/magiconair/properties/assert"
+
 	"github.com/singnet/snet-daemon/config"
-	assert2 "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -22,7 +22,7 @@ func TestCreateResponseStats(t *testing.T) {
 	assert.Equal(t, response.GroupID, daemonGroupId)
 	assert.Equal(t, response.ResponseTime, "1.2346")
 	assert.Equal(t, response.Type, "response")
-	assert2.NotEqual(t, response.ResponseSentTime, "")
+	assert.NotEqual(t, response.ResponseSentTime, "")
 	assert.Equal(t, response.ClientType, "snet-cli")
 	assert.Equal(t, response.UserDetails, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 	assert.Equal(t, response.UserAgent, "python/cli")
@@ -75,14 +75,14 @@ func TestJsonCreated(t *testing.T) {
 		Status:"",
 		StartTime:"",
 		EndTime:"",
-		UsageValue:"1",
+		UsageValue:1,
 		TimeZone:zone,
 
 
 	}
 	jsonBytes, err := ConvertStructToJSON(payload)
-	println(string(jsonBytes))
-	assert2.NotNil(t,jsonBytes)
-	assert2.Nil(t,err)
+	assert.NotNil(t,jsonBytes)
+	assert.Contains(t,string(jsonBytes),"whateverDappPasses")
+	assert.Nil(t,err)
 
 }

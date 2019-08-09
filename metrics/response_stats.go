@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+const (
+	timeFormat="2006-01-02 15:04:05.999999999"
+)
 type CommonStats struct {
 	ID                  string
 	ServiceMethod       string
@@ -28,7 +31,7 @@ func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 	commonStats := &CommonStats{
 		ID:                  GenXid(),
 		GroupID:             daemonGroupId,
-		RequestReceivedTime: receivedTime.String(),
+		RequestReceivedTime: receivedTime.UTC().Format(timeFormat),
 		OrganizationID:      config.GetString(config.OrganizationId),
 		ServiceID:           config.GetString(config.ServiceId),
 		ServiceMethod:       methodName,
@@ -77,8 +80,8 @@ func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err 
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {
-	currentTime := time.Now()
-	zone, _ := currentTime.Zone()
+	currentTime :=  time.Now().UTC().Format(timeFormat)
+
 	response := &ResponseStats{
 		Type:                       "response",
 		RegistryAddressKey:         config.GetRegistryAddress(),
@@ -90,7 +93,7 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		ServiceID:                  commonStat.ServiceID,
 		ServiceMethod:              commonStat.ServiceMethod,
 		RequestReceivedTime:        commonStat.RequestReceivedTime,
-		ResponseSentTime:           currentTime.String(),
+		ResponseSentTime:           currentTime,
 		ErrorMessage:               getErrorMessage(err),
 		ResponseCode:               getErrorCode(err),
 		Version:                    commonStat.Version,
@@ -100,12 +103,11 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		ChannelId:                  commonStat.ChannelId,
 		UserId:commonStat.UserId,
 		StartTime:commonStat.RequestReceivedTime,
-		EndTime:currentTime.String(),
+		EndTime:currentTime,
 		Status:getStatus(err),
 		UsageValue:1,
 		UsageType:"apicall",
 		Operation:"read",
-		TimeZone:zone,
 	}
 	return response
 }

@@ -27,6 +27,7 @@ func TestCreateResponseStats(t *testing.T) {
 	assert.Equal(t, response.UserDetails, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 	assert.Equal(t, response.UserAgent, "python/cli")
 	assert.Equal(t, response.ChannelId, "1")
+	assert.NotNil(t, response.EndTime)
 }
 
 func TestGetErrorMessage(t *testing.T) {

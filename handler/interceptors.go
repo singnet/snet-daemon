@@ -386,6 +386,6 @@ func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats
 		stats.ChannelId = str
 	}
 	if str, err := GetSingleValue(md, FreeCallUserIdHeader); err == nil {
-		stats.UserId = str
+		stats.UserName = str
 	}
 }

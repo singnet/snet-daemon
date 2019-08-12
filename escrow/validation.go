@@ -44,7 +44,7 @@ func (validator *FreeCallPaymentValidator) Validate (payment *FreeCallPayment) (
 	if err := validator.compareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
 		return  err
 	}
-	// todo Calls to Metering service to check for allowed calls will go here
+
 	return nil
 
 }

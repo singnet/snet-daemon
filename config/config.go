@@ -118,7 +118,8 @@ const (
 		"enabled": false
 	},
 	"alerts_email": "", 
-	"service_heartbeat_type": "http"
+	"service_heartbeat_type": "http",
+    "metering_end_point":"http://demo8325345.mockable.io"
 
 }
 `

@@ -127,7 +127,7 @@ type FreeCallCheckResponse struct {
 	OrgID          string `json:"org_id"`
 	ServiceID      string `json:"service_id"`
 	TotalCallsMade int    `json:"total_calls_made"`
-	FreeCalls      int    `json:"free_calls"`
+	FreeCallsAllowed      int    `json:"free_calls_allowed"`
 }
 
 //Check if the response received was proper
@@ -150,5 +150,5 @@ func checkResponse(response *http.Response) (allowed bool,err error) {
 	//close the body
 	defer response.Body.Close()
 
-	return data.TotalCallsMade < data.FreeCalls ,nil
+	return data.TotalCallsMade < data.FreeCallsAllowed ,nil
 }

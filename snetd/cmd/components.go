@@ -242,13 +242,9 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
-	//If monitoring is enabled and the endpoint URL is valid and if the
-	// Daemon has successfully registered itself and has obtained a valid token to publish metrics
-	// , ONLY then add this interceptor to the chain of interceptors
+    //Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
-	if config.GetBool(config.MonitoringEnabled) &&
-		config.IsValidUrl(config.GetString(config.MonitoringServiceEndpoint)) &&
-		metrics.RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint)+"/register") {
+	if components.Blockchain().Enabled() {
 
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
 			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),

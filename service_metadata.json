@@ -14,13 +14,13 @@
       "pricing": [
         {
           "price_model": "fixed_price",
-          "price_in_cogs": 2
+          "price_in_cogs": 2,
+          "default":true
         },
 
         {
           "package_name": "example_service",
           "price_model": "fixed_price_per_method",
-          "default":true,
           "details": [
             {
               "service_name": "Calculator",
@@ -75,6 +75,7 @@
         {
           "package_name": "example_service",
           "price_model": "fixed_price_per_method",
+          "default":true,
           "details": [
             {
               "service_name": "Calculator",

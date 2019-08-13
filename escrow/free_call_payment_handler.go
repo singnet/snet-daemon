@@ -123,10 +123,10 @@ func sendRequest(json []byte, serviceURL string,username string) (*http.Response
 
 
 type FreeCallCheckResponse struct {
-	Username       string `json:"username"`
-	OrgID          string `json:"org_id"`
-	ServiceID      string `json:"service_id"`
-	TotalCallsMade int    `json:"total_calls_made"`
+	Username              string `json:"username"`
+	OrgID                 string `json:"org_id"`
+	ServiceID             string `json:"service_id"`
+	TotalCallsMade        int    `json:"total_calls_made"`
 	FreeCallsAllowed      int    `json:"free_calls_allowed"`
 }
 

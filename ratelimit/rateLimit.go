@@ -4,6 +4,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"golang.org/x/time/rate"
 	"math"
+	"strconv"
 	"time"
 )
 
@@ -19,7 +20,13 @@ func NewRateLimiter() rate.Limiter {
 }
 
 func getLimit() rate.Limit {
-	ratePerMin := config.GetInt(config.RateLimitPerMinute)
+
+
+	ratePerMin, err := strconv.ParseFloat(config.GetString(config.RateLimitPerMinute), 32)
+	if err != nil {
+		return rate.Inf
+	}
+
 	//If the rate limit parameter Value is not defined we will assume it to be Infinity ( no Rate Limiting) ,
 	if ratePerMin == 0 {
 		return rate.Inf

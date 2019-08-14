@@ -193,7 +193,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentIncorrectSigner() {
 
 	err := suite.validator.Validate(payment, suite.channel())
 
-	assert.Equal(suite.T(), NewPaymentError(Unauthenticated, "payment is not signed by channel signer"), err)
+	assert.Equal(suite.T(), NewPaymentError(Unauthenticated, "payment is not signed by channel signer/sender"), err)
 }
 
 func (suite *ValidationTestSuite) TestValidatePaymentChannelCannotGetCurrentBlock() {

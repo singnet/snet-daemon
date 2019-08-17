@@ -75,8 +75,8 @@ type ResponseStats struct {
 //If there is an error in the response received from the service, then send out a notification as well.
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
-	Publish(response, config.GetString(config.MeteringEndPoint)+"/usage")
-	return Publish(response, config.GetString(config.MonitoringServiceEndpoint)+"/event")
+	Publish(response, config.GetString(config.MeteringEndPoint)+"/usage",commonStats.UserName)
+	return Publish(response, config.GetString(config.MonitoringServiceEndpoint)+"/event",commonStats.UserName)
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {

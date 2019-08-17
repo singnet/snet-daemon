@@ -110,7 +110,7 @@ func VerifyAddress(address common.Address, otherAddress common.Address) error {
 	return nil
 }
 
-func SignMessageForMetering(req *http.Request) ( ) {
+func SignMessageForMetering(req *http.Request,user_name string) ( ) {
 
 	privateKey,err := getPrivateKeyForMetering()
 	if err != nil {
@@ -123,7 +123,7 @@ func SignMessageForMetering(req *http.Request) ( ) {
 		return
 	}
 
-    signature := signForMeteringValidation(privateKey,currentBlock,MeteringPrefix)
+    signature := signForMeteringValidation(privateKey,currentBlock,MeteringPrefix,user_name)
 	req.Header.Set("X-Signature",string(signature))
 	req.Header.Set("X-Currentblocknumber",currentBlock.String())
 }
@@ -139,9 +139,10 @@ func getPrivateKeyForMetering()  (privateKey *ecdsa.PrivateKey,err error) {
 	return
 }
 
-func signForMeteringValidation(privateKey *ecdsa.PrivateKey, currentBlock *big.Int, prefix string) []byte {
+func signForMeteringValidation(privateKey *ecdsa.PrivateKey, currentBlock *big.Int, prefix string,user_name string) []byte {
 	message := bytes.Join([][]byte{
 		[]byte(prefix),
+		[]byte(user_name),
 		[]byte(config.GetString(config.OrganizationId)),
 		[]byte(config.GetString(config.ServiceId)),
 		common.BigToHash(currentBlock).Bytes(),

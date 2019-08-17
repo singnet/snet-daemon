@@ -47,12 +47,12 @@ func GenXid() string {
 }
 
 //convert the payload to JSON and publish it to the serviceUrl passed
-func Publish(payload interface{}, serviceUrl string) bool {
+func Publish(payload interface{}, serviceUrl string,userName string) bool {
 	jsonBytes, err := ConvertStructToJSON(payload)
 	if err != nil {
 		return false
 	}
-	status := publishJson(jsonBytes, serviceUrl, true)
+	status := publishJson(jsonBytes, serviceUrl, true,userName)
 	if !status {
 		log.WithField("payload", string(jsonBytes)).WithField("url", serviceUrl).Warning("Unable to publish metrics")
 	}
@@ -60,15 +60,15 @@ func Publish(payload interface{}, serviceUrl string) bool {
 }
 
 // Publish the json on the service end point, retry will be set to false when trying to re publish the payload
-func publishJson(json []byte, serviceURL string, reTry bool) bool {
-	response, err := sendRequest(json, serviceURL)
+func publishJson(json []byte, serviceURL string, reTry bool,userName string) bool {
+	response, err := sendRequest(json, serviceURL,userName)
 	if err != nil {
 		log.WithError(err)
 	} else {
 		status, reRegister := checkForSuccessfulResponse(response)
 		if reRegister && reTry {
 			//if Daemon was registered successfully , retry to publish the payload
-			status = publishJson(json, serviceURL, false)
+			status = publishJson(json, serviceURL, false,userName)
 		}
 		return status
 	}
@@ -76,7 +76,7 @@ func publishJson(json []byte, serviceURL string, reTry bool) bool {
 }
 
 //Set all the headers before publishing
-func sendRequest(json []byte, serviceURL string) (*http.Response, error) {
+func sendRequest(json []byte, serviceURL string,userName string ) (*http.Response, error) {
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
 	if err != nil {
 		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
@@ -87,7 +87,7 @@ func sendRequest(json []byte, serviceURL string) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Daemonid", GetDaemonID())
 	req.Header.Set("X-Token", daemonAuthorizationToken)
-	authutils.SignMessageForMetering(req)
+	authutils.SignMessageForMetering(req,userName)
 
 	return client.Do(req)
 

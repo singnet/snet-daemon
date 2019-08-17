@@ -31,7 +31,7 @@ func Test_getPrivateKeyForMetering(t *testing.T) {
 	  assert.NotNil(t, key)
 	  assert.Nil(t, err)
 
-	  bytesForMetering := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix)
+	  bytesForMetering := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix,"test-user")
 	  signature := getSignature(bytesForMetering, key)
 	  signer, err := GetSignerAddressFromMessage(bytesForMetering, signature)
 	  assert.Equal(t, signer.String(), "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")

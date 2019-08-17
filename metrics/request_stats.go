@@ -33,7 +33,7 @@ func PublishRequestStats(commonStat *CommonStats, inStream grpc.ServerStream) bo
 	if md, ok := metadata.FromIncomingContext(inStream.Context()); ok {
 		request.setDataFromContext(md)
 	}
-	return Publish(request, config.GetString(config.MonitoringServiceEndpoint)+"/event")
+	return Publish(request, config.GetString(config.MonitoringServiceEndpoint)+"/event","")
 }
 
 func (request *RequestStats) setDataFromContext(md metadata.MD) {

@@ -114,7 +114,7 @@ func sendRequest(json []byte, serviceURL string,username string) (*http.Response
 	q.Add(config.OrganizationId, config.GetString(config.OrganizationId))
 	q.Add(config.ServiceId, config.GetString(config.ServiceId))
 	q.Add("username", username)
-	authutils.SignMessageForMetering(req)
+	authutils.SignMessageForMetering(req,username)
 	req.URL.RawQuery = q.Encode()
 	client := &http.Client{}
 	req.Header.Set("Content-Type", "application/json")

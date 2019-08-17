@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
@@ -113,6 +114,7 @@ func sendRequest(json []byte, serviceURL string,username string) (*http.Response
 	q.Add(config.OrganizationId, config.GetString(config.OrganizationId))
 	q.Add(config.ServiceId, config.GetString(config.ServiceId))
 	q.Add("username", username)
+	authutils.SignMessageForMetering(req)
 	req.URL.RawQuery = q.Encode()
 	client := &http.Client{}
 	req.Header.Set("Content-Type", "application/json")
@@ -146,7 +148,9 @@ func checkResponse(response *http.Response) (allowed bool,err error) {
 		return false , err
 	}
 	var data FreeCallCheckResponse
-	json.Unmarshal(body, &data)
+	if err  = json.Unmarshal(body, &data); err != nil {
+		return false, err
+	}
 	//close the body
 	defer response.Body.Close()
 

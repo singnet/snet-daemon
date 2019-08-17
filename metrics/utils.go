@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/OneOfOne/go-utils/memory"
 	"github.com/rs/xid"
+	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"time"
 )
+
 
 //Get the value of the first Pair
 func GetValue(md metadata.MD, key string) string {
@@ -85,9 +87,12 @@ func sendRequest(json []byte, serviceURL string) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Daemonid", GetDaemonID())
 	req.Header.Set("X-Token", daemonAuthorizationToken)
+	authutils.SignMessageForMetering(req)
+
 	return client.Do(req)
 
 }
+
 
 //Check if the response received was proper
 func checkForSuccessfulResponse(response *http.Response) (status bool, retry bool) {

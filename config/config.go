@@ -54,6 +54,7 @@ const (
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
 	MeteringEndPoint            =  "metering_end_point"
+	PvtKeyForMetering           = "pvt_key_for_metering"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	//none|grpc|http

@@ -232,7 +232,7 @@ func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
 	}
 
 	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(
-		components.Blockchain())
+		components.Blockchain(),components.OrganizationMetaData())
 
 	return components.freeCallPaymentHandler
 }

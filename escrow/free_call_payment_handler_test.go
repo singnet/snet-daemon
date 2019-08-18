@@ -3,6 +3,7 @@ package escrow
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"github.com/singnet/snet-daemon/blockchain"
 	"math/big"
 	"strconv"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc/metadata"
 )
+var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"org_id1\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
 
 type FreeCallPaymentHandlerTestSuite struct {
 	suite.Suite
@@ -24,8 +26,9 @@ type FreeCallPaymentHandlerTestSuite struct {
 func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
 
 	suite.privateKey = GenerateTestPrivateKey()
-
+	metadata, _ := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
 	suite.paymentHandler = freeCallPaymentHandler{
+		orgMetadata:metadata,
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(func() (*big.Int, error) {
 			return big.NewInt(99), nil
 		}, crypto.PubkeyToAddress(suite.privateKey.PublicKey)),
@@ -78,11 +81,11 @@ func (suite *FreeCallPaymentHandlerTestSuite) Test_freeCallPaymentHandler_Type()
 	assert.Equal(suite.T(), suite.paymentHandler.Type(), FreeCallPaymentType)
 }
 
-func Test_checkResponse(t *testing.T) {
-	response, err := sendRequest(nil,
+func (suite *FreeCallPaymentHandlerTestSuite) Test_checkResponse() {
+	response, err := suite.paymentHandler.sendRequest(nil,
 		"http://demo8325345.mockable.io/usage/freecalls","testuser")
-	assert.NotNil(t,response)
-	assert.Nil(t,err)
+	assert.NotNil(suite.T(),response)
+	assert.Nil(suite.T(),err)
 	allowed , err := checkResponse(response)
-	assert.True(t,allowed)
+	assert.True(suite.T(),allowed)
 }

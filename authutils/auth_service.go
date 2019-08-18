@@ -4,14 +4,17 @@ package authutils
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"math/big"
+	"net/http"
 )
 
 // TODO convert to separate authentication service. VERY MUCH REQUIRED FOR OPERATOR UI AUTHENTICATION
@@ -21,6 +24,7 @@ import (
 
 const (
 	AllowedBlockChainDifference = 5
+    MeteringPrefix  = "_usage"
 )
 
 func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
@@ -104,4 +108,60 @@ func VerifyAddress(address common.Address, otherAddress common.Address) error {
 		return fmt.Errorf("the  Address: %s  does not match to what has been expected / registered", blockchain.AddressToHex(&address))
 	}
 	return nil
+}
+
+func SignMessageForMetering(req *http.Request,user_name string) ( ) {
+
+	privateKey,err := getPrivateKeyForMetering()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	 currentBlock,err := CurrentBlock();
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+    signature := signForMeteringValidation(privateKey,currentBlock,MeteringPrefix,user_name)
+	req.Header.Set("X-Signature",string(signature))
+	req.Header.Set("X-Currentblocknumber",currentBlock.String())
+}
+
+func getPrivateKeyForMetering()  (privateKey *ecdsa.PrivateKey,err error) {
+	if privateKeyString := config.GetString(config.PvtKeyForMetering); privateKeyString != "" {
+		privateKey, err = crypto.HexToECDSA(privateKeyString)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return
+}
+
+func signForMeteringValidation(privateKey *ecdsa.PrivateKey, currentBlock *big.Int, prefix string,user_name string) []byte {
+	message := bytes.Join([][]byte{
+		[]byte(prefix),
+		[]byte(user_name),
+		[]byte(config.GetString(config.OrganizationId)),
+		[]byte(config.GetString(config.ServiceId)),
+		common.BigToHash(currentBlock).Bytes(),
+	}, nil)
+
+	return getSignature(message, privateKey)
+}
+
+
+func getSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
+	hash := crypto.Keccak256(
+		blockchain.HashPrefix32Bytes,
+		crypto.Keccak256(message),
+	)
+
+	signature, err := crypto.Sign(hash, privateKey)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot sign test message: %v", err))
+	}
+
+	return signature
 }

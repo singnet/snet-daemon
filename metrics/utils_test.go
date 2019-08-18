@@ -26,16 +26,16 @@ func TestGetValue(t *testing.T) {
 }
 
 func TestPublish(t *testing.T) {
-	status := Publish(nil, "")
+	status := Publish(nil, "","")
 	assert.Equal(t, status, false)
-	status = Publish(nil, "http://localhost:8080")
+	status = Publish(nil, "http://localhost:8080","")
 	assert.Equal(t, status, false)
 
 	status = Publish(struct {
 		title string
 	}{
 		title: "abcd",
-	}, "http://localhost:8080")
+	}, "http://localhost:8080","")
 	assert.Equal(t, status, false)
 }
 

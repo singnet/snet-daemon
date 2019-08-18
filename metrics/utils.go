@@ -2,20 +2,24 @@ package metrics
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"github.com/OneOfOne/go-utils/memory"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/xid"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"time"
 )
 
-
+const   MeteringPrefix  = "_usage"
 //Get the value of the first Pair
 func GetValue(md metadata.MD, key string) string {
 	array := md.Get(key)
@@ -47,12 +51,12 @@ func GenXid() string {
 }
 
 //convert the payload to JSON and publish it to the serviceUrl passed
-func Publish(payload interface{}, serviceUrl string,userName string) bool {
+func Publish(payload interface{}, serviceUrl string,commonStats *CommonStats) bool {
 	jsonBytes, err := ConvertStructToJSON(payload)
 	if err != nil {
 		return false
 	}
-	status := publishJson(jsonBytes, serviceUrl, true,userName)
+	status := publishJson(jsonBytes, serviceUrl, true,commonStats)
 	if !status {
 		log.WithField("payload", string(jsonBytes)).WithField("url", serviceUrl).Warning("Unable to publish metrics")
 	}
@@ -60,15 +64,15 @@ func Publish(payload interface{}, serviceUrl string,userName string) bool {
 }
 
 // Publish the json on the service end point, retry will be set to false when trying to re publish the payload
-func publishJson(json []byte, serviceURL string, reTry bool,userName string) bool {
-	response, err := sendRequest(json, serviceURL,userName)
+func publishJson(json []byte, serviceURL string, reTry bool,commonStats *CommonStats) bool {
+	response, err := sendRequest(json, serviceURL,commonStats)
 	if err != nil {
 		log.WithError(err)
 	} else {
 		status, reRegister := checkForSuccessfulResponse(response)
 		if reRegister && reTry {
 			//if Daemon was registered successfully , retry to publish the payload
-			status = publishJson(json, serviceURL, false,userName)
+			status = publishJson(json, serviceURL, false,commonStats)
 		}
 		return status
 	}
@@ -76,7 +80,7 @@ func publishJson(json []byte, serviceURL string, reTry bool,userName string) boo
 }
 
 //Set all the headers before publishing
-func sendRequest(json []byte, serviceURL string,userName string ) (*http.Response, error) {
+func sendRequest(json []byte, serviceURL string,commonStats *CommonStats ) (*http.Response, error) {
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
 	if err != nil {
 		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
@@ -87,11 +91,61 @@ func sendRequest(json []byte, serviceURL string,userName string ) (*http.Respons
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Daemonid", GetDaemonID())
 	req.Header.Set("X-Token", daemonAuthorizationToken)
-	authutils.SignMessageForMetering(req,userName)
+	SignMessageForMetering(req,commonStats)
 
 	return client.Do(req)
 
 }
+
+func SignMessageForMetering(req *http.Request, commonStats *CommonStats) () {
+
+	privateKey, err := getPrivateKeyForMetering()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	currentBlock, err := authutils.CurrentBlock();
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	signature := signForMeteringValidation(privateKey, currentBlock, MeteringPrefix, commonStats)
+
+	req.Header.Set("X-username", commonStats.UserName)
+	req.Header.Set("X-Organizationid", commonStats.OrganizationID)
+	req.Header.Set("X-Groupid", commonStats.GroupID)
+	req.Header.Set("X-Serviceid", commonStats.ServiceID)
+	req.Header.Set("X-Currentblocknumber", currentBlock.String())
+	req.Header.Set("X-Signature", string(signature))
+
+}
+
+func getPrivateKeyForMetering()  (privateKey *ecdsa.PrivateKey,err error) {
+	if privateKeyString := config.GetString(config.PvtKeyForMetering); privateKeyString != "" {
+		privateKey, err = crypto.HexToECDSA(privateKeyString)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return
+}
+
+func signForMeteringValidation(privateKey *ecdsa.PrivateKey, currentBlock *big.Int, prefix string,commonStats *CommonStats) []byte {
+	message := bytes.Join([][]byte{
+		[]byte(prefix),
+		[]byte(commonStats.UserName),
+		[]byte(commonStats.OrganizationID),
+		[]byte(commonStats.ServiceID),
+		[]byte(commonStats.GroupID),
+
+		common.BigToHash(currentBlock).Bytes(),
+	}, nil)
+
+	return authutils.GetSignature(message, privateKey)
+}
+
 
 
 //Check if the response received was proper

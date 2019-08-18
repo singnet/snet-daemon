@@ -41,7 +41,7 @@ func (alert *Notification) Send() bool {
 		return false
 	} else {
 		// based on the notification success/failure
-		status := Publish(jsonAlert, serviceURL,"")
+		status := Publish(jsonAlert, serviceURL,&CommonStats{})
 		if !status {
 			log.Infof("unable to send notifications")
 			return false

@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/metrics"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
@@ -24,13 +24,15 @@ const (
 
 type freeCallPaymentHandler struct {
 	freeCallPaymentValidator *FreeCallPaymentValidator
+	orgMetadata *blockchain.OrganizationMetaData
 }
 
 
 // NewPaymentHandler retuns new MultiPartyEscrow contract payment handler.
 func FreeCallPaymentHandler(
-	processor *blockchain.Processor) handler.PaymentHandler {
+	processor *blockchain.Processor,metadata *blockchain.OrganizationMetaData) handler.PaymentHandler {
 	return &freeCallPaymentHandler{
+		orgMetadata:metadata,
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock,
 			common.HexToAddress(blockchain.ToChecksumAddress(config.GetString(config.FreeCallSignerAddress)))),
 	}
@@ -51,7 +53,7 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 		return nil, paymentErrorToGrpcError(e)
 	}
 
-	allowed,_ := checkIfFreeCallsAreAllowed(internalPayment.UserId)
+	allowed,_ := h.checkIfFreeCallsAreAllowed(internalPayment.UserId)
 	if !allowed {
 		return nil,paymentErrorToGrpcError(fmt.Errorf("free call limit has been exceeded."))
 	}
@@ -97,13 +99,13 @@ func (h *freeCallPaymentHandler) CompleteAfterError(payment handler.Payment, res
 	return nil
 }
 
-func checkIfFreeCallsAreAllowed(username string) (allowed bool, err error) {
-	response,err := sendRequest(nil,config.GetString(config.MeteringEndPoint)+"/usage/freecalls",username)
+func (h *freeCallPaymentHandler) checkIfFreeCallsAreAllowed(username string) (allowed bool, err error) {
+	response,err := h.sendRequest(nil,config.GetString(config.MeteringEndPoint)+"/usage/freecalls",username)
 	return checkResponse(response)
 }
 
 //Set all the headers before publishing
-func sendRequest(json []byte, serviceURL string,username string) (*http.Response, error) {
+func (h *freeCallPaymentHandler) sendRequest(json []byte, serviceURL string,username string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", serviceURL, bytes.NewBuffer(json))
 	if err != nil {
 		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
@@ -111,10 +113,14 @@ func sendRequest(json []byte, serviceURL string,username string) (*http.Response
 	}
 	// sending the get request
 	q := req.URL.Query()
-	q.Add(config.OrganizationId, config.GetString(config.OrganizationId))
-	q.Add(config.ServiceId, config.GetString(config.ServiceId))
+	orgId:= config.GetString(config.OrganizationId)
+	serviceId:= config.GetString(config.ServiceId)
+	q.Add(config.OrganizationId,orgId )
+	q.Add(config.ServiceId,serviceId )
 	q.Add("username", username)
-	authutils.SignMessageForMetering(req,username)
+	metrics.SignMessageForMetering(req,
+		&metrics.CommonStats{OrganizationID:orgId,ServiceID:serviceId,
+			GroupID:h.orgMetadata.GetGroupIdString(),UserName:username})
 	req.URL.RawQuery = q.Encode()
 	client := &http.Client{}
 	req.Header.Set("Content-Type", "application/json")

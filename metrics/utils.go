@@ -3,6 +3,7 @@ package metrics
 import (
 	"bytes"
 	"crypto/ecdsa"
+	b64 "encoding/base64"
 	"encoding/json"
 	"errors"
 	"github.com/OneOfOne/go-utils/memory"
@@ -117,7 +118,7 @@ func SignMessageForMetering(req *http.Request, commonStats *CommonStats) () {
 	req.Header.Set("X-Groupid", commonStats.GroupID)
 	req.Header.Set("X-Serviceid", commonStats.ServiceID)
 	req.Header.Set("X-Currentblocknumber", currentBlock.String())
-	req.Header.Set("X-Signature", string(signature))
+	req.Header.Set("X-Signature", b64.StdEncoding.EncodeToString(signature))
 
 }
 
@@ -127,6 +128,7 @@ func getPrivateKeyForMetering()  (privateKey *ecdsa.PrivateKey,err error) {
 		if err != nil {
 			return nil, err
 		}
+		log.WithField("public key",crypto.PubkeyToAddress(privateKey.PublicKey).String())
 	}
 
 	return

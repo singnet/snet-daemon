@@ -128,7 +128,7 @@ func getPrivateKeyForMetering()  (privateKey *ecdsa.PrivateKey,err error) {
 		if err != nil {
 			return nil, err
 		}
-		log.WithField("publick key",crypto.PubkeyToAddress(privateKey.PublicKey).String())
+		log.WithField("public key",crypto.PubkeyToAddress(privateKey.PublicKey).String())
 	}
 
 	return

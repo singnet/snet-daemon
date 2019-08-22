@@ -17,7 +17,8 @@ import (
 )
 
 const (
-
+    //Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely through a user interface
+	AuthenticationAddress= "authentication_address"
 	AutoSSLDomainKey     = "auto_ssl_domain"
 	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
 	BlockchainEnabledKey = "blockchain_enabled"
@@ -29,6 +30,7 @@ const (
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	ExecutablePathKey              = "executable_path"
+	FreeCallSignerAddress          = "free_call_signer_address"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
@@ -42,16 +44,21 @@ const (
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
+    PaymentChannelCertPath         = "payent_channel_cert_path"
+	PaymentChannelCaPath           = "payent_channel_ca_path"
+	PaymentChannelKeyPath          = "payent_channel_key_path"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	MeteringEndPoint            =  "metering_end_point"
+	PvtKeyForMetering           = "pvt_key_for_metering"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	//none|grpc|http
-
+//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",
@@ -92,6 +99,7 @@ const (
 		"hooks": []
 	},
 	"payment_channel_storage_type": "etcd",
+
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
 		"request_timeout": "3s",
@@ -108,12 +116,12 @@ const (
 		"startup_timeout": "1m",
 		"data_dir": "storage-data-dir-1.etcd",
 		"log_level": "info",
-		"enabled": true
+		"enabled": false
 	},
 	"alerts_email": "", 
 	"service_heartbeat_type": "http",
-	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
-	"notification_svc_end_point": "http://demo3208027.mockable.io"
+    "metering_end_point":"http://demo8325345.mockable.io"
+
 }
 `
 )

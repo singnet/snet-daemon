@@ -21,6 +21,10 @@ type RequestStats struct {
 	GroupID                    string `json:"group_id"`
 	DaemonEndPoint             string `json:"daemon_end_point"`
 	Version                    string `json:"version"`
+	ClientType                 string `json:"client_type"`
+	UserDetails                string `json:"user_details"`
+	UserAgent                  string `json:"user_agent"`
+	ChannelId                  string `json:"channel_id"`
 }
 
 //Create a request Object and Publish this to a service end point
@@ -29,7 +33,7 @@ func PublishRequestStats(commonStat *CommonStats, inStream grpc.ServerStream) bo
 	if md, ok := metadata.FromIncomingContext(inStream.Context()); ok {
 		request.setDataFromContext(md)
 	}
-	return Publish(request, config.GetString(config.MonitoringServiceEndpoint)+"/event")
+	return Publish(request, config.GetString(config.MonitoringServiceEndpoint)+"/event",&CommonStats{})
 }
 
 func (request *RequestStats) setDataFromContext(md metadata.MD) {
@@ -50,6 +54,10 @@ func createRequestStat(commonStat *CommonStats) *RequestStats {
 		RequestReceivedTime:        commonStat.RequestReceivedTime,
 		ServiceMethod:              commonStat.ServiceMethod,
 		Version:                    commonStat.Version,
+		ClientType:                 commonStat.ClientType,
+		UserDetails:                commonStat.UserDetails,
+		UserAgent:                  commonStat.UserAgent,
+		ChannelId:                  commonStat.ChannelId,
 	}
 	return request
 }

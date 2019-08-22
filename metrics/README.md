@@ -164,8 +164,8 @@ This is the sample configuration to enable metrics and heartbeat
 ```json
   {
       "monitoring_enabled"        : true,
-      "monitoring_svc_end_point"  : "http://demo3208027.mockable.io/metrics",
-      "notification_svc_end_point": "http://demo3208027.mockable.io/notify",
+      "monitoring_svc_end_point"  : "http://demo8325345.mockable.io/metrics",
+      "notification_svc_end_point": "http://demo8325345.mockable.io/notify",
       "alerts_email"               : "xyz.abc@myorg.io",
       "service_heartbeat_type"    : "http",
       "heartbeat_svc_end_point"   : "http://localhost:25000/heartbeat"  

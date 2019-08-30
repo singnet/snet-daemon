@@ -251,7 +251,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.Blockchain().Enabled() {
         //dont start the  Daemon if it is not correctly configured in the metering system
         meteringUrl := config.GetString(config.MeteringEndPoint)+"/verify"
-		if ok,err := components.verifyMeteringConfigurations(config.GetString(meteringUrl),
+		if ok,err := components.verifyMeteringConfigurations(meteringUrl,
 			components.OrganizationMetaData().GetGroupIdString());!ok {
 			log.Error(err)
 			log.WithError(err).Panic("Metering authentication failed")

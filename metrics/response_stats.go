@@ -25,6 +25,8 @@ type CommonStats struct {
 	UserAgent           string
 	ChannelId           string
 	UserName            string
+	PaymentMode         string
+	UserAddress         string
 }
 
 func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
@@ -69,6 +71,8 @@ type ResponseStats struct {
 	EndTime                    string `json:"end_time"`
 	UsageValue                 int    `json:"usage_value"`
 	TimeZone                   string `json:"time_zone"`
+	PaymentMode                string `json:"payment_mode"`
+	UserAddress                string `json:"user_address"`
 }
 
 //Publish response received as a payload for reporting /metrics analysis
@@ -108,6 +112,8 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		UsageValue:1,
 		UsageType:"apicall",
 		Operation:"read",
+		PaymentMode:commonStat.PaymentMode,
+		UserAddress:commonStat.UserAddress,
 	}
 	return response
 }

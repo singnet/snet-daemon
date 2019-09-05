@@ -388,4 +388,7 @@ func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats
 	if str, err := GetSingleValue(md, FreeCallUserIdHeader); err == nil {
 		stats.UserName = str
 	}
+	if str, err := GetSingleValue(md, PaymentTypeHeader); err == nil {
+		stats.PaymentMode = str
+	}
 }

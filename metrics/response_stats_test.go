@@ -16,6 +16,8 @@ func TestCreateResponseStats(t *testing.T) {
 	commonStat.UserDetails = "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
 	commonStat.UserAgent = "python/cli"
 	commonStat.ChannelId = "1"
+	commonStat.PaymentMode = "freecall"
+	commonStat.UserAddress="0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
 	response := createResponseStats(commonStat, time.Duration(1234566000), nil)
 	assert.Equal(t, response.RequestID, commonStat.ID)
 	assert.Equal(t, response.Version, commonStat.Version)
@@ -28,6 +30,8 @@ func TestCreateResponseStats(t *testing.T) {
 	assert.Equal(t, response.UserAgent, "python/cli")
 	assert.Equal(t, response.ChannelId, "1")
 	assert.NotNil(t, response.EndTime)
+	assert.Equal(t, response.PaymentMode, "freecall")
+	assert.Equal(t, response.UserAddress, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 }
 
 func TestGetErrorMessage(t *testing.T) {

@@ -174,7 +174,7 @@ func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.Strea
 	if context, err := getGrpcContext(ss, info); err == nil {
 		setAdditionalDetails(context, commonStats)
 	}
-	go metrics.PublishRequestStats(commonStats, ss)
+
 	defer func() {
 		go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), e)
 	}()

@@ -160,8 +160,8 @@ func checkForSuccessfulResponse(response *http.Response) (status bool, retry boo
 		log.Warningf("Service call failed with status code : %d ", response.StatusCode)
 		//if response returned was forbidden error , then re register Daemon with fresh token and submit the request / response
 		//again ONLY if the Daemon was registered successfully
-		status = RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint) + "/register")
-		return false, status
+
+		return false, false
 	} //close the body
 	log.Debugf("Metrics posted successfully with status code : %d ", response.StatusCode)
 	defer response.Body.Close()

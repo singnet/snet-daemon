@@ -166,17 +166,25 @@ endpoint to which daemon sends ethereum JSON-RPC requests;
 Based on the network selected blockchain_network_selected the end point is auto determined
 Example `"https://kovan.infura.io"` for kovan testnet.
 
+* **free_call_signer_address** (required) - 
+This is used to define the public key address used for validating signatures requested specially for free calls
+
 * **ipfs_end_point** (optional; default `"http://localhost:5002/"`) - 
 endpoint of IPFS instance to get [service configuration
 metadata][service-configuration-metadata]
 
-* **registry_address_key** (Optional) - 
-Ethereum address of the Registry contract instance.This is auto determined if not specified based on the blockchain_network_selected 
-If a value is specified , it will be used and no attempt will be made to auto determine the registry address.
+* **metering_end_point** (required) - 
+This is to ensure every daemon is registered correctly with the metering service, if the validation call fails here 
+Daemon will not start , this way users are forced to ensure that the config file has accurate values.
 
 * **organization_id** (required) - 
 Id of the organization to search for [service configuration
 metadata][service-configuration-metadata].
+
+* **pvt_key_for_metering** (required) 
+This is used for authentication between daemon and the metering service in the context of free calls.
+Daemon will send a signature signed by its private key , metering service will already have the public key corresponding
+to this Daemon ,metering service will ensure that the signer it receives matches the public key configured at its end.
 
 * **service_id** (required) - 
 Id of the service to search for [service configuration
@@ -191,6 +199,7 @@ endpoint to which requests should be proxied for handling by service.
 
 * **executable_path** (required if `service_type` == `executable`) - 
 path to executable to expose as a service.
+
 
 #### Other properties
 
@@ -250,6 +259,12 @@ see [etcd server configuration](./etcddb#etcd-server-configuration)
 
 * **rate_limit_per_minute** (optional; default: `Infinity`) - 
 see [rate limiting configuration](./ratelimit/README.md)
+
+
+* **registry_address_key** (Optional) - 
+Ethereum address of the Registry contract instance.This is auto determined if not specified based on the blockchain_network_selected 
+If a value is specified , it will be used and no attempt will be made to auto determine the registry address.
+
  
 * **alerts_email** (optional; default: `""`) - It must be a valid email. if it is empty, then it is considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
 

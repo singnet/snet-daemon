@@ -2,7 +2,7 @@
 
 
 To enable etcd server as a payment channel storage in snet-daemon configure the following properties
-in the JSON config file:
+in the JSON config file: ( Please note this is applicable only when the block chain is enabled)
 
 * *payment_channel_storage_type*
 * *payment_channel_storage_client*
@@ -14,7 +14,7 @@ There are two payment channel storage types which are currently supported by sne
 *memory* storage type is used in configuration where only one service replica is used by snet-daemon or
 for testing purposes.
 
-To run snet-daemon with several replicas set the payment_channel_storage_type to *etcd* in the json config file:
+To run snet-daemon with several replicas set the payment_channel_storage_type is now initialized from Organizatio metadata:
 ```json
 {
   "payment_channel_storage_type": "etcd"
@@ -35,19 +35,29 @@ To run snet-daemon with several replicas set the payment_channel_storage_type to
 Endpoints consist of a list of URLs which points to etcd cluster servers.
 
 
-The following config describes a client which connects to 3 etcd server nodes:
+The following config describes a client which connects to 3 etcd server nodes and the data is 
+retrieved from Organization Metadata:
 ```json
 {
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
 		"request_timeout": "3s",
 		"endpoints": ["http://127.0.0.1:2379", "http://127.0.0.2:2379", "http://127.0.0.3:2379"]
-	},
+	}
 }
 ```
 
-## etcd server configuration
+## etcd client configuration ( https mode)
+if the client end point is https, then you will need to add the following on your configuration to use
+the certificates to connect 
+  "payent_channel_cert_path": "<locationToFile>",
+  "payent_channel_ca_path": "<locationToFile>",
+  "payent_channel_key_path": "<locationToFile>",
 
+
+## etcd server configuration 
+The latest Daemon expects an etcd cluster setup already available , in case you wish to set up your own
+cluster , please go over the documentation below
 To use embedded etcd server in snet-daemon the configuration file needs to
 contain the  *payment_channel_storage_server* JSON map with fields:
 
@@ -83,7 +93,8 @@ It is possible to configure snet-daemon to run with or without embedded etcd ser
 
 Config for snet-daemon that runs embedded etcd server:
 
-* *enabled* field is set to _true_
+* *enabled* field is set to _false_ , ETCD cluster set up is retrieved from the Organization metadata , If you 
+want to set up a local cluster , then payment_channel_storage_server.enabled configuration needs to be set to true.
 
 ```json
 {
@@ -99,20 +110,6 @@ Config for snet-daemon that runs embedded etcd server:
 }
 ```
 
-* *enabled* field is omitted
-
-```json
-{
-    "payment_channel_storage_server": {
-        "id": "storage-1",
-        "host" : "127.0.0.1",
-        "client_port": 2379,
-        "peer_port": 2380,
-        "token": "unique-token",
-        "cluster": "storage-1=http://127.0.0.1:2380",
-    }
-}
-```
 
 Config for snet-daemon that does not run embedded etcd node:
 * *enabled* field is set to _false_

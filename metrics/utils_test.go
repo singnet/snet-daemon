@@ -1,9 +1,13 @@
 package metrics
 
 import (
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/authutils"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/stretchr/testify/assert"
 	"go/types"
 	"google.golang.org/grpc/metadata"
+	"math/big"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -26,16 +30,16 @@ func TestGetValue(t *testing.T) {
 }
 
 func TestPublish(t *testing.T) {
-	status := Publish(nil, "")
+	status := Publish(nil, "",nil)
 	assert.Equal(t, status, false)
-	status = Publish(nil, "http://localhost:8080")
+	status = Publish(nil, "http://localhost:8080",nil)
 	assert.Equal(t, status, false)
 
 	status = Publish(struct {
 		title string
 	}{
 		title: "abcd",
-	}, "http://localhost:8080")
+	}, "http://localhost:8080",nil)
 	assert.Equal(t, status, false)
 }
 
@@ -72,4 +76,22 @@ func TestGetEpochTime(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	secondEpoch := getEpochTime()
 	assert.NotEqual(t, currentEpoch, secondEpoch, "Epochs msut not be the same")
+}
+
+
+func Test_getPrivateKeyForMetering(t *testing.T) {
+	config.Vip().Set(config.PvtKeyForMetering,"063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
+	key,err := getPrivateKeyForMetering()
+	if err == nil {
+		assert.Equal(t, crypto.PubkeyToAddress(key.PublicKey).String(), "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
+		assert.NotNil(t, key)
+		assert.Nil(t, err)
+
+		bytesForMetering := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix,&CommonStats{UserName:"test-user"})
+		signature := authutils.GetSignature(bytesForMetering, key)
+		signer, err := authutils.GetSignerAddressFromMessage(bytesForMetering, signature)
+		assert.Equal(t, signer.String(), "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
+		assert.Nil(t, err)
+	}
+
 }

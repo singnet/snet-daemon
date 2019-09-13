@@ -2,10 +2,12 @@
 package authutils
 
 import (
-	"github.com/singnet/snet-daemon/config"
-	"github.com/stretchr/testify/assert"
+
 	"math/big"
 	"testing"
+
+	"github.com/singnet/snet-daemon/config"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCompareWithLatestBlockNumber(t *testing.T) {

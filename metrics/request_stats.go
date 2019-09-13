@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"github.com/singnet/snet-daemon/config"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"strconv"
 )
@@ -27,14 +26,7 @@ type RequestStats struct {
 	ChannelId                  string `json:"channel_id"`
 }
 
-//Create a request Object and Publish this to a service end point
-func PublishRequestStats(commonStat *CommonStats, inStream grpc.ServerStream) bool {
-	request := createRequestStat(commonStat)
-	if md, ok := metadata.FromIncomingContext(inStream.Context()); ok {
-		request.setDataFromContext(md)
-	}
-	return Publish(request, config.GetString(config.MonitoringServiceEndpoint)+"/event")
-}
+
 
 func (request *RequestStats) setDataFromContext(md metadata.MD) {
 	request.InputDataSize = strconv.FormatUint(GetSize(md), 10)

@@ -174,7 +174,7 @@ func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.Strea
 	if context, err := getGrpcContext(ss, info); err == nil {
 		setAdditionalDetails(context, commonStats)
 	}
-	go metrics.PublishRequestStats(commonStats, ss)
+
 	defer func() {
 		go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), e)
 	}()
@@ -384,5 +384,11 @@ func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats
 	}
 	if str, err := GetSingleValue(md, PaymentChannelIDHeader); err == nil {
 		stats.ChannelId = str
+	}
+	if str, err := GetSingleValue(md, FreeCallUserIdHeader); err == nil {
+		stats.UserName = str
+	}
+	if str, err := GetSingleValue(md, PaymentTypeHeader); err == nil {
+		stats.PaymentMode = str
 	}
 }

@@ -1,16 +1,20 @@
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/singnet/snet-daemon/configuration_service"
-	"github.com/singnet/snet-daemon/pricing"
 	"github.com/singnet/snet-daemon/metrics"
-	"os"
-
+	"github.com/singnet/snet-daemon/pricing"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strings"
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
@@ -52,7 +56,7 @@ func InitComponents(cmd *cobra.Command) (components *Components) {
 	}()
 
 	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
-
+	config.Validate()
 	return
 }
 
@@ -69,7 +73,6 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
 	} else {
 		log.Info("Configuration file is not set, using default configuration")
 	}
-
 }
 
 func isFileExist(fileName string) bool {
@@ -232,7 +235,7 @@ func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
 	}
 
 	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(
-		components.Blockchain())
+		components.Blockchain(),components.OrganizationMetaData())
 
 	return components.freeCallPaymentHandler
 }
@@ -242,14 +245,17 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
-	//If monitoring is enabled and the endpoint URL is valid and if the
-	// Daemon has successfully registered itself and has obtained a valid token to publish metrics
-	// , ONLY then add this interceptor to the chain of interceptors
+    //Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
-	if config.GetBool(config.MonitoringEnabled) &&
-		config.IsValidUrl(config.GetString(config.MonitoringServiceEndpoint)) &&
-		metrics.RegisterDaemon(config.GetString(config.MonitoringServiceEndpoint)+"/register") {
+	if components.Blockchain().Enabled() {
+        //dont start the  Daemon if it is not correctly configured in the metering system
+        meteringUrl := config.GetString(config.MeteringEndPoint)+"/verify"
+		if ok,err := components.verifyMeteringConfigurations(meteringUrl,
+			components.OrganizationMetaData().GetGroupIdString());!ok {
+			log.Error(err)
+			log.WithError(err).Panic("Metering authentication failed")
 
+		}
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
 			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcPaymentValidationInterceptor())
@@ -259,6 +265,72 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	}
 	return components.grpcInterceptor
 }
+
+//Metering end point authentication is now mandatory for daemon
+func (components *Components) verifyMeteringConfigurations(serviceURL string,groupId string) (ok bool, err error) {
+
+	req, err := http.NewRequest("GET", serviceURL,nil)
+	if err != nil {
+		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
+		return false, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-authtype", "verification")
+	metrics.SignMessageForMetering(req,
+		&metrics.CommonStats{OrganizationID:config.GetString(config.OrganizationId),ServiceID:config.GetString(config.ServiceId),
+			GroupID:groupId,UserName:metrics.GetDaemonID()})
+
+	client := &http.Client{}
+
+
+   response,err := client.Do(req);
+   if err != nil {
+   	log.Error(err)
+   	return false,err
+   }
+   return checkResponse(response)
+
+}
+
+
+//Check if the response received was proper
+func checkResponse(response *http.Response) (allowed bool,err error) {
+	if response == nil {
+		log.Error("Empty response received.")
+		return false , fmt.Errorf("Empty response received.")
+	}
+	if response.StatusCode != http.StatusOK {
+		log.Error("Service call failed with status code : %d ", response.StatusCode)
+		return false , fmt.Errorf("Service call failed with status code : %d ", response.StatusCode)
+	}
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Infof("Unable to retrieve calls allowed from Body , : %f ", err.Error())
+		return false , err
+	}
+	var responseBody VerifyMeteringResponse
+	if err  = json.Unmarshal(body, &responseBody); err != nil {
+		return false, err
+	}
+	//close the body
+	defer response.Body.Close()
+
+	 if strings.Compare(responseBody.Data,"success")!=0 {
+		 return false,fmt.Errorf("Error returned by by Metering Service %s Verification,"+
+			 " pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
+			 "to the private key in Daemon config.", config.GetString(config.MeteringEndPoint)+"/verify")
+	 }
+
+	return true ,nil
+}
+
+
+type VerifyMeteringResponse struct {
+	Data              string `json:"data"`
+}
+
+
 
 func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
@@ -270,7 +342,11 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 	}
 }
 
-func (components *Components) PaymentChannelStateService() (service *escrow.PaymentChannelStateService) {
+func (components *Components) PaymentChannelStateService() (service escrow.PaymentChannelStateServiceServer) {
+	if !config.GetBool(config.BlockchainEnabledKey){
+		return &escrow.BlockChainDisabledStateService{}
+	}
+
 	if components.paymentChannelStateService != nil {
 		return components.paymentChannelStateService
 	}
@@ -285,7 +361,11 @@ func (components *Components) PaymentChannelStateService() (service *escrow.Paym
 
 //NewProviderControlService
 
-func (components *Components) ProviderControlService() (service *escrow.ProviderControlService) {
+func (components *Components) ProviderControlService() (service escrow.ProviderControlServiceServer) {
+
+	if !config.GetBool(config.BlockchainEnabledKey){
+		return &escrow.BlockChainDisabledProviderControlService{}
+	}
 	if components.providerControlService != nil {
 		return components.providerControlService
 	}

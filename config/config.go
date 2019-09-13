@@ -36,7 +36,6 @@ const (
 	LogKey                         = "log"
 	MaxMessageSizeInMB             = "max_message_size_in_mb"
 	MonitoringEnabled              = "monitoring_enabled"
-	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -53,6 +52,8 @@ const (
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	MeteringEndPoint            =  "metering_end_point"
+	PvtKeyForMetering           = "pvt_key_for_metering"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	//none|grpc|http
@@ -72,7 +73,6 @@ const (
 	"ipfs_timeout" : 30,
 	"max_message_size_in_mb" : 4,
 	"monitoring_enabled": true,
-	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
 	"service_id": "ExampleServiceId", 
@@ -117,7 +117,8 @@ const (
 		"enabled": false
 	},
 	"alerts_email": "", 
-	"service_heartbeat_type": "http"
+	"service_heartbeat_type": "http",
+    "metering_end_point":"http://demo8325345.mockable.io"
 
 }
 `
@@ -174,12 +175,6 @@ func Validate() error {
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
-	}
-	// validate monitoring service endpoints
-	if vip.GetBool(MonitoringEnabled) &&
-		vip.GetString(MonitoringServiceEndpoint) != "" &&
-		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
-		return errors.New("service endpoint must be a valid URL")
 	}
 
 	// Validate metrics URL and set state

@@ -30,6 +30,10 @@ func (service *BlockChainDisabledStateService) GetChannelState(context context.C
  return &ChannelStateReply{},nil
 }
 
+func (service *BlockChainDisabledStateService) GetAllChannelStates(context.Context, *AllChannelRequest) (*ChannelListReply, error) {
+	return &ChannelListReply{},nil
+}
+
 // verifies whether storage channel nonce is equal to blockchain nonce or not
 func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonce(storageChannel *PaymentChannelData) (equal bool, err error) {
 	h := service.channelService
@@ -164,4 +168,8 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		CurrentSignedAmount: bigIntToBytes(channel.AuthorizedAmount),
 		CurrentSignature:    channel.Signature,
 	}, nil
+}
+//ToDO
+func (service *PaymentChannelStateService) GetAllChannelStates(context.Context, *AllChannelRequest) (*ChannelListReply, error) {
+	return &ChannelListReply{},nil
 }

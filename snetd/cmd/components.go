@@ -253,7 +253,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 		if ok,err := components.verifyMeteringConfigurations(meteringUrl,
 			components.OrganizationMetaData().GetGroupIdString());!ok {
 			log.Error(err)
-		//	log.WithError(err).Panic("Metering authentication failed")
+			log.WithError(err).Panic("Metering authentication failed")
 
 		}
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(

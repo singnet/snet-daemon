@@ -97,7 +97,7 @@ func (components *Components) Blockchain() *blockchain.Processor {
 		return components.blockchain
 	}
 
-	processor, err := blockchain.NewProcessor(components.ServiceMetaData())
+	processor, err := blockchain.NewProcessor(components.ServiceMetaData(),components.OrganizationMetaData())
 	if err != nil {
 		log.WithError(err).Panic("unable to initialize blockchain processor")
 	}
@@ -253,7 +253,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 		if ok,err := components.verifyMeteringConfigurations(meteringUrl,
 			components.OrganizationMetaData().GetGroupIdString());!ok {
 			log.Error(err)
-			log.WithError(err).Panic("Metering authentication failed")
+		//	log.WithError(err).Panic("Metering authentication failed")
 
 		}
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(

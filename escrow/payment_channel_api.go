@@ -142,6 +142,9 @@ type PaymentChannelService interface {
 
 	//Get Channel from BlockChain
 	PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
+
+	//Gets the latest channel state of all channels created / used for the given sender address
+	GetChannels(sender *common.Address) (channel []*PaymentChannelData, ok bool, err error)
 }
 
 // PaymentErrorCode contains all types of errors which we need to handle on the

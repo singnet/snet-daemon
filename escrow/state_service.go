@@ -58,6 +58,7 @@ func NewPaymentChannelStateService(channelService PaymentChannelService, payment
 	}
 }
 
+
 // GetChannelState returns the latest state of the channel which id is passed
 // in request. To authenticate sender request should also contain correct
 // signature of the channel id.
@@ -169,7 +170,24 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		CurrentSignature:    channel.Signature,
 	}, nil
 }
-//ToDO
-func (service *PaymentChannelStateService) GetAllChannelStates(context.Context, *AllChannelRequest) (*ChannelListReply, error) {
-	return &ChannelListReply{},nil
+
+
+func (service *PaymentChannelStateService) GetAllChannelStates(ctx context.Context, request *AllChannelRequest) (*ChannelListReply, error) {
+	signature := request.GetSignature()
+
+	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+		return nil, err
+	}
+	// signature verification
+	message := bytes.Join([][]byte{
+		[]byte("__GetAllChannelStates_"),
+		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+
+	}, nil)
+	sender, err := authutils.GetSignerAddressFromMessage(message, signature)
+	_,ok,err := service.channelService.GetChannels(sender)
+	if err != nil || !ok {
+		return nil, errors.New("incorrect signature")
+	}
+	return &ChannelListReply{},nil	
 }

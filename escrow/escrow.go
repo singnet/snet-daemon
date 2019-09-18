@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -64,6 +65,32 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	}
 
 	return MergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
+}
+
+func (h *lockingPaymentChannelService) GetChannels(sender *common.Address) (latestChannelList []*PaymentChannelData, ok bool, err error) {
+	latestChannelList= make([]*PaymentChannelData,0)
+	blockchainChannels,ok,err := h.blockchainReader.readAllChannelsFromBlockChain(sender)
+    var key *PaymentChannelKey
+	//Get the details from Block chain and then merge it with the ETCD state
+	for _,channelId:= range blockchainChannels{
+		key = &PaymentChannelKey{ID: channelId}
+		blockChainChannel, blockChainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
+		if err != nil || !blockChainOk {
+			//Better to send an error than an incorrect list while retrieval
+			return nil,false,err
+		}
+		storageChannel, storageOk, err := h.storage.Get(key)
+		if (err != nil || !storageOk) {
+			// just add the blockchain channel to the list and send it back , we probably don't have it in the storage yet
+			latestChannelList = append(latestChannelList,blockChainChannel)
+			continue
+
+		}
+
+		latestChannelState := MergeStorageAndBlockchainChannelState(storageChannel, blockChainChannel)
+		latestChannelList = append(latestChannelList,latestChannelState)
+    }
+	return latestChannelList,true,nil
 }
 
 //Check if the channel belongs to the same group Id

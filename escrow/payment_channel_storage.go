@@ -95,6 +95,7 @@ type BlockchainChannelReader struct {
 
 	readChannelFromBlockchain func(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
 	recipientPaymentAddress   func() common.Address
+	readAllChannelsFromBlockChain func(sender *common.Address) (channelIds []*big.Int, ok bool, err error)
 }
 
 // NewBlockchainChannelReader returns new instance of blockchain channel reader
@@ -106,6 +107,7 @@ func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Vipe
 			address := orgMetadata.GetPaymentAddress()
 			return address
 		},
+		readAllChannelsFromBlockChain:processor.BlockChainChannelIds,
 	}
 }
 

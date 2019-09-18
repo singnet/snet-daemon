@@ -38,10 +38,12 @@ type Processor struct {
 	escrowContractAddress   common.Address
 	registryContractAddress common.Address
 	multiPartyEscrow        *MultiPartyEscrow
+	groupId                 [32]byte
+	recipientAddress        common.Address
 }
 
 // NewProcessor creates a new blockchain processor
-func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
+func NewProcessor(metadata *ServiceMetadata,orgMetaData *OrganizationMetaData) (Processor, error) {
 	// TODO(aiden) accept configuration as a parameter
 
 	p := Processor{
@@ -61,6 +63,8 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 		p.rawClient = ethclients.RawClient
 		p.ethClient = ethclients.EthClient
 	}
+	p.groupId = orgMetaData.GetGroupId()
+	p.recipientAddress = orgMetaData.GetPaymentAddress()
 
 	// TODO: if address is not in config, try to load it using network
 

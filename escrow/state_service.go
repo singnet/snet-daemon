@@ -172,7 +172,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 }
 
 
-func (service *PaymentChannelStateService) GetAllChannelStates(ctx context.Context, request *AllChannelRequest) (*ChannelListReply, error) {
+func (service *PaymentChannelStateService) GetAllChannelStates(ctx context.Context, request *AllChannelRequest) (reply *ChannelListReply, err error) {
 	signature := request.GetSignature()
 
 	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
@@ -185,9 +185,25 @@ func (service *PaymentChannelStateService) GetAllChannelStates(ctx context.Conte
 
 	}, nil)
 	sender, err := authutils.GetSignerAddressFromMessage(message, signature)
-	_,ok,err := service.channelService.GetChannels(sender)
+	channels,ok,err := service.channelService.GetChannels(sender)
+
 	if err != nil || !ok {
 		return nil, errors.New("incorrect signature")
 	}
-	return &ChannelListReply{},nil	
+	reply = &ChannelListReply{}
+	var channelStateReply *ChannelStateReply
+
+	reply.Channels = make([]*ChannelStateReply,0)
+	for _,channel:= range channels {
+		channelStateReply = &ChannelStateReply{
+			CurrentNonce:         bigIntToBytes(channel.Nonce),
+			CurrentSignedAmount:  bigIntToBytes(channel.AuthorizedAmount),
+			Expiry:bigIntToBytes(channel.Expiration),
+			AmountDeposited:bigIntToBytes(channel.FullAmount),
+			ChannelId:bigIntToBytes(channel.ChannelID),
+		}
+		reply.Channels = append(reply.Channels,channelStateReply)
+
+	}
+	return reply,nil
 }

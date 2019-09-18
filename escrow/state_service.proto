@@ -40,7 +40,7 @@ message ChannelStateRequest {
 message AllChannelRequest {
 
     // signature is a client signature of the message which contains
-    //Would comprise of the prefix = "__GetAllChannelStates_" + the current block number
+    //Would comprise of the prefix = "__GetAllChannelStates_" +the current block number
     bytes signature = 1;
 
     //current block number (signature will be valid only for short time around this block number)
@@ -74,6 +74,9 @@ message ChannelStateReply {
 
     //Expiry of the Channel
     bytes expiry = 7;
+
+   //Channel ID of the channel
+    bytes channel_id = 8;
  }
 
 

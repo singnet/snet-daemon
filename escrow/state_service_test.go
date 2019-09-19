@@ -75,6 +75,8 @@ var stateServiceTest = func() stateServiceTestType {
 			Signature:        defaultSignature,
 			Nonce:            big.NewInt(3),
 			AuthorizedAmount: big.NewInt(12345),
+			FullAmount:big.NewInt(123789),
+			Expiration:big.NewInt(1234444444444),
 		},
 		defaultRequest: &ChannelStateRequest{
 			ChannelId: bigIntToBytes(defaultChannelId),
@@ -84,6 +86,10 @@ var stateServiceTest = func() stateServiceTestType {
 			CurrentNonce:        bigIntToBytes(big.NewInt(3)),
 			CurrentSignedAmount: bigIntToBytes(big.NewInt(12345)),
 			CurrentSignature:    defaultSignature,
+			AmountDeposited:  bigIntToBytes(big.NewInt(123789)),
+			Expiry: bigIntToBytes(big.NewInt(1234444444444)),
+			ChannelId:bigIntToBytes(big.NewInt(42)),
+
 		},
 	}
 }()
@@ -127,6 +133,7 @@ func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
 		Signature:        previousSignature,
 		Nonce:            big.NewInt(2),
 		AuthorizedAmount: big.NewInt(123),
+		Expiration:big.NewInt(1234444444444),
 	}
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
@@ -250,7 +257,7 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 
 	assert.Nil(t, err)
 	expectedReply := stateServiceTest.defaultReply
-	expectedReply.CurrentSignedAmount = nil
+	expectedReply.CurrentSignedAmount = bigIntToBytes(big.NewInt(0))
 	expectedReply.CurrentSignature = nil
 	expectedReply.OldNonceSignature = nil
 	expectedReply.OldNonceSignedAmount = nil

@@ -129,6 +129,8 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		}
 	}
 
+	reply = &ChannelStateReply{}
+	reply.setAttributes(channel)
 	// check if nonce matches with blockchain or not
 	nonceEqual, err := service.StorageNonceMatchesWithBlockchainNonce(channel)
 	if err != nil {
@@ -149,26 +151,26 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 			log.Errorf("old payment is not found in storage, nevertheless local channel nonce is not equal to the blockchain one, channel: %v", channelID)
 			return nil, errors.New("channel has different nonce in local storage and blockchain and old payment is not found in storage")
 		}
-		return &ChannelStateReply{
-			CurrentNonce:         bigIntToBytes(channel.Nonce),
-			CurrentSignedAmount:  bigIntToBytes(channel.AuthorizedAmount),
-			CurrentSignature:     channel.Signature,
-			OldNonceSignedAmount: bigIntToBytes(payment.Amount),
-			OldNonceSignature:    payment.Signature,
-		}, nil
-	}
 
-	if channel.Signature == nil {
-		return &ChannelStateReply{
-			CurrentNonce: bigIntToBytes(channel.Nonce),
-		}, nil
+	    reply.OldNonceSignature=    payment.Signature
+	    reply.OldNonceSignedAmount= bigIntToBytes(payment.Amount)
 	}
+	return reply,nil
+}
 
-	return &ChannelStateReply{
-		CurrentNonce:        bigIntToBytes(channel.Nonce),
-		CurrentSignedAmount: bigIntToBytes(channel.AuthorizedAmount),
-		CurrentSignature:    channel.Signature,
-	}, nil
+
+func (reply *ChannelStateReply) setAttributes(channel *PaymentChannelData) {
+	reply.ChannelId = bigIntToBytes(channel.ChannelID)
+	reply.Expiry = bigIntToBytes(channel.Expiration)
+	reply.AmountDeposited = bigIntToBytes(channel.FullAmount)
+
+    reply.CurrentNonce= bigIntToBytes(channel.Nonce)
+    if channel.Signature != nil {
+		reply.CurrentSignedAmount = bigIntToBytes(channel.AuthorizedAmount)
+		reply.CurrentSignature = channel.Signature
+	} else {
+		reply.CurrentSignedAmount = bigIntToBytes(big.NewInt(0))
+	}
 }
 
 
@@ -195,15 +197,9 @@ func (service *PaymentChannelStateService) GetAllChannelStates(ctx context.Conte
 
 	reply.Channels = make([]*ChannelStateReply,0)
 	for _,channel:= range channels {
-		channelStateReply = &ChannelStateReply{
-			CurrentNonce:         bigIntToBytes(channel.Nonce),
-			CurrentSignedAmount:  bigIntToBytes(channel.AuthorizedAmount),
-			Expiry:bigIntToBytes(channel.Expiration),
-			AmountDeposited:bigIntToBytes(channel.FullAmount),
-			ChannelId:bigIntToBytes(channel.ChannelID),
-		}
+		channelStateReply = &ChannelStateReply{}
+		channelStateReply.setAttributes(channel)
 		reply.Channels = append(reply.Channels,channelStateReply)
-
 	}
 	return reply,nil
 }

@@ -51,6 +51,11 @@ message AllChannelRequest {
 // current_value fields can be different from ones stored in the blockchain if
 // server started withdrawing funds froms channel but transaction is still not
 // finished.
+//Simple case  when the current_nonce == blockchain_nonce => the unspent_amount = blockchain_value - current_signed_amount
+//Lets consider a more Complex case where the current_nonce in etcd state != blockchain_nonce
+//current_nonce = blockchain_nonce + 1
+//The unspent_amount = blockchain_value - oldnonce_signed_amount - current_signed_amount
+
 message ChannelStateReply {
     // current_nonce is a latest nonce of the payment channel.
     bytes current_nonce = 1;
@@ -63,7 +68,8 @@ message ChannelStateReply {
     // it could be absent if none message was signed with current nonce
     bytes current_signature = 3;
 
-    // last amount which was signed by client with nonce=current_nonce - 1
+    //check if nonce of storage does not matches with blockchain , this can happen when there are issues in the claiming process.
+    //Only in such cases will the old nonce signed amount and old nonce signature wil be sent
     bytes old_nonce_signed_amount = 4;
 
     // last signature sent by client with nonce = current_nonce - 1

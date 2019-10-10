@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package escrow;
 
+option java_package = "io.singularitynet.daemon.escrow";
+
 service ProviderControlService {
 
     //Get the list of all unclaimed "payments".

@@ -118,7 +118,7 @@ type PaymentChannelData struct {
 
 func (data *PaymentChannelData) String() string {
 	return fmt.Sprintf("{ChannelID: %v, Nonce: %v, State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, Signer: %v, AuthorizedAmount: %v, Signature: %v",
-		data.ChannelID, data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), data.GroupID, data.FullAmount, data.Expiration, data.Signer, data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
+		data.ChannelID, data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), blockchain.BytesToBase64(data.GroupID[:]), data.FullAmount, data.Expiration, blockchain.AddressToHex(&data.Signer), data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
 }
 
 // PaymentChannelService interface is API for payment channel functionality.

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"net"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -17,14 +17,14 @@ import (
 )
 
 const (
-    //Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely through a user interface
-	AuthenticationAddress= "authentication_address"
-	AutoSSLDomainKey     = "auto_ssl_domain"
-	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
-	BlockchainEnabledKey = "blockchain_enabled"
-	BlockChainNetworkSelected      = "blockchain_network_selected"
-	BurstSize            = "burst_size"
-	ConfigPathKey        = "config_path"
+	//Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely through a user interface
+	AuthenticationAddress     = "authentication_address"
+	AutoSSLDomainKey          = "auto_ssl_domain"
+	AutoSSLCacheDirKey        = "auto_ssl_cache_dir"
+	BlockchainEnabledKey      = "blockchain_enabled"
+	BlockChainNetworkSelected = "blockchain_network_selected"
+	BurstSize                 = "burst_size"
+	ConfigPathKey             = "config_path"
 
 	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
@@ -43,21 +43,21 @@ const (
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
-    PaymentChannelCertPath         = "payent_channel_cert_path"
-	PaymentChannelCaPath           = "payent_channel_ca_path"
-	PaymentChannelKeyPath          = "payent_channel_key_path"
+	PaymentChannelCertPath         = "payment_channel_cert_path"
+	PaymentChannelCaPath           = "payment_channel_ca_path"
+	PaymentChannelKeyPath          = "payment_channel_key_path"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
-	MeteringEndPoint            =  "metering_end_point"
+	MeteringEndPoint            = "metering_end_point"
 	PvtKeyForMetering           = "pvt_key_for_metering"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	//none|grpc|http
-//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
+	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",
@@ -187,17 +187,16 @@ func Validate() error {
 	}
 
 	//Check if the Daemon is on the latest version or not
-	if message,err := CheckVersionOfDaemon(); err != nil {
+	if message, err := CheckVersionOfDaemon(); err != nil {
 		//In case of any error on version check , just log it
 		log.Warning(err)
-	}else {
+	} else {
 		log.Info(message)
 	}
 
-
 	// the maximum that the server can receive to 2GB.
-	maxMessageSize:= vip.GetInt(MaxMessageSizeInMB)
-	if ( maxMessageSize <=0 || maxMessageSize > 2048)   {
+	maxMessageSize := vip.GetInt(MaxMessageSizeInMB)
+	if maxMessageSize <= 0 || maxMessageSize > 2048 {
 		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
 	}
 
@@ -252,7 +251,6 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	return sub
 }
 
-
 func LogConfig() {
 	log.Info("Final configuration:")
 	keys := vip.AllKeys()
@@ -299,9 +297,9 @@ func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error 
 		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
 	}
 
-	if ((daemonPort == passthroughURL.Port()) &&
-	    (daemonHost == "0.0.0.0") &&
-	    (passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost"))	{
+	if (daemonPort == passthroughURL.Port()) &&
+		(daemonHost == "0.0.0.0") &&
+		(passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost") {
 		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
 	}
 	return nil

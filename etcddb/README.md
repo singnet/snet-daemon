@@ -50,9 +50,9 @@ retrieved from Organization Metadata:
 ## etcd client configuration ( https mode)
 if the client end point is https, then you will need to add the following on your configuration to use
 the certificates to connect 
-  "payent_channel_cert_path": "<locationToFile>",
-  "payent_channel_ca_path": "<locationToFile>",
-  "payent_channel_key_path": "<locationToFile>",
+  "payment_channel_cert_path": "<locationToFile>",
+  "payment_channel_ca_path": "<locationToFile>",
+  "payment_channel_key_path": "<locationToFile>",
 
 
 ## etcd server configuration 

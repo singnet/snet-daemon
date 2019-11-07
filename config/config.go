@@ -72,7 +72,7 @@ const (
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
 	"max_message_size_in_mb" : 4,
-	"monitoring_enabled": true,
+	"monitoring_enabled": false,
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
 	"service_id": "ExampleServiceId", 

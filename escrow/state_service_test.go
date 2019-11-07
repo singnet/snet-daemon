@@ -1,9 +1,11 @@
 package escrow
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
@@ -20,6 +22,7 @@ type stateServiceTestType struct {
 	channelServiceMock *paymentChannelServiceMock
 	paymentStorage     *PaymentStorage
 
+	ethereumBlock      *big.Int
 	defaultChannelId   *big.Int
 	defaultChannelKey  *PaymentChannelKey
 	defaultChannelData *PaymentChannelData
@@ -34,6 +37,7 @@ var stateServiceTest = func() stateServiceTestType {
 	signerAddress := crypto.PubkeyToAddress(signerPrivateKey.PublicKey)
 
 	channelServiceMock.blockchainReader = &BlockchainChannelReader{}
+	ethereumBlock := big.NewInt(53)
 	defaultChannelId := big.NewInt(42)
 	channelServiceMock.blockchainReader.readChannelFromBlockchain = func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 		mpeChannel := &blockchain.MultiPartyEscrowChannel{
@@ -53,19 +57,21 @@ var stateServiceTest = func() stateServiceTestType {
 	}
 
 	paymentStorage := NewPaymentStorage(NewMemStorage())
-	verificationAddress:= common.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
+	verificationAddress := common.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
-			channelService: channelServiceMock,
-			paymentStorage: paymentStorage,
-			mpeAddress: func() common.Address {return verificationAddress},
+			channelService:               channelServiceMock,
+			paymentStorage:               paymentStorage,
+			mpeAddress:                   func() common.Address { return verificationAddress },
+			compareWithLatestBlockNumber: func(*big.Int) error { return nil },
 		},
 		senderAddress:      senderAddress,
 		signerPrivateKey:   signerPrivateKey,
 		signerAddress:      signerAddress,
 		channelServiceMock: channelServiceMock,
 
+		ethereumBlock:     ethereumBlock,
 		defaultChannelId:  defaultChannelId,
 		defaultChannelKey: &PaymentChannelKey{ID: defaultChannelId},
 		defaultChannelData: &PaymentChannelData{
@@ -77,8 +83,12 @@ var stateServiceTest = func() stateServiceTestType {
 			AuthorizedAmount: big.NewInt(12345),
 		},
 		defaultRequest: &ChannelStateRequest{
-			ChannelId: bigIntToBytes(defaultChannelId),
-			Signature: getSignature(bigIntToBytes(defaultChannelId), signerPrivateKey),
+			CurrentBlock: ethereumBlock.Uint64(),
+			ChannelId:    bigIntToBytes(defaultChannelId),
+			Signature: getSignature(
+				getChannelStateRequestMessage(verificationAddress, defaultChannelId, ethereumBlock),
+				signerPrivateKey,
+			),
 		},
 		defaultReply: &ChannelStateReply{
 			CurrentNonce:        bigIntToBytes(big.NewInt(3)),
@@ -87,6 +97,16 @@ var stateServiceTest = func() stateServiceTestType {
 		},
 	}
 }()
+
+func getChannelStateRequestMessage(mpeAddress common.Address, channelId *big.Int, currentBlock *big.Int) []byte {
+	message := bytes.Join([][]byte{
+		[]byte("__get_channel_state"),
+		mpeAddress.Bytes(),
+		bigIntToBytes(channelId),
+		abi.U256(currentBlock),
+	}, nil)
+	return message
+}
 
 func cleanup() {
 	stateServiceTest.channelServiceMock.blockchainReader.readChannelFromBlockchain = func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {

@@ -52,6 +52,7 @@ const (
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	FreeCallSupport             = "free_call_support"
 	MeteringEndPoint            = "metering_end_point"
 	PvtKeyForMetering           = "pvt_key_for_metering"
 	NotificationServiceEndpoint = "notification_svc_end_point"
@@ -118,6 +119,7 @@ const (
 	},
 	"alerts_email": "", 
 	"service_heartbeat_type": "http",
+    "free_call_support" :false,
     "metering_end_point":"http://demo8325345.mockable.io"
 
 }

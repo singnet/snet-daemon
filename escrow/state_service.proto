@@ -20,9 +20,6 @@ option java_package = "io.singularitynet.daemon.escrow";
 service PaymentChannelStateService {
     // GetChannelState method returns a channel state by channel id.
     rpc GetChannelState(ChannelStateRequest) returns (ChannelStateReply) {}
-
-    //if signature field is present then response should be considered as invalid
-    rpc GetAllChannelStates(AllChannelRequest)  returns (ChannelListReply) {}
 }
 
 // ChanelStateRequest is a request for channel state.
@@ -36,17 +33,6 @@ message ChannelStateRequest {
 
     //current block number (signature will be valid only for short time around this block number)
     uint64 current_block = 3;
-}
-
-// ChanelStateRequest is a request for channel state.
-message AllChannelRequest {
-
-    // signature is a client signature of the message which contains
-    //Would comprise of the prefix = "__GetAllChannelStates_" + the current block number
-    bytes signature = 1;
-
-    //current block number (signature will be valid only for short time around this block number)
-    uint64 current_block = 2;
 }
 
 // ChannelStateReply message contains a latest channel state. current_nonce and
@@ -70,17 +56,4 @@ message ChannelStateReply {
 
     // last signature sent by client with nonce = current_nonce - 1
     bytes old_nonce_signature = 5;
-
-    //Indicates the current amount that is in the channel
-    bytes amount_deposited = 6;
-
-    //Expiry of the Channel
-    bytes expiry = 7;
  }
-
-
-
-message ChannelListReply {
-    repeated ChannelStateReply channels = 1;
-}
-

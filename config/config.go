@@ -30,12 +30,12 @@ const (
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	ExecutablePathKey              = "executable_path"
+	FreeCallsEnabled               = "free_call_enabled"
 	FreeCallSignerAddress          = "free_call_signer_address"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
 	MaxMessageSizeInMB             = "max_message_size_in_mb"
-	MonitoringEnabled              = "monitoring_enabled"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -67,12 +67,12 @@ const (
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"daemon_type": "grpc",
+    "free_call_enabled",true,
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
 	"max_message_size_in_mb" : 4,
-	"monitoring_enabled": false,
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
 	"service_id": "ExampleServiceId", 

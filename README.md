@@ -228,6 +228,16 @@ The group helps determine the recipient address for payments.
 metadata][service-configuration-metadata]. 
 
 
+* **free_call_enabled** (optional; default: `false`) - 
+Enable or Disable free call support , if the free call is enabled Daemon will need the metering set up 
+to tell the metering service on how many successful free calls have been made.You will need to provide the 
+the below fields if you enable free call 
+   metering_end_point
+   free_call_signer_address
+   pvt_key_for_metering 
+    
+
+
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)
 
@@ -236,8 +246,6 @@ The default value set is to 4 (units are in MB ), this is used to configure the 
 In case of Large messages , it is recommended to use streaming than setting a very high value on this configuration.
 It is not recommended to set the value more than 4GB
 
-* **monitoring_enabled** (optional; default: `true`) - 
-Enable or Disable monitoring of Requests arrived and response sent back
 
 * **monitoring_svc_end_point** (optional;only applies if `monitoring_enabled` is set to true) - 
 Needs to be a vaild url where the request and response stats are published as part of monitoring

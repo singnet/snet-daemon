@@ -12,7 +12,48 @@ import (
 	"math/big"
 	"strings"
 )
-
+/*
+{
+    "version": 1,
+    "display_name": "Entity Disambiguation",
+    "encoding": "proto",
+    "service_type": "grpc",
+    "model_ipfs_hash": "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv",
+    "mpe_address": "0x34E2EeE197EfAAbEcC495FdF3B1781a3b894eB5f",
+    "groups": [
+        {
+            "group_name": "default_group",
+            "free_calls": 12,
+            "free_call_signer_address": "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F",
+            "pricing": [
+                {
+                    "price_model": "fixed_price",
+                    "price_in_cogs": 1,
+                    "default": true
+                }
+            ],
+            "endpoints": [
+                "https://tz-services-1.snet.sh:8005"
+            ],
+            "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ="
+        }
+    ],
+    "assets": {
+        "hero_image": "Qmb1n3LxPXLHTUMu7afrpZdpug4WhhcmVVCEwUxjLQafq1/hero_named-entity-disambiguation.png"
+    },
+    "service_description": {
+        "url": "https://singnet.github.io/nlp-services-misc/users_guide/named-entity-disambiguation-service.html",
+        "description": "Provide further clearity regaridng entities named within a piece of text. For example, \"Paris is the capital of France\", we would want to link \"Paris\" to Paris the city not Paris Hilton in this case.",
+        "short_description": "text of 180 chars"
+    },
+    "contributors": [
+            {
+                "name": "dummy dummy",
+                "email_id": "dummy@dummy.io"
+            }
+        ]
+}
+*/
 const IpfsPrefix = "ipfs://"
 
 type ServiceMetadata struct {
@@ -28,6 +69,9 @@ type ServiceMetadata struct {
 	defaultPricing Pricing
 
 	defaultGroup                OrganizationGroup
+
+	freeCallSignerAddress      common.Address
+	isfreeCallAllowed           bool
 }
 
 type OrganizationGroup struct {
@@ -35,6 +79,8 @@ type OrganizationGroup struct {
 	GroupID   string   `json:"group_id"`
 	GroupName      string  `json:"group_name"`
 	Pricing   []Pricing  `json:"pricing"`
+	FreeCalls int `json:"free_calls"`
+	FreeCallSigner string `json:"free_call_signer_address"`
 }
 type Pricing struct {
 	PriceModel  string `json:"price_model"`
@@ -153,6 +199,7 @@ func setDerivedFields(metaData *ServiceMetadata) (err error) {
 		return err
 	}
 	setMultiPartyEscrowAddress(metaData)
+	setFreeCallData(metaData)
 	return nil
 
 }
@@ -189,14 +236,22 @@ func setDefaultPricing(metaData *ServiceMetadata) (err error) {
 func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 	metaData.MpeAddress = ToChecksumAddress(metaData.MpeAddress)
 	metaData.multiPartyEscrowAddress = common.HexToAddress(metaData.MpeAddress)
-
 }
 
+func setFreeCallData(metaData *ServiceMetadata) {
+	metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
+	if (metaData.defaultGroup.FreeCalls > 0 ) {
+		metaData.isfreeCallAllowed = true
+	}
+}
 
 func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
 	return metaData.multiPartyEscrowAddress
 }
 
+func (metaData *ServiceMetadata) FreeCallSignerAddress() common.Address {
+	return metaData.freeCallSignerAddress
+}
 
 func (metaData *ServiceMetadata) GetWireEncoding() string {
 	return metaData.Encoding
@@ -214,3 +269,6 @@ func (metaData *ServiceMetadata) GetDisplayName() string {
 	return metaData.DisplayName
 }
 
+func (metaData *ServiceMetadata) IsFreeCallAllowed() bool {
+	return metaData.isfreeCallAllowed
+}

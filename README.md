@@ -217,17 +217,7 @@ The group helps determine the recipient address for payments.
 [service configuration
 metadata][service-configuration-metadata]. 
 
-
-* **free_call_enabled** (optional; default: `false`) - 
-Enable or Disable free call support , if the free call is enabled Daemon will need the metering set up 
-to tell the metering service on how many successful free calls have been made.You will need to provide the 
-the below fields if you enable free call 
-   metering_end_point
-   free_call_signer_address
-   pvt_key_for_metering 
     
-* **free_call_signer_address** (optional;only applies if `free_call_enabled` is set to true) - 
-This is used to define the public key address used for validating signatures requested specially for free calls
 
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)
@@ -258,7 +248,7 @@ see [etcd server configuration](./etcddb#etcd-server-configuration)
 
 * **pvt_key_for_metering** (optional;only applies if `free_call_enabled` is set to true) 
 This is used for authentication between daemon and the metering service in the context of free calls.
-Daemon will send a signature signed by its private key , metering service will already have the public key corresponding
+Daemon will send a signature signed by this private key , metering service will already have the public key corresponding
 to this Daemon ,metering service will ensure that the signer it receives matches the public key configured at its end.
 This is mandatory only when free calls is enabled.
 

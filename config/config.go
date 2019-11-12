@@ -3,8 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"net"
 	"net/url"
@@ -32,8 +30,6 @@ const (
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	ExecutablePathKey              = "executable_path"
-	FreeCallsEnabled               = "free_call_enabled"
-	FreeCallSignerAddress          = "free_call_signer_address"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
@@ -208,19 +204,6 @@ func Validate() error {
 func validateMeteringChecks() (err error) {
 	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndPoint)) {
 		return errors.New("to Support Metering you need to have a valid Metering End point")
-	}
-	if GetBool(FreeCallsEnabled)  {
-		if !GetBool(MeteringEnabled){
-			return errors.New("free calls cannot be enabled if metering is disabled")
-		}
-		if _, err = crypto.HexToECDSA(GetString(PvtKeyForMetering));err != nil {
-			return errors.New("you need a specify a valid private key 'pvt_key_for_metering' given to you as part " +
-				"of curation process to  support free calls "+err.Error())
-		}
-		if !common.IsHexAddress(GetString(FreeCallSignerAddress)) {
-			return errors.New("you need a specify a valid signer address 'free_call_signer_address'" +
-				" given as part of the curation process to support free calls ")
-		}
 	}
 	return nil
 }

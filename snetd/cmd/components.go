@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
@@ -235,7 +237,7 @@ func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
 	}
 
 	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(
-		components.Blockchain(),components.OrganizationMetaData())
+		components.Blockchain(),components.OrganizationMetaData(),components.ServiceMetaData())
 
 	return components.freeCallPaymentHandler
 }
@@ -249,11 +251,11 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
 
-        //Ideally this flag on checking if free calls are enabled or not  should come from the service metadata- for future
+
 		//To keep track of number of free calls exhausted , one needs to keep track of how many free calls have
 		//been used.
-		//The  Daemon if it is not correctly configured in the for the free call Support
-        if (config.GetBool(config.FreeCallsEnabled)) {
+		//The Daemon if it is not correctly configured in the for the free call Support , fail the Daemon from starting
+        if (components.ServiceMetaData().IsFreeCallAllowed()) {
 			meteringUrl := config.GetString(config.MeteringEndPoint) + "/verify"
 			if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
 				components.OrganizationMetaData().GetGroupIdString()); !ok {
@@ -275,6 +277,11 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 
 //Metering end point authentication is now mandatory for daemon
 func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string,groupId string) (ok bool, err error) {
+
+	if _, err = crypto.HexToECDSA(config.GetString(config.PvtKeyForMetering)); err != nil {
+		return false, errors.New("you need a specify a valid private key 'pvt_key_for_metering' given by you as part " +
+			"of curation process to support free calls " + err.Error())
+	}
 
 	req, err := http.NewRequest("GET", serviceURL,nil)
 	if err != nil {

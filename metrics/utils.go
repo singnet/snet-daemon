@@ -92,29 +92,23 @@ func sendRequest(json []byte, serviceURL string,commonStats *CommonStats ) (*htt
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Daemonid", GetDaemonID())
 	req.Header.Set("X-Token", daemonAuthorizationToken)
-	//If free calls are enabled , ONLY then sign using the private key as part of Authentication checks required
-	//for free call Support.
-	if (config.GetBool(config.FreeCallsEnabled)) {
-	   if  err := SignMessageForMetering(req,commonStats); err != nil {
-	   	  return nil,err
-	   }
-	}
+	SignMessageForMetering(req,commonStats)
 
 	return client.Do(req)
 
 }
 
-func SignMessageForMetering(req *http.Request, commonStats *CommonStats) (err error) {
+func SignMessageForMetering(req *http.Request, commonStats *CommonStats) () {
 
 	privateKey, err := getPrivateKeyForMetering()
 	if err != nil {
 		log.Error(err)
-		return err
+		return
 	}
 	currentBlock, err := authutils.CurrentBlock();
 	if err != nil {
 		log.Error(err)
-		return err
+		return
 	}
 
 	signature := signForMeteringValidation(privateKey, currentBlock, MeteringPrefix, commonStats)
@@ -125,7 +119,7 @@ func SignMessageForMetering(req *http.Request, commonStats *CommonStats) (err er
 	req.Header.Set("X-Serviceid", commonStats.ServiceID)
 	req.Header.Set("X-Currentblocknumber", currentBlock.String())
 	req.Header.Set("X-Signature", b64.StdEncoding.EncodeToString(signature))
-    return nil
+
 }
 
 func getPrivateKeyForMetering()  (privateKey *ecdsa.PrivateKey,err error) {

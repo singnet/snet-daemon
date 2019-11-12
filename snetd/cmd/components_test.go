@@ -11,6 +11,16 @@ func TestComponents_verifyMeteringConfigurations(t *testing.T) {
 	component := &Components{}
 	ok, err := component.verifyAuthenticationSetUpForFreeCall("http://demo8325345.mockable.io/verify",
 		"testgroup")
+	ok, err = component.verifyAuthenticationSetUpForFreeCall("http://demo8325345.mockable.io/badurl","");
+	if err != nil {
+		assert.Equal(t,err.Error(),"you need a specify a valid private key 'pvt_key_for_metering' " +
+			"given by you as part of curation process to support free calls invalid length, need 256 bits")
+		assert.False(t,ok)
+
+	}
+	config.Vip().Set(config.PvtKeyForMetering,"6996606c7854992c10d8cdc9a13d511a9d9db8ab8f21e59d6ac901a76367b36b")
+	ok, err = component.verifyAuthenticationSetUpForFreeCall("http://demo8325345.mockable.io/verify",
+		"testgroup")
 	assert.Nil(t,err)
 	assert.True(t,ok)
 

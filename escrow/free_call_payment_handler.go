@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
@@ -30,11 +29,11 @@ type freeCallPaymentHandler struct {
 
 // NewPaymentHandler retuns new MultiPartyEscrow contract payment handler.
 func FreeCallPaymentHandler(
-	processor *blockchain.Processor,metadata *blockchain.OrganizationMetaData) handler.PaymentHandler {
+	processor *blockchain.Processor,metadata *blockchain.OrganizationMetaData,serviceMetadata *blockchain.ServiceMetadata) handler.PaymentHandler {
 	return &freeCallPaymentHandler{
 		orgMetadata:metadata,
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock,
-			common.HexToAddress(blockchain.ToChecksumAddress(config.GetString(config.FreeCallSignerAddress)))),
+			serviceMetadata.FreeCallSignerAddress()),
 	}
 }
 

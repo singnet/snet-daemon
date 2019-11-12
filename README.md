@@ -173,18 +173,21 @@ This is used to define the public key address used for validating signatures req
 endpoint of IPFS instance to get [service configuration
 metadata][service-configuration-metadata]
 
-* **metering_end_point** (required) - 
-This is to ensure every daemon is registered correctly with the metering service, if the validation call fails here 
-Daemon will not start , this way users are forced to ensure that the config file has accurate values.
+* **metering_enabled** (optional,default: `false`) -
+This is used to define if metering needs to be enabled or not .By metering we re 
+
+* **metering_end_point** (optional) - 
+This end point will be used to publish metering stats.
 
 * **organization_id** (required) - 
 Id of the organization to search for [service configuration
 metadata][service-configuration-metadata].
 
-* **pvt_key_for_metering** (required) 
+* **pvt_key_for_metering** (optional) 
 This is used for authentication between daemon and the metering service in the context of free calls.
 Daemon will send a signature signed by its private key , metering service will already have the public key corresponding
 to this Daemon ,metering service will ensure that the signer it receives matches the public key configured at its end.
+This is mandatory only when free calls is enabled.
 
 * **service_id** (required) - 
 Id of the service to search for [service configuration
@@ -228,7 +231,7 @@ The group helps determine the recipient address for payments.
 metadata][service-configuration-metadata]. 
 
 
-* **free_call_enabled** (optional; default: `false`) - 
+* **free_call_enabled** (optional; default: `true`) - 
 Enable or Disable free call support , if the free call is enabled Daemon will need the metering set up 
 to tell the metering service on how many successful free calls have been made.You will need to provide the 
 the below fields if you enable free call 
@@ -247,7 +250,7 @@ In case of Large messages , it is recommended to use streaming than setting a ve
 It is not recommended to set the value more than 4GB
 
 
-* **monitoring_svc_end_point** (optional;only applies if `monitoring_enabled` is set to true) - 
+* **monitoring_svc_end_point** (optional;only applies if `metering_enabled` is set to true) - 
 Needs to be a vaild url where the request and response stats are published as part of monitoring
 
 * **ssl_cert** (optional; default: `""`) - 

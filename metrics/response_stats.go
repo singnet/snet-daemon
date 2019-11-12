@@ -79,8 +79,10 @@ type ResponseStats struct {
 //If there is an error in the response received from the service, then send out a notification as well.
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
-	return Publish(response, config.GetString(config.MeteringEndPoint)+"/usage",commonStats)
-
+	if  config.GetBool(config.FreeCallsEnabled) {
+		Publish(response, config.GetString(config.MeteringEndPoint) + "/usage",commonStats)
+	}
+	return Publish(response, config.GetString(config.MeteringEndPoint) + "/genericstats",commonStats)
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {

@@ -156,12 +156,12 @@ func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests () {
 	}
 }
 
-func GrpcMonitoringInterceptor() grpc.StreamServerInterceptor {
-	return interceptMonitoring
+func GrpcMeteringInterceptor() grpc.StreamServerInterceptor {
+	return interceptMetering
 }
 
 //Monitor requests arrived and responses sent and publish these stats for Reporting
-func interceptMonitoring(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func interceptMetering(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	var e error
 	var start time.Time
 	start = time.Now()

@@ -115,3 +115,51 @@ func TestValidateEndpoints(t *testing.T) {
 	err = ValidateEndpoints("1.2.3.4:8080", "http://127.0.0.1:8080")
 	assert.Equal(t, nil, err)
 }
+
+func Test_validateMeteringChecks(t *testing.T) {
+	vip.Set(MeteringEndPoint,"http://demo8325345.mockable.io")
+	tests := []struct {
+		name    string
+		wantErr bool
+		setup func()
+	}{
+		{"",false,func(){}},
+		{"",false,func(){vip.Set(MeteringEnabled,false)}},
+		{"",false,func(){vip.Set(MeteringEnabled,false)
+			vip.Set(MeteringEnabled,true)}},
+		{"",true, func(){
+			                                  vip.Set(MeteringEnabled,true)
+		                                      vip.Set(FreeCallsEnabled,true)
+		                                      vip.Set(MeteringEndPoint,"badurl")}},
+		{"",false, func(){
+			vip.Set(MeteringEnabled,true)
+			vip.Set(FreeCallsEnabled,true)
+			vip.Set(MeteringEndPoint,"http://demo8325345.mockable.io")
+			vip.Set(FreeCallSignerAddress,"0x77D524c6e0FD652aA9A9bFcAd1d92Fe0781767dF")
+			vip.Set(PvtKeyForMetering,"6996606c7854992c10d8cdc9a13d511a9d9db8ab8f21e59d6ac901a76367b36b")}},
+
+		{"",true, func(){
+			vip.Set(MeteringEnabled,true)
+			vip.Set(FreeCallsEnabled,true)
+			vip.Set(MeteringEndPoint,"http://demo8325345.mockable.io")
+			vip.Set(FreeCallSignerAddress,"badaddress")
+			vip.Set(PvtKeyForMetering,"6996606c7854992c10d8cdc9a13d511a9d9db8ab8f21e59d6ac901a76367b36b")}},
+
+		{"",true, func(){
+			vip.Set(MeteringEnabled,true)
+			vip.Set(FreeCallsEnabled,true)
+			vip.Set(MeteringEndPoint,"http://demo8325345.mockable.io")
+			vip.Set(FreeCallSignerAddress,"0x77D524c6e0FD652aA9A9bFcAd1d92Fe0781767dF")
+			vip.Set(PvtKeyForMetering,"badpvtkey")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			if err := validateMeteringChecks(); (err != nil) != tt.wantErr {
+
+				t.Errorf("validateMeteringChecks() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

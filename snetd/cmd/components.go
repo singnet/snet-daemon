@@ -247,17 +247,24 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	}
     //Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
-	if components.Blockchain().Enabled() && config.GetBool(config.FreeCallsEnabled) {
-        //dont start the  Daemon if it is not correctly configured in the metering system
-        meteringUrl := config.GetString(config.MeteringEndPoint)+"/verify"
-		if ok,err := components.verifyMeteringConfigurations(meteringUrl,
-			components.OrganizationMetaData().GetGroupIdString());!ok {
-			log.Error(err)
-			log.WithError(err).Panic("Metering authentication failed")
+	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
 
+        //Ideally this flag on checking if free calls are enabled or not  should come from the service metadata- for future
+		//To keep track of number of free calls exhausted , one needs to keep track of how many free calls have
+		//been used.
+		//The  Daemon if it is not correctly configured in the for the free call Support
+        if (config.GetBool(config.FreeCallsEnabled)) {
+			meteringUrl := config.GetString(config.MeteringEndPoint) + "/verify"
+			if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
+				components.OrganizationMetaData().GetGroupIdString()); !ok {
+				log.Error(err)
+				log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
+					" as part of the curation process for your service.")
+
+			}
 		}
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
-			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
+			handler.GrpcMeteringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcPaymentValidationInterceptor())
 	} else {
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
@@ -267,7 +274,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 }
 
 //Metering end point authentication is now mandatory for daemon
-func (components *Components) verifyMeteringConfigurations(serviceURL string,groupId string) (ok bool, err error) {
+func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string,groupId string) (ok bool, err error) {
 
 	req, err := http.NewRequest("GET", serviceURL,nil)
 	if err != nil {

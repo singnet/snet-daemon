@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"net"
 	"net/url"
@@ -36,6 +38,7 @@ const (
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
 	MaxMessageSizeInMB             = "max_message_size_in_mb"
+	MeteringEnabled                = "metering_enabled"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -67,12 +70,13 @@ const (
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"daemon_type": "grpc",
-    "free_call_enabled": true,
+    "free_call_enabled": false,
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
 	"max_message_size_in_mb" : 4,
+	"metering_enabled": false,
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
 	"service_id": "ExampleServiceId", 
@@ -117,9 +121,7 @@ const (
 		"enabled": false
 	},
 	"alerts_email": "", 
-	"service_heartbeat_type": "http",
-    "metering_end_point":"http://demo8325345.mockable.io"
-
+	"service_heartbeat_type": "http"
 }
 `
 )
@@ -200,6 +202,26 @@ func Validate() error {
 		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
 	}
 
+	return validateMeteringChecks()
+}
+
+func validateMeteringChecks() (err error) {
+	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndPoint)) {
+		return errors.New("to Support Metering you need to have a valid Metering End point")
+	}
+	if GetBool(FreeCallsEnabled)  {
+		if !GetBool(MeteringEnabled){
+			return errors.New("free calls cannot be enabled if metering is disabled")
+		}
+		if _, err = crypto.HexToECDSA(GetString(PvtKeyForMetering));err != nil {
+			return errors.New("you need a specify a valid private key 'pvt_key_for_metering' given to you as part " +
+				"of curation process to  support free calls "+err.Error())
+		}
+		if !common.IsHexAddress(GetString(FreeCallSignerAddress)) {
+			return errors.New("you need a specify a valid signer address 'free_call_signer_address'" +
+				" given as part of the curation process to support free calls ")
+		}
+	}
 	return nil
 }
 

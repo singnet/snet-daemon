@@ -64,7 +64,7 @@ $ ./scripts/install
 Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as part of the build.
 You need to pass the version as shown in the example below 
 ```bash
-$ ./scripts/build linux amd64 v.0.1.8
+$ ./scripts/build linux amd64 <version>
 ```
 
 * Generate default config file  snet-daemon (on Linux amd64 platform)
@@ -82,7 +82,7 @@ You can edit the script to choose a specific platform, but by default it will bu
 Please note using ldflags the latest tagged version (passed as the first parameter to the script) , sha1 revision and the build time are set as part of the build.
 
 ```bash
-$ ./scripts/build-xgo v.0.1.8
+$ ./scripts/build-xgo <version>
 ```
 
 #### Run Deamon

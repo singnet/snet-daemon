@@ -81,7 +81,7 @@ type ResponseStats struct {
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
 	if  strings.Compare(commonStats.PaymentMode,"free-call") ==0  {
-		Publish(response, config.GetString(config.MeteringEndPoint) + "/usage",commonStats)
+		Publish(response, config.GetString(config.FreeCallEndPoint),commonStats)
 	}
 	return Publish(response, config.GetString(config.MeteringEndPoint) + "/genericstats",commonStats)
 }

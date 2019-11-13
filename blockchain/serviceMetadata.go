@@ -190,7 +190,9 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 	if err := setDerivedFields(metaData); err != nil {
 		return nil,err
 	}
-
+	if err := setFreeCallData(metaData) ; err != nil {
+		return nil,err
+	}
 	return metaData, err
 }
 
@@ -199,7 +201,7 @@ func setDerivedFields(metaData *ServiceMetadata) (err error) {
 		return err
 	}
 	setMultiPartyEscrowAddress(metaData)
-	setFreeCallData(metaData)
+
 	return nil
 
 }
@@ -238,11 +240,20 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 	metaData.multiPartyEscrowAddress = common.HexToAddress(metaData.MpeAddress)
 }
 
-func setFreeCallData(metaData *ServiceMetadata) {
-	metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
+func setFreeCallData(metaData *ServiceMetadata) (error) {
+
 	if (metaData.defaultGroup.FreeCalls > 0 ) {
 		metaData.isfreeCallAllowed = true
+		//If the signer address is not a valid address, then return back an error
+		if !common.IsHexAddress((metaData.defaultGroup.FreeCallSigner)) {
+			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly")
+		}
+		if !config.IsValidUrl(config.GetString(config.FreeCallEndPoint)) {
+			return fmt.Errorf("Please specify a valid end point for 'free_call_end_point' tracking usage of free calls ")
+		}
+		metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
 	}
+	return nil
 }
 
 func (metaData *ServiceMetadata) GetMpeAddress() common.Address {

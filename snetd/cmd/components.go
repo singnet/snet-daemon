@@ -256,12 +256,12 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 		//been used.
 		//The Daemon if it is not correctly configured in the for the free call Support , fail the Daemon from starting
         if (components.ServiceMetaData().IsFreeCallAllowed()) {
-			meteringUrl := config.GetString(config.MeteringEndPoint) + "/verify"
-			if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
+			freeCallUrl := config.GetString(config.FreeCallEndPoint) + "/verify"
+			if ok, err := components.verifyAuthenticationSetUpForFreeCall(freeCallUrl,
 				components.OrganizationMetaData().GetGroupIdString()); !ok {
 				log.Error(err)
 				log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
-					" as part of the curation process for your service.")
+					" as part of service publication process")
 
 			}
 		}
@@ -279,8 +279,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string,groupId string) (ok bool, err error) {
 
 	if _, err = crypto.HexToECDSA(config.GetString(config.PvtKeyForMetering)); err != nil {
-		return false, errors.New("you need a specify a valid private key 'pvt_key_for_metering' given by you as part " +
-			"of curation process to support free calls " + err.Error())
+		return false, errors.New("you need a specify a valid private key 'pvt_key_for_metering' as part of service publication process." + err.Error())
 	}
 
 	req, err := http.NewRequest("GET", serviceURL,nil)

@@ -217,7 +217,9 @@ The group helps determine the recipient address for payments.
 [service configuration
 metadata][service-configuration-metadata]. 
 
-    
+* **free_call_end_point** (optional)     
+This parameter defines the end-point to publish usage of free-calls
+It becomes mandatory when free-call is enabled. Free call is enabled based on the service-metadata attribute 'free_calls' having a value greater than zero.
 
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)

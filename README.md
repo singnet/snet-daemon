@@ -233,6 +233,9 @@ It is not recommended to set the value more than 4GB
 This is used to define if metering needs to be enabled or not .You will need to define a valid ` metering_end_point` 
 when this flag is enabled
 
+* **metering_end_point** (optional;only applies if `metering_enabled` is set to true) - 
+Needs to be a vaild url where the request and response stats are published as part of Metering
+
 * **ssl_cert** (optional; default: `""`) - 
 path to certificate to use for SSL.
 

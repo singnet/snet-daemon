@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
@@ -235,7 +237,7 @@ func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
 	}
 
 	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(
-		components.Blockchain(),components.OrganizationMetaData())
+		components.Blockchain(),components.OrganizationMetaData(),components.ServiceMetaData())
 
 	return components.freeCallPaymentHandler
 }
@@ -247,17 +249,24 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	}
     //Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
-	if components.Blockchain().Enabled() {
-        //dont start the  Daemon if it is not correctly configured in the metering system
-        meteringUrl := config.GetString(config.MeteringEndPoint)+"/verify"
-		if ok,err := components.verifyMeteringConfigurations(meteringUrl,
-			components.OrganizationMetaData().GetGroupIdString());!ok {
-			log.Error(err)
-			log.WithError(err).Panic("Metering authentication failed")
+	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
 
+
+		//To keep track of number of free calls exhausted , one needs to keep track of how many free calls have
+		//been used.
+		//The Daemon if it is not correctly configured in the for the free call Support , fail the Daemon from starting
+        if (components.ServiceMetaData().IsFreeCallAllowed()) {
+			freeCallUrl := config.GetString(config.FreeCallEndPoint) + "/verify"
+			if ok, err := components.verifyAuthenticationSetUpForFreeCall(freeCallUrl,
+				components.OrganizationMetaData().GetGroupIdString()); !ok {
+				log.Error(err)
+				log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
+					" as part of service publication process")
+
+			}
 		}
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
-			handler.GrpcMonitoringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
+			handler.GrpcMeteringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcPaymentValidationInterceptor())
 	} else {
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
@@ -267,7 +276,11 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 }
 
 //Metering end point authentication is now mandatory for daemon
-func (components *Components) verifyMeteringConfigurations(serviceURL string,groupId string) (ok bool, err error) {
+func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string,groupId string) (ok bool, err error) {
+
+	if _, err = crypto.HexToECDSA(config.GetString(config.PvtKeyForMetering)); err != nil {
+		return false, errors.New("you need a specify a valid private key 'pvt_key_for_metering' as part of service publication process." + err.Error())
+	}
 
 	req, err := http.NewRequest("GET", serviceURL,nil)
 	if err != nil {

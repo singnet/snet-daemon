@@ -29,13 +29,13 @@ const (
 	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
+	FreeCallEndPoint               = "free_call_end_point"
 	ExecutablePathKey              = "executable_path"
-	FreeCallSignerAddress          = "free_call_signer_address"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
 	MaxMessageSizeInMB             = "max_message_size_in_mb"
-	MonitoringEnabled              = "monitoring_enabled"
+	MeteringEnabled                = "metering_enabled"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -72,7 +72,7 @@ const (
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
 	"max_message_size_in_mb" : 4,
-	"monitoring_enabled": true,
+	"metering_enabled": false,
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
 	"service_id": "ExampleServiceId", 
@@ -117,9 +117,7 @@ const (
 		"enabled": false
 	},
 	"alerts_email": "", 
-	"service_heartbeat_type": "http",
-    "metering_end_point":"http://demo8325345.mockable.io"
-
+	"service_heartbeat_type": "http"
 }
 `
 )
@@ -200,6 +198,13 @@ func Validate() error {
 		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
 	}
 
+	return validateMeteringChecks()
+}
+
+func validateMeteringChecks() (err error) {
+	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndPoint)) {
+		return errors.New("to Support Metering you need to have a valid Metering End point")
+	}
 	return nil
 }
 

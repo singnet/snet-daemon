@@ -5,6 +5,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -79,8 +80,10 @@ type ResponseStats struct {
 //If there is an error in the response received from the service, then send out a notification as well.
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
-	return Publish(response, config.GetString(config.MeteringEndPoint)+"/usage",commonStats)
-
+	if  strings.Compare(commonStats.PaymentMode,"free-call") ==0  {
+		Publish(response, config.GetString(config.FreeCallEndPoint),commonStats)
+	}
+	return Publish(response, config.GetString(config.MeteringEndPoint) + "/genericstats",commonStats)
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {

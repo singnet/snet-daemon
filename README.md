@@ -252,7 +252,7 @@ see [etcd server configuration](./etcddb#etcd-server-configuration)
 This is used for authentication between daemon and the metering service in the context of free calls.
 Daemon will send a signature signed by this private key , metering service will already have the public key corresponding
 to this Daemon ,metering service will ensure that the signer it receives matches the public key configured at its end.
-This is mandatory only when free calls is enabled.
+This is mandatory only when free calls are enabled.
 
 
 * **rate_limit_per_minute** (optional; default: `Infinity`) - 

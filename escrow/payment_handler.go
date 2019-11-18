@@ -1,13 +1,16 @@
 package escrow
 
 import (
-	"math/big"
-
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc/codes"
 
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/metrics"
+	log "github.com/sirupsen/logrus"
+	"math/big"
 )
 
 const (
@@ -94,6 +97,37 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	return paymentErrorToGrpcError(payment.(*paymentTransaction).Commit())
+}
+
+func (h *paymentChannelPaymentHandler) PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
+	if !config.GetBool(config.MeteringEnabled)  {
+		err = handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!")
+		log.WithError(err.Err())
+		return err
+	}
+	paymentTransaction := payment.(*paymentTransaction)
+	channelStats := &metrics.ChannelStats{ChannelId: paymentTransaction.payment.ChannelID,
+		AuthorizedAmount:paymentTransaction.payment.Amount,
+		FullAmount:paymentTransaction.Channel().FullAmount,
+		Nonce: paymentTransaction.Channel().Nonce,
+		GroupID:blockchain.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
+	}
+	serviceURL := config.GetString(config.MeteringEndPoint)+"/contract-api/channel/"+channelStats.ChannelId.String()+"/consume"
+
+	channelStats.OrganizationID = config.GetString(config.OrganizationId)
+	channelStats.ServiceID = config.GetString(config.ServiceId)
+	log.Debug(channelStats)
+	commonStats := &metrics.CommonStats{
+		GroupID: channelStats.GroupID,UserName:paymentTransaction.Channel().Sender.Hex()}
+	status := metrics.Publish(channelStats,serviceURL,commonStats)
+	if !status {
+		log.WithError(fmt.Errorf("Unable to post latest offchain Channel state on contract API End point !! %s",serviceURL))
+
+	}
+	if !status {
+		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")
+	}
+	return nil
 }
 
 func (h *paymentChannelPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {

@@ -1,18 +1,19 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/config"
 	"math/big"
+	"reflect"
 	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/handler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/handler"
 )
 
 type PaymentHandlerTestSuite struct {
@@ -142,4 +143,38 @@ func (suite *PaymentHandlerTestSuite) TestValidatePaymentIncorrectIncome() {
 
 	assert.Equal(suite.T(), handler.NewGrpcError(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\""), err)
 	assert.Nil(suite.T(), payment)
+}
+
+func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
+	 payment := &paymentTransaction{payment:Payment{Amount:big.NewInt(10),ChannelID:big.NewInt(6),
+		ChannelNonce:big.NewInt(1)},channel:&PaymentChannelData{FullAmount:big.NewInt(10)}}
+	tests := []struct {
+		name    string
+
+		wantErr *handler.GrpcError
+		setupFunc func()
+	}{
+		{name:"",wantErr:handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!"),setupFunc: func() {
+		},},
+
+		{name:"",wantErr:nil,setupFunc: func() {
+			config.Vip().Set(config.MeteringEnabled,true)
+			config.Vip().Set(config.MeteringEndPoint,"http://demo8325345.mockable.io")
+		},},
+
+		{name:"",wantErr:handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error"),setupFunc: func() {
+			config.Vip().Set(config.MeteringEndPoint,"badurl")
+		},},
+	}
+	for _, tt := range tests {
+		tt.setupFunc()
+		t.Run(tt.name, func(t *testing.T) {
+			h := &paymentChannelPaymentHandler{
+
+			}
+			if gotErr := h.PublishChannelStats(payment); !reflect.DeepEqual(gotErr, tt.wantErr) {
+				t.Errorf("paymentChannelPaymentHandler.PublishChannelStats() = %v, want %v", gotErr, tt.wantErr)
+			}
+		})
+	}
 }

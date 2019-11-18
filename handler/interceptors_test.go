@@ -96,6 +96,10 @@ func (handler *paymentHandlerMock) CompleteAfterError(payment Payment, result er
 	return handler.completeAfterErrorResult
 }
 
+func (handler *paymentHandlerMock) PublishChannelStats(payment Payment) (err *GrpcError) {
+   return nil
+}
+
 type InterceptorsSuite struct {
 	suite.Suite
 

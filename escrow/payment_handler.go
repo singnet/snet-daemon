@@ -96,10 +96,13 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 }
 
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
-	return paymentErrorToGrpcError(payment.(*paymentTransaction).Commit())
+	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err != nil {
+		PublishChannelStats(payment)
+	}
+	return err
 }
 
-func (h *paymentChannelPaymentHandler) PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
+func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
 	if !config.GetBool(config.MeteringEnabled)  {
 		err = handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!")
 		log.WithError(err.Err())
@@ -120,11 +123,9 @@ func (h *paymentChannelPaymentHandler) PublishChannelStats(payment handler.Payme
 	commonStats := &metrics.CommonStats{
 		GroupID: channelStats.GroupID,UserName:paymentTransaction.Channel().Sender.Hex()}
 	status := metrics.Publish(channelStats,serviceURL,commonStats)
+
 	if !status {
 		log.WithError(fmt.Errorf("Unable to post latest offchain Channel state on contract API End point !! %s",serviceURL))
-
-	}
-	if !status {
 		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")
 	}
 	return nil

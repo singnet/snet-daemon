@@ -98,9 +98,6 @@ func (h *freeCallPaymentHandler) CompleteAfterError(payment handler.Payment, res
 	return nil
 }
 
-func (h *freeCallPaymentHandler) PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
-	return nil
-}
 func (h *freeCallPaymentHandler) checkIfFreeCallsAreAllowed(username string) (allowed bool, err error) {
 	response,err := h.sendRequest(nil,config.GetString(config.MeteringEndPoint)+"/usage/freecalls",username)
 	return checkResponse(response)

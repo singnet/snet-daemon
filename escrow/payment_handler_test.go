@@ -169,10 +169,7 @@ func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
 	for _, tt := range tests {
 		tt.setupFunc()
 		t.Run(tt.name, func(t *testing.T) {
-			h := &paymentChannelPaymentHandler{
-
-			}
-			if gotErr := h.PublishChannelStats(payment); !reflect.DeepEqual(gotErr, tt.wantErr) {
+			if gotErr := PublishChannelStats(payment); !reflect.DeepEqual(gotErr, tt.wantErr) {
 				t.Errorf("paymentChannelPaymentHandler.PublishChannelStats() = %v, want %v", gotErr, tt.wantErr)
 			}
 		})

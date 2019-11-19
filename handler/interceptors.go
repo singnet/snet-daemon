@@ -131,9 +131,6 @@ type PaymentHandler interface {
 	// CompleteAfterError completes payment if service returns error.
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
 
-	//Publishing latest Authorized amount on a given channel ( to show the effective balance on DAPP/platform supported clients)
-	//Force this behaviour for any new handlers on posting the offline channel usage stats
-	PublishChannelStats(payment Payment) (err *GrpcError)
 }
 
 type rateLimitInterceptor struct {
@@ -260,8 +257,6 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 			if err != nil {
 				// return err.Err()
 				e = err.Err()
-			} else {
-				paymentHandler.PublishChannelStats(payment)
 			}
 		} else {
 			err = paymentHandler.CompleteAfterError(payment, e)

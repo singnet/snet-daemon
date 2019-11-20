@@ -119,7 +119,7 @@ func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
 
 	channelStats.OrganizationID = config.GetString(config.OrganizationId)
 	channelStats.ServiceID = config.GetString(config.ServiceId)
-	log.Debug(channelStats)
+	log.Debugf("Payment channel payment handler is publishing channel statistics: %v", channelStats)
 	commonStats := &metrics.CommonStats{
 		GroupID: channelStats.GroupID,UserName:paymentTransaction.Channel().Sender.Hex()}
 	status := metrics.Publish(channelStats,serviceURL,commonStats)

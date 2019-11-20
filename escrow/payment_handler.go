@@ -125,7 +125,7 @@ func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
 	status := metrics.Publish(channelStats,serviceURL,commonStats)
 
 	if !status {
-		log.WithError(fmt.Errorf("Unable to post latest offchain Channel state on contract API End point !! %s",serviceURL))
+		log.WithError(status).Errorf("Payment channel payment handler unable to post latest off-chain Channel state on contract API End point %s",serviceURL)
 		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")
 	}
 	return nil

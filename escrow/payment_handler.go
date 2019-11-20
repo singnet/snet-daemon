@@ -105,7 +105,7 @@ func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *h
 func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
 	if !config.GetBool(config.MeteringEnabled)  {
 		err = handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!")
-		log.WithError(err.Err())
+		log.WithError(err.Err()).Error("Error in payment channel payment handler commit")
 		return err
 	}
 	paymentTransaction := payment.(*paymentTransaction)

@@ -130,6 +130,7 @@ type PaymentHandler interface {
 	Complete(payment Payment) (err *GrpcError)
 	// CompleteAfterError completes payment if service returns error.
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
+
 }
 
 type rateLimitInterceptor struct {

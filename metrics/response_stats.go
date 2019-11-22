@@ -4,6 +4,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,15 @@ type CommonStats struct {
 	UserAddress         string
 }
 
+type ChannelStats struct {
+	OrganizationID      string
+	ServiceID           string
+	GroupID             string
+	AuthorizedAmount    *big.Int
+	FullAmount          *big.Int
+	ChannelId           *big.Int
+	Nonce               *big.Int
+}
 func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 	commonStats := &CommonStats{
 		ID:                  GenXid(),
@@ -81,9 +91,9 @@ type ResponseStats struct {
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
 	if  strings.Compare(commonStats.PaymentMode,"free-call") ==0  {
-		Publish(response, config.GetString(config.FreeCallEndPoint),commonStats)
+		Publish(response, config.GetString(config.FreeCallEndPoint)+ "/usage/freecalls",commonStats)
 	}
-	return Publish(response, config.GetString(config.MeteringEndPoint) + "/genericstats",commonStats)
+	return Publish(response, config.GetString(config.MeteringEndPoint) + "/usage/genericstats",commonStats)
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {

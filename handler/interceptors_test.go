@@ -96,6 +96,7 @@ func (handler *paymentHandlerMock) CompleteAfterError(payment Payment, result er
 	return handler.completeAfterErrorResult
 }
 
+
 type InterceptorsSuite struct {
 	suite.Suite
 

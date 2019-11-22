@@ -176,23 +176,6 @@ func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
 	assert.Equal(t, previousChannelData.Signature, reply.OldNonceSignature)
 }
 
-func TestGetChannelStateChannelIdIsNotPaddedByZero(t *testing.T) {
-	channelId := big.NewInt(255)
-	stateServiceTest.channelServiceMock.Put(&PaymentChannelKey{ID: channelId}, stateServiceTest.defaultChannelData)
-	defer stateServiceTest.channelServiceMock.Clear()
-
-	reply, err := stateServiceTest.service.GetChannelState(
-		nil,
-		&ChannelStateRequest{
-			ChannelId: []byte{0xFF},
-			Signature: getSignature(bigIntToBytes(channelId), stateServiceTest.signerPrivateKey),
-		},
-	)
-
-	assert.Nil(t, err)
-	assert.Equal(t, stateServiceTest.defaultReply, reply)
-}
-
 func TestGetChannelStateChannelIdIncorrectSignature(t *testing.T) {
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,

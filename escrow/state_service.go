@@ -30,7 +30,6 @@ func (service *BlockChainDisabledStateService) GetChannelState(context context.C
 	return &ChannelStateReply{}, nil
 }
 
-
 // verifies whether storage channel nonce is equal to blockchain nonce or not
 func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonce(storageChannel *PaymentChannelData) (equal bool, err error) {
 	h := service.channelService
@@ -97,33 +96,12 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
 	}
 
-	//For backward compatibility
-	oldProto := false
-	blockNumberPassed := int64(request.CurrentBlock)
-
-
-
-	//TODO remove this fall back to older signature versions. this is temporary, only to enable backward compatibility
-	// with other components
 	if channel.Signer != *sender {
-		log.Infof("message does not follow the new signature standard. fall back to older signature standard")
-
-		sender, err = authutils.GetSignerAddressFromMessage(bigIntToBytes(channelID), signature)
-		if err != nil {
-			return nil, errors.New("incorrect signature")
-		}
-		if channel.Signer != *sender {
-			return nil, errors.New("only channel signer can get latest channel state")
-		}
-		if blockNumberPassed == 0 {
-			oldProto = true
-		}
+		return nil, errors.New("only channel signer can get latest channel state")
 	}
 
-	if !oldProto {
-		if err := service.compareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
-			return nil, err
-		}
+	if err := service.compareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+		return nil, err
 	}
 
 	// check if nonce matches with blockchain or not
@@ -167,4 +145,3 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		CurrentSignature:    channel.Signature,
 	}, nil
 }
-

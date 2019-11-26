@@ -96,11 +96,12 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		return nil, fmt.Errorf("channel is not found, channelId: %v", channelID)
 	}
 
-	if err := service.compareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
-		return nil, err
-	}
 	if channel.Signer != *sender {
 		return nil, errors.New("only channel signer can get latest channel state")
+	}
+
+	if err := service.compareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+		return nil, err
 	}
 
 	// check if nonce matches with blockchain or not

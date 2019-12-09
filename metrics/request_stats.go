@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"github.com/singnet/snet-daemon/config"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"strconv"
 )
@@ -21,16 +20,13 @@ type RequestStats struct {
 	GroupID                    string `json:"group_id"`
 	DaemonEndPoint             string `json:"daemon_end_point"`
 	Version                    string `json:"version"`
+	ClientType                 string `json:"client_type"`
+	UserDetails                string `json:"user_details"`
+	UserAgent                  string `json:"user_agent"`
+	ChannelId                  string `json:"channel_id"`
 }
 
-//Create a request Object and Publish this to a service end point
-func PublishRequestStats(commonStat *CommonStats, inStream grpc.ServerStream) bool {
-	request := createRequestStat(commonStat)
-	if md, ok := metadata.FromIncomingContext(inStream.Context()); ok {
-		request.setDataFromContext(md)
-	}
-	return Publish(request, config.GetString(config.MonitoringServiceEndpoint)+"/event")
-}
+
 
 func (request *RequestStats) setDataFromContext(md metadata.MD) {
 	request.InputDataSize = strconv.FormatUint(GetSize(md), 10)
@@ -50,6 +46,10 @@ func createRequestStat(commonStat *CommonStats) *RequestStats {
 		RequestReceivedTime:        commonStat.RequestReceivedTime,
 		ServiceMethod:              commonStat.ServiceMethod,
 		Version:                    commonStat.Version,
+		ClientType:                 commonStat.ClientType,
+		UserDetails:                commonStat.UserDetails,
+		UserAgent:                  commonStat.UserAgent,
+		ChannelId:                  commonStat.ChannelId,
 	}
 	return request
 }

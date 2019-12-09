@@ -24,5 +24,5 @@ for d in */ ; do
 done
 echo "mode: set">>coverage.out
 grep -h -v "mode: set" *.part >>coverage.out
-/go/bin/goveralls -coverprofile=coverage.out -service=circleci -repotoken ${COVERALLS_REPO_TOKEN}
+ /go/bin/goveralls -coverprofile=coverage.out -service=circleci -repotoken ${COVERALLS_REPO_TOKEN}
 popd

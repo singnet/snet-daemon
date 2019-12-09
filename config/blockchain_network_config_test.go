@@ -41,15 +41,16 @@ var defaultBlockChainNetworkConfig string = `
 }`
 
 func TestGetBlockChainEndPoint(t *testing.T) {
-	//ns := &NetworkSelected{}
+	Vip().Set(BlockChainNetworkSelected,"local")
 	determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
+
 	assert.Matches(t, GetBlockChainEndPoint(), GetString(BlockChainNetworkSelected))
 	assert2.NotEqual(t, GetNetworkId(), nil)
 
 }
 
 func TestGetRegistryAddress(t *testing.T) {
-	//ns := &NetworkSelected{}
+
 	determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
 	if GetString(BlockChainNetworkSelected) == "local" {
 		assert2.Equal(t, GetRegistryAddress(), "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2")

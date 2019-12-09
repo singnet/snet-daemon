@@ -22,3 +22,7 @@ The below is an example on how rate limiting could be defined
     "rate_limit_per_minute": 50000
   }
 ```
+### Usage details
+For example
+ if rate_limit_per_minute=1 and burst_size=1 => one request is served per minute
+ if rate_limit_per_minute=0.5 and burst_size=1 =>  one request is served in every 2 minutes 

@@ -4,6 +4,7 @@ package authutils
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -104,4 +105,20 @@ func VerifyAddress(address common.Address, otherAddress common.Address) error {
 		return fmt.Errorf("the  Address: %s  does not match to what has been expected / registered", blockchain.AddressToHex(&address))
 	}
 	return nil
+}
+
+
+
+func GetSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
+	hash := crypto.Keccak256(
+		blockchain.HashPrefix32Bytes,
+		crypto.Keccak256(message),
+	)
+
+	signature, err := crypto.Sign(hash, privateKey)
+	if err != nil {
+		panic(fmt.Sprintf("Cannot sign test message: %v", err))
+	}
+
+	return signature
 }

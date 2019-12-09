@@ -1,18 +1,19 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/config"
 	"math/big"
+	"reflect"
 	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/handler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/handler"
 )
 
 type PaymentHandlerTestSuite struct {
@@ -51,10 +52,10 @@ func (suite *PaymentHandlerTestSuite) channel() *PaymentChannelData {
 func (suite *PaymentHandlerTestSuite) grpcMetadata(channelID, channelNonce, amount int64, signature []byte) metadata.MD {
 	md := metadata.New(map[string]string{})
 
-	md.Set(PaymentChannelIDHeader, strconv.FormatInt(channelID, 10))
-	md.Set(PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10))
-	md.Set(PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
-	md.Set(PaymentChannelSignatureHeader, string(signature))
+	md.Set(handler.PaymentChannelIDHeader, strconv.FormatInt(channelID, 10))
+	md.Set(handler.PaymentChannelNonceHeader, strconv.FormatInt(channelNonce, 10))
+	md.Set(handler.PaymentChannelAmountHeader, strconv.FormatInt(amount, 10))
+	md.Set(handler.PaymentChannelSignatureHeader, string(signature))
 
 	return md
 }
@@ -77,7 +78,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPayment() {
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelId() {
 	context := suite.grpcContext(func(md *metadata.MD) {
-		delete(*md, PaymentChannelIDHeader)
+		delete(*md, handler.PaymentChannelIDHeader)
 	})
 
 	payment, err := suite.paymentHandler.Payment(context)
@@ -88,7 +89,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelId() {
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelNonce() {
 	context := suite.grpcContext(func(md *metadata.MD) {
-		delete(*md, PaymentChannelNonceHeader)
+		delete(*md, handler.PaymentChannelNonceHeader)
 	})
 
 	payment, err := suite.paymentHandler.Payment(context)
@@ -99,7 +100,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelNonce() {
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelAmount() {
 	context := suite.grpcContext(func(md *metadata.MD) {
-		delete(*md, PaymentChannelAmountHeader)
+		delete(*md, handler.PaymentChannelAmountHeader)
 	})
 
 	payment, err := suite.paymentHandler.Payment(context)
@@ -110,7 +111,7 @@ func (suite *PaymentHandlerTestSuite) TestGetPaymentNoChannelAmount() {
 
 func (suite *PaymentHandlerTestSuite) TestGetPaymentNoSignature() {
 	context := suite.grpcContext(func(md *metadata.MD) {
-		delete(*md, PaymentChannelSignatureHeader)
+		delete(*md, handler.PaymentChannelSignatureHeader)
 	})
 
 	payment, err := suite.paymentHandler.Payment(context)
@@ -142,4 +143,35 @@ func (suite *PaymentHandlerTestSuite) TestValidatePaymentIncorrectIncome() {
 
 	assert.Equal(suite.T(), handler.NewGrpcError(codes.Unauthenticated, "incorrect payment income: \"45\", expected \"46\""), err)
 	assert.Nil(suite.T(), payment)
+}
+
+func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
+	 payment := &paymentTransaction{payment:Payment{Amount:big.NewInt(10),ChannelID:big.NewInt(6),
+		ChannelNonce:big.NewInt(1)},channel:&PaymentChannelData{FullAmount:big.NewInt(10)}}
+	tests := []struct {
+		name    string
+
+		wantErr *handler.GrpcError
+		setupFunc func()
+	}{
+		{name:"",wantErr:handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!"),setupFunc: func() {
+		},},
+
+		{name:"",wantErr:nil,setupFunc: func() {
+			config.Vip().Set(config.MeteringEnabled,true)
+			config.Vip().Set(config.MeteringEndPoint,"http://demo8325345.mockable.io")
+		},},
+
+		{name:"",wantErr:handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error"),setupFunc: func() {
+			config.Vip().Set(config.MeteringEndPoint,"badurl")
+		},},
+	}
+	for _, tt := range tests {
+		tt.setupFunc()
+		t.Run(tt.name, func(t *testing.T) {
+			if gotErr := PublishChannelStats(payment); !reflect.DeepEqual(gotErr, tt.wantErr) {
+				t.Errorf("paymentChannelPaymentHandler.PublishChannelStats() = %v, want %v", gotErr, tt.wantErr)
+			}
+		})
+	}
 }

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"net"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -17,24 +17,25 @@ import (
 )
 
 const (
-
-	AutoSSLDomainKey     = "auto_ssl_domain"
-	AutoSSLCacheDirKey   = "auto_ssl_cache_dir"
-	BlockchainEnabledKey = "blockchain_enabled"
-	BlockChainNetworkSelected      = "blockchain_network_selected"
-	BurstSize            = "burst_size"
-	ConfigPathKey        = "config_path"
+	//Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely through a user interface
+	AuthenticationAddress     = "authentication_address"
+	AutoSSLDomainKey          = "auto_ssl_domain"
+	AutoSSLCacheDirKey        = "auto_ssl_cache_dir"
+	BlockchainEnabledKey      = "blockchain_enabled"
+	BlockChainNetworkSelected = "blockchain_network_selected"
+	BurstSize                 = "burst_size"
+	ConfigPathKey             = "config_path"
 
 	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
+	FreeCallEndPoint               = "free_call_end_point"
 	ExecutablePathKey              = "executable_path"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
 	MaxMessageSizeInMB             = "max_message_size_in_mb"
-	MonitoringEnabled              = "monitoring_enabled"
-	MonitoringServiceEndpoint      = "monitoring_svc_end_point"
+	MeteringEnabled                = "metering_enabled"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -42,16 +43,21 @@ const (
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
+	PaymentChannelCertPath         = "payment_channel_cert_path"
+	PaymentChannelCaPath           = "payment_channel_ca_path"
+	PaymentChannelKeyPath          = "payment_channel_key_path"
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
+	MeteringEndPoint            = "metering_end_point"
+	PvtKeyForMetering           = "pvt_key_for_metering"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	//none|grpc|http
-
+	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
 	"auto_ssl_domain": "",
@@ -66,8 +72,7 @@ const (
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
 	"max_message_size_in_mb" : 4,
-	"monitoring_enabled": true,
-	"monitoring_svc_end_point": "https://n4rzw9pu76.execute-api.us-east-1.amazonaws.com/beta",
+	"metering_enabled": false,
 	"organization_id": "ExampleOrganizationId", 
 	"passthrough_enabled": false,
 	"service_id": "ExampleServiceId", 
@@ -92,6 +97,7 @@ const (
 		"hooks": []
 	},
 	"payment_channel_storage_type": "etcd",
+
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
 		"request_timeout": "3s",
@@ -108,12 +114,10 @@ const (
 		"startup_timeout": "1m",
 		"data_dir": "storage-data-dir-1.etcd",
 		"log_level": "info",
-		"enabled": true
+		"enabled": false
 	},
 	"alerts_email": "", 
-	"service_heartbeat_type": "http",
-	"heartbeat_svc_end_point": "http://demo3208027.mockable.io/heartbeat",
-	"notification_svc_end_point": "http://demo3208027.mockable.io"
+	"service_heartbeat_type": "http"
 }
 `
 )
@@ -170,12 +174,6 @@ func Validate() error {
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
 		return errors.New("SSL requires both key and certificate when enabled")
 	}
-	// validate monitoring service endpoints
-	if vip.GetBool(MonitoringEnabled) &&
-		vip.GetString(MonitoringServiceEndpoint) != "" &&
-		!IsValidUrl(vip.GetString(MonitoringServiceEndpoint)) {
-		return errors.New("service endpoint must be a valid URL")
-	}
 
 	// Validate metrics URL and set state
 	passEndpoint := vip.GetString(PassthroughEndpointKey)
@@ -187,20 +185,26 @@ func Validate() error {
 	}
 
 	//Check if the Daemon is on the latest version or not
-	if message,err := CheckVersionOfDaemon(); err != nil {
+	if message, err := CheckVersionOfDaemon(); err != nil {
 		//In case of any error on version check , just log it
 		log.Warning(err)
-	}else {
+	} else {
 		log.Info(message)
 	}
 
-
 	// the maximum that the server can receive to 2GB.
-	maxMessageSize:= vip.GetInt(MaxMessageSizeInMB)
-	if ( maxMessageSize <=0 || maxMessageSize > 2048)   {
+	maxMessageSize := vip.GetInt(MaxMessageSizeInMB)
+	if maxMessageSize <= 0 || maxMessageSize > 2048 {
 		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
 	}
 
+	return validateMeteringChecks()
+}
+
+func validateMeteringChecks() (err error) {
+	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndPoint)) {
+		return errors.New("to Support Metering you need to have a valid Metering End point")
+	}
 	return nil
 }
 
@@ -252,7 +256,6 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	return sub
 }
 
-
 func LogConfig() {
 	log.Info("Final configuration:")
 	keys := vip.AllKeys()
@@ -299,9 +302,9 @@ func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error 
 		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
 	}
 
-	if ((daemonPort == passthroughURL.Port()) &&
-	    (daemonHost == "0.0.0.0") &&
-	    (passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost"))	{
+	if (daemonPort == passthroughURL.Port()) &&
+		(daemonHost == "0.0.0.0") &&
+		(passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost") {
 		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
 	}
 	return nil

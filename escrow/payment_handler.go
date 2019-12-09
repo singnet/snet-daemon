@@ -1,29 +1,19 @@
 package escrow
 
 import (
-	"math/big"
-
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc/codes"
 
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/metrics"
+	log "github.com/sirupsen/logrus"
+	"math/big"
 )
 
 const (
-	// PaymentChannelIDHeader is a MultiPartyEscrow contract payment channel
-	// id. Value is a string containing a decimal number.
-	PaymentChannelIDHeader = "snet-payment-channel-id"
-	// PaymentChannelNonceHeader is a payment channel nonce value. Value is a
-	// string containing a decimal number.
-	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
-	// PaymentChannelAmountHeader is an amount of payment channel value
-	// which server is authorized to withdraw after handling the RPC call.
-	// Value is a string containing a decimal number.
-	PaymentChannelAmountHeader = "snet-payment-channel-amount"
-	// PaymentChannelSignatureHeader is a signature of the client to confirm
-	// amount withdrawing authorization. Value is an array of bytes.
-	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 
 	// EscrowPaymentType each call should have id and nonce of payment channel
 	// in metadata.
@@ -76,22 +66,22 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 }
 
 func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *handler.GrpcError) {
-	channelID, err := handler.GetBigInt(context.MD, PaymentChannelIDHeader)
+	channelID, err := handler.GetBigInt(context.MD, handler.PaymentChannelIDHeader)
 	if err != nil {
 		return
 	}
 
-	channelNonce, err := handler.GetBigInt(context.MD, PaymentChannelNonceHeader)
+	channelNonce, err := handler.GetBigInt(context.MD, handler.PaymentChannelNonceHeader)
 	if err != nil {
 		return
 	}
 
-	amount, err := handler.GetBigInt(context.MD, PaymentChannelAmountHeader)
+	amount, err := handler.GetBigInt(context.MD, handler.PaymentChannelAmountHeader)
 	if err != nil {
 		return
 	}
 
-	signature, err := handler.GetBytes(context.MD, PaymentChannelSignatureHeader)
+	signature, err := handler.GetBytes(context.MD, handler.PaymentChannelSignatureHeader)
 	if err != nil {
 		return
 	}
@@ -106,7 +96,39 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 }
 
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
-	return paymentErrorToGrpcError(payment.(*paymentTransaction).Commit())
+	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err != nil {
+		PublishChannelStats(payment)
+	}
+	return err
+}
+
+func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
+	if !config.GetBool(config.MeteringEnabled)  {
+		err = handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!")
+		log.WithError(err.Err()).Error("Error in payment channel payment handler commit")
+		return err
+	}
+	paymentTransaction := payment.(*paymentTransaction)
+	channelStats := &metrics.ChannelStats{ChannelId: paymentTransaction.payment.ChannelID,
+		AuthorizedAmount:paymentTransaction.payment.Amount,
+		FullAmount:paymentTransaction.Channel().FullAmount,
+		Nonce: paymentTransaction.Channel().Nonce,
+		GroupID:blockchain.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
+	}
+	serviceURL := config.GetString(config.MeteringEndPoint)+"/contract-api/channel/"+channelStats.ChannelId.String()+"/balance"
+
+	channelStats.OrganizationID = config.GetString(config.OrganizationId)
+	channelStats.ServiceID = config.GetString(config.ServiceId)
+	log.Debugf("Payment channel payment handler is publishing channel statistics: %v", channelStats)
+	commonStats := &metrics.CommonStats{
+		GroupID: channelStats.GroupID,UserName:paymentTransaction.Channel().Sender.Hex()}
+	status := metrics.Publish(channelStats,serviceURL,commonStats)
+
+	if !status {
+		log.WithError(fmt.Errorf("Payment channel payment handler unable to post latest off-chain Channel state on contract API End point %s",serviceURL))
+		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")
+	}
+	return nil
 }
 
 func (h *paymentChannelPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {

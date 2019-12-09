@@ -52,10 +52,10 @@ func (pricing PricingStrategy) GetPrice(GrpcContext *handler.GrpcStreamContext) 
 func (pricing *PricingStrategy) initFromMetaData(metadata *blockchain.ServiceMetadata) (err error) {
 	var priceType PriceType
 
-	if strings.Compare(metadata.Pricing.PriceModel, FIXED_PRICING) == 0 {
-		priceType = &FixedPrice{priceInCogs: metadata.Pricing.PriceInCogs}
+	if strings.Compare(metadata.GetDefaultPricing().PriceModel, FIXED_PRICING) == 0 {
+		priceType = &FixedPrice{priceInCogs: metadata.GetDefaultPricing().PriceInCogs}
 
-	} else if strings.Compare(metadata.Pricing.PriceModel, FIXED_METHOD_PRICING) == 0 {
+	} else if strings.Compare(metadata.GetDefaultPricing().PriceModel, FIXED_METHOD_PRICING) == 0 {
 		methodPricing := &FixedMethodPrice{}
 		err = methodPricing.initPricingData(metadata)
 		priceType = methodPricing

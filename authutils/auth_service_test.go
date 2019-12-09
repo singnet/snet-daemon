@@ -2,14 +2,16 @@
 package authutils
 
 import (
-	"github.com/singnet/snet-daemon/config"
-	"github.com/stretchr/testify/assert"
+
 	"math/big"
 	"testing"
+
+	"github.com/singnet/snet-daemon/config"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCompareWithLatestBlockNumber(t *testing.T) {
-	config.Vip().Set(config.EthereumJsonRpcEndpointKey, "https://ropsten.infura.io")
+	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
 	config.Validate()
 	currentBlockNum, _ := CurrentBlock()
 	err := CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(13)))

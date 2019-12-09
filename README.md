@@ -64,7 +64,7 @@ $ ./scripts/install
 Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as part of the build.
 You need to pass the version as shown in the example below 
 ```bash
-$ ./scripts/build linux amd64 v.0.1.8
+$ ./scripts/build linux amd64 <version>
 ```
 
 * Generate default config file  snet-daemon (on Linux amd64 platform)
@@ -82,7 +82,7 @@ You can edit the script to choose a specific platform, but by default it will bu
 Please note using ldflags the latest tagged version (passed as the first parameter to the script) , sha1 revision and the build time are set as part of the build.
 
 ```bash
-$ ./scripts/build-xgo v.0.1.8
+$ ./scripts/build-xgo <version>
 ```
 
 #### Run Deamon
@@ -153,8 +153,8 @@ configuration properties can be set using configuration file.
 
 These properties you should usually change before starting daemon for the first
 time.
-* **blockchain_network_selected**  (required; default: "local")
- - Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
+* **blockchain_network_selected**  (required)
+  Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
   Daemon will automatically read the Registry address associated with this network For local network ( you can also specify the registry address manually),see the blockchain_network_config.json
 
 * **daemon_end_point** (required;) - 
@@ -166,17 +166,15 @@ endpoint to which daemon sends ethereum JSON-RPC requests;
 Based on the network selected blockchain_network_selected the end point is auto determined
 Example `"https://kovan.infura.io"` for kovan testnet.
 
+
 * **ipfs_end_point** (optional; default `"http://localhost:5002/"`) - 
 endpoint of IPFS instance to get [service configuration
 metadata][service-configuration-metadata]
 
-* **registry_address_key** (Optional) - 
-Ethereum address of the Registry contract instance.This is auto determined if not specified based on the blockchain_network_selected 
-If a value is specified , it will be used and no attempt will be made to auto determine the registry address.
-
 * **organization_id** (required) - 
 Id of the organization to search for [service configuration
 metadata][service-configuration-metadata].
+
 
 * **service_id** (required) - 
 Id of the service to search for [service configuration
@@ -186,15 +184,20 @@ metadata][service-configuration-metadata].
 when passthrough is disabled, daemon echoes requests back as responses; `false`
 reserved mostly for testing purposes.
 
-* **passthrough_endpoint** (required iff `service_type` != `executable`) - 
+* **passthrough_endpoint** (required if `service_type` != `executable`) - 
 endpoint to which requests should be proxied for handling by service.
 
-* **executable_path** (required iff `service_type` == `executable`) - 
+* **executable_path** (required if `service_type` == `executable`) - 
 path to executable to expose as a service.
+
 
 #### Other properties
 
 This options are less frequently needed.
+
+* **authentication_address** (required if `You need to update Daemon configurations remotely`) 
+Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely 
+through a user interface ( Operator UI) 
 
 * **auto_ssl_domain** (optional; default: `""`) -  
 domain name for which the daemon should automatically acquire SSL certs from [Let's Encrypt](https://letsencrypt.org/).
@@ -214,6 +217,9 @@ The group helps determine the recipient address for payments.
 [service configuration
 metadata][service-configuration-metadata]. 
 
+* **free_call_end_point** (optional)     
+This parameter defines the end-point to publish usage of free-calls
+It becomes mandatory when free-call is enabled. Free call is enabled based on the service-metadata attribute 'free_calls' having a value greater than zero.
 
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)
@@ -223,11 +229,12 @@ The default value set is to 4 (units are in MB ), this is used to configure the 
 In case of Large messages , it is recommended to use streaming than setting a very high value on this configuration.
 It is not recommended to set the value more than 4GB
 
-* **monitoring_enabled** (optional; default: `true`) - 
-Enable or Disable monitoring of Requests arrived and response sent back
+* **metering_enabled** (optional,default: `false`) -
+This is used to define if metering needs to be enabled or not .You will need to define a valid ` metering_end_point` 
+when this flag is enabled
 
-* **monitoring_svc_end_point** (optional;only applies if `monitoring_enabled` is set to true) - 
-Needs to be a vaild url where the request and response stats are published as part of monitoring
+* **metering_end_point** (optional;only applies if `metering_enabled` is set to true) - 
+Needs to be a vaild url where the request and response stats are published as part of Metering
 
 * **ssl_cert** (optional; default: `""`) - 
 path to certificate to use for SSL.
@@ -244,8 +251,21 @@ see [etcd client configuration](./etcddb#etcd-client-configuration)
 * **payment_channel_storage_server** (optional) - 
 see [etcd server configuration](./etcddb#etcd-server-configuration)
 
+* **pvt_key_for_metering** (optional;only applies if `free_call_enabled` is set to true) 
+This is used for authentication between daemon and the metering service in the context of free calls.
+Daemon will send a signature signed by this private key , metering service will already have the public key corresponding
+to this Daemon ,metering service will ensure that the signer it receives matches the public key configured at its end.
+This is mandatory only when free calls are enabled.
+
+
 * **rate_limit_per_minute** (optional; default: `Infinity`) - 
 see [rate limiting configuration](./ratelimit/README.md)
+
+
+* **registry_address_key** (Optional) - 
+Ethereum address of the Registry contract instance.This is auto determined if not specified based on the blockchain_network_selected 
+If a value is specified , it will be used and no attempt will be made to auto determine the registry address.
+
  
 * **alerts_email** (optional; default: `""`) - It must be a valid email. if it is empty, then it is considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
 

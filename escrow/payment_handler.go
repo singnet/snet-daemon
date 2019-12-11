@@ -96,36 +96,36 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 }
 
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
-	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err != nil {
+	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil {
 		PublishChannelStats(payment)
 	}
 	return err
 }
 
 func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
-	if !config.GetBool(config.MeteringEnabled)  {
+	if !config.GetBool(config.MeteringEnabled) {
 		err = handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!")
 		log.WithError(err.Err()).Error("Error in payment channel payment handler commit")
 		return err
 	}
 	paymentTransaction := payment.(*paymentTransaction)
 	channelStats := &metrics.ChannelStats{ChannelId: paymentTransaction.payment.ChannelID,
-		AuthorizedAmount:paymentTransaction.payment.Amount,
-		FullAmount:paymentTransaction.Channel().FullAmount,
-		Nonce: paymentTransaction.Channel().Nonce,
-		GroupID:blockchain.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
+		AuthorizedAmount: paymentTransaction.payment.Amount,
+		FullAmount:       paymentTransaction.Channel().FullAmount,
+		Nonce:            paymentTransaction.Channel().Nonce,
+		GroupID:          blockchain.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
 	}
-	serviceURL := config.GetString(config.MeteringEndPoint)+"/contract-api/channel/"+channelStats.ChannelId.String()+"/balance"
+	serviceURL := config.GetString(config.MeteringEndPoint) + "/contract-api/channel/" + channelStats.ChannelId.String() + "/balance"
 
 	channelStats.OrganizationID = config.GetString(config.OrganizationId)
 	channelStats.ServiceID = config.GetString(config.ServiceId)
 	log.Debugf("Payment channel payment handler is publishing channel statistics: %v", channelStats)
 	commonStats := &metrics.CommonStats{
-		GroupID: channelStats.GroupID,UserName:paymentTransaction.Channel().Sender.Hex()}
-	status := metrics.Publish(channelStats,serviceURL,commonStats)
+		GroupID: channelStats.GroupID, UserName: paymentTransaction.Channel().Sender.Hex()}
+	status := metrics.Publish(channelStats, serviceURL, commonStats)
 
 	if !status {
-		log.WithError(fmt.Errorf("Payment channel payment handler unable to post latest off-chain Channel state on contract API End point %s",serviceURL))
+		log.WithError(fmt.Errorf("Payment channel payment handler unable to post latest off-chain Channel state on contract API End point %s", serviceURL))
 		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")
 	}
 	return nil

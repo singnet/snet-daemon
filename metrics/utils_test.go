@@ -30,16 +30,16 @@ func TestGetValue(t *testing.T) {
 }
 
 func TestPublish(t *testing.T) {
-	status := Publish(nil, "",nil)
+	status := Publish(nil, "", &CommonStats{})
 	assert.Equal(t, status, false)
-	status = Publish(nil, "http://localhost:8080",nil)
+	status = Publish(nil, "http://localhost:8080", nil)
 	assert.Equal(t, status, false)
 
 	status = Publish(struct {
 		title string
 	}{
 		title: "abcd",
-	}, "http://localhost:8080",nil)
+	}, "http://localhost:8080", &CommonStats{})
 	assert.Equal(t, status, false)
 }
 
@@ -78,16 +78,15 @@ func TestGetEpochTime(t *testing.T) {
 	assert.NotEqual(t, currentEpoch, secondEpoch, "Epochs msut not be the same")
 }
 
-
 func Test_getPrivateKeyForMetering(t *testing.T) {
-	config.Vip().Set(config.PvtKeyForMetering,"063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
-	key,err := getPrivateKeyForMetering()
+	config.Vip().Set(config.PvtKeyForMetering, "063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
+	key, err := getPrivateKeyForMetering()
 	if err == nil {
 		assert.Equal(t, crypto.PubkeyToAddress(key.PublicKey).String(), "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 		assert.NotNil(t, key)
 		assert.Nil(t, err)
 
-		bytesForMetering := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix,&CommonStats{UserName:"test-user"})
+		bytesForMetering := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix, &CommonStats{UserName: "test-user"})
 		signature := authutils.GetSignature(bytesForMetering, key)
 		signer, err := authutils.GetSignerAddressFromMessage(bytesForMetering, signature)
 		assert.Equal(t, signer.String(), "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")

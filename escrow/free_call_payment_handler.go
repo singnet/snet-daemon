@@ -3,7 +3,6 @@ package escrow
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
@@ -29,8 +28,9 @@ type freeCallPaymentHandler struct {
 
 // NewPaymentHandler retuns new MultiPartyEscrow contract payment handler.
 func FreeCallPaymentHandler(
-	processor *blockchain.Processor, metadata *blockchain.OrganizationMetaData, pServiceMetaData *blockchain.ServiceMetadata) handler.PaymentHandler {
+	freeCallService FreeCallUserService, processor *blockchain.Processor, metadata *blockchain.OrganizationMetaData, pServiceMetaData *blockchain.ServiceMetadata) handler.PaymentHandler {
 	return &freeCallPaymentHandler{
+		service:         freeCallService,
 		orgMetadata:     metadata,
 		serviceMetadata: pServiceMetaData,
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock,
@@ -49,7 +49,7 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 	}
 
 	e := h.freeCallPaymentValidator.Validate(internalPayment)
-	if e != nil {
+	/*if e != nil {
 		return nil, paymentErrorToGrpcError(e)
 	}
 
@@ -63,7 +63,7 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 
 	if err != nil {
 		return
-	}
+	}*/
 
 	transaction, e := h.service.StartFreeCallUserTransaction(internalPayment)
 	if e != nil {

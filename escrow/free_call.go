@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"fmt"
+	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -35,9 +36,9 @@ func (h *lockingFreeCallUserService) FreeCallUserUsage(key *FreeCallUserKey) (fr
 	if !ok {
 		groupId, err := h.replicaGroupID()
 		if err != nil {
-			return
+			return nil, false, err
 		}
-		return &FreeCallUserData{UserId: key.userId, OrgId: key.organizationId, ServiceId: key.serviceId, GroupID: groupId, FreeCallsMade: 0}, true, nil
+		return &FreeCallUserData{UserId: key.UserId, OrgId: key.OrganizationId, ServiceId: key.ServiceId, GroupID: groupId, FreeCallsMade: 0}, true, nil
 	}
 	return
 }
@@ -66,8 +67,8 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 	if err != nil {
 		return nil, NewPaymentError(Internal, "cannot get mutex for user: %v", payment.UserId)
 	}
-	userKey := &FreeCallUserKey{userId: payment.UserId, organizationId: payment.OrganizationId,
-		serviceId: payment.ServiceId, groupID: groupId}
+	userKey := &FreeCallUserKey{UserId: payment.UserId, OrganizationId: payment.OrganizationId,
+		ServiceId: payment.ServiceId, groupID: blockchain.BytesToBase64(groupId[:])}
 
 	lock, ok, err := h.locker.Lock(userKey.String())
 	if err != nil {
@@ -93,11 +94,11 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 		log.Warn("Payment freeCallUserData not found")
 		return nil, NewPaymentError(Unauthenticated, "payment freeCallUserData \"%v\" not found", userKey)
 	}
-
+	/* todo
 	err = h.validator.Validate(payment)
 	if err != nil {
 		return
-	}
+	} */
 
 	return &freeCallTransaction{
 		payment:      *payment,
@@ -124,8 +125,8 @@ func (transaction *freeCallTransaction) Commit() error {
 		log.WithError(err)
 		return err
 	}
-	freeCallUserKey := &FreeCallUserKey{userId: transaction.payment.UserId, organizationId: transaction.payment.OrganizationId,
-		serviceId: transaction.payment.ServiceId, groupID: group_id}
+	freeCallUserKey := &FreeCallUserKey{UserId: transaction.payment.UserId, OrganizationId: transaction.payment.OrganizationId,
+		ServiceId: transaction.payment.ServiceId, groupID: blockchain.BytesToBase64(group_id[:])}
 	IncrementFreeCallCount(transaction.FreeCallUser())
 	e := transaction.service.storage.Put(
 		freeCallUserKey,

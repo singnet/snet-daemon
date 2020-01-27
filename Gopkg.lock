@@ -28,14 +28,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/btcsuite/btcd"
-  packages = ["btcec","chaincfg","chaincfg/chainhash","wire"]
+  packages = ["btcec"]
   revision = "86fed781132ac890ee03e906e4ecd5d6fa180c64"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/btcsuite/btcutil"
-  packages = [".","base58","bech32","hdkeychain"]
-  revision = "d4cc87b860166d00d6b5b9e0d3b3d71d6088d4d4"
 
 [[projects]]
   name = "github.com/coreos/bbolt"
@@ -470,12 +464,6 @@
   revision = "830351dc03c6f07d625727d5f993a463babb20e1"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/tyler-smith/go-bip39"
-  packages = ["."]
-  revision = "8e7a99b3e716f36d3b080a9a70f9eb45abe4edcc"
-
-[[projects]]
   name = "github.com/ugorji/go"
   packages = ["codec"]
   revision = "b4c50a2b199d93b13dc15e78929cfb23bfdf21ab"
@@ -598,6 +586,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2c63874baed864c8887c1ad650fc959d77f926173c9eca1def116d4be8708384"
+  inputs-digest = "e4225a6b465eb2396cedd10f3a25060e6734588134c5c8255f7a670c8678d414"
   solver-name = "gps-cdcl"
   solver-version = 1

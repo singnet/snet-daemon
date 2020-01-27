@@ -21,6 +21,7 @@ const (
 )
 
 type freeCallPaymentHandler struct {
+	service                  FreeCallUserService
 	freeCallPaymentValidator *FreeCallPaymentValidator
 	orgMetadata              *blockchain.OrganizationMetaData
 	serviceMetadata          *blockchain.ServiceMetadata
@@ -60,7 +61,16 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 		return nil, paymentErrorToGrpcError(fmt.Errorf("free call limit has been exceeded."))
 	}
 
-	return internalPayment, nil
+	if err != nil {
+		return
+	}
+
+	transaction, e := h.service.StartFreeCallUserTransaction(internalPayment)
+	if e != nil {
+		return nil, paymentErrorToGrpcError(e)
+	}
+
+	return transaction, nil
 }
 
 func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *FreeCallPayment, err *handler.GrpcError) {
@@ -93,18 +103,20 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 }
 
 func (h *freeCallPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
-	return nil
+	return paymentErrorToGrpcError(payment.(*freeCallTransaction).Commit())
 }
 
 func (h *freeCallPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
-	return nil
+	return paymentErrorToGrpcError(payment.(*freeCallTransaction).Rollback())
 }
 
+//todo
 func (h *freeCallPaymentHandler) checkIfFreeCallsAreAllowed(username string) (allowed bool, err error) {
-	response, err := h.sendRequest(nil, config.GetString(config.FreeCallEndPoint), username)
+	response, err := h.sendRequest(nil, config.GetString(config.FreeCallEndPoint)+"/pricing/usage", username)
 	if err != nil {
 		return false, err
 	}
+	//TODO, now get this from store and check
 	return h.areFreeCallsExhausted(response)
 }
 

@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"strings"
 )
+
 /*
 {
     "version": 1,
@@ -57,49 +58,48 @@ import (
 const IpfsPrefix = "ipfs://"
 
 type ServiceMetadata struct {
-	Version                    int      `json:"version"`
-	DisplayName                string   `json:"display_name"`
-	Encoding                   string   `json:"encoding"`
-	ServiceType                string   `json:"service_type"`
-    Groups                     []OrganizationGroup `json:"groups"`
-	ModelIpfsHash              string   `json:"model_ipfs_hash"`
-	MpeAddress                 string   `json:"mpe_address"`
+	Version       int                 `json:"version"`
+	DisplayName   string              `json:"display_name"`
+	Encoding      string              `json:"encoding"`
+	ServiceType   string              `json:"service_type"`
+	Groups        []OrganizationGroup `json:"groups"`
+	ModelIpfsHash string              `json:"model_ipfs_hash"`
+	MpeAddress    string              `json:"mpe_address"`
 
-	multiPartyEscrowAddress    common.Address
-	defaultPricing Pricing
+	multiPartyEscrowAddress common.Address
+	defaultPricing          Pricing
 
-	defaultGroup                OrganizationGroup
+	defaultGroup OrganizationGroup
 
-	freeCallSignerAddress      common.Address
-	isfreeCallAllowed           bool
+	freeCallSignerAddress common.Address
+	isfreeCallAllowed     bool
+	freeCallsAllowed      int
 }
 
 type OrganizationGroup struct {
-	Endpoints []string `json:"endpoints"`
-	GroupID   string   `json:"group_id"`
-	GroupName      string  `json:"group_name"`
-	Pricing   []Pricing  `json:"pricing"`
-	FreeCalls int `json:"free_calls"`
-	FreeCallSigner string `json:"free_call_signer_address"`
+	Endpoints      []string  `json:"endpoints"`
+	GroupID        string    `json:"group_id"`
+	GroupName      string    `json:"group_name"`
+	Pricing        []Pricing `json:"pricing"`
+	FreeCalls      int       `json:"free_calls"`
+	FreeCallSigner string    `json:"free_call_signer_address"`
 }
 type Pricing struct {
-	PriceModel  string `json:"price_model"`
-	PriceInCogs *big.Int    `json:"price_in_cogs,omitempty"`
-	PackageName string `json:"package_name,omitempty"`
-	Default     bool   `json:"default,omitempty"`
+	PriceModel     string           `json:"price_model"`
+	PriceInCogs    *big.Int         `json:"price_in_cogs,omitempty"`
+	PackageName    string           `json:"package_name,omitempty"`
+	Default        bool             `json:"default,omitempty"`
 	PricingDetails []PricingDetails `json:"details,omitempty"`
 }
 
 type PricingDetails struct {
-	ServiceName   string               `json:"service_name"`
+	ServiceName   string          `json:"service_name"`
 	MethodPricing []MethodPricing `json:"method_pricing"`
 }
 type MethodPricing struct {
-	MethodName  string `json:"method_name"`
-	PriceInCogs *big.Int    `json:"price_in_cogs"`
+	MethodName  string   `json:"method_name"`
+	PriceInCogs *big.Int `json:"price_in_cogs"`
 }
-
-
 
 func getRegistryAddressKey() common.Address {
 	address := config.GetRegistryAddress()
@@ -121,7 +121,7 @@ func ServiceMetaData() *ServiceMetadata {
 				Panic("error on determining service metadata from file")
 		}
 	} else {
-		metadata = &ServiceMetadata{Encoding:"proto",ServiceType:"grpc"}
+		metadata = &ServiceMetadata{Encoding: "proto", ServiceType: "grpc"}
 	}
 	return metadata
 }
@@ -188,16 +188,16 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 	}
 
 	if err := setDerivedFields(metaData); err != nil {
-		return nil,err
+		return nil, err
 	}
-	if err := setFreeCallData(metaData) ; err != nil {
-		return nil,err
+	if err := setFreeCallData(metaData); err != nil {
+		return nil, err
 	}
 	return metaData, err
 }
 
 func setDerivedFields(metaData *ServiceMetadata) (err error) {
-	if err= setDefaultPricing(metaData); err != nil {
+	if err = setDefaultPricing(metaData); err != nil {
 		return err
 	}
 	setMultiPartyEscrowAddress(metaData)
@@ -211,23 +211,23 @@ func setGroup(metaData *ServiceMetadata) (err error) {
 	for _, group := range metaData.Groups {
 		if strings.Compare(group.GroupName, groupName) == 0 {
 			metaData.defaultGroup = group
-			return  nil
+			return nil
 		}
 	}
 	err = fmt.Errorf("group name %v in config is invalid, "+
 		"there was no group found with this name in the metadata", groupName)
 	log.WithError(err)
-	return  err
+	return err
 }
 
 func setDefaultPricing(metaData *ServiceMetadata) (err error) {
-	if err = setGroup(metaData);err != nil {
+	if err = setGroup(metaData); err != nil {
 		return err
 	}
 	for _, pricing := range metaData.defaultGroup.Pricing {
 		if pricing.Default {
 			metaData.defaultPricing = pricing
-			return  nil
+			return nil
 		}
 	}
 	err = fmt.Errorf("MetaData does not have the default pricing set ")
@@ -240,10 +240,11 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 	metaData.multiPartyEscrowAddress = common.HexToAddress(metaData.MpeAddress)
 }
 
-func setFreeCallData(metaData *ServiceMetadata) (error) {
+func setFreeCallData(metaData *ServiceMetadata) error {
 
-	if (metaData.defaultGroup.FreeCalls > 0 ) {
+	if metaData.defaultGroup.FreeCalls > 0 {
 		metaData.isfreeCallAllowed = true
+		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
 		//If the signer address is not a valid address, then return back an error
 		if !common.IsHexAddress((metaData.defaultGroup.FreeCallSigner)) {
 			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly")
@@ -282,4 +283,8 @@ func (metaData *ServiceMetadata) GetDisplayName() string {
 
 func (metaData *ServiceMetadata) IsFreeCallAllowed() bool {
 	return metaData.isfreeCallAllowed
+}
+
+func (metaData *ServiceMetadata) GetFreeCallsAllowed() int {
+	return metaData.freeCallsAllowed
 }

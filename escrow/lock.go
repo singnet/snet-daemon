@@ -18,18 +18,15 @@ type Locker interface {
 }
 
 // NewEtcdLocker returns new lock which is based on etcd storage.
-func NewEtcdLocker(storage AtomicStorage,metadata *blockchain.ServiceMetadata) Locker {
+func NewEtcdLocker(storage AtomicStorage, metadata *blockchain.ServiceMetadata) Locker {
 	return &etcdLocker{
-		storage: NewLockerStorage(storage,metadata),
+		storage: NewLockerStorage(storage, metadata),
 	}
 }
 
 // returns new prefixed storage
-func NewLockerStorage(storage AtomicStorage,metadata *blockchain.ServiceMetadata) *PrefixedAtomicStorage {
-	return &PrefixedAtomicStorage{
-		delegate:  storage,
-		keyPrefix:  "/"+metadata.MpeAddress+"/payment-channel/lock",
-	}
+func NewLockerStorage(storage AtomicStorage, metadata *blockchain.ServiceMetadata) *PrefixedAtomicStorage {
+	return NewPrefixedAtomicStorage(storage, "/payment-channel/lock", metadata.MpeAddress)
 }
 
 type etcdLocker struct {

@@ -86,20 +86,3 @@ func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPayment() {
 func (suite *FreeCallPaymentHandlerTestSuite) Test_freeCallPaymentHandler_Type() {
 	assert.Equal(suite.T(), suite.paymentHandler.Type(), FreeCallPaymentType)
 }
-
-func (suite *FreeCallPaymentHandlerTestSuite) Test_areFreeCallsExhausted() {
-
-	response, err := suite.paymentHandler.sendRequest(nil,
-		"http://demo8325345.mockable.io/metering/usage/freecalls", "testuser")
-	assert.NotNil(suite.T(), response)
-	assert.Nil(suite.T(), err)
-	allowed, err := suite.paymentHandler.areFreeCallsExhausted(response)
-	assert.True(suite.T(), allowed)
-
-	response, err = suite.paymentHandler.sendRequest(nil,
-		"http://demo8325345.mockable.io/metering/usage/freecallexhausted", "testuser")
-	assert.NotNil(suite.T(), response)
-	assert.Nil(suite.T(), err)
-	allowed, err = suite.paymentHandler.areFreeCallsExhausted(response)
-	assert.False(suite.T(), allowed)
-}

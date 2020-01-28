@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"math/big"
 )
+
 const (
 	PrefixInSignature = "__MPE_claim_message"
 	//Agreed constant value
@@ -18,42 +19,41 @@ const (
 )
 
 type FreeCallPaymentValidator struct {
-	currentBlock               func() (currentBlock *big.Int, err error)
+	currentBlock   func() (currentBlock *big.Int, err error)
 	freeCallSigner common.Address
 }
 
-func NewFreeCallPaymentValidator (funcCurrentBlock func() (currentBlock *big.Int, err error),signer common.Address) *FreeCallPaymentValidator {
+func NewFreeCallPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int, err error), signer common.Address) *FreeCallPaymentValidator {
 	return &FreeCallPaymentValidator{
-		currentBlock:funcCurrentBlock,
+		currentBlock:   funcCurrentBlock,
 		freeCallSigner: signer,
 	}
 
 }
 
-func (validator *FreeCallPaymentValidator) Validate (payment *FreeCallPayment) (err error) {
+func (validator *FreeCallPaymentValidator) Validate(payment *FreeCallPayment) (err error) {
 
 	signerAddress, err := validator.getSignerAddressForFreeCall(payment)
 	if err != nil {
 		return NewPaymentError(Unauthenticated, "payment signature is not valid")
 	}
-     if *signerAddress != validator.freeCallSigner  {
-		 return NewPaymentError(Unauthenticated, "payment signer is not valid %v , %v", signerAddress.Hex(),validator.freeCallSigner.Hex())
-	 }
+	if *signerAddress != validator.freeCallSigner {
+		return NewPaymentError(Unauthenticated, "payment signer is not valid %v , %v", signerAddress.Hex(), validator.freeCallSigner.Hex())
+	}
 
 	//Check for the current block Number
 	if err := validator.compareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
-		return  err
+		return err
 	}
-
+	//todo more signature checks will go in here for free call
 	return nil
 
 }
+
 // ChannelPaymentValidator validates payment using payment channel state.
 type ChannelPaymentValidator struct {
 	currentBlock               func() (currentBlock *big.Int, err error)
 	paymentExpirationThreshold func() (threshold *big.Int)
-
-
 }
 
 // NewChannelPaymentValidator returns new payment validator instance
@@ -82,7 +82,7 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 	}
 
 	log = log.WithField("signerAddress", blockchain.AddressToHex(signerAddress))
-	if *signerAddress != channel.Signer && *signerAddress != channel.Sender  {
+	if *signerAddress != channel.Signer && *signerAddress != channel.Sender {
 		log.WithField("signerAddress", blockchain.AddressToHex(signerAddress)).Warn("Channel signer is not equal to payment signer/sender")
 		return NewPaymentError(Unauthenticated, "payment is not signed by channel signer/sender")
 	}
@@ -120,7 +120,7 @@ func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNum
 
 func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
 
-	println("block number:"+payment.CurrentBlockNumber.String())
+	println("block number:" + payment.CurrentBlockNumber.String())
 	message := bytes.Join([][]byte{
 		[]byte(FreeCallPrefixSignature),
 		[]byte(payment.UserId),
@@ -137,8 +137,6 @@ func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *
 	}
 	return signer, err
 }
-
-
 
 func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err error) {
 	message := bytes.Join([][]byte{
@@ -157,7 +155,6 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 
 	return signer, err
 }
-
 
 func bigIntToBytes(value *big.Int) []byte {
 	return common.BigToHash(value).Bytes()

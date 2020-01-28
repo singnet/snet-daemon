@@ -30,12 +30,12 @@ type FreeCallUserKey struct {
 	UserId         string
 	OrganizationId string
 	ServiceId      string
-	groupID        string
+	GroupID        string
 }
 
 func (key *FreeCallUserKey) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v/%v}", key.UserId, key.OrganizationId,
-		key.ServiceId, key.groupID)
+		key.ServiceId, key.GroupID)
 }
 
 type FreeCallUserData struct {
@@ -47,7 +47,7 @@ type FreeCallUserData struct {
 }
 
 func (data *FreeCallUserData) String() string {
-	return fmt.Sprintf("{UserId: %v, OrgId: %v, ServiceId: %v, , groupID: %v",
+	return fmt.Sprintf("{UserId: %v, OrgId: %v, ServiceId: %v, , GroupID: %v",
 		data.UserId, data.ServiceId,
 		data.OrgId, blockchain.BytesToBase64(data.GroupID[:]))
 }

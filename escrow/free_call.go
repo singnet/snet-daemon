@@ -7,10 +7,8 @@ import (
 )
 
 type lockingFreeCallUserService struct {
-	storage *FreeCallUserStorage
-	locker  Locker
-	//todo..see if validator is required here
-	validator      *FreeCallPaymentValidator
+	storage        *FreeCallUserStorage
+	locker         Locker
 	replicaGroupID func() ([32]byte, error)
 }
 
@@ -18,12 +16,11 @@ func NewFreeCallUserService(
 	storage *FreeCallUserStorage,
 
 	locker Locker,
-	freeCallValidator *FreeCallPaymentValidator, groupIdReader func() ([32]byte, error)) FreeCallUserService {
+	groupIdReader func() ([32]byte, error)) FreeCallUserService {
 
 	return &lockingFreeCallUserService{
 		storage:        storage,
 		locker:         locker,
-		validator:      freeCallValidator,
 		replicaGroupID: groupIdReader,
 	}
 }
@@ -64,11 +61,19 @@ func (transaction *freeCallTransaction) FreeCallUser() *FreeCallUserData {
 
 func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeCallPayment) (transaction FreeCallTransaction, err error) {
 	groupId, err := h.replicaGroupID()
+	userKey := &FreeCallUserKey{UserId: payment.UserId, OrganizationId: payment.OrganizationId,
+		ServiceId: payment.ServiceId, GroupID: blockchain.BytesToBase64(groupId[:])}
+	freeCallUserData, ok, err := h.FreeCallUserUsage(userKey)
+	if err != nil {
+		return nil, NewPaymentError(Internal, "payment freeCallUserData error:"+err.Error())
+	}
+	if !ok {
+		log.Warn("Payment freeCallUserData not found")
+		return nil, NewPaymentError(Unauthenticated, "payment freeCallUserData \"%v\" not found", userKey)
+	}
 	if err != nil {
 		return nil, NewPaymentError(Internal, "cannot get mutex for user: %v", payment.UserId)
 	}
-	userKey := &FreeCallUserKey{UserId: payment.UserId, OrganizationId: payment.OrganizationId,
-		ServiceId: payment.ServiceId, groupID: blockchain.BytesToBase64(groupId[:])}
 
 	lock, ok, err := h.locker.Lock(userKey.String())
 	if err != nil {
@@ -86,14 +91,6 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 		}
 	}(lock)
 
-	freeCallUserData, ok, err := h.FreeCallUserUsage(userKey)
-	if err != nil {
-		return nil, NewPaymentError(Internal, "payment freeCallUserData error:"+err.Error())
-	}
-	if !ok {
-		log.Warn("Payment freeCallUserData not found")
-		return nil, NewPaymentError(Unauthenticated, "payment freeCallUserData \"%v\" not found", userKey)
-	}
 	/* todo
 	err = h.validator.Validate(payment)
 	if err != nil {
@@ -126,7 +123,7 @@ func (transaction *freeCallTransaction) Commit() error {
 		return err
 	}
 	freeCallUserKey := &FreeCallUserKey{UserId: transaction.payment.UserId, OrganizationId: transaction.payment.OrganizationId,
-		ServiceId: transaction.payment.ServiceId, groupID: blockchain.BytesToBase64(group_id[:])}
+		ServiceId: transaction.payment.ServiceId, GroupID: blockchain.BytesToBase64(group_id[:])}
 	IncrementFreeCallCount(transaction.FreeCallUser())
 	e := transaction.service.storage.Put(
 		freeCallUserKey,

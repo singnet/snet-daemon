@@ -237,8 +237,6 @@ func (components *Components) FreeCallUserService() escrow.FreeCallUserService {
 	components.freeCallUserService = escrow.NewFreeCallUserService(
 		escrow.NewFreeCallUserStorage(components.AtomicStorage(), components.ServiceMetaData()),
 		escrow.NewEtcdLocker(components.AtomicStorage(), components.ServiceMetaData()),
-		escrow.NewFreeCallPaymentValidator(components.Blockchain().CurrentBlock,
-			components.ServiceMetaData().FreeCallSignerAddress()),
 		func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil

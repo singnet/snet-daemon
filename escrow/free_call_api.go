@@ -2,15 +2,8 @@ package escrow
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
-
-	"github.com/singnet/snet-daemon/blockchain"
 )
-
-func FreeCallID(userAddress *common.Address, serviceId string) string {
-	return fmt.Sprintf("%v/%v", userAddress, serviceId)
-}
 
 // To Support Free calls
 type FreeCallPayment struct {
@@ -39,17 +32,12 @@ func (key *FreeCallUserKey) String() string {
 }
 
 type FreeCallUserData struct {
-	UserId        string
-	ServiceId     string
-	OrgId         string
-	GroupID       [32]byte
 	FreeCallsMade int
 }
 
 func (data *FreeCallUserData) String() string {
-	return fmt.Sprintf("{UserId: %v, OrgId: %v, ServiceId: %v, , GroupID: %v",
-		data.UserId, data.ServiceId,
-		data.OrgId, blockchain.BytesToBase64(data.GroupID[:]))
+	return fmt.Sprintf("{FreeCallsMade: %v",
+		data.FreeCallsMade)
 }
 
 type FreeCallUserService interface {

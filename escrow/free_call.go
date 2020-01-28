@@ -31,11 +31,7 @@ func (h *lockingFreeCallUserService) FreeCallUserUsage(key *FreeCallUserKey) (fr
 		return
 	}
 	if !ok {
-		groupId, err := h.replicaGroupID()
-		if err != nil {
-			return nil, false, err
-		}
-		return &FreeCallUserData{UserId: key.UserId, OrgId: key.OrganizationId, ServiceId: key.ServiceId, GroupID: groupId, FreeCallsMade: 0}, true, nil
+		return &FreeCallUserData{FreeCallsMade: 0}, true, nil
 	}
 	return
 }
@@ -90,12 +86,6 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 			}
 		}
 	}(lock)
-
-	/* todo
-	err = h.validator.Validate(payment)
-	if err != nil {
-		return
-	} */
 
 	return &freeCallTransaction{
 		payment:      *payment,

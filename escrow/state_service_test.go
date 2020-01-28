@@ -56,7 +56,8 @@ var stateServiceTest = func() stateServiceTestType {
 		panic("Could not make defaultSignature")
 	}
 
-	paymentStorage := NewPaymentStorage(NewMemStorage())
+	paymentStorage := NewPaymentStorage(NewMemStorage(),
+		&blockchain.ServiceMetadata{MpeAddress: "0xf22186b5081ff5ce73482ad761db0eb0d25abfbf"})
 	verificationAddress := common.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	return stateServiceTestType{
@@ -116,7 +117,8 @@ func cleanup() {
 		}
 		return mpeChannel, true, nil
 	}
-	paymentStorage := NewPaymentStorage(NewMemStorage())
+	paymentStorage := NewPaymentStorage(NewMemStorage(),
+		&blockchain.ServiceMetadata{MpeAddress: "0xf22186b5081ff5ce73482ad761db0eb0d25abfbf"})
 	stateServiceTest.service.paymentStorage = paymentStorage
 	stateServiceTest.channelServiceMock.Clear()
 }

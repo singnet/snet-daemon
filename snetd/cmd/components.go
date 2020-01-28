@@ -192,7 +192,7 @@ func (components *Components) PaymentStorage() *escrow.PaymentStorage {
 		return components.paymentStorage
 	}
 
-	components.paymentStorage = escrow.NewPaymentStorage(components.AtomicStorage(), components.ServiceMetaData())
+	components.paymentStorage = escrow.NewPaymentStorage(components.AtomicStorage())
 
 	return components.paymentStorage
 }

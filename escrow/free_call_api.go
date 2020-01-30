@@ -2,7 +2,27 @@ package escrow
 
 import (
 	"fmt"
+	"math/big"
 )
+
+// To Support Free calls
+type FreeCallPayment struct {
+	//Has the Id of the user making the call
+	UserId string
+	//Service Id .
+	ServiceId string
+	//Organization Id
+	OrganizationId string
+	//Current block number
+	CurrentBlockNumber *big.Int
+	// Signature passed
+	Signature []byte
+}
+
+func (key *FreeCallPayment) String() string {
+	return fmt.Sprintf("{ID:%v/%v/%v}", key.UserId, key.OrganizationId,
+		key.ServiceId)
+}
 
 type FreeCallUserKey struct {
 	UserId         string
@@ -26,7 +46,10 @@ func (data *FreeCallUserData) String() string {
 }
 
 type FreeCallUserService interface {
-	FreeCallUserUsage(key *FreeCallUserKey) (freeCallUser *FreeCallUserData, ok bool, err error)
+	GetFreeCallUserKey(payment *FreeCallPayment) (userKey *FreeCallUserKey, err error)
+
+	//if the user details are not found, send back a new entry to be persisted
+	FreeCallUser(key *FreeCallUserKey) (freeCallUser *FreeCallUserData, ok bool, err error)
 
 	ListFreeCallUsers() (freeCallUsers []*FreeCallUserData, err error)
 

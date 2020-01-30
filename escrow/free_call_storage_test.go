@@ -4,8 +4,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"testing"
-
-	"github.com/singnet/snet-daemon/blockchain"
 )
 
 type FreeCallUserStorageSuite struct {
@@ -18,7 +16,7 @@ func (suite *FreeCallUserStorageSuite) SetupSuite() {
 
 	suite.memoryStorage = NewMemStorage()
 
-	suite.storage = NewFreeCallUserStorage(suite.memoryStorage, &blockchain.ServiceMetadata{MpeAddress: "0xf65186b5081ff5ce73482ad761db0eb0d25abfbf"})
+	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
 }
 
 func (suite *FreeCallUserStorageSuite) SetupTest() {
@@ -85,5 +83,7 @@ func (suite *FreeCallUserStorageSuite) TestCompareAndSwap() {
 	assert.True(suite.T(), ok)
 
 	userC, ok, err := suite.storage.Get(suite.getFreeCallUserKey("userD"))
+	assert.True(suite.T(), ok)
 	assert.Equal(suite.T(), 2, userC.FreeCallsMade)
+	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 }

@@ -1,7 +1,6 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
 	"reflect"
 )
 
@@ -9,13 +8,12 @@ type FreeCallUserStorage struct {
 	delegate TypedAtomicStorage
 }
 
-func NewFreeCallUserStorage(atomicStorage AtomicStorage, metadata *blockchain.ServiceMetadata) *FreeCallUserStorage {
+func NewFreeCallUserStorage(atomicStorage AtomicStorage) *FreeCallUserStorage {
 	return &FreeCallUserStorage{
 		delegate: &TypedAtomicStorageImpl{
 			atomicStorage: &PrefixedAtomicStorage{
-				delegate: atomicStorage,
-				//Add the MPE Network address as the prefix on the key for storage
-				keyPrefix: "/" + metadata.MpeAddress + "/free-call-user/storage",
+				delegate:  atomicStorage,
+				keyPrefix: "/free-call-user/storage",
 			},
 			keySerializer:     serialize,
 			valueSerializer:   serialize,

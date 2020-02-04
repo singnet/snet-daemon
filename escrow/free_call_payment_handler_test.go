@@ -3,6 +3,7 @@ package escrow
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
 	"math/big"
 	"strconv"
@@ -24,22 +25,35 @@ type FreeCallPaymentHandlerTestSuite struct {
 	suite.Suite
 	paymentHandler freeCallPaymentHandler
 	privateKey     *ecdsa.PrivateKey
+	key            *FreeCallUserKey
+	data           *FreeCallUserData
+	memoryStorage  *memoryStorage
+	storage        *FreeCallUserStorage
+	metadata       *blockchain.ServiceMetadata
 }
 
+func (suite *FreeCallPaymentHandlerTestSuite) getKey(userId string) *FreeCallUserKey {
+	return &FreeCallUserKey{UserId: userId, ServiceId: config.GetString(config.ServiceId),
+		OrganizationId: config.GetString(config.OrganizationId), GroupID: "fQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}
+
+}
 func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
 
 	suite.privateKey = GenerateTestPrivateKey()
-	servicemetadata, _ := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
-	config.Vip().Set(config.FreeCallEndPoint, "http://demo8325345.mockable.io")
-	servMetadata, _ := blockchain.InitServiceMetaDataFromJson(testJsonData)
+	suite.memoryStorage = NewMemStorage()
+	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
+	orgMetadata, _ := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
+	suite.metadata, _ = blockchain.InitServiceMetaDataFromJson(testJsonData)
+	suite.data = &FreeCallUserData{12}
+	suite.key = suite.getKey("user1")
 	suite.paymentHandler = freeCallPaymentHandler{
-		orgMetadata:     servicemetadata,
-		serviceMetadata: servMetadata,
+		orgMetadata:     orgMetadata,
+		serviceMetadata: suite.metadata,
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(func() (*big.Int, error) {
 			return big.NewInt(99), nil
 		}, crypto.PubkeyToAddress(suite.privateKey.PublicKey)),
+		service: NewFreeCallUserService(suite.storage, NewEtcdLocker(suite.memoryStorage, suite.metadata), func() ([32]byte, error) { return [32]byte{125}, nil }, suite.metadata),
 	}
-	config.Vip().Set(config.MeteringEndPoint, "http://demo8325345.mockable.io")
 }
 
 func SignTestFreeCallPayment(privateKey *ecdsa.PrivateKey, currentBlock int64, user string) []byte {
@@ -69,37 +83,46 @@ func (suite *FreeCallPaymentHandlerTestSuite) grpcMetadataForFreeCall(user strin
 	return md
 }
 
-func (suite *FreeCallPaymentHandlerTestSuite) grpcContextForFreeCall(patch func(*metadata.MD)) *handler.GrpcStreamContext {
-	md := suite.grpcMetadataForFreeCall("user1", 99)
+func (suite *FreeCallPaymentHandlerTestSuite) grpcContextForFreeCall(patch func(*metadata.MD), userId string) *handler.GrpcStreamContext {
+	md := suite.grpcMetadataForFreeCall(userId, 99)
 	patch(&md)
 	return &handler.GrpcStreamContext{
 		MD: md,
 	}
 }
 
-func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPayment() {
-	context := suite.grpcContextForFreeCall(func(md *metadata.MD) {})
-	_, err := suite.paymentHandler.Payment(context)
-	assert.Errorf(suite.T(), err.Err(), "internal error: free call limit has been exceeded.", "Unexpected error: %v", err)
+func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPaymentFromContext() {
+	context := suite.grpcContextForFreeCall(func(md *metadata.MD) {}, "user1")
+	suite.storage.Put(suite.key, suite.data)
+	transaction, err := suite.paymentHandler.Payment(context)
+	assert.Nil(suite.T(), transaction)
+	assert.Contains(suite.T(), err.Err().Error(), "free call limit has been exceeded")
+}
+
+func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPaymentComplete() {
+	suite.storage.Put(suite.getKey("user2"), &FreeCallUserData{FreeCallsMade: 9})
+	paymentTransaction, err := suite.paymentHandler.Payment(suite.grpcContextForFreeCall(func(md *metadata.MD) {}, "user2"))
+	assert.Nil(suite.T(), err)
+	err = suite.paymentHandler.Complete(paymentTransaction)
+	assert.Nil(suite.T(), err)
+	updatedUser, ok, errB := suite.storage.Get(suite.getKey("user2"))
+	assert.True(suite.T(), ok)
+	assert.Nil(suite.T(), errB)
+	assert.Equal(suite.T(), updatedUser.FreeCallsMade, 10)
+}
+
+func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPaymentCompleteAfterError() {
+	suite.storage.Put(suite.getKey("user3"), &FreeCallUserData{FreeCallsMade: 9})
+	paymentTransaction, err := suite.paymentHandler.Payment(suite.grpcContextForFreeCall(func(md *metadata.MD) {}, "user2"))
+	assert.Nil(suite.T(), err)
+	errA := suite.paymentHandler.CompleteAfterError(paymentTransaction, fmt.Errorf("Test Error"))
+	assert.Nil(suite.T(), errA)
+	updatedUser, ok, errB := suite.storage.Get(suite.getKey("user3"))
+	assert.True(suite.T(), ok)
+	assert.Nil(suite.T(), errB)
+	assert.Equal(suite.T(), updatedUser.FreeCallsMade, 9)
 }
 
 func (suite *FreeCallPaymentHandlerTestSuite) Test_freeCallPaymentHandler_Type() {
 	assert.Equal(suite.T(), suite.paymentHandler.Type(), FreeCallPaymentType)
-}
-
-func (suite *FreeCallPaymentHandlerTestSuite) Test_areFreeCallsExhausted() {
-
-	response, err := suite.paymentHandler.sendRequest(nil,
-		"http://demo8325345.mockable.io/metering/usage/freecalls", "testuser")
-	assert.NotNil(suite.T(), response)
-	assert.Nil(suite.T(), err)
-	allowed, err := suite.paymentHandler.areFreeCallsExhausted(response)
-	assert.True(suite.T(), allowed)
-
-	response, err = suite.paymentHandler.sendRequest(nil,
-		"http://demo8325345.mockable.io/metering/usage/freecallexhausted", "testuser")
-	assert.NotNil(suite.T(), response)
-	assert.Nil(suite.T(), err)
-	allowed, err = suite.paymentHandler.areFreeCallsExhausted(response)
-	assert.False(suite.T(), allowed)
 }

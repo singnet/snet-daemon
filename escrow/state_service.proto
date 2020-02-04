@@ -68,11 +68,11 @@ message FreeCallStateRequest {
     string user_id = 1;
     //signer-token = (user@mail, user-public-key, token_issue_date), this is generated my Market place Dapp
     //to leverage free calls from SDK/ snet-cli, you will need this signer-token to be downloaded from Dapp
-    bytes authorized_token = 2;
+    bytes token_for_free_call = 2;
     //Token issue date in Block number
     uint64 token_issue_date_block = 3 ;
     //Signature is made up of the below, user signs with the private key corresponding with the public key used to generate the authorized token
-    //free-call-metadata = ("__prefix_free_trial",user_id,organization_id,service_id,group_id,current_block,authorized_token)
+    //free-call-metadata = ("__prefix_free_trial",user_id,organization_id,service_id,group_id,current_block,token_for_free_call)
     bytes signature = 4;
     //current block number (signature will be valid only for short time around this block number)
     uint64 current_block = 5;

@@ -1,16 +1,9 @@
 package escrow
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
-	"github.com/singnet/snet-daemon/metrics"
-	log "github.com/sirupsen/logrus"
-	"io/ioutil"
-	"net/http"
 )
 
 const (
@@ -21,15 +14,18 @@ const (
 )
 
 type freeCallPaymentHandler struct {
+	service                  FreeCallUserService
 	freeCallPaymentValidator *FreeCallPaymentValidator
 	orgMetadata              *blockchain.OrganizationMetaData
 	serviceMetadata          *blockchain.ServiceMetadata
 }
 
-// NewPaymentHandler retuns new MultiPartyEscrow contract payment handler.
+// NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func FreeCallPaymentHandler(
-	processor *blockchain.Processor, metadata *blockchain.OrganizationMetaData, pServiceMetaData *blockchain.ServiceMetadata) handler.PaymentHandler {
+	freeCallService FreeCallUserService, processor *blockchain.Processor, metadata *blockchain.OrganizationMetaData,
+	pServiceMetaData *blockchain.ServiceMetadata) handler.PaymentHandler {
 	return &freeCallPaymentHandler{
+		service:         freeCallService,
 		orgMetadata:     metadata,
 		serviceMetadata: pServiceMetaData,
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock,
@@ -52,15 +48,12 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 		return nil, paymentErrorToGrpcError(e)
 	}
 
-	allowed, errorSeen := h.checkIfFreeCallsAreAllowed(internalPayment.UserId)
-	if errorSeen != nil {
-		return nil, paymentErrorToGrpcError(errorSeen)
-	}
-	if !allowed {
-		return nil, paymentErrorToGrpcError(fmt.Errorf("free call limit has been exceeded."))
+	transaction, e := h.service.StartFreeCallUserTransaction(internalPayment)
+	if e != nil {
+		return nil, paymentErrorToGrpcError(e)
 	}
 
-	return internalPayment, nil
+	return transaction, nil
 }
 
 func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *FreeCallPayment, err *handler.GrpcError) {
@@ -93,74 +86,9 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 }
 
 func (h *freeCallPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
-	return nil
+	return paymentErrorToGrpcError(payment.(*freeCallTransaction).Commit())
 }
 
 func (h *freeCallPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
-	return nil
-}
-
-func (h *freeCallPaymentHandler) checkIfFreeCallsAreAllowed(username string) (allowed bool, err error) {
-	response, err := h.sendRequest(nil, config.GetString(config.FreeCallEndPoint), username)
-	if err != nil {
-		return false, err
-	}
-	return h.areFreeCallsExhausted(response)
-}
-
-//Set all the headers before publishing
-func (h *freeCallPaymentHandler) sendRequest(json []byte, serviceURL string, username string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", serviceURL, bytes.NewBuffer(json))
-	if err != nil {
-		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
-		return nil, err
-	}
-	// sending the get request
-	q := req.URL.Query()
-	orgId := config.GetString(config.OrganizationId)
-	serviceId := config.GetString(config.ServiceId)
-	q.Add(config.OrganizationId, orgId)
-	q.Add(config.ServiceId, serviceId)
-	q.Add("username", username)
-	metrics.SignMessageForMetering(req,
-		&metrics.CommonStats{OrganizationID: orgId, ServiceID: serviceId,
-			GroupID: h.orgMetadata.GetGroupIdString(), UserName: username})
-	req.URL.RawQuery = q.Encode()
-	client := &http.Client{}
-	req.Header.Set("Content-Type", "application/json")
-
-	return client.Do(req)
-
-}
-
-type FreeCallCheckResponse struct {
-	Username       string `json:"username"`
-	OrgID          string `json:"org_id"`
-	ServiceID      string `json:"service_id"`
-	TotalCallsMade int    `json:"total_calls_made"`
-}
-
-//Check if the response received was proper
-func (h *freeCallPaymentHandler) areFreeCallsExhausted(response *http.Response) (allowed bool, err error) {
-	if response == nil {
-		log.Warningf("Empty response received.")
-		return false, nil
-	}
-	if response.StatusCode != http.StatusOK {
-		log.Warningf("Service call failed with status code : %d ", response.StatusCode)
-		return false, nil
-	}
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Infof("Unable to retrieve calls allowed from Body , : %f ", err.Error())
-		return false, err
-	}
-	var data FreeCallCheckResponse
-	if err = json.Unmarshal(body, &data); err != nil {
-		return false, err
-	}
-	//close the body
-	defer response.Body.Close()
-
-	return data.TotalCallsMade < h.serviceMetadata.GetFreeCallsAllowed(), nil
+	return paymentErrorToGrpcError(payment.(*freeCallTransaction).Rollback())
 }

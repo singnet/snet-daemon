@@ -22,3 +22,16 @@ func TestCompareWithLatestBlockNumber(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 }
+
+func TestCheckAllowedBlockDifferenceForToken(t *testing.T) {
+	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
+	config.Validate()
+	currentBlockNum, _ := CurrentBlock()
+	err := CheckAllowedBlockDifferenceForToken(currentBlockNum.Add(currentBlockNum, big.NewInt(2000000)))
+	assert.Equal(t, err.Error(), "authentication failed as the signature passed has expired")
+
+	currentBlockNum, _ = CurrentBlock()
+	err = CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(1)))
+	assert.Equal(t, nil, err)
+
+}

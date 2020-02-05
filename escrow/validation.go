@@ -31,7 +31,7 @@ func NewFreeCallPaymentValidator (funcCurrentBlock func() (currentBlock *big.Int
 }
 
 func (validator *FreeCallPaymentValidator) Validate (payment *FreeCallPayment) (err error) {
-
+    // todo for Auth token Auth and keep Dapp Backward compatible with older daemons !!!
 	signerAddress, err := validator.getSignerAddressForFreeCall(payment)
 	if err != nil {
 		return NewPaymentError(Unauthenticated, "payment signature is not valid")

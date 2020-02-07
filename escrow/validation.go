@@ -181,7 +181,7 @@ func getUserAddressForTokenChecks(payment *FreeCallPayment) (signer *common.Addr
 		[]byte(config.GetString(config.ServiceId)),
 		[]byte(payment.GroupId),
 		bigIntToBytes(payment.CurrentBlockNumber),
-		[]byte(payment.AuthToken),
+		(payment.AuthToken),
 	}, nil)
 	println("Bytes Generated in Validation")
 	println(string(message))

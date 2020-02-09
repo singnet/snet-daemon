@@ -34,7 +34,7 @@ func NewFreeCallPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int,
 func (validator *FreeCallPaymentValidator) Validate(payment *FreeCallPayment) (err error) {
 
 	signerAddress, err := validator.getSignerOfAuthTokenForFreeCall(payment)
-	if err != nil {
+	if err != nil || *signerAddress != validator.freeCallSigner {
 		//Make sure the current Dapp is backward compatible , this will be removed once Dapp
 		//Makes the latest signature change with Token for Free calls
 		if signerAddress, err = validator.getSignerAddressForFreeCall(payment); err != nil {
@@ -132,8 +132,7 @@ func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *
 		[]byte(config.GetString(config.ServiceId)),
 		bigIntToBytes(payment.CurrentBlockNumber),
 	}, nil)
-	println("Bytes Generated in Validation")
-	println(string(message))
+
 	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")

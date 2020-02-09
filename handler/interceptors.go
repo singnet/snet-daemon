@@ -50,6 +50,10 @@ const (
 	//Will be used to check if the Signature is still valid
 	CurrentBlockNumberHeader = "snet-current-block-number"
 
+	//Place holder to set the free call Auth Token issued
+	FreeCallAuthTokenHeader = "snet-free-call-auth-token-bin"
+    //Block number on when the Token was issued , to track the expiry of the token , which is ~ 1 Month
+    FreeCallAuthTokenBlockNumberHeader =  "snet-free-call-token-issue-block"
 
 
 )

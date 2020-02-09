@@ -71,7 +71,17 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 		return
 	}
 
+	authTokenIssueDate, err := handler.GetBigInt(context.MD, handler.FreeCallAuthTokenBlockNumberHeader)
+	if err != nil {
+		return
+	}
+
 	signature, err := handler.GetBytes(context.MD, handler.PaymentChannelSignatureHeader)
+	if err != nil {
+		return
+	}
+
+	authToken, err := handler.GetBytes(context.MD, handler.FreeCallAuthTokenHeader)
 	if err != nil {
 		return
 	}
@@ -82,6 +92,8 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 		UserId:             userID,
 		CurrentBlockNumber: blockNumber,
 		Signature:          signature,
+		AuthTokenIssueDateBlockNumber:authTokenIssueDate,
+		AuthToken:authToken,
 	}, nil
 }
 

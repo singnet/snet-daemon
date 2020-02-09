@@ -406,7 +406,10 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 		return components.freeCallStateService
 	}
 
-	components.freeCallStateService = escrow.NewFreeCallStateService(components.OrganizationMetaData(),components.ServiceMetaData(),components.FreeCallUserService())
+	components.freeCallStateService = escrow.NewFreeCallStateService(components.OrganizationMetaData(),
+		components.ServiceMetaData(),components.FreeCallUserService(),
+		escrow.NewFreeCallPaymentValidator(components.Blockchain().CurrentBlock,
+			components.ServiceMetaData().FreeCallSignerAddress()))
 	return components.freeCallStateService
 }
 

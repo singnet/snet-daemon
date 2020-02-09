@@ -11,14 +11,15 @@ import (
 )
 
 type FreeCallStateService struct {
-	orgMetadata     *blockchain.OrganizationMetaData
-	serviceMetadata *blockchain.ServiceMetadata
-	freeCallService FreeCallUserService
+	orgMetadata       *blockchain.OrganizationMetaData
+	serviceMetadata   *blockchain.ServiceMetadata
+	freeCallService   FreeCallUserService
+	freeCallValidator *FreeCallPaymentValidator
 }
 
 func NewFreeCallStateService(orgMetadata *blockchain.OrganizationMetaData,
-	srvMetaData *blockchain.ServiceMetadata, service FreeCallUserService) *FreeCallStateService {
-	return &FreeCallStateService{orgMetadata: orgMetadata, serviceMetadata: srvMetaData, freeCallService: service}
+	srvMetaData *blockchain.ServiceMetadata, service FreeCallUserService, validator *FreeCallPaymentValidator) *FreeCallStateService {
+	return &FreeCallStateService{orgMetadata: orgMetadata, serviceMetadata: srvMetaData, freeCallService: service, freeCallValidator: validator}
 }
 
 type BlockChainDisabledFreeCallStateService struct {
@@ -30,9 +31,9 @@ func (service *FreeCallStateService) GetFreeCallsAvailable(context context.Conte
 		log.WithError(err).Errorf("Error in authorizing the request")
 		return nil, err
 	}
-	 availableCalls,err := service.checkForFreeCalls(service.getFreeCallPayment(request));
-	 if err != nil {
-		return &FreeCallStateReply{},err
+	availableCalls, err := service.checkForFreeCalls(service.getFreeCallPayment(request))
+	if err != nil {
+		return &FreeCallStateReply{}, err
 	}
 	return &FreeCallStateReply{UserId: request.UserId, FreeCallsAvailable: uint64(availableCalls)}, nil
 }
@@ -49,22 +50,7 @@ func (service *FreeCallStateService) verify(request *FreeCallStateRequest) (err 
 	if err := authutils.CheckAllowedBlockDifferenceForToken(big.NewInt(int64(request.GetTokenIssueDateBlock()))); err != nil {
 		return err
 	}
-	if err := service.validateSignatureForFreeCallWithToken(request); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (service *FreeCallStateService) validateSignatureForFreeCallWithToken(request *FreeCallStateRequest) (err error) {
-	signer, err := getSignerOfAuthTokenForFreeCall(service.getFreeCallPayment(request))
-	if err != nil {
-		log.WithError(err).Errorf("Error in determining Signer from Signature sent")
-		return err
-	}
-	//The signer is registered as part of service metadata
-	if *signer != service.serviceMetadata.FreeCallSignerAddress() {
-		err = fmt.Errorf("error in authorizing request")
-		log.WithError(err).Errorf("Error in authorizing the request , Signer = %v", signer.Hex())
+	if err := service.freeCallValidator.Validate(service.getFreeCallPayment(request)); err != nil {
 		return err
 	}
 	return nil

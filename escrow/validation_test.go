@@ -41,6 +41,8 @@ func SignFreeTestPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey)
 	}, nil)
 
 	payment.Signature = getSignature(message, privateKey)
+	//todo
+	payment.AuthToken = getSignature(message, privateKey)
 }
 
 
@@ -108,6 +110,9 @@ func (suite *ValidationTestSuite) FreeCallPayment() *FreeCallPayment {
 		ServiceId:config.GetString(config.ServiceId),
 		OrganizationId:config.GetString(config.OrganizationId),
 		CurrentBlockNumber:big.NewInt(8308167),
+		AuthTokenIssueDateBlockNumber:big.NewInt(8308167),
+		GroupId:"default_group",
+
 	}
 	SignFreeTestPayment(payment, suite.signerPrivateKey)
 	return payment

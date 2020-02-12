@@ -87,6 +87,7 @@ func TestValidationTestSuite(t *testing.T) {
 }
 
 func (suite *ValidationTestSuite) SetupSuite() {
+	config.Vip().Set(config.EthereumJsonRpcEndpointKey, "https://ropsten.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5")
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerPrivateKey = GenerateTestPrivateKey()
 
@@ -106,12 +107,12 @@ func (suite *ValidationTestSuite) SetupSuite() {
 
 func (suite *ValidationTestSuite) FreeCallPayment() *FreeCallPayment {
 	payment := &FreeCallPayment{
-		UserId:"user1",
-		ServiceId:config.GetString(config.ServiceId),
-		OrganizationId:config.GetString(config.OrganizationId),
-		CurrentBlockNumber:big.NewInt(8308167),
-		AuthTokenIssueDateBlockNumber:big.NewInt(8308167),
-		GroupId:"default_group",
+		UserId:                     "user1",
+		ServiceId:                  config.GetString(config.ServiceId),
+		OrganizationId:             config.GetString(config.OrganizationId),
+		CurrentBlockNumber:         big.NewInt(8308167),
+		AuthTokenExpiryBlockNumber: big.NewInt(8308167),
+		GroupId:                    "default_group",
 
 	}
 	SignFreeTestPayment(payment, suite.signerPrivateKey)

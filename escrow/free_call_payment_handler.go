@@ -87,13 +87,13 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 	}
 
 	return &FreeCallPayment{
-		OrganizationId:     organizationId,
-		ServiceId:          serviceId,
-		UserId:             userID,
-		CurrentBlockNumber: blockNumber,
-		Signature:          signature,
-		AuthTokenIssueDateBlockNumber:authTokenIssueDate,
-		AuthToken:authToken,
+		OrganizationId:             organizationId,
+		ServiceId:                  serviceId,
+		UserId:                     userID,
+		CurrentBlockNumber:         blockNumber,
+		Signature:                  signature,
+		AuthTokenExpiryBlockNumber: authTokenIssueDate,
+		AuthToken:                  authToken,
 	}, nil
 }
 

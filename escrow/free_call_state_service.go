@@ -2,7 +2,6 @@ package escrow
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
@@ -44,12 +43,6 @@ func (service *BlockChainDisabledFreeCallStateService) GetFreeCallsAvailable(con
 
 func (service *FreeCallStateService) verify(request *FreeCallStateRequest) (err error) {
 
-	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
-		return err
-	}
-	if err := authutils.CheckAllowedBlockDifferenceForToken(big.NewInt(int64(request.GetTokenIssueDateBlock()))); err != nil {
-		return err
-	}
 	if err := service.freeCallValidator.Validate(service.getFreeCallPayment(request)); err != nil {
 		return err
 	}
@@ -75,13 +68,13 @@ func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment)
 
 func (service *FreeCallStateService) getFreeCallPayment(request *FreeCallStateRequest) *FreeCallPayment {
 	return &FreeCallPayment{
-		GroupId:                       service.orgMetadata.GetGroupIdString(),
-		OrganizationId:                config.GetString(config.OrganizationId),
-		ServiceId:                     config.GetString(config.ServiceId),
-		UserId:                        request.GetUserId(),
-		Signature:                     request.GetSignature(),
-		CurrentBlockNumber:            big.NewInt(int64(request.GetCurrentBlock())),
-		AuthToken:                     request.GetTokenForFreeCall(),
-		AuthTokenIssueDateBlockNumber: big.NewInt(int64(request.GetTokenIssueDateBlock())),
+		GroupId:                    service.orgMetadata.GetGroupIdString(),
+		OrganizationId:             config.GetString(config.OrganizationId),
+		ServiceId:                  config.GetString(config.ServiceId),
+		UserId:                     request.GetUserId(),
+		Signature:                  request.GetSignature(),
+		CurrentBlockNumber:         big.NewInt(int64(request.GetCurrentBlock())),
+		AuthToken:                  request.GetTokenForFreeCall(),
+		AuthTokenExpiryBlockNumber: big.NewInt(int64(request.GetTokenIssueDateBlock())),
 	}
 }

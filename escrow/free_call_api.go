@@ -22,7 +22,7 @@ type FreeCallPayment struct {
 	//Auth Token Passed
 	AuthToken []byte
 	//Date on when the token was issued in block number
-	AuthTokenIssueDateBlockNumber *big.Int
+	AuthTokenExpiryBlockNumber *big.Int
 
 }
 

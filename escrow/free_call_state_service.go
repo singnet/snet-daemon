@@ -75,6 +75,6 @@ func (service *FreeCallStateService) getFreeCallPayment(request *FreeCallStateRe
 		Signature:                  request.GetSignature(),
 		CurrentBlockNumber:         big.NewInt(int64(request.GetCurrentBlock())),
 		AuthToken:                  request.GetTokenForFreeCall(),
-		AuthTokenExpiryBlockNumber: big.NewInt(int64(request.GetTokenIssueDateBlock())),
+		AuthTokenExpiryBlockNumber: big.NewInt(int64(request.GetTokenExpiryDateBlock())),
 	}
 }

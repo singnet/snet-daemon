@@ -22,8 +22,6 @@ import (
 
 const (
 	AllowedBlockChainDifference = 5
-	//1 month is approximately 172800 blocks
-	AllowedBlockDifferenceForAuthorizedToken = 172800
 )
 
 func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
@@ -86,14 +84,14 @@ func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 }
 
 //Check if the block number ( date on which the token was issued is not more than 1 month)
-func CheckAllowedBlockDifferenceForToken(blockNumberPassed *big.Int) error {
-	latestBlockNumber, err := CurrentBlock()
+func CheckIfTokenHasExpired(blockNumberPassed *big.Int) error {
+	currentBlockNumber, err := CurrentBlock()
 	if err != nil {
 		return err
 	}
-	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
-	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > AllowedBlockDifferenceForAuthorizedToken {
-		return fmt.Errorf("authentication failed as the signature passed has expired")
+
+	if blockNumberPassed.Cmp(currentBlockNumber) < 0  {
+		return fmt.Errorf("authentication failed as the Free Call Token passed has expired")
 	}
 	return nil
 }

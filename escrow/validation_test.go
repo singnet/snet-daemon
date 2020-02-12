@@ -155,8 +155,6 @@ func (suite *ValidationTestSuite) channel() *PaymentChannelData {
 
 func (suite *ValidationTestSuite) TestFreeCallPaymentIsValid() {
 	payment := suite.FreeCallPayment()
-    println("freecallUserAddress"+suite.freeCallUserAddress.Hex())
-	println("freecallSignerAddress"+suite.freeCallPaymentValidator.freeCallSigner.Hex())
 	err := suite.freeCallPaymentValidator.Validate(payment)
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 }

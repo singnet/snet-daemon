@@ -94,6 +94,7 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 		Signature:                  signature,
 		AuthTokenExpiryBlockNumber: authTokenIssueDate,
 		AuthToken:                  authToken,
+		GroupId:                    h.orgMetadata.GetGroupIdString(),
 	}, nil
 }
 

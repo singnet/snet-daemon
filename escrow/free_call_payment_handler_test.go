@@ -76,7 +76,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) grpcMetadataForFreeCall(user strin
 	md := metadata.New(map[string]string{})
 	md.Set(handler.FreeCallUserIdHeader, user)
 	md.Set(handler.CurrentBlockNumberHeader, strconv.FormatInt(currentBlock, 10))
-	md.Set(handler.FreeCallAuthTokenBlockNumberHeader, strconv.FormatInt(currentBlock*100000, 10))
+	md.Set(handler.FreeCallAuthTokenExpiryBlockNumberHeader, strconv.FormatInt(currentBlock*100000, 10))
 	md.Set(handler.PaymentChannelSignatureHeader, string(SignTestFreeCallPayment(suite.privateKey, currentBlock, user)))
 	md.Set(handler.FreeCallAuthTokenHeader, string(SignTestFreeCallPayment(suite.privateKey, currentBlock, user)))
 	println("************************************************************")

@@ -21,7 +21,7 @@ type FreeCallPayment struct {
 	GroupId string
 	//Auth Token Passed
 	AuthToken []byte
-	//Date on when the token was issued in block number
+	//Token expiration date in blocks
 	AuthTokenExpiryBlockNumber *big.Int
 
 }

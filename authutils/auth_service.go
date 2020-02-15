@@ -84,13 +84,13 @@ func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 }
 
 //Check if the block number ( date on which the token was issued is not more than 1 month)
-func CheckIfTokenHasExpired(blockNumberPassed *big.Int) error {
+func CheckIfTokenHasExpired(expiredBlock *big.Int) error {
 	currentBlockNumber, err := CurrentBlock()
 	if err != nil {
 		return err
 	}
 
-	if blockNumberPassed.Cmp(currentBlockNumber) < 0  {
+	if expiredBlock.Cmp(currentBlockNumber) < 0  {
 		return fmt.Errorf("authentication failed as the Free Call Token passed has expired")
 	}
 	return nil

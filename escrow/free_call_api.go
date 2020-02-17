@@ -17,6 +17,13 @@ type FreeCallPayment struct {
 	CurrentBlockNumber *big.Int
 	// Signature passed
 	Signature []byte
+	//Group ID
+	GroupId string
+	//Auth Token Passed
+	AuthToken []byte
+	//Token expiration date in blocks
+	AuthTokenExpiryBlockNumber *big.Int
+
 }
 
 func (key *FreeCallPayment) String() string {

@@ -83,6 +83,19 @@ func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	return nil
 }
 
+//Check if the block number ( date on which the token was issued is not more than 1 month)
+func CheckIfTokenHasExpired(expiredBlock *big.Int) error {
+	currentBlockNumber, err := CurrentBlock()
+	if err != nil {
+		return err
+	}
+
+	if expiredBlock.Cmp(currentBlockNumber) < 0  {
+		return fmt.Errorf("authentication failed as the Free Call Token passed has expired")
+	}
+	return nil
+}
+
 //Get the current block number from on chain
 func CurrentBlock() (*big.Int, error) {
 	if ethClient, err := blockchain.GetEthereumClient(); err != nil {

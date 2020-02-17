@@ -37,6 +37,7 @@ type Components struct {
 	paymentChannelStateService *escrow.PaymentChannelStateService
 	etcdLockerStorage          *escrow.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
+	freeCallStateService       *escrow.FreeCallStateService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
 	priceStrategy              *pricing.PricingStrategy
@@ -277,20 +278,6 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	//Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
-
-		//To keep track of number of free calls exhausted , one needs to keep track of how many free calls have
-		//been used.
-		//The Daemon if it is not correctly configured in the for the free call Support , fail the Daemon from starting
-		if components.ServiceMetaData().IsFreeCallAllowed() {
-			freeCallUrl := config.GetString(config.FreeCallEndPoint) + "/verify"
-			if ok, err := components.verifyAuthenticationSetUpForFreeCall(freeCallUrl,
-				components.OrganizationMetaData().GetGroupIdString()); !ok {
-				log.Error(err)
-				log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
-					" as part of service publication process")
-
-			}
-		}
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
 			handler.GrpcMeteringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcPaymentValidationInterceptor())
@@ -407,6 +394,23 @@ func (components *Components) ProviderControlService() (service escrow.ProviderC
 	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),
 		components.ServiceMetaData(), components.OrganizationMetaData())
 	return components.providerControlService
+}
+
+
+func (components *Components) FreeCallStateService() (service escrow.FreeCallStateServiceServer) {
+
+	if !config.GetBool(config.BlockchainEnabledKey){
+		return &escrow.BlockChainDisabledFreeCallStateService{}
+	}
+	if components.freeCallStateService != nil {
+		return components.freeCallStateService
+	}
+
+	components.freeCallStateService = escrow.NewFreeCallStateService(components.OrganizationMetaData(),
+		components.ServiceMetaData(),components.FreeCallUserService(),
+		escrow.NewFreeCallPaymentValidator(components.Blockchain().CurrentBlock,
+			components.ServiceMetaData().FreeCallSignerAddress()))
+	return components.freeCallStateService
 }
 
 func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbeat) {

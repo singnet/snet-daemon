@@ -278,6 +278,14 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	//Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
+			meteringUrl := config.GetString(config.MeteringEndPoint) + "/metering/verify"
+			if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
+				components.OrganizationMetaData().GetGroupIdString()); !ok {
+				log.Error(err)
+				log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
+					" as part of service publication process")
+			}
+
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
 			handler.GrpcMeteringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcPaymentValidationInterceptor())

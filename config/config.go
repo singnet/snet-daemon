@@ -29,7 +29,6 @@ const (
 	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
-	FreeCallEndPoint               = "free_call_end_point"
 	ExecutablePathKey              = "executable_path"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"

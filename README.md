@@ -217,10 +217,6 @@ The group helps determine the recipient address for payments.
 [service configuration
 metadata][service-configuration-metadata]. 
 
-* **free_call_end_point** (optional)     
-This parameter defines the end-point to publish usage of free-calls
-It becomes mandatory when free-call is enabled. Free call is enabled based on the service-metadata attribute 'free_calls' having a value greater than zero.
-
 * **log** (optional) - 
 see [logger configuration](./logger/README.md)
 
@@ -251,11 +247,11 @@ see [etcd client configuration](./etcddb#etcd-client-configuration)
 * **payment_channel_storage_server** (optional) - 
 see [etcd server configuration](./etcddb#etcd-server-configuration)
 
-* **pvt_key_for_metering** (optional;only applies if `free_call_enabled` is set to true) 
-This is used for authentication between daemon and the metering service in the context of free calls.
+* **pvt_key_for_metering** (optional;only applies if `metering_enabled` is set to true) 
+This is used for authentication between daemon and the metering service in the context publishing stats , Even the latest Channel Status is published , this way the offline channel state balance can also be tracked.
 Daemon will send a signature signed by this private key , metering service will already have the public key corresponding
 to this Daemon ,metering service will ensure that the signer it receives matches the public key configured at its end.
-This is mandatory only when free calls are enabled.
+This is mandatory only when metering is enabled.
 
 
 * **rate_limit_per_minute** (optional; default: `Infinity`) - 

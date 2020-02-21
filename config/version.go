@@ -63,7 +63,7 @@ func GetLatestDaemonVersion() (version string,err error) {
 	}
 	defer resp.Body.Close()
 
-	return "",err
+	return version,err
 }
 
 type GitTags struct {

@@ -24,20 +24,6 @@ type Payment struct {
 	Signature []byte
 }
 
-// To Support Free calls
-type FreeCallPayment struct {
-	//Has the Id of the user making the call
-	UserId string
-	//Service Id .
-	ServiceId string
-	//Organization Id
-	OrganizationId string
-	//Current block number
-	CurrentBlockNumber *big.Int
-	// Signature passed
-	Signature []byte
-}
-
 func (p *Payment) String() string {
 	return fmt.Sprintf("{MpeContractAddress: %v, ChannelID: %v, ChannelNonce: %v, Amount: %v, Signature: %v}",
 		blockchain.AddressToHex(&p.MpeContractAddress), p.ChannelID, p.ChannelNonce, p.Amount, blockchain.BytesToBase64(p.Signature))

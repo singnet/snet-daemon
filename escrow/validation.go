@@ -196,6 +196,14 @@ func getUserAddressFromSignatureOfFreeCalls(payment *FreeCallPayment) (signer *c
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
 		return nil, err
 	}
+	//This is only to protect the Service provider in test environment from being
+	//hit by unknown users during curation process
+	if config.GetBool(config.IsCurationInProgress) {
+        if signer.Hex() != config.GetString(config.CurationAddressForValidation) {
+        	err = fmt.Errorf("You are not Authorized to call this service during curation process")
+        	return nil,err
+		}
+	}
 	return signer, err
 }
 

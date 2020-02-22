@@ -98,14 +98,14 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	suite.memoryStorage = NewMemStorage()
-	metadata := blockchain.ServiceMetadata{MpeAddress: "0xf65186b5081ff5ce73482ad761db0eb0d25abfbf"}
-	suite.storage = NewPaymentChannelStorage(suite.memoryStorage, &metadata)
-	suite.paymentStorage = NewPaymentStorage(suite.memoryStorage, &metadata)
+	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
+	suite.paymentStorage = NewPaymentStorage(suite.memoryStorage)
 
 	err := suite.storage.Put(suite.channelKey(), suite.channel())
 	if err != nil {
 		panic(fmt.Errorf("Cannot put value into test storage: %v", err))
 	}
+
 	suite.service = NewPaymentChannelService(
 		suite.storage,
 		suite.paymentStorage,
@@ -118,7 +118,7 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 				return suite.recipientAddress
 			},
 		},
-		NewEtcdLocker(suite.memoryStorage, &blockchain.ServiceMetadata{MpeAddress: "0xf65186b5081ff5ce73482ad761db0eb0d25abfbf"}),
+		NewEtcdLocker(suite.memoryStorage),
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },

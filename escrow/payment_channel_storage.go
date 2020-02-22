@@ -21,10 +21,10 @@ type PaymentChannelStorage struct {
 
 // NewPaymentChannelStorage returns new instance of PaymentChannelStorage
 // implementation
-func NewPaymentChannelStorage(atomicStorage AtomicStorage, metadata *blockchain.ServiceMetadata) *PaymentChannelStorage {
+func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorage {
 	return &PaymentChannelStorage{
 		delegate: &TypedAtomicStorageImpl{
-			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment-channel/storage", metadata.MpeAddress),
+			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment-channel/storage"),
 			keySerializer:     serialize,
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,

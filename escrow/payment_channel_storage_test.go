@@ -39,7 +39,7 @@ func (suite *PaymentChannelStorageSuite) SetupSuite() {
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.memoryStorage = NewMemStorage()
 
-	suite.storage = NewPaymentChannelStorage(suite.memoryStorage,&blockchain.ServiceMetadata{MpeAddress:"0xf65186b5081ff5ce73482ad761db0eb0d25abfbf"})
+	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
 }
 
 func (suite *PaymentChannelStorageSuite) SetupTest() {

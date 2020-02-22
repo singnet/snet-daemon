@@ -1,7 +1,6 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
 	"reflect"
 )
 
@@ -13,11 +12,11 @@ type PaymentStorage struct {
 
 // NewPaymentStorage returns new instance of PaymentStorage
 // implementation
-func NewPaymentStorage(atomicStorage AtomicStorage, metadata *blockchain.ServiceMetadata) *PaymentStorage {
+func NewPaymentStorage(atomicStorage AtomicStorage) *PaymentStorage {
 	return &PaymentStorage{
 		delegate: &TypedAtomicStorageImpl{
 
-			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment/storage", metadata.MpeAddress),
+			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment/storage"),
 			keySerializer:     serialize,
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,

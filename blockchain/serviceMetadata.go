@@ -249,9 +249,6 @@ func setFreeCallData(metaData *ServiceMetadata) error {
 		if !common.IsHexAddress((metaData.defaultGroup.FreeCallSigner)) {
 			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly")
 		}
-		if !config.IsValidUrl(config.GetString(config.FreeCallEndPoint)) {
-			return fmt.Errorf("Please specify a valid end point for 'free_call_end_point' tracking usage of free calls ")
-		}
 		metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
 	}
 	return nil

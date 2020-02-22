@@ -37,13 +37,16 @@ type Components struct {
 	paymentChannelStateService *escrow.PaymentChannelStateService
 	etcdLockerStorage          *escrow.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
+	freeCallStateService       *escrow.FreeCallStateService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
 	priceStrategy              *pricing.PricingStrategy
 	configurationService       *configuration_service.ConfigurationService
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
 	organizationMetaData       *blockchain.OrganizationMetaData
-	freeCallPaymentHandler      handler.PaymentHandler
+	freeCallPaymentHandler     handler.PaymentHandler
+	freeCallUserService        escrow.FreeCallUserService
+	freeCallUserStorage        *escrow.FreeCallUserStorage
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -124,7 +127,6 @@ func (components *Components) OrganizationMetaData() *blockchain.OrganizationMet
 	return components.organizationMetaData
 }
 
-
 func (components *Components) EtcdServer() *etcddb.EtcdServer {
 	if components.etcdServer != nil {
 		return components.etcdServer
@@ -170,7 +172,7 @@ func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
 	if components.etcdLockerStorage != nil {
 		return components.etcdLockerStorage
 	}
-	components.etcdLockerStorage = escrow.NewLockerStorage(components.AtomicStorage(),components.ServiceMetaData())
+	components.etcdLockerStorage = escrow.NewLockerStorage(components.AtomicStorage(), components.ServiceMetaData())
 	return components.etcdLockerStorage
 }
 
@@ -198,16 +200,26 @@ func (components *Components) PaymentStorage() *escrow.PaymentStorage {
 	return components.paymentStorage
 }
 
+func (components *Components) FreeCallUserStorage() *escrow.FreeCallUserStorage {
+	if components.freeCallUserStorage != nil {
+		return components.freeCallUserStorage
+	}
+
+	components.freeCallUserStorage = escrow.NewFreeCallUserStorage(components.AtomicStorage())
+
+	return components.freeCallUserStorage
+}
+
 func (components *Components) PaymentChannelService() escrow.PaymentChannelService {
 	if components.paymentChannelService != nil {
 		return components.paymentChannelService
 	}
 
 	components.paymentChannelService = escrow.NewPaymentChannelService(
-		escrow.NewPaymentChannelStorage(components.AtomicStorage(),components.ServiceMetaData()),
+		escrow.NewPaymentChannelStorage(components.AtomicStorage(), components.ServiceMetaData()),
 		components.PaymentStorage(),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(),components.OrganizationMetaData()),
-		escrow.NewEtcdLocker(components.AtomicStorage(),components.ServiceMetaData()),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.OrganizationMetaData()),
+		escrow.NewEtcdLocker(components.AtomicStorage(), components.ServiceMetaData()),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()), func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil
@@ -215,6 +227,22 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	)
 
 	return components.paymentChannelService
+}
+
+func (components *Components) FreeCallUserService() escrow.FreeCallUserService {
+	if components.freeCallUserService != nil {
+		return components.freeCallUserService
+	}
+
+	components.freeCallUserService = escrow.NewFreeCallUserService(
+		components.FreeCallUserStorage(),
+		escrow.NewEtcdLocker(components.AtomicStorage(), components.ServiceMetaData()),
+		func() ([32]byte, error) {
+			s := components.OrganizationMetaData().GetGroupId()
+			return s, nil
+		}, components.ServiceMetaData())
+
+	return components.freeCallUserService
 }
 
 func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
@@ -236,8 +264,8 @@ func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
 		return components.freeCallPaymentHandler
 	}
 
-	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(
-		components.Blockchain(),components.OrganizationMetaData(),components.ServiceMetaData())
+	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(components.FreeCallUserService(),
+		components.Blockchain(), components.OrganizationMetaData(), components.ServiceMetaData())
 
 	return components.freeCallPaymentHandler
 }
@@ -247,24 +275,17 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
-    //Metering is now mandatory in Daemon
+	//Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
-
-
-		//To keep track of number of free calls exhausted , one needs to keep track of how many free calls have
-		//been used.
-		//The Daemon if it is not correctly configured in the for the free call Support , fail the Daemon from starting
-        if (components.ServiceMetaData().IsFreeCallAllowed()) {
-			freeCallUrl := config.GetString(config.FreeCallEndPoint) + "/verify"
-			if ok, err := components.verifyAuthenticationSetUpForFreeCall(freeCallUrl,
+			meteringUrl := config.GetString(config.MeteringEndPoint) + "/metering/verify"
+			if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
 				components.OrganizationMetaData().GetGroupIdString()); !ok {
 				log.Error(err)
 				log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
 					" as part of service publication process")
-
 			}
-		}
+
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
 			handler.GrpcMeteringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcPaymentValidationInterceptor())
@@ -276,13 +297,13 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 }
 
 //Metering end point authentication is now mandatory for daemon
-func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string,groupId string) (ok bool, err error) {
+func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string, groupId string) (ok bool, err error) {
 
 	if _, err = crypto.HexToECDSA(config.GetString(config.PvtKeyForMetering)); err != nil {
 		return false, errors.New("you need a specify a valid private key 'pvt_key_for_metering' as part of service publication process." + err.Error())
 	}
 
-	req, err := http.NewRequest("GET", serviceURL,nil)
+	req, err := http.NewRequest("GET", serviceURL, nil)
 	if err != nil {
 		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
 		return false, err
@@ -291,59 +312,54 @@ func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL st
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-authtype", "verification")
 	metrics.SignMessageForMetering(req,
-		&metrics.CommonStats{OrganizationID:config.GetString(config.OrganizationId),ServiceID:config.GetString(config.ServiceId),
-			GroupID:groupId,UserName:metrics.GetDaemonID()})
+		&metrics.CommonStats{OrganizationID: config.GetString(config.OrganizationId), ServiceID: config.GetString(config.ServiceId),
+			GroupID: groupId, UserName: metrics.GetDaemonID()})
 
 	client := &http.Client{}
 
-
-   response,err := client.Do(req);
-   if err != nil {
-   	log.Error(err)
-   	return false,err
-   }
-   return checkResponse(response)
+	response, err := client.Do(req)
+	if err != nil {
+		log.Error(err)
+		return false, err
+	}
+	return checkResponse(response)
 
 }
 
-
 //Check if the response received was proper
-func checkResponse(response *http.Response) (allowed bool,err error) {
+func checkResponse(response *http.Response) (allowed bool, err error) {
 	if response == nil {
 		log.Error("Empty response received.")
-		return false , fmt.Errorf("Empty response received.")
+		return false, fmt.Errorf("Empty response received.")
 	}
 	if response.StatusCode != http.StatusOK {
 		log.Error("Service call failed with status code : %d ", response.StatusCode)
-		return false , fmt.Errorf("Service call failed with status code : %d ", response.StatusCode)
+		return false, fmt.Errorf("Service call failed with status code : %d ", response.StatusCode)
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Infof("Unable to retrieve calls allowed from Body , : %f ", err.Error())
-		return false , err
+		return false, err
 	}
 	var responseBody VerifyMeteringResponse
-	if err  = json.Unmarshal(body, &responseBody); err != nil {
+	if err = json.Unmarshal(body, &responseBody); err != nil {
 		return false, err
 	}
 	//close the body
 	defer response.Body.Close()
 
-	 if strings.Compare(responseBody.Data,"success")!=0 {
-		 return false,fmt.Errorf("Error returned by by Metering Service %s Verification,"+
-			 " pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
-			 "to the private key in Daemon config.", config.GetString(config.MeteringEndPoint)+"/verify")
-	 }
+	if strings.Compare(responseBody.Data, "success") != 0 {
+		return false, fmt.Errorf("Error returned by by Metering Service %s Verification,"+
+			" pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
+			"to the private key in Daemon config.", config.GetString(config.MeteringEndPoint)+"/verify")
+	}
 
-	return true ,nil
+	return true, nil
 }
-
 
 type VerifyMeteringResponse struct {
-	Data              string `json:"data"`
+	Data string `json:"data"`
 }
-
-
 
 func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
@@ -351,12 +367,12 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(),components.FreeCallPaymentHandler())
+		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(), components.FreeCallPaymentHandler())
 	}
 }
 
 func (components *Components) PaymentChannelStateService() (service escrow.PaymentChannelStateServiceServer) {
-	if !config.GetBool(config.BlockchainEnabledKey){
+	if !config.GetBool(config.BlockchainEnabledKey) {
 		return &escrow.BlockChainDisabledStateService{}
 	}
 
@@ -376,7 +392,7 @@ func (components *Components) PaymentChannelStateService() (service escrow.Payme
 
 func (components *Components) ProviderControlService() (service escrow.ProviderControlServiceServer) {
 
-	if !config.GetBool(config.BlockchainEnabledKey){
+	if !config.GetBool(config.BlockchainEnabledKey) {
 		return &escrow.BlockChainDisabledProviderControlService{}
 	}
 	if components.providerControlService != nil {
@@ -384,8 +400,25 @@ func (components *Components) ProviderControlService() (service escrow.ProviderC
 	}
 
 	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),
-		components.ServiceMetaData(),components.OrganizationMetaData())
+		components.ServiceMetaData(), components.OrganizationMetaData())
 	return components.providerControlService
+}
+
+
+func (components *Components) FreeCallStateService() (service escrow.FreeCallStateServiceServer) {
+
+	if !config.GetBool(config.BlockchainEnabledKey){
+		return &escrow.BlockChainDisabledFreeCallStateService{}
+	}
+	if components.freeCallStateService != nil {
+		return components.freeCallStateService
+	}
+
+	components.freeCallStateService = escrow.NewFreeCallStateService(components.OrganizationMetaData(),
+		components.ServiceMetaData(),components.FreeCallUserService(),
+		escrow.NewFreeCallPaymentValidator(components.Blockchain().CurrentBlock,
+			components.ServiceMetaData().FreeCallSignerAddress()))
+	return components.freeCallStateService
 }
 
 func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbeat) {
@@ -397,18 +430,15 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 	return components.daemonHeartbeat
 }
 
-
-
 func (components *Components) PricingStrategy() *pricing.PricingStrategy {
 	if components.priceStrategy != nil {
 		return components.priceStrategy
 	}
 
-	components.priceStrategy,_ = pricing.InitPricingStrategy(components.ServiceMetaData())
+	components.priceStrategy, _ = pricing.InitPricingStrategy(components.ServiceMetaData())
 
 	return components.priceStrategy
 }
-
 
 func (components *Components) ChannelBroadcast() *configuration_service.MessageBroadcaster {
 	if components.configurationBroadcaster != nil {

@@ -7,10 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/singnet/snet-daemon/blockchain"
 )
 
 func NewBlockchainChannelReaderMock() *BlockchainChannelReader {
@@ -163,8 +162,6 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelState() {
 	assert.Equal(suite.T(), suite.channel(), channel)
 }
 
-
-
 func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeintAddress() {
 	reader := suite.reader
 
@@ -173,4 +170,9 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeint
 	assert.Equal(suite.T(), errors.New("recipient Address from service metadata does not Match on what was retrieved from Channel"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
+}
+
+func (suite *BlockchainChannelReaderSuite) TestNewPaymentChannelStorage() {
+	mpeStorage := NewPrefixedAtomicStorage(&PrefixedAtomicStorage{delegate:nil,keyPrefix:"path1"},"path2")
+	assert.Equal(suite.T(),mpeStorage.keyPrefix,"path1/path2")
 }

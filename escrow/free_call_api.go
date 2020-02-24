@@ -44,11 +44,12 @@ func (key *FreeCallUserKey) String() string {
 }
 
 type FreeCallUserData struct {
+	UserId        string
 	FreeCallsMade int
 }
 
 func (data *FreeCallUserData) String() string {
-	return fmt.Sprintf("{FreeCallsMade: %v}",
+	return fmt.Sprintf("{User %v has made %v free calls}",data.UserId,
 		data.FreeCallsMade)
 }
 

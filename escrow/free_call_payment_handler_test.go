@@ -44,7 +44,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
 	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
 	orgMetadata, _ := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
 	suite.metadata, _ = blockchain.InitServiceMetaDataFromJson(testJsonData)
-	suite.data = &FreeCallUserData{12}
+	suite.data = &FreeCallUserData{FreeCallsMade:12,UserId:"user1"}
 	suite.key = suite.getKey("user1")
 	suite.paymentHandler = freeCallPaymentHandler{
 		orgMetadata:     orgMetadata,

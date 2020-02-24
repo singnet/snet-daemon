@@ -33,8 +33,10 @@ func (h *lockingFreeCallUserService) FreeCallUser(key *FreeCallUserKey) (freeCal
 		return
 	}
 	if !ok {
-		return &FreeCallUserData{FreeCallsMade: 0,UserId:freeCallUser.UserId}, true, nil
+		return &FreeCallUserData{FreeCallsMade: 0,UserId:key.UserId}, true, nil
 	}
+	//the below was added only to set the userid for historic entries, will be removed soon todo
+	freeCallUser.UserId = key.UserId
 	return
 }
 

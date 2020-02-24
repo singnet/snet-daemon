@@ -10,7 +10,7 @@ import (
 
 // ListClaimsCmd shows list of channels from shared storage
 var ListFreeCallUserCmd = &cobra.Command{
-	Use:   "Freecall-Users",
+	Use:   "freecall-users",
 	Short: "List all free call users",
 	Long: "List all users who have availed free calls to your service",
 	RunE: func(cmd *cobra.Command, args []string) error {

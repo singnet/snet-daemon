@@ -54,7 +54,7 @@ const (
 	ClaimSendBackFlag  = "send-back"
 	ClaimTimeoutFlag   = "timeout"
 
-	UnlockChannelFlag = "unlock"
+	UnlockFlag = "unlock"
 )
 
 var (
@@ -75,11 +75,12 @@ var (
 	wireEncoding       = ServeCmd.PersistentFlags().String("wire-encoding", "proto", "message encoding: one of 'proto','json'")
 	pollSleep          = ServeCmd.PersistentFlags().String("poll-sleep", "5s", "blockchain poll sleep time")
 
-	claimChannelId string
-	claimPaymentId string
-	claimSendBack  bool
-	claimTimeout   string
+	claimChannelId   string
+	claimPaymentId   string
+	claimSendBack    bool
+	claimTimeout     string
 	paymentChannelId string
+	freeCallUserId   string
 )
 
 func init() {
@@ -92,12 +93,14 @@ func init() {
 	RootCmd.AddCommand(ListCmd)
 	RootCmd.AddCommand(ChannelCmd)
 	RootCmd.AddCommand(VersionCmd)
+	RootCmd.AddCommand(FreeCallUserCmd)
 
 	ListCmd.AddCommand(ListChannelsCmd)
 	ListCmd.AddCommand(ListClaimsCmd)
 	ListCmd.AddCommand(ListFreeCallUserCmd)
 
-	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
+	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
+	FreeCallUserCmd.Flags().StringVarP(&freeCallUserId, UnlockFlag, "u", "", "unlocks the Free Call User with the given ID, see \"list freecall-users\"")
 
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))

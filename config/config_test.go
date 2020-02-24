@@ -116,6 +116,20 @@ func TestValidateEndpoints(t *testing.T) {
 	assert.Equal(t, nil, err)
 }
 
+func TestCuration(t *testing.T) {
+	err := curationChecks()
+	assert.Equal(t, nil, err)
+	vip.Set(IsCurationInProgress,true)
+	err = curationChecks()
+	assert.Equal(t, "a valid Address needs to be specified for the config curation_address_for_validation to ensure that, only this user can make calls", err.Error())
+	vip.Set(CurationAddressForValidation,"0x06A1D29e9FfA2415434A7A571235744F8DA2a514")
+	err = curationChecks()
+	assert.Equal(t, nil, err)
+	vip.Set(BlockChainNetworkSelected,"main")
+	err = curationChecks()
+	assert.Equal(t, "service cannot be curated while set up against Ethereum mainnet,the flag is_curation_in_progress is set to true", err.Error())
+}
+
 func Test_validateMeteringChecks(t *testing.T) {
 	vip.Set(MeteringEndPoint,"http://demo8325345.mockable.io")
 	tests := []struct {

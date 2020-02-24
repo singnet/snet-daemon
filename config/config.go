@@ -207,15 +207,13 @@ func Validate() error {
 	return validateMeteringChecks()
 }
 func curationChecks() (error) {
-	if GetBool(IsCurationInProgress) {
-		if !common.IsHexAddress(GetString(CurationAddressForValidation)) {
-			return errors.New("A Valid Address needs to be specified to ensure that, only this user can make calls in test during curation process")
-		}
+	if GetBool(IsCurationInProgress) && GetString(BlockChainNetworkSelected)=="main" {
+		return fmt.Errorf("service cannot be curated while set up against Ethereum mainnet,the flag %v is set to true",IsCurationInProgress)
 	}
-	if GetBool(IsCurationInProgress) && GetString(BlockChainNetworkSelected)=="mainnet" {
+	if GetBool(IsCurationInProgress) && !common.IsHexAddress(GetString(CurationAddressForValidation)) {
+		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only this user can make calls",CurationAddressForValidation)
+	}
 
-		return errors.New("service cannot be for curation in mainent")
-	}
 	return nil
 }
 func validateMeteringChecks() (err error) {

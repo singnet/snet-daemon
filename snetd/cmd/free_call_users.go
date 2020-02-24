@@ -53,7 +53,7 @@ func (command *freeCallUserCommand) Run() (err error) {
 	return command.unlockFreeCallUser()
 }
 
-// unlocks the channel with a given channel ID
+// release the lock on the user with the given user id
 func (command *freeCallUserCommand) unlockFreeCallUser() (err error) {
 	key := &escrow.FreeCallUserKey{}
 	key.UserId = freeCallUserId

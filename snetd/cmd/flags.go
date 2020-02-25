@@ -48,13 +48,17 @@ var ListCmd = &cobra.Command{
 	Long:  "List command prints lists of objects from the shared storage; each object type has separate subcommand",
 }
 
-const (
-	ClaimChannelIdFlag = "channel-id"
-	ClaimPaymentIdFlag = "payment-id"
-	ClaimSendBackFlag  = "send-back"
-	ClaimTimeoutFlag   = "timeout"
+var FreeCallUserCmd = &cobra.Command{
+	Use:   "freecall",
+	Short: "Manage operations on free call users",
+	Long:  "List commands prints a list of all free call users for the given service," +
+		"reset will set the counter to zero on free calls used, " +
+		"unlock will release the lock on the given user ",
+}
 
-	UnlockFlag = "unlock"
+const (
+	UnlockChannelFlag = "unlock"
+	UserIdFlag = "user-id"
 )
 
 var (
@@ -75,10 +79,10 @@ var (
 	wireEncoding       = ServeCmd.PersistentFlags().String("wire-encoding", "proto", "message encoding: one of 'proto','json'")
 	pollSleep          = ServeCmd.PersistentFlags().String("poll-sleep", "5s", "blockchain poll sleep time")
 
-	claimChannelId   string
-	claimPaymentId   string
-	claimSendBack    bool
-	claimTimeout     string
+	claimChannelId string
+	claimPaymentId string
+	claimSendBack  bool
+	claimTimeout   string
 	paymentChannelId string
 	freeCallUserId   string
 )
@@ -95,12 +99,17 @@ func init() {
 	RootCmd.AddCommand(VersionCmd)
 	RootCmd.AddCommand(FreeCallUserCmd)
 
+
+	FreeCallUserCmd.AddCommand(FreeCallUserUnLockCmd)
+	FreeCallUserCmd.AddCommand(FreeCallUserResetFreeCallsCmd)
+	FreeCallUserCmd.AddCommand(ListFreeCallUserCmd)
+
 	ListCmd.AddCommand(ListChannelsCmd)
 	ListCmd.AddCommand(ListClaimsCmd)
-	ListCmd.AddCommand(ListFreeCallUserCmd)
 
-	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
-	FreeCallUserCmd.Flags().StringVarP(&freeCallUserId, UnlockFlag, "u", "", "unlocks the Free Call User with the given ID, see \"list freecall-users\"")
+	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
+	FreeCallUserResetFreeCallsCmd.Flags().StringVarP(&freeCallUserId,UserIdFlag , "u", "", "resets the free call usage count to zero for the user with the given ID")
+	FreeCallUserUnLockCmd.Flags().StringVarP(&freeCallUserId, UserIdFlag, "u", "", "unlocks the free call user with the given ID")
 
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))

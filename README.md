@@ -119,6 +119,7 @@ Usage:
 
 Available Commands:
   channel     Manage operations on payment channels
+  freecall    Manage operations on free call users
   help        Help about any command
   init        Write default configuration to file
   list        List channels, claims in progress, etc

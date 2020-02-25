@@ -17,7 +17,7 @@ var FreeCallUserUnLockCmd = &cobra.Command{
 	},
 }
 
-var FreeCallUserResetFreeCallsCmd = &cobra.Command{
+var FreeCallUserResetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Reset the count on free calls used for the given user to zero",
 	Long:  "User can use 'snetd freecall reset -u {user-id}' command to reset the free call used of this User manually.",

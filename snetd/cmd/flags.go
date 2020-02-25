@@ -101,14 +101,14 @@ func init() {
 
 
 	FreeCallUserCmd.AddCommand(FreeCallUserUnLockCmd)
-	FreeCallUserCmd.AddCommand(FreeCallUserResetFreeCallsCmd)
+	FreeCallUserCmd.AddCommand(FreeCallUserResetCmd)
 	FreeCallUserCmd.AddCommand(ListFreeCallUserCmd)
 
 	ListCmd.AddCommand(ListChannelsCmd)
 	ListCmd.AddCommand(ListClaimsCmd)
 
 	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
-	FreeCallUserResetFreeCallsCmd.Flags().StringVarP(&freeCallUserId,UserIdFlag , "u", "", "resets the free call usage count to zero for the user with the given ID")
+	FreeCallUserResetCmd.Flags().StringVarP(&freeCallUserId,UserIdFlag , "u", "", "resets the free call usage count to zero for the user with the given ID")
 	FreeCallUserUnLockCmd.Flags().StringVarP(&freeCallUserId, UserIdFlag, "u", "", "unlocks the free call user with the given ID")
 
 

@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/authutils"
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/ratelimit"
@@ -372,9 +376,47 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 // NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
 func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
+	if config.GetBool(config.IsCurationInProgress){
+		//Just to a validation of the Request here
+
+		context, err := getGrpcContext(ss, info)
+		if err != nil {
+			return err.Err()
+		}
+        if err := verifySignerForCuration(context) ;err != nil {
+        	return err
+		}
+
+	}
 	return handler(srv, ss)
 }
+func verifySignerForCuration(context *GrpcStreamContext) (err error) {
+	signature, grpcErr := GetBytes(context.MD, PaymentChannelSignatureHeader)
+	if grpcErr != nil {
+		return fmt.Errorf("Metadata %v is not set correctly for curation requests",PaymentChannelSignatureHeader)
+	}
+	blockNumber, grpcErr := GetBigInt(context.MD, CurrentBlockNumberHeader)
+	if grpcErr != nil {
+		return fmt.Errorf("Metadata %v is not set correctly for curation requests",PaymentChannelSignatureHeader)
+	}
+	//verify signature
+	message := bytes.Join([][]byte{
+		[]byte("__curation"),
+		[]byte(config.GetString(config.OrganizationId)),
+		[]byte(config.GetString(config.ServiceId)),
+		common.BigToHash(blockNumber).Bytes(),
+	}, nil)
+	signer, err := authutils.GetSignerAddressFromMessage(message, signature)
+	if err != nil {
+		log.WithError(err).Error("cannot get signer during curation")
+		return err
+	}
+	if *signer != blockchain.HexToAddress(config.GetString(config.CurationAddressForValidation)) {
+		return fmt.Errorf("you are not Authorized to call this service during curation process")
 
+	}
+	return nil
+}
 //set Additional details on the metrics persisted , this is to keep track of how many calls were made per channel
 func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
 	md := context.MD

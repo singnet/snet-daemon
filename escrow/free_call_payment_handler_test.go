@@ -52,7 +52,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(func() (*big.Int, error) {
 			return big.NewInt(99), nil
 		}, crypto.PubkeyToAddress(suite.privateKey.PublicKey)),
-		service: NewFreeCallUserService(suite.storage, NewEtcdLocker(suite.memoryStorage, suite.metadata), func() ([32]byte, error) { return [32]byte{125}, nil }, suite.metadata),
+		service: NewFreeCallUserService(suite.storage, NewEtcdLocker(suite.memoryStorage), func() ([32]byte, error) { return [32]byte{125}, nil }, suite.metadata),
 	}
 }
 

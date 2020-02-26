@@ -52,7 +52,7 @@ func (suite *FreeCallStateServiceSuite) SetupSuite() {
 	suite.memoryStorage = NewMemStorage()
 	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
 	suite.service = NewFreeCallUserService(suite.storage,
-		NewEtcdLocker(suite.memoryStorage, suite.serviceMetaData), func() ([32]byte, error) { return suite.orgMetaData.GetGroupId(), nil },
+		NewEtcdLocker(suite.memoryStorage), func() ([32]byte, error) { return suite.orgMetaData.GetGroupId(), nil },
 		suite.serviceMetaData)
 	suite.stateService = NewFreeCallStateService(suite.orgMetaData, suite.serviceMetaData, suite.service, suite.freeCallPaymentValidator)
 

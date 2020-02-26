@@ -205,7 +205,7 @@ func (components *Components) MPESpecificStorage() *escrow.PrefixedAtomicStorage
 	if components.mpeSpecificStorage != nil {
 		return components.mpeSpecificStorage
 	}
-	components.atomicStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(),components.ServiceMetaData().MpeAddress)
+	components.mpeSpecificStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(),components.ServiceMetaData().MpeAddress)
 	return components.mpeSpecificStorage
 }
 

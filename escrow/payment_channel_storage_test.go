@@ -7,10 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/singnet/snet-daemon/blockchain"
 )
 
 func NewBlockchainChannelReaderMock() *BlockchainChannelReader {
@@ -39,7 +38,7 @@ func (suite *PaymentChannelStorageSuite) SetupSuite() {
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.memoryStorage = NewMemStorage()
 
-	suite.storage = NewPaymentChannelStorage(suite.memoryStorage,&blockchain.ServiceMetadata{MpeAddress:"0xf65186b5081ff5ce73482ad761db0eb0d25abfbf"})
+	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
 }
 
 func (suite *PaymentChannelStorageSuite) SetupTest() {
@@ -163,8 +162,6 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelState() {
 	assert.Equal(suite.T(), suite.channel(), channel)
 }
 
-
-
 func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeintAddress() {
 	reader := suite.reader
 
@@ -173,4 +170,15 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeint
 	assert.Equal(suite.T(), errors.New("recipient Address from service metadata does not Match on what was retrieved from Channel"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
+}
+
+func (suite *PaymentChannelStorageSuite) TestNewPaymentChannelStorage() {
+	mpeStorage := NewPrefixedAtomicStorage( NewPrefixedAtomicStorage(suite.memoryStorage,"path1"),"path2")
+	mpeStorage.Put("key1","value1")
+	value,_,_ := mpeStorage.Get("key1")
+	assert.Equal(suite.T(),value,"value1")
+	values,err := suite.memoryStorage.GetByKeyPrefix("path1")
+	assert.Equal(suite.T(), len(values),1)
+	assert.Equal(suite.T(),values[0],"value1")
+	assert.Nil(suite.T(), err)
 }

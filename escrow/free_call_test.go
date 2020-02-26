@@ -32,7 +32,7 @@ func (suite *FreeCallServiceSuite) SetupSuite() {
 	suite.groupId = [32]byte{123}
 	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
 	suite.service = NewFreeCallUserService(suite.storage,
-		NewEtcdLocker(suite.memoryStorage, suite.metadata), func() ([32]byte, error) { return suite.groupId, nil },
+		NewEtcdLocker(suite.memoryStorage), func() ([32]byte, error) { return suite.groupId, nil },
 		suite.metadata)
 	userKey, err := suite.service.GetFreeCallUserKey(suite.payment("user1"))
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)

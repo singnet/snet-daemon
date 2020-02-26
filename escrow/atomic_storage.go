@@ -33,6 +33,14 @@ type PrefixedAtomicStorage struct {
 	keyPrefix string
 }
 
+//It is recommended to use this function to create a PrefixedAtomicStorage
+func NewPrefixedAtomicStorage(atomicStorage AtomicStorage, prefix string) *PrefixedAtomicStorage {
+	return &PrefixedAtomicStorage{
+		delegate:  atomicStorage,
+		keyPrefix: prefix,
+	}
+}
+
 // Get is implementation of AtomicStorage.Get
 func (storage *PrefixedAtomicStorage) Get(key string) (value string, ok bool, err error) {
 	return storage.delegate.Get(storage.keyPrefix + "/" + key)

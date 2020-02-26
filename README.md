@@ -211,6 +211,9 @@ enables or disables blockchain features of daemon; `false` reserved mostly for t
 * **burst_size** (optional; default: Infinite) - 
 see [rate limiting configuration](./ratelimit/README.md)
 
+* **curation_address_for_validation** (optional;) - You may need to protect the service provider 's service in test environment from being called by anyone, only Authorized users can make calls , when this flag is defined in the config, you can enforce this behaviour.This config is applicable only when 
+  you have `is_curation_in_progress set` to true.
+
 * **daemon_group_name** (optional ,default: `"default_group"`) - 
 This parameter defines the group the daemon belongs to .
 The group helps determine the recipient address for payments.
@@ -272,6 +275,8 @@ If a value is specified , it will be used and no attempt will be made to auto de
 * **heartbeat_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then service state always assumed as SERVING, and same will be wrapped in Daemon Heartbeat. see [daemon heartbeats configuration](./metrics/README.md)
 
 * **ipfs_timeout** (optional; default: `30`) - All IPFS read/writes timeout if the operations doesnt complete in 30 sec or set duration in this config entry.
+
+* **is_curation_in_progress** (optional; default: `false`) - You may need to protect the service provider 's service in test environment from being called by anyone, only Authorized users can make calls , when this flag is set to true, you can enforce this behaviour.Also see `curation_address_for_validation`
 
 #### Environment variables and CLI parameters
 

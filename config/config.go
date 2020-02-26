@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"net"
 	"net/url"
@@ -25,13 +26,16 @@ const (
 	BlockChainNetworkSelected = "blockchain_network_selected"
 	BurstSize                 = "burst_size"
 	ConfigPathKey             = "config_path"
-
+    CurationAddressForValidation   = "curation_address_for_validation"
 	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	ExecutablePathKey              = "executable_path"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
+	//If this flag is set to true , then request from Daemon will only be taken from a
+	//predefined address
+	IsCurationInProgress           = "is_curation_in_progress"
 	LogKey                         = "log"
 	MaxMessageSizeInMB             = "max_message_size_in_mb"
 	MeteringEnabled                = "metering_enabled"
@@ -70,6 +74,7 @@ const (
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
+    "is_curation_in_progress" :false,
 	"max_message_size_in_mb" : 4,
 	"metering_enabled": false,
 	"organization_id": "ExampleOrganizationId", 
@@ -196,10 +201,21 @@ func Validate() error {
 	if maxMessageSize <= 0 || maxMessageSize > 2048 {
 		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
 	}
-
+    if err = curationChecks() ;err !=nil {
+    	return err
+	}
 	return validateMeteringChecks()
 }
+func curationChecks() (error) {
+	if GetBool(IsCurationInProgress) && GetString(BlockChainNetworkSelected)=="main" {
+		return fmt.Errorf("service cannot be curated while set up against Ethereum mainnet,the flag %v is set to true",IsCurationInProgress)
+	}
+	if GetBool(IsCurationInProgress) && !common.IsHexAddress(GetString(CurationAddressForValidation)) {
+		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only this user can make calls",CurationAddressForValidation)
+	}
 
+	return nil
+}
 func validateMeteringChecks() (err error) {
 	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndPoint)) {
 		return errors.New("to Support Metering you need to have a valid Metering End point")

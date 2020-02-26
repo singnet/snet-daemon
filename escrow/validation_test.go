@@ -5,16 +5,15 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/singnet/snet-daemon/config"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/singnet/snet-daemon/blockchain"
 )
 
 func SignTestPayment(payment *Payment, privateKey *ecdsa.PrivateKey) {
@@ -43,7 +42,7 @@ func SignFreeTestPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey)
 	payment.Signature = getSignature(message, privateKey)
 }
 
-func GenerateFreeCallTokenPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey,userAddress common.Address) {
+func GenerateFreeCallTokenPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey, userAddress common.Address) {
 	message := bytes.Join([][]byte{
 		[]byte(payment.UserId),
 		userAddress.Bytes(),
@@ -101,7 +100,7 @@ func (suite *ValidationTestSuite) SetupSuite() {
 	suite.freeCallUserPrivateKey = GenerateTestPrivateKey()
 
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
-    suite.freeCallUserAddress =  crypto.PubkeyToAddress(suite.freeCallUserPrivateKey.PublicKey)
+	suite.freeCallUserAddress = crypto.PubkeyToAddress(suite.freeCallUserPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
@@ -122,7 +121,7 @@ func (suite *ValidationTestSuite) FreeCallPayment() *FreeCallPayment {
 		AuthTokenExpiryBlockNumber: big.NewInt(83081670000),
 		GroupId:                    "default_group",
 	}
-	GenerateFreeCallTokenPayment(payment,suite.signerPrivateKey,suite.freeCallUserAddress)
+	GenerateFreeCallTokenPayment(payment, suite.signerPrivateKey, suite.freeCallUserAddress)
 	SignFreeTestPayment(payment, suite.freeCallUserPrivateKey)
 	return payment
 }
@@ -282,4 +281,14 @@ func (suite *ValidationTestSuite) TestGetPublicKeyFromPayment2() {
 	address, err := getSignerAddressFromPayment(&payment)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), blockchain.HexToAddress("0x6b1E951a2F9dE2480C613C1dCDDee4DD4CaE1e4e"), *address)
+}
+
+func Test_checkCurationValidations(t *testing.T) {
+	config.Vip().Set(config.IsCurationInProgress,true)
+	config.Vip().Set(config.CurationAddressForValidation,"0x39ee715b50e78a920120c1ded58b1a47f571ab75")
+	signer := blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75")
+
+	assert.Nil(t,checkCurationValidations(&signer))
+	signer = blockchain.HexToAddress("0x49ee715b50e78a920120c1ded58b1a47f571ab75")
+	assert.Equal(t,checkCurationValidations(&signer).Error(),"you are not Authorized to call this service during curation process")
 }

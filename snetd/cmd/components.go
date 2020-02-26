@@ -173,7 +173,7 @@ func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
 	if components.etcdLockerStorage != nil {
 		return components.etcdLockerStorage
 	}
-	components.etcdLockerStorage = escrow.NewLockerStorage(components.AtomicStorage())
+	components.etcdLockerStorage = escrow.NewPrefixedAtomicStorage(components.MPESpecificStorage(), "/payment-channel/lock")
 	return components.etcdLockerStorage
 }
 /*

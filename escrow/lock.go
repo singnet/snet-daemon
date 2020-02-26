@@ -23,10 +23,6 @@ func NewEtcdLocker(storage AtomicStorage) Locker {
 	}
 }
 
-// returns new prefixed storage
-func NewLockerStorage(storage AtomicStorage) *PrefixedAtomicStorage {
-	return NewPrefixedAtomicStorage(storage, "/payment-channel/lock")
-}
 
 type etcdLocker struct {
 	storage AtomicStorage

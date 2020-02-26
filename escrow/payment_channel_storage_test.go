@@ -172,7 +172,13 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeint
 	assert.Nil(suite.T(), channel)
 }
 
-func (suite *BlockchainChannelReaderSuite) TestNewPaymentChannelStorage() {
-	mpeStorage := NewPrefixedAtomicStorage(&PrefixedAtomicStorage{delegate:nil,keyPrefix:"path1"},"path2")
-	assert.Equal(suite.T(),mpeStorage.keyPrefix,"path1/path2")
+func (suite *PaymentChannelStorageSuite) TestNewPaymentChannelStorage() {
+	mpeStorage := NewPrefixedAtomicStorage( NewPrefixedAtomicStorage(suite.memoryStorage,"path1"),"path2")
+	mpeStorage.Put("key1","value1")
+	value,_,_ := mpeStorage.Get("key1")
+	assert.Equal(suite.T(),value,"value1")
+	values,err := suite.memoryStorage.GetByKeyPrefix("path1")
+	assert.Equal(suite.T(), len(values),1)
+	assert.Equal(suite.T(),values[0],"value1")
+	assert.Nil(suite.T(), err)
 }

@@ -35,18 +35,9 @@ type PrefixedAtomicStorage struct {
 
 //It is recommended to use this function to create a PrefixedAtomicStorage
 func NewPrefixedAtomicStorage(atomicStorage AtomicStorage, prefix string) *PrefixedAtomicStorage {
-	 passedStorage, ok := atomicStorage.(*PrefixedAtomicStorage) ;
-	if ok && passedStorage != nil {
-		return &PrefixedAtomicStorage{
-			delegate:  atomicStorage.(*PrefixedAtomicStorage).delegate,
-			keyPrefix: atomicStorage.(*PrefixedAtomicStorage).keyPrefix+"/" + prefix,
-		}
-
-	}
-
 	return &PrefixedAtomicStorage{
 		delegate:  atomicStorage,
-		keyPrefix: "/" + prefix,
+		keyPrefix: prefix,
 	}
 }
 

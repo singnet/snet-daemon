@@ -160,6 +160,10 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
 		return nil, err
 	}
+	if err = checkCurationValidations(signer);err != nil {
+		log.Error(err)
+		return nil,err
+	}
 
 	return signer, err
 }
@@ -196,6 +200,10 @@ func getUserAddressFromSignatureOfFreeCalls(payment *FreeCallPayment) (signer *c
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
 		return nil, err
 	}
+	if err = checkCurationValidations(signer);err != nil {
+		log.Error(err)
+		return nil,err
+	}
 	return signer, err
 }
 
@@ -205,4 +213,16 @@ func bigIntToBytes(value *big.Int) []byte {
 
 func bytesToBigInt(bytes []byte) *big.Int {
 	return (&big.Int{}).SetBytes(bytes)
+}
+
+func checkCurationValidations(signer *common.Address) error {
+	//This is only to protect the Service provider in test environment from being
+	//hit by unknown users during curation process
+	if config.GetBool(config.IsCurationInProgress) {
+		if *signer != blockchain.HexToAddress(config.GetString(config.CurationAddressForValidation)) {
+			return fmt.Errorf("you are not Authorized to call this service during curation process")
+
+		}
+	}
+	return nil
 }

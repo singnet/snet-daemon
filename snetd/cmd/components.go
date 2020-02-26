@@ -238,7 +238,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 		escrow.NewPaymentChannelStorage(components.MPESpecificStorage()),
 		components.PaymentStorage(),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(),components.OrganizationMetaData()),
-		escrow.NewEtcdLocker(components.AtomicStorage()),
+		escrow.NewEtcdLocker(components.LockerStorage()),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()), func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil

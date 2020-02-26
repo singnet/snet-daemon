@@ -19,7 +19,7 @@ type Locker interface {
 // NewEtcdLocker returns new lock which is based on etcd storage.
 func NewEtcdLocker(storage AtomicStorage) Locker {
 	return &etcdLocker{
-		storage: NewLockerStorage(storage),
+		storage: storage,
 	}
 }
 

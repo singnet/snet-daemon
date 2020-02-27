@@ -195,6 +195,14 @@ path to executable to expose as a service.
 
 This options are less frequently needed.
 
+* **allowed_users_flag** (optional;default:`false`) - You may need to protect the service provider 's service in test environment from being called by anyone, only Authorized users can make calls , when this flag is defined in the config, you can enforce this behaviour.You cannot set this flag to true 
+  in mainnet.  
+  This config is applicable only when you have the value to true.
+  In which case it becomes mandatory to define the configuration `allowed_users`,
+
+* **allowed_users** (optional;) - List of selected users who can make requests to Daemon
+  Is Applicable only when you have `allowed_users_flag set` to true.
+  
 * **authentication_address** (required if `You need to update Daemon configurations remotely`) 
 Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely 
 through a user interface ( Operator UI) 
@@ -211,8 +219,6 @@ enables or disables blockchain features of daemon; `false` reserved mostly for t
 * **burst_size** (optional; default: Infinite) - 
 see [rate limiting configuration](./ratelimit/README.md)
 
-* **curation_address_for_validation** (optional;) - You may need to protect the service provider 's service in test environment from being called by anyone, only Authorized users can make calls , when this flag is defined in the config, you can enforce this behaviour.This config is applicable only when 
-  you have `is_curation_in_progress set` to true.
 
 * **daemon_group_name** (optional ,default: `"default_group"`) - 
 This parameter defines the group the daemon belongs to .

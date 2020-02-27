@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -116,18 +117,31 @@ func TestValidateEndpoints(t *testing.T) {
 	assert.Equal(t, nil, err)
 }
 
-func TestCuration(t *testing.T) {
-	err := curationChecks()
+func TestAllowedUserChecks(t *testing.T) {
+	err := allowedUserConfigurationChecks()
 	assert.Equal(t, nil, err)
-	vip.Set(IsCurationInProgress,true)
-	err = curationChecks()
-	assert.Equal(t, "a valid Address needs to be specified for the config curation_address_for_validation to ensure that, only this user can make calls", err.Error())
-	vip.Set(CurationAddressForValidation,"0x06A1D29e9FfA2415434A7A571235744F8DA2a514")
-	err = curationChecks()
+	vip.Set(AllowedUserFlag,true)
+	err = allowedUserConfigurationChecks()
+	assert.Equal(t, "a valid Address needs to be specified for the config allowed_users to ensure that, only these users can make calls", err.Error())
+	vip.Set(AllowedUsers,[]string{"0x06A1D29e9FfA2415434A7A571235744F8DA2a514","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
+	err = allowedUserConfigurationChecks()
 	assert.Equal(t, nil, err)
+	vip.Set(AllowedUsers,[]string{"invalidHexaddress","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
+	err = allowedUserConfigurationChecks()
+	assert.Equal(t, "invalidHexaddress is not a valid hex address", err.Error())
 	vip.Set(BlockChainNetworkSelected,"main")
-	err = curationChecks()
-	assert.Equal(t, "service cannot be curated while set up against Ethereum mainnet,the flag is_curation_in_progress is set to true", err.Error())
+	err = allowedUserConfigurationChecks()
+	assert.Equal(t, "service cannot be restricted to certain users when set up against Ethereum mainnet,the flag allowed_user_flag is set to true", err.Error())
+}
+func Test_IsAllowedUser(t *testing.T) {
+	Vip().Set(AllowedUserFlag,true)
+	Vip().Set(AllowedUsers,[]string{"0x39ee715b50e78a920120c1ded58b1a47f571ab75"})
+    setAllowedUsers()
+	signer := common.Address(common.BytesToAddress(common.FromHex("0x39ee715b50e78a920120c1ded58b1a47f571ab75")))
+
+	assert.True(t,IsAllowedUser(&signer))
+	signer = common.Address(common.BytesToAddress(common.FromHex("0x49ee715b50e78a920120c1ded58b1a47f571ab75")))
+	assert.False(t,IsAllowedUser(&signer))
 }
 
 func Test_validateMeteringChecks(t *testing.T) {

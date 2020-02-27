@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/authutils"
-	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
@@ -376,21 +375,21 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 // NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
 func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
-	if config.GetBool(config.IsCurationInProgress){
+	if config.GetBool(config.AllowedUserFlag){
 		//Just to a validation of the Request here
 
 		context, err := getGrpcContext(ss, info)
 		if err != nil {
 			return err.Err()
 		}
-        if err := verifySignerForCuration(context) ;err != nil {
+        if err := checkIfSignerIsAnAllowedUser(context) ;err != nil {
         	return err
 		}
 
 	}
 	return handler(srv, ss)
 }
-func verifySignerForCuration(context *GrpcStreamContext) (err error) {
+func checkIfSignerIsAnAllowedUser(context *GrpcStreamContext) (err error) {
 	signature, grpcErr := GetBytes(context.MD, PaymentChannelSignatureHeader)
 	if grpcErr != nil {
 		return fmt.Errorf("Metadata %v is not set correctly for curation requests",PaymentChannelSignatureHeader)
@@ -411,8 +410,8 @@ func verifySignerForCuration(context *GrpcStreamContext) (err error) {
 		log.WithError(err).Error("cannot get signer during curation")
 		return err
 	}
-	if *signer != blockchain.HexToAddress(config.GetString(config.CurationAddressForValidation)) {
-		return fmt.Errorf("you are not Authorized to call this service during curation process")
+	if !config.IsAllowedUser(signer) {
+		return fmt.Errorf("you are not authorized to call this service")
 
 	}
 	return nil

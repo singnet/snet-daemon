@@ -123,10 +123,10 @@ func TestAllowedUserChecks(t *testing.T) {
 	vip.Set(AllowedUserFlag,true)
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, "a valid Address needs to be specified for the config allowed_users to ensure that, only these users can make calls", err.Error())
-	vip.Set(AllowedUsers,[]string{"0x06A1D29e9FfA2415434A7A571235744F8DA2a514","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
+	vip.Set(AllowedUserAddresses,[]string{"0x06A1D29e9FfA2415434A7A571235744F8DA2a514","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, nil, err)
-	vip.Set(AllowedUsers,[]string{"invalidHexaddress","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
+	vip.Set(AllowedUserAddresses,[]string{"invalidHexaddress","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, "invalidHexaddress is not a valid hex address", err.Error())
 	vip.Set(BlockChainNetworkSelected,"main")
@@ -135,7 +135,7 @@ func TestAllowedUserChecks(t *testing.T) {
 }
 func Test_IsAllowedUser(t *testing.T) {
 	Vip().Set(AllowedUserFlag,true)
-	Vip().Set(AllowedUsers,[]string{"0x39ee715b50e78a920120c1ded58b1a47f571ab75"})
+	Vip().Set(AllowedUserAddresses,[]string{"0x39ee715b50e78a920120c1ded58b1a47f571ab75"})
     setAllowedUsers()
 	signer := common.Address(common.BytesToAddress(common.FromHex("0x39ee715b50e78a920120c1ded58b1a47f571ab75")))
 

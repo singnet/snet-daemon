@@ -19,7 +19,7 @@ import (
 
 const (
 	AllowedUserFlag                = "allowed_user_flag"
-	AllowedUsers                   = "allowed_users"
+	AllowedUserAddresses           = "allowed_user_addresses"
 	AuthenticationAddress          = "authentication_address"
 	AutoSSLDomainKey               = "auto_ssl_domain"
 	AutoSSLCacheDirKey             = "auto_ssl_cache_dir"
@@ -341,9 +341,9 @@ func IsAllowedUser(address *common.Address) bool {
 
 //Set the list of allowed users
 func setAllowedUsers() (err error) {
-	users := vip.GetStringSlice(AllowedUsers)
+	users := vip.GetStringSlice(AllowedUserAddresses)
 	if users == nil || len(users) == 0 {
-		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only these users can make calls", AllowedUsers)
+		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only these users can make calls", AllowedUserAddresses)
 	}
 	userAddress = make([]common.Address, len(users))
 	for _, user := range users {

@@ -200,7 +200,7 @@ This options are less frequently needed.
   This config is applicable only when you have the value to true.
   In which case it becomes mandatory to define the configuration `allowed_users`,
 
-* **allowed_users** (optional;) - List of selected users who can make requests to Daemon
+* **allowed_user_addresses** (optional;) - List of selected user addresses who can make requests to Daemon
   Is Applicable only when you have `allowed_users_flag set` to true.
   
 * **authentication_address** (required if `You need to update Daemon configurations remotely`) 

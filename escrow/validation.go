@@ -218,7 +218,7 @@ func bytesToBigInt(bytes []byte) *big.Int {
 func checkCurationValidations(signer *common.Address) error {
 	//This is only to protect the Service provider in test environment from being
 	//hit by unknown users during curation process
-	if config.GetBool(config.AllowedUsers) {
+	if config.GetBool(config.AllowedUserFlag) {
 		if !config.IsAllowedUser(signer) {
 			return fmt.Errorf("you are not Authorized to call this service during curation process")
 

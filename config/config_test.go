@@ -122,7 +122,7 @@ func TestAllowedUserChecks(t *testing.T) {
 	assert.Equal(t, nil, err)
 	vip.Set(AllowedUserFlag,true)
 	err = allowedUserConfigurationChecks()
-	assert.Equal(t, "a valid Address needs to be specified for the config allowed_users to ensure that, only these users can make calls", err.Error())
+	assert.Equal(t, "a valid Address needs to be specified for the config allowed_user_addresses to ensure that, only these users can make calls", err.Error())
 	vip.Set(AllowedUserAddresses,[]string{"0x06A1D29e9FfA2415434A7A571235744F8DA2a514","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, nil, err)

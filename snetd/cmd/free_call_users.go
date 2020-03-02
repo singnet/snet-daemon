@@ -100,7 +100,7 @@ func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 	// check whether the key exists or not
 	_, ok, err := command.lockStorage.Get(key.String())
 	if !ok {
-		fmt.Printf("Error: Free Call user %s not found\n", key.String())
+		fmt.Printf("Error: Free Call lock for user %s is not found\n", key.String())
 		return
 	}
 	// try deleting the key

@@ -62,7 +62,6 @@ func newFreeCallResetCountCommand(cmd *cobra.Command, args []string, pComponents
 		return
 	}
 	command = &freeCallUserResetCountCommand{
-		lockStorage: pComponents.LockerStorage(),
 		userStorage: pComponents.FreeCallUserStorage(),
 		userId:      userID,
 		component:   pComponents,

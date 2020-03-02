@@ -113,7 +113,7 @@ func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 	return
 }
 
-// release the lock on the user with the given user id
+// reset free locks counter for a given user id
 func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error) {
 	key := &escrow.FreeCallUserKey{}
 	key.UserId = freeCallUserId

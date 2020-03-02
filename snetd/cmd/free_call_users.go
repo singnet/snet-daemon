@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/spf13/cobra"
@@ -30,7 +31,7 @@ var FreeCallUserResetCmd = &cobra.Command{
 type freeCallUserUnLockCommand struct {
 	lockStorage *escrow.PrefixedAtomicStorage
 	userId      string
-	component   *Components
+	orgMetadata *blockchain.OrganizationMetaData
 }
 
 //Free call user unlock command
@@ -38,7 +39,7 @@ type freeCallUserResetCountCommand struct {
 	lockStorage *escrow.PrefixedAtomicStorage
 	userStorage *escrow.FreeCallUserStorage
 	userId      string
-	component   *Components
+	orgMetadata *blockchain.OrganizationMetaData
 }
 
 // initializes and returns the new unlock user of free calls command object
@@ -50,7 +51,7 @@ func newFreeCallUserUnLockCommandCommand(cmd *cobra.Command, args []string, pCom
 	command = &freeCallUserUnLockCommand{
 		lockStorage: pComponents.LockerStorage(),
 		userId:      userID,
-		component:   pComponents,
+		orgMetadata: pComponents.OrganizationMetaData(),
 	}
 	return
 }
@@ -65,7 +66,7 @@ func newFreeCallResetCountCommand(cmd *cobra.Command, args []string, pComponents
 		lockStorage: pComponents.LockerStorage(),
 		userStorage: pComponents.FreeCallUserStorage(),
 		userId:      userID,
-		component:   pComponents,
+		orgMetadata: pComponents.OrganizationMetaData(),
 	}
 	return
 }
@@ -96,7 +97,7 @@ func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 	key.UserId = freeCallUserId
 	key.OrganizationId = config.GetString(config.OrganizationId)
 	key.ServiceId = config.GetString(config.ServiceId)
-	key.GroupID = command.component.OrganizationMetaData().GetGroupIdString()
+	key.GroupID = command.orgMetadata.GetGroupIdString()
 	// check whether the key exists or not
 	_, ok, err := command.lockStorage.Get(key.String())
 	if !ok {
@@ -119,7 +120,7 @@ func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error
 	key.UserId = freeCallUserId
 	key.OrganizationId = config.GetString(config.OrganizationId)
 	key.ServiceId = config.GetString(config.ServiceId)
-	key.GroupID = command.component.OrganizationMetaData().GetGroupIdString()
+	key.GroupID = command.orgMetadata.GetGroupIdString()
 	// check whether the key exists or not
 	_, ok, err := command.userStorage.Get(key)
 	if !ok {

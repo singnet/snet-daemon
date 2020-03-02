@@ -60,7 +60,7 @@ const (
 	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
-    "allowed_user_flag" :false,
+	"allowed_user_flag" :false,
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,

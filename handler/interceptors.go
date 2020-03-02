@@ -47,7 +47,7 @@ const (
 
 	//Added for free call support in Daemon
 
-    //The user Id of the person making the call
+	//The user Id of the person making the call
 	FreeCallUserIdHeader = "snet-free-call-user-id"
 
 	//Will be used to check if the Signature is still valid
@@ -55,10 +55,8 @@ const (
 
 	//Place holder to set the free call Auth Token issued
 	FreeCallAuthTokenHeader = "snet-free-call-auth-token-bin"
-    //Block number on when the Token was issued , to track the expiry of the token , which is ~ 1 Month
-	FreeCallAuthTokenExpiryBlockNumberHeader =  "snet-free-call-token-expiry-block"
-
-
+	//Block number on when the Token was issued , to track the expiry of the token , which is ~ 1 Month
+	FreeCallAuthTokenExpiryBlockNumberHeader = "snet-free-call-token-expiry-block"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to
@@ -120,7 +118,6 @@ func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcErr
 	}
 }
 
-
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
 // jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
@@ -137,30 +134,29 @@ type PaymentHandler interface {
 	Complete(payment Payment) (err *GrpcError)
 	// CompleteAfterError completes payment if service returns error.
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
-
 }
 
 type rateLimitInterceptor struct {
-	rateLimiter           rate.Limiter
-	messageBroadcaster    *configuration_service.MessageBroadcaster
-	processRequest        int
+	rateLimiter                   rate.Limiter
+	messageBroadcaster            *configuration_service.MessageBroadcaster
+	processRequest                int
 	requestProcessingNotification chan int
 }
 
 func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaster) grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
-		rateLimiter:           ratelimit.NewRateLimiter(),
-		messageBroadcaster:    broadcast,
-		processRequest :       configuration_service.START_PROCESSING_ANY_REQUEST,
+		rateLimiter:                   ratelimit.NewRateLimiter(),
+		messageBroadcaster:            broadcast,
+		processRequest:                configuration_service.START_PROCESSING_ANY_REQUEST,
 		requestProcessingNotification: broadcast.NewSubscriber(),
 	}
 	go interceptor.startOrStopProcessingAnyRequests()
 	return interceptor.intercept
 }
 
-func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests () {
+func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests() {
 	for {
-		interceptor.processRequest =<- interceptor.requestProcessingNotification
+		interceptor.processRequest = <-interceptor.requestProcessingNotification
 	}
 }
 
@@ -196,7 +192,7 @@ func interceptMetering(srv interface{}, ss grpc.ServerStream, info *grpc.StreamS
 
 func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
-	if (interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST) {
+	if interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {
@@ -375,15 +371,15 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 // NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
 func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
-	if config.GetBool(config.AllowedUserFlag){
+	if config.GetBool(config.AllowedUserFlag) {
 		//Just to a validation of the Request here
 
 		context, err := getGrpcContext(ss, info)
 		if err != nil {
 			return err.Err()
 		}
-        if err := checkIfSignerIsAnAllowedUser(context) ;err != nil {
-        	return err
+		if err := checkIfSignerIsAnAllowedUser(context); err != nil {
+			return err
 		}
 
 	}
@@ -392,18 +388,14 @@ func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamSer
 func checkIfSignerIsAnAllowedUser(context *GrpcStreamContext) (err error) {
 	signature, grpcErr := GetBytes(context.MD, PaymentChannelSignatureHeader)
 	if grpcErr != nil {
-		return fmt.Errorf("Metadata %v is not set correctly for curation requests",PaymentChannelSignatureHeader)
+		return fmt.Errorf("Metadata %v is not set correctly for curation requests", PaymentChannelSignatureHeader)
 	}
-	blockNumber, grpcErr := GetBigInt(context.MD, CurrentBlockNumberHeader)
-	if grpcErr != nil {
-		return fmt.Errorf("Metadata %v is not set correctly for curation requests",PaymentChannelSignatureHeader)
-	}
+
 	//verify signature
 	message := bytes.Join([][]byte{
 		[]byte("__curation"),
 		[]byte(config.GetString(config.OrganizationId)),
 		[]byte(config.GetString(config.ServiceId)),
-		common.BigToHash(blockNumber).Bytes(),
 	}, nil)
 	signer, err := authutils.GetSignerAddressFromMessage(message, signature)
 	if err != nil {
@@ -416,6 +408,7 @@ func checkIfSignerIsAnAllowedUser(context *GrpcStreamContext) (err error) {
 	}
 	return nil
 }
+
 //set Additional details on the metrics persisted , this is to keep track of how many calls were made per channel
 func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
 	md := context.MD

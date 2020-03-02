@@ -49,7 +49,7 @@ func newFreeCallUserUnLockCommandCommand(cmd *cobra.Command, args []string, pCom
 		return
 	}
 	command = &freeCallUserUnLockCommand{
-		lockStorage: pComponents.LockerStorage(),
+		lockStorage: pComponents.FreeCallLockerStorage(),
 		userId:      userID,
 		orgMetadata: pComponents.OrganizationMetaData(),
 	}

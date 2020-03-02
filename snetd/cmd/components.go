@@ -176,6 +176,7 @@ func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
 	components.etcdLockerStorage = escrow.NewPrefixedAtomicStorage(components.MPESpecificStorage(), "/payment-channel/lock")
 	return components.etcdLockerStorage
 }
+
 /*
 create new PrefixedStorage using /<network_name> as a prefix, use this storage as base for other storages
 (i.e. return it from GetAtomicStorage of components.go);
@@ -193,10 +194,11 @@ func (components *Components) AtomicStorage() escrow.AtomicStorage {
 		storage = escrow.NewMemStorage()
 	}
 	//by default set the network selected in the storage path
-	components.atomicStorage = escrow.NewPrefixedAtomicStorage(storage,config.GetString(config.BlockChainNetworkSelected))
+	components.atomicStorage = escrow.NewPrefixedAtomicStorage(storage, config.GetString(config.BlockChainNetworkSelected))
 
 	return components.atomicStorage
 }
+
 /*
 add new component MPESpecificStorage; it is also instance of PrefixedStorage using /<mpe_contract_address> as a prefix; as it is also based on storage from previous item the effective prefix is /<network_id>/<mpe_contract_address>; this guarantees that storages which are specific for MPE contract version don't intersect;
 use MPESpecificStorage as base for PaymentChannelStorage, PaymentStorage, LockStorage for channels;
@@ -205,7 +207,7 @@ func (components *Components) MPESpecificStorage() *escrow.PrefixedAtomicStorage
 	if components.mpeSpecificStorage != nil {
 		return components.mpeSpecificStorage
 	}
-	components.mpeSpecificStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(),components.ServiceMetaData().MpeAddress)
+	components.mpeSpecificStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), components.ServiceMetaData().MpeAddress)
 	return components.mpeSpecificStorage
 }
 
@@ -237,7 +239,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	components.paymentChannelService = escrow.NewPaymentChannelService(
 		escrow.NewPaymentChannelStorage(components.MPESpecificStorage()),
 		components.PaymentStorage(),
-		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(),components.OrganizationMetaData()),
+		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.OrganizationMetaData()),
 		escrow.NewEtcdLocker(components.LockerStorage()),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()), func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
@@ -298,13 +300,13 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
 
-			meteringUrl := config.GetString(config.MeteringEndPoint) + "/metering/verify"
-			if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
-				components.OrganizationMetaData().GetGroupIdString()); !ok {
-				log.Error(err)
-				log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
-					" as part of service publication process")
-			}
+		meteringUrl := config.GetString(config.MeteringEndPoint) + "/metering/verify"
+		if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
+			components.OrganizationMetaData().GetGroupIdString()); !ok {
+			log.Error(err)
+			log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
+				" as part of service publication process")
+		}
 
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
 			handler.GrpcMeteringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
@@ -383,6 +385,11 @@ type VerifyMeteringResponse struct {
 
 func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
+		if config.GetBool(config.AllowedUserFlag) {
+			log.Info("Blockchain is disabled And AlloweUserFlag is enabled")
+			return handler.AllowedUserValidationInterceptor
+
+		}
 		log.Info("Blockchain is disabled: no payment validation")
 		return handler.NoOpInterceptor
 	} else {
@@ -424,10 +431,9 @@ func (components *Components) ProviderControlService() (service escrow.ProviderC
 	return components.providerControlService
 }
 
-
 func (components *Components) FreeCallStateService() (service escrow.FreeCallStateServiceServer) {
 
-	if !config.GetBool(config.BlockchainEnabledKey){
+	if !config.GetBool(config.BlockchainEnabledKey) {
 		return &escrow.BlockChainDisabledFreeCallStateService{}
 	}
 	if components.freeCallStateService != nil {
@@ -435,7 +441,7 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 	}
 
 	components.freeCallStateService = escrow.NewFreeCallStateService(components.OrganizationMetaData(),
-		components.ServiceMetaData(),components.FreeCallUserService(),
+		components.ServiceMetaData(), components.FreeCallUserService(),
 		escrow.NewFreeCallPaymentValidator(components.Blockchain().CurrentBlock,
 			components.ServiceMetaData().FreeCallSignerAddress()))
 	return components.freeCallStateService

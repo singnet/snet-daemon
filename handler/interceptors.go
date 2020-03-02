@@ -45,6 +45,9 @@ const (
 	// amount withdrawing authorization. Value is an array of bytes.
 	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 
+	// This metadata will be used ONLY when block chain is disabled and allowed user flag is enabled
+	AllowedUserSignatureHeader = "snet-allowed-user-signature-bin"
+
 	//Added for free call support in Daemon
 
 	//The user Id of the person making the call
@@ -371,29 +374,31 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 // NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
 func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
-	if config.GetBool(config.AllowedUserFlag) {
-		//Just to a validation of the Request here
+	return handler(srv, ss)
+}
 
-		context, err := getGrpcContext(ss, info)
-		if err != nil {
-			return err.Err()
-		}
-		if err := checkIfSignerIsAnAllowedUser(context); err != nil {
-			return err
-		}
-
+// NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
+func AllowedUserValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler) error {
+	context, err := getGrpcContext(ss, info)
+	if err != nil {
+		return err.Err()
+	}
+	if err := checkIfSignerIsAnAllowedUser(context); err != nil {
+		return err
 	}
 	return handler(srv, ss)
 }
+
 func checkIfSignerIsAnAllowedUser(context *GrpcStreamContext) (err error) {
-	signature, grpcErr := GetBytes(context.MD, PaymentChannelSignatureHeader)
+	signature, grpcErr := GetBytes(context.MD, AllowedUserSignatureHeader)
 	if grpcErr != nil {
-		return fmt.Errorf("Metadata %v is not set correctly for curation requests", PaymentChannelSignatureHeader)
+		return fmt.Errorf("Metadata %v is not set correctly for curation requests", AllowedUserSignatureHeader)
 	}
 
 	//verify signature
 	message := bytes.Join([][]byte{
-		[]byte("__curation"),
+		[]byte("__alloweduser"),
 		[]byte(config.GetString(config.OrganizationId)),
 		[]byte(config.GetString(config.ServiceId)),
 	}, nil)

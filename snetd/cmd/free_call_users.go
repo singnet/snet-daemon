@@ -63,7 +63,6 @@ func newFreeCallResetCountCommand(cmd *cobra.Command, args []string, pComponents
 		return
 	}
 	command = &freeCallUserResetCountCommand{
-		lockStorage: pComponents.LockerStorage(),
 		userStorage: pComponents.FreeCallUserStorage(),
 		userId:      userID,
 		orgMetadata: pComponents.OrganizationMetaData(),
@@ -101,7 +100,7 @@ func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 	// check whether the key exists or not
 	_, ok, err := command.lockStorage.Get(key.String())
 	if !ok {
-		fmt.Printf("Error: Free Call user %s not found\n", key.String())
+		fmt.Printf("Error: Free Call lock for user %s is not found\n", key.String())
 		return
 	}
 	// try deleting the key
@@ -114,7 +113,7 @@ func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 	return
 }
 
-// release the lock on the user with the given user id
+// reset free locks counter for a given user id
 func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error) {
 	key := &escrow.FreeCallUserKey{}
 	key.UserId = freeCallUserId

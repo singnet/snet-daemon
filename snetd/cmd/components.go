@@ -26,6 +26,7 @@ import (
 )
 
 type Components struct {
+	allowedUserPaymentHandler  handler.PaymentHandler
 	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
@@ -291,6 +292,16 @@ func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
 	return components.freeCallPaymentHandler
 }
 
+func (components *Components) AllowedUserPaymentHandler() handler.PaymentHandler {
+	if components.allowedUserPaymentHandler != nil {
+		return components.allowedUserPaymentHandler
+	}
+
+	components.allowedUserPaymentHandler = escrow.AllowedUserPaymentHandler()
+
+	return components.allowedUserPaymentHandler
+}
+
 //Add a chain of interceptors
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
@@ -386,8 +397,8 @@ type VerifyMeteringResponse struct {
 func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		if config.GetBool(config.AllowedUserFlag) {
-			log.Info("Blockchain is disabled And AlloweUserFlag is enabled")
-			return handler.AllowedUserValidationInterceptor
+			log.Info("Blockchain is disabled And AllowedUserFlag is enabled")
+			return handler.AllowedUserValidationInterceptor(components.AllowedUserPaymentHandler())
 
 		}
 		log.Info("Blockchain is disabled: no payment validation")

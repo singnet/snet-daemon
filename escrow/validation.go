@@ -16,6 +16,8 @@ const (
 	PrefixInSignature = "__MPE_claim_message"
 	//Agreed constant value
 	FreeCallPrefixSignature = "__prefix_free_trial"
+	//Agreed constant value
+	AllowedUserPrefixSignature = "__authorized_user"
 )
 
 type FreeCallPaymentValidator struct {
@@ -28,11 +30,32 @@ func NewFreeCallPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int,
 		currentBlock:   funcCurrentBlock,
 		freeCallSigner: signer,
 	}
+}
 
+type AllowedUserPaymentValidator struct {
+}
+
+func (validator *AllowedUserPaymentValidator) Validate(payment *AllowedUserPayment) (err error) {
+	//verify signature
+	message := bytes.Join([][]byte{
+		[]byte(AllowedUserPrefixSignature),
+		[]byte(config.GetString(config.OrganizationId)),
+		[]byte(config.GetString(config.ServiceId)),
+	}, nil)
+	signer, err := authutils.GetSignerAddressFromMessage(message, payment.Signature)
+	if err != nil {
+		log.WithError(err).Error("cannot get signer during curation")
+		return err
+	}
+	if !config.IsAllowedUser(signer) {
+		return fmt.Errorf("you are not authorized to call this service")
+
+	}
+	return nil
 }
 
 func (validator *FreeCallPaymentValidator) Validate(payment *FreeCallPayment) (err error) {
-    newSignature := true//this will be removed once dapp makes the changes to move to new Signature
+	newSignature := true //this will be removed once dapp makes the changes to move to new Signature
 	signerAddress, err := validator.getSignerOfAuthTokenForFreeCall(payment)
 	if err != nil || *signerAddress != validator.freeCallSigner {
 		//Make sure the current Dapp is backward compatible , this will be removed once Dapp
@@ -160,9 +183,9 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
 		return nil, err
 	}
-	if err = checkCurationValidations(signer);err != nil {
+	if err = checkCurationValidations(signer); err != nil {
 		log.Error(err)
-		return nil,err
+		return nil, err
 	}
 
 	return signer, err
@@ -200,9 +223,9 @@ func getUserAddressFromSignatureOfFreeCalls(payment *FreeCallPayment) (signer *c
 		log.WithField("payment", payment).WithError(err).Error("Cannot get signer from payment")
 		return nil, err
 	}
-	if err = checkCurationValidations(signer);err != nil {
+	if err = checkCurationValidations(signer); err != nil {
 		log.Error(err)
-		return nil,err
+		return nil, err
 	}
 	return signer, err
 }

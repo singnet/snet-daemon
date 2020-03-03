@@ -1,11 +1,8 @@
 package handler
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/authutils"
-	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/ratelimit"
@@ -229,6 +226,10 @@ func GrpcPaymentValidationInterceptor(defaultPaymentHandler PaymentHandler, paym
 
 }
 
+type allowedUserValidationInterceptor struct {
+	paymentHandlers map[string]PaymentHandler
+}
+
 type paymentValidationInterceptor struct {
 	defaultPaymentHandler PaymentHandler
 	paymentHandlers       map[string]PaymentHandler
@@ -378,40 +379,45 @@ func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamSer
 }
 
 // NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
-func AllowedUserValidationInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
-	handler grpc.StreamHandler) error {
+func AllowedUserValidationInterceptor(defaultPaymentHandler PaymentHandler) grpc.StreamServerInterceptor {
+	interceptor := &allowedUserValidationInterceptor{
+		paymentHandlers: make(map[string]PaymentHandler),
+	}
+
+	interceptor.paymentHandlers[defaultPaymentHandler.Type()] = defaultPaymentHandler
+	log.WithField("defaultPaymentType", defaultPaymentHandler.Type()).Info("Default payment handler registered")
+	return interceptor.intercept
+}
+func (interceptor *allowedUserValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *GrpcError) {
+	paymentTypeMd, ok := context.MD[PaymentTypeHeader]
+	if !ok || len(paymentTypeMd) == 0 {
+		log.Error("Payment type was not set or set incorrectly by caller")
+		return nil, NewGrpcErrorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentTypeMd)
+	}
+	paymentType := paymentTypeMd[0]
+	handler, ok = interceptor.paymentHandlers[paymentType]
+	if !ok {
+		log.WithField("paymentType", paymentType).Error("Unexpected payment type")
+		return nil, NewGrpcErrorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
+	}
+	return handler, err
+}
+
+func (interceptor *allowedUserValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	context, err := getGrpcContext(ss, info)
 	if err != nil {
 		return err.Err()
 	}
-	if err := checkIfSignerIsAnAllowedUser(context); err != nil {
-		return err
+	log.WithField("context", context).Debug("New gRPC call received")
+	paymentHandler, err := interceptor.getPaymentHandler(context)
+	if err != nil {
+		return err.Err()
+	}
+	_, err = paymentHandler.Payment(context) //for now we dont do anything with the payment , but in future , there may be a case
+	if err != nil {
+		return err.Err()
 	}
 	return handler(srv, ss)
-}
-
-func checkIfSignerIsAnAllowedUser(context *GrpcStreamContext) (err error) {
-	signature, grpcErr := GetBytes(context.MD, AllowedUserSignatureHeader)
-	if grpcErr != nil {
-		return fmt.Errorf("Metadata %v is not set correctly for curation requests", AllowedUserSignatureHeader)
-	}
-
-	//verify signature
-	message := bytes.Join([][]byte{
-		[]byte("__alloweduser"),
-		[]byte(config.GetString(config.OrganizationId)),
-		[]byte(config.GetString(config.ServiceId)),
-	}, nil)
-	signer, err := authutils.GetSignerAddressFromMessage(message, signature)
-	if err != nil {
-		log.WithError(err).Error("cannot get signer during curation")
-		return err
-	}
-	if !config.IsAllowedUser(signer) {
-		return fmt.Errorf("you are not authorized to call this service")
-
-	}
-	return nil
 }
 
 //set Additional details on the metrics persisted , this is to keep track of how many calls were made per channel

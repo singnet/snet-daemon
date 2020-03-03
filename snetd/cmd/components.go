@@ -49,6 +49,7 @@ type Components struct {
 	freeCallPaymentHandler     handler.PaymentHandler
 	freeCallUserService        escrow.FreeCallUserService
 	freeCallUserStorage        *escrow.FreeCallUserStorage
+	freeCallLockerStorage      *escrow.PrefixedAtomicStorage
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -170,6 +171,14 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	return components.etcdClient
 }
 
+func (components *Components) FreeCallLockerStorage() *escrow.PrefixedAtomicStorage {
+	if components.freeCallLockerStorage != nil {
+		return components.freeCallLockerStorage
+	}
+	components.etcdLockerStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), "/freecall/lock")
+	return components.freeCallLockerStorage
+}
+
 func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
 	if components.etcdLockerStorage != nil {
 		return components.etcdLockerStorage
@@ -258,7 +267,7 @@ func (components *Components) FreeCallUserService() escrow.FreeCallUserService {
 
 	components.freeCallUserService = escrow.NewFreeCallUserService(
 		components.FreeCallUserStorage(),
-		escrow.NewEtcdLocker(escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), "/free-call/lock")),
+		escrow.NewEtcdLocker(components.FreeCallLockerStorage()),
 		func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil

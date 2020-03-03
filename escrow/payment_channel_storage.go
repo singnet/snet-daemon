@@ -21,14 +21,10 @@ type PaymentChannelStorage struct {
 
 // NewPaymentChannelStorage returns new instance of PaymentChannelStorage
 // implementation
-func NewPaymentChannelStorage(atomicStorage AtomicStorage,metadata *blockchain.ServiceMetadata) *PaymentChannelStorage {
+func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorage {
 	return &PaymentChannelStorage{
 		delegate: &TypedAtomicStorageImpl{
-			atomicStorage: &PrefixedAtomicStorage{
-				delegate:  atomicStorage,
-				//Add the MPE Network address as the prefix on the key for storage
-				keyPrefix: "/"+metadata.MpeAddress+"/payment-channel/storage",
-			},
+			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment-channel/storage"),
 			keySerializer:     serialize,
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,
@@ -92,7 +88,6 @@ func (storage *PaymentChannelStorage) CompareAndSwap(key *PaymentChannelKey, pre
 
 // BlockchainChannelReader reads channel state from blockchain
 type BlockchainChannelReader struct {
-
 	readChannelFromBlockchain func(channelID *big.Int) (channel *blockchain.MultiPartyEscrowChannel, ok bool, err error)
 	recipientPaymentAddress   func() common.Address
 }
@@ -117,9 +112,7 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 		return
 	}
 
-
 	recipientPaymentAddress := reader.recipientPaymentAddress()
-
 
 	if recipientPaymentAddress != ch.Recipient {
 		log.WithField("recipientPaymentAddress", recipientPaymentAddress).

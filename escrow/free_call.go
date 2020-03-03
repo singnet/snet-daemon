@@ -33,7 +33,7 @@ func (h *lockingFreeCallUserService) FreeCallUser(key *FreeCallUserKey) (freeCal
 		return
 	}
 	if !ok {
-		return &FreeCallUserData{FreeCallsMade: 0}, true, nil
+		return &FreeCallUserData{FreeCallsMade: 0,UserId:key.UserId}, true, nil
 	}
 	return
 }

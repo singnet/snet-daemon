@@ -1,7 +1,6 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -18,19 +17,12 @@ type Locker interface {
 }
 
 // NewEtcdLocker returns new lock which is based on etcd storage.
-func NewEtcdLocker(storage AtomicStorage,metadata *blockchain.ServiceMetadata) Locker {
+func NewEtcdLocker(storage AtomicStorage) Locker {
 	return &etcdLocker{
-		storage: NewLockerStorage(storage,metadata),
+		storage: storage,
 	}
 }
 
-// returns new prefixed storage
-func NewLockerStorage(storage AtomicStorage,metadata *blockchain.ServiceMetadata) *PrefixedAtomicStorage {
-	return &PrefixedAtomicStorage{
-		delegate:  storage,
-		keyPrefix:  "/"+metadata.MpeAddress+"/payment-channel/lock",
-	}
-}
 
 type etcdLocker struct {
 	storage AtomicStorage

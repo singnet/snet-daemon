@@ -48,13 +48,17 @@ var ListCmd = &cobra.Command{
 	Long:  "List command prints lists of objects from the shared storage; each object type has separate subcommand",
 }
 
-const (
-	ClaimChannelIdFlag = "channel-id"
-	ClaimPaymentIdFlag = "payment-id"
-	ClaimSendBackFlag  = "send-back"
-	ClaimTimeoutFlag   = "timeout"
+var FreeCallUserCmd = &cobra.Command{
+	Use:   "freecall",
+	Short: "Manage operations on free call users",
+	Long:  "List commands prints a list of all free call users for the given service," +
+		"reset will set the counter to zero on free calls used, " +
+		"unlock will release the lock on the given user ",
+}
 
+const (
 	UnlockChannelFlag = "unlock"
+	UserIdFlag = "user-id"
 )
 
 var (
@@ -80,6 +84,7 @@ var (
 	claimSendBack  bool
 	claimTimeout   string
 	paymentChannelId string
+	freeCallUserId   string
 )
 
 func init() {
@@ -92,11 +97,19 @@ func init() {
 	RootCmd.AddCommand(ListCmd)
 	RootCmd.AddCommand(ChannelCmd)
 	RootCmd.AddCommand(VersionCmd)
+	RootCmd.AddCommand(FreeCallUserCmd)
+
+
+	FreeCallUserCmd.AddCommand(FreeCallUserUnLockCmd)
+	FreeCallUserCmd.AddCommand(FreeCallUserResetCmd)
+	FreeCallUserCmd.AddCommand(ListFreeCallUserCmd)
 
 	ListCmd.AddCommand(ListChannelsCmd)
 	ListCmd.AddCommand(ListClaimsCmd)
 
 	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
+	FreeCallUserResetCmd.Flags().StringVarP(&freeCallUserId,UserIdFlag , "u", "", "resets the free call usage count to zero for the user with the given ID")
+	FreeCallUserUnLockCmd.Flags().StringVarP(&freeCallUserId, UserIdFlag, "u", "", "unlocks the free call user with the given ID")
 
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))

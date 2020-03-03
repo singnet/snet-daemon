@@ -11,8 +11,8 @@ func TestFreeCallUserKey_String(t *testing.T) {
 }
 
 func TestFreeCallUserData_String(t *testing.T) {
-	data := &FreeCallUserData{FreeCallsMade: 10}
+	data := &FreeCallUserData{FreeCallsMade: 10,UserId:"abc@test.com"}
 	IncrementFreeCallCount(data)
-	assert.Equal(t, "{FreeCallsMade: 11}", data.String())
+	assert.Equal(t, "{User abc@test.com has made 11 free calls}", data.String())
 
 }

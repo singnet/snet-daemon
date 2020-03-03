@@ -20,6 +20,7 @@ type FreeCallServiceSuite struct {
 
 func (suite *FreeCallServiceSuite) FreeCallUserData() *FreeCallUserData {
 	return &FreeCallUserData{
+		UserId:"user1",
 		FreeCallsMade: 11,
 	}
 }

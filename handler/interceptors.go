@@ -226,10 +226,6 @@ func GrpcPaymentValidationInterceptor(defaultPaymentHandler PaymentHandler, paym
 
 }
 
-type allowedUserValidationInterceptor struct {
-	paymentHandlers map[string]PaymentHandler
-}
-
 type paymentValidationInterceptor struct {
 	defaultPaymentHandler PaymentHandler
 	paymentHandlers       map[string]PaymentHandler
@@ -375,48 +371,6 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 // NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
 func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
-	return handler(srv, ss)
-}
-
-// NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
-func AllowedUserValidationInterceptor(defaultPaymentHandler PaymentHandler) grpc.StreamServerInterceptor {
-	interceptor := &allowedUserValidationInterceptor{
-		paymentHandlers: make(map[string]PaymentHandler),
-	}
-
-	interceptor.paymentHandlers[defaultPaymentHandler.Type()] = defaultPaymentHandler
-	log.WithField("defaultPaymentType", defaultPaymentHandler.Type()).Info("Default payment handler registered")
-	return interceptor.intercept
-}
-func (interceptor *allowedUserValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *GrpcError) {
-	paymentTypeMd, ok := context.MD[PaymentTypeHeader]
-	if !ok || len(paymentTypeMd) == 0 {
-		log.Error("Payment type was not set or set incorrectly by caller")
-		return nil, NewGrpcErrorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentTypeMd)
-	}
-	paymentType := paymentTypeMd[0]
-	handler, ok = interceptor.paymentHandlers[paymentType]
-	if !ok {
-		log.WithField("paymentType", paymentType).Error("Unexpected payment type")
-		return nil, NewGrpcErrorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
-	}
-	return handler, err
-}
-
-func (interceptor *allowedUserValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
-	context, err := getGrpcContext(ss, info)
-	if err != nil {
-		return err.Err()
-	}
-	log.WithField("context", context).Debug("New gRPC call received")
-	paymentHandler, err := interceptor.getPaymentHandler(context)
-	if err != nil {
-		return err.Err()
-	}
-	_, err = paymentHandler.Payment(context) //for now we dont do anything with the payment , but in future , there may be a case
-	if err != nil {
-		return err.Err()
-	}
 	return handler(srv, ss)
 }
 

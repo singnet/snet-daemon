@@ -213,7 +213,7 @@ func allowedUserConfigurationChecks() error {
 		if GetString(BlockChainNetworkSelected) == "main" {
 			return fmt.Errorf("service cannot be restricted to certain users when set up against Ethereum mainnet,the flag %v is set to true", AllowedUserFlag)
 		}
-		if err := setAllowedUsers(); err != nil {
+		if err := SetAllowedUsers(); err != nil {
 			return err
 		}
 	}
@@ -340,7 +340,7 @@ func IsAllowedUser(address *common.Address) bool {
 }
 
 //Set the list of allowed users
-func setAllowedUsers() (err error) {
+func SetAllowedUsers() (err error) {
 	users := vip.GetStringSlice(AllowedUserAddresses)
 	if users == nil || len(users) == 0 {
 		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only these users can make calls", AllowedUserAddresses)

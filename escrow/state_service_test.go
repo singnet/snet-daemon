@@ -19,9 +19,11 @@ type stateServiceTestType struct {
 	senderAddress      common.Address
 	signerPrivateKey   *ecdsa.PrivateKey
 	signerAddress      common.Address
+	receiverAddress    common.Address
+	receiverPvtKy      *ecdsa.PrivateKey
 	channelServiceMock *paymentChannelServiceMock
 	paymentStorage     *PaymentStorage
-
+	mpeAddress         common.Address
 	ethereumBlock      *big.Int
 	defaultChannelId   *big.Int
 	defaultChannelKey  *PaymentChannelKey
@@ -35,6 +37,8 @@ var stateServiceTest = func() stateServiceTestType {
 	senderAddress := crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	signerPrivateKey := GenerateTestPrivateKey()
 	signerAddress := crypto.PubkeyToAddress(signerPrivateKey.PublicKey)
+	receiverPvtkey := GenerateTestPrivateKey()
+	receiverAddress := crypto.PubkeyToAddress(receiverPvtkey.PublicKey)
 
 	channelServiceMock.blockchainReader = &BlockchainChannelReader{}
 	ethereumBlock := big.NewInt(53)
@@ -57,19 +61,22 @@ var stateServiceTest = func() stateServiceTestType {
 	}
 
 	paymentStorage := NewPaymentStorage(NewMemStorage())
-	verificationAddress := common.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
+	mpeAddress := common.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	return stateServiceTestType{
 		service: PaymentChannelStateService{
 			channelService:               channelServiceMock,
 			paymentStorage:               paymentStorage,
-			mpeAddress:                   func() common.Address { return verificationAddress },
+			mpeAddress:                   func() common.Address { return mpeAddress },
 			compareWithLatestBlockNumber: func(*big.Int) error { return nil },
 		},
 		senderAddress:      senderAddress,
+		receiverAddress:    receiverAddress,
+		receiverPvtKy:      receiverPvtkey,
 		signerPrivateKey:   signerPrivateKey,
 		signerAddress:      signerAddress,
 		channelServiceMock: channelServiceMock,
+		mpeAddress:         mpeAddress,
 
 		ethereumBlock:     ethereumBlock,
 		defaultChannelId:  defaultChannelId,
@@ -78,6 +85,7 @@ var stateServiceTest = func() stateServiceTestType {
 			ChannelID:        defaultChannelId,
 			Sender:           senderAddress,
 			Signer:           signerAddress,
+			Recipient:        receiverAddress,
 			Signature:        defaultSignature,
 			Nonce:            big.NewInt(3),
 			AuthorizedAmount: big.NewInt(12345),
@@ -86,7 +94,7 @@ var stateServiceTest = func() stateServiceTestType {
 			CurrentBlock: ethereumBlock.Uint64(),
 			ChannelId:    bigIntToBytes(defaultChannelId),
 			Signature: getSignature(
-				getChannelStateRequestMessage(verificationAddress, defaultChannelId, ethereumBlock),
+				getChannelStateRequestMessage(mpeAddress, defaultChannelId, ethereumBlock),
 				signerPrivateKey,
 			),
 		},
@@ -144,6 +152,7 @@ func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
 		ChannelID:        stateServiceTest.defaultChannelId,
 		Sender:           stateServiceTest.senderAddress,
 		Signer:           stateServiceTest.signerAddress,
+		Recipient:        stateServiceTest.receiverAddress,
 		Signature:        previousSignature,
 		Nonce:            big.NewInt(2),
 		AuthorizedAmount: big.NewInt(123),
@@ -174,6 +183,29 @@ func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
 	assert.Equal(t, bigIntToBytes(big.NewInt(12345)), reply.CurrentSignedAmount)
 	assert.Equal(t, bigIntToBytes(big.NewInt(123)), reply.OldNonceSignedAmount)
 	assert.Equal(t, previousChannelData.Signature, reply.OldNonceSignature)
+}
+
+func TestGetChannelStateWhenReceiverMakesRequest(t *testing.T) {
+	stateServiceTest.channelServiceMock.Put(
+		stateServiceTest.defaultChannelKey,
+		stateServiceTest.defaultChannelData,
+	)
+	defer stateServiceTest.channelServiceMock.Clear()
+
+	_, err := stateServiceTest.service.GetChannelState(
+		nil,
+		&ChannelStateRequest{
+			CurrentBlock: big.NewInt(53).Uint64(),
+			ChannelId:    bigIntToBytes(stateServiceTest.defaultChannelId),
+			Signature: getSignature(
+				getChannelStateRequestMessage(stateServiceTest.mpeAddress, stateServiceTest.defaultChannelId, big.NewInt(53)),
+				stateServiceTest.receiverPvtKy,
+			),
+		},
+	)
+
+	assert.Nil(t, err)
+
 }
 
 func TestGetChannelStateChannelIdIncorrectSignature(t *testing.T) {
@@ -232,7 +264,7 @@ func TestGetChannelStateIncorrectSender(t *testing.T) {
 		},
 	)
 
-	assert.Equal(t, errors.New("only channel signer can get latest channel state"), err)
+	assert.Equal(t, errors.New("only channel signer/sender/receiver can get latest channel state"), err)
 	assert.Nil(t, reply)
 }
 

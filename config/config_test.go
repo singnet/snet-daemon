@@ -120,42 +120,43 @@ func TestValidateEndpoints(t *testing.T) {
 func TestAllowedUserChecks(t *testing.T) {
 	err := allowedUserConfigurationChecks()
 	assert.Equal(t, nil, err)
-	vip.Set(AllowedUserFlag,true)
+	vip.Set(AllowedUserFlag, true)
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, "a valid Address needs to be specified for the config allowed_user_addresses to ensure that, only these users can make calls", err.Error())
-	vip.Set(AllowedUserAddresses,[]string{"0x06A1D29e9FfA2415434A7A571235744F8DA2a514","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
+	vip.Set(AllowedUserAddresses, []string{"0x06A1D29e9FfA2415434A7A571235744F8DA2a514", "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, nil, err)
-	vip.Set(AllowedUserAddresses,[]string{"invalidHexaddress","0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
+	vip.Set(AllowedUserAddresses, []string{"invalidHexaddress", "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, "invalidHexaddress is not a valid hex address", err.Error())
-	vip.Set(BlockChainNetworkSelected,"main")
+	vip.Set(BlockChainNetworkSelected, "main")
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, "service cannot be restricted to certain users when set up against Ethereum mainnet,the flag allowed_user_flag is set to true", err.Error())
 }
 func Test_IsAllowedUser(t *testing.T) {
-	Vip().Set(AllowedUserFlag,true)
-	Vip().Set(AllowedUserAddresses,[]string{"0x39ee715b50e78a920120c1ded58b1a47f571ab75"})
-    setAllowedUsers()
+	Vip().Set(AllowedUserFlag, true)
+	Vip().Set(AllowedUserAddresses, []string{"0x39ee715b50e78a920120c1ded58b1a47f571ab75"})
+	SetAllowedUsers()
 	signer := common.Address(common.BytesToAddress(common.FromHex("0x39ee715b50e78a920120c1ded58b1a47f571ab75")))
 
-	assert.True(t,IsAllowedUser(&signer))
+	assert.True(t, IsAllowedUser(&signer))
 	signer = common.Address(common.BytesToAddress(common.FromHex("0x49ee715b50e78a920120c1ded58b1a47f571ab75")))
-	assert.False(t,IsAllowedUser(&signer))
+	assert.False(t, IsAllowedUser(&signer))
 }
 
 func Test_validateMeteringChecks(t *testing.T) {
-	vip.Set(MeteringEndPoint,"http://demo8325345.mockable.io")
+	vip.Set(MeteringEndPoint, "http://demo8325345.mockable.io")
 	tests := []struct {
 		name    string
 		wantErr bool
-		setup func()
+		setup   func()
 	}{
-		{"",false,func(){}},
-		{"",true, func(){
-			                                  vip.Set(MeteringEnabled,true)
+		{"", false, func() {}},
+		{"", true, func() {
+			vip.Set(MeteringEnabled, true)
 
-		                                      vip.Set(MeteringEndPoint,"badurl")}},
+			vip.Set(MeteringEndPoint, "badurl")
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

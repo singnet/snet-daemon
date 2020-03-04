@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/singnet/snet-daemon/config"
 	"math/big"
 	"testing"
 
@@ -92,6 +93,7 @@ type PaymentChannelServiceSuite struct {
 }
 
 func (suite *PaymentChannelServiceSuite) SetupSuite() {
+	config.Vip().Set(config.AllowedUserFlag, false)
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerPrivateKey = GenerateTestPrivateKey()
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)

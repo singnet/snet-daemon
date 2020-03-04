@@ -283,12 +283,4 @@ func (suite *ValidationTestSuite) TestGetPublicKeyFromPayment2() {
 	assert.Equal(suite.T(), blockchain.HexToAddress("0x6b1E951a2F9dE2480C613C1dCDDee4DD4CaE1e4e"), *address)
 }
 
-func Test_checkCurationValidations(t *testing.T) {
-	config.Vip().Set(config.IsCurationInProgress,true)
-	config.Vip().Set(config.CurationAddressForValidation,"0x39ee715b50e78a920120c1ded58b1a47f571ab75")
-	signer := blockchain.HexToAddress("0x39ee715b50e78a920120c1ded58b1a47f571ab75")
 
-	assert.Nil(t,checkCurationValidations(&signer))
-	signer = blockchain.HexToAddress("0x49ee715b50e78a920120c1ded58b1a47f571ab75")
-	assert.Equal(t,checkCurationValidations(&signer).Error(),"you are not Authorized to call this service during curation process")
-}

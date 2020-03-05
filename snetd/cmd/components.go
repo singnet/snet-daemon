@@ -175,7 +175,7 @@ func (components *Components) FreeCallLockerStorage() *escrow.PrefixedAtomicStor
 	if components.freeCallLockerStorage != nil {
 		return components.freeCallLockerStorage
 	}
-	components.etcdLockerStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), "/freecall/lock")
+	components.freeCallLockerStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), "/freecall/lock")
 	return components.freeCallLockerStorage
 }
 

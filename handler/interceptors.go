@@ -42,9 +42,12 @@ const (
 	// amount withdrawing authorization. Value is an array of bytes.
 	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
 
+	// This metadata will be used ONLY when block chain is disabled and allowed user flag is enabled
+	AllowedUserSignatureHeader = "snet-allowed-user-signature-bin"
+
 	//Added for free call support in Daemon
 
-    //The user Id of the person making the call
+	//The user Id of the person making the call
 	FreeCallUserIdHeader = "snet-free-call-user-id"
 
 	//Will be used to check if the Signature is still valid
@@ -52,10 +55,8 @@ const (
 
 	//Place holder to set the free call Auth Token issued
 	FreeCallAuthTokenHeader = "snet-free-call-auth-token-bin"
-    //Block number on when the Token was issued , to track the expiry of the token , which is ~ 1 Month
-	FreeCallAuthTokenExpiryBlockNumberHeader =  "snet-free-call-token-expiry-block"
-
-
+	//Block number on when the Token was issued , to track the expiry of the token , which is ~ 1 Month
+	FreeCallAuthTokenExpiryBlockNumberHeader = "snet-free-call-token-expiry-block"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to
@@ -117,7 +118,6 @@ func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcErr
 	}
 }
 
-
 // PaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
 // jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is depreactted.
@@ -134,30 +134,29 @@ type PaymentHandler interface {
 	Complete(payment Payment) (err *GrpcError)
 	// CompleteAfterError completes payment if service returns error.
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
-
 }
 
 type rateLimitInterceptor struct {
-	rateLimiter           rate.Limiter
-	messageBroadcaster    *configuration_service.MessageBroadcaster
-	processRequest        int
+	rateLimiter                   rate.Limiter
+	messageBroadcaster            *configuration_service.MessageBroadcaster
+	processRequest                int
 	requestProcessingNotification chan int
 }
 
 func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaster) grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
-		rateLimiter:           ratelimit.NewRateLimiter(),
-		messageBroadcaster:    broadcast,
-		processRequest :       configuration_service.START_PROCESSING_ANY_REQUEST,
+		rateLimiter:                   ratelimit.NewRateLimiter(),
+		messageBroadcaster:            broadcast,
+		processRequest:                configuration_service.START_PROCESSING_ANY_REQUEST,
 		requestProcessingNotification: broadcast.NewSubscriber(),
 	}
 	go interceptor.startOrStopProcessingAnyRequests()
 	return interceptor.intercept
 }
 
-func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests () {
+func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests() {
 	for {
-		interceptor.processRequest =<- interceptor.requestProcessingNotification
+		interceptor.processRequest = <-interceptor.requestProcessingNotification
 	}
 }
 
@@ -193,7 +192,7 @@ func interceptMetering(srv interface{}, ss grpc.ServerStream, info *grpc.StreamS
 
 func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
-	if (interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST) {
+	if interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {

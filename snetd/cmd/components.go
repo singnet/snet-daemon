@@ -26,6 +26,7 @@ import (
 )
 
 type Components struct {
+	allowedUserPaymentHandler  handler.PaymentHandler
 	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
@@ -174,7 +175,7 @@ func (components *Components) FreeCallLockerStorage() *escrow.PrefixedAtomicStor
 	if components.freeCallLockerStorage != nil {
 		return components.freeCallLockerStorage
 	}
-	components.etcdLockerStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), "/freecall/lock")
+	components.freeCallLockerStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), "/freecall/lock")
 	return components.freeCallLockerStorage
 }
 
@@ -300,6 +301,16 @@ func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
 	return components.freeCallPaymentHandler
 }
 
+func (components *Components) AllowedUserPaymentHandler() handler.PaymentHandler {
+	if components.allowedUserPaymentHandler != nil {
+		return components.allowedUserPaymentHandler
+	}
+
+	components.allowedUserPaymentHandler = escrow.AllowedUserPaymentHandler()
+
+	return components.allowedUserPaymentHandler
+}
+
 //Add a chain of interceptors
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
@@ -394,6 +405,11 @@ type VerifyMeteringResponse struct {
 
 func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
+		if config.GetBool(config.AllowedUserFlag) {
+			log.Info("Blockchain is disabled And AllowedUserFlag is enabled")
+			return handler.GrpcPaymentValidationInterceptor(components.AllowedUserPaymentHandler())
+
+		}
 		log.Info("Blockchain is disabled: no payment validation")
 		return handler.NoOpInterceptor
 	} else {

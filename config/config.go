@@ -18,24 +18,21 @@ import (
 )
 
 const (
-	//Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely through a user interface
-	AuthenticationAddress     = "authentication_address"
-	AutoSSLDomainKey          = "auto_ssl_domain"
-	AutoSSLCacheDirKey        = "auto_ssl_cache_dir"
-	BlockchainEnabledKey      = "blockchain_enabled"
-	BlockChainNetworkSelected = "blockchain_network_selected"
-	BurstSize                 = "burst_size"
-	ConfigPathKey             = "config_path"
-    CurationAddressForValidation   = "curation_address_for_validation"
+	AllowedUserFlag                = "allowed_user_flag"
+	AllowedUserAddresses           = "allowed_user_addresses"
+	AuthenticationAddress          = "authentication_address"
+	AutoSSLDomainKey               = "auto_ssl_domain"
+	AutoSSLCacheDirKey             = "auto_ssl_cache_dir"
+	BlockchainEnabledKey           = "blockchain_enabled"
+	BlockChainNetworkSelected      = "blockchain_network_selected"
+	BurstSize                      = "burst_size"
+	ConfigPathKey                  = "config_path"
 	DaemonGroupName                = "daemon_group_name"
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	ExecutablePathKey              = "executable_path"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
-	//If this flag is set to true , then request from Daemon will only be taken from a
-	//predefined address
-	IsCurationInProgress           = "is_curation_in_progress"
 	LogKey                         = "log"
 	MaxMessageSizeInMB             = "max_message_size_in_mb"
 	MeteringEnabled                = "metering_enabled"
@@ -63,6 +60,7 @@ const (
 	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
+	"allowed_user_flag" :false,
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
@@ -74,7 +72,6 @@ const (
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 
 	"ipfs_timeout" : 30,
-    "is_curation_in_progress" :false,
 	"max_message_size_in_mb" : 4,
 	"metering_enabled": false,
 	"organization_id": "ExampleOrganizationId", 
@@ -201,19 +198,25 @@ func Validate() error {
 	if maxMessageSize <= 0 || maxMessageSize > 2048 {
 		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
 	}
-    if err = curationChecks() ;err !=nil {
-    	return err
+	if err = allowedUserConfigurationChecks(); err != nil {
+		return err
 	}
 	return validateMeteringChecks()
 }
-func curationChecks() (error) {
-	if GetBool(IsCurationInProgress) && GetString(BlockChainNetworkSelected)=="main" {
-		return fmt.Errorf("service cannot be curated while set up against Ethereum mainnet,the flag %v is set to true",IsCurationInProgress)
-	}
-	if GetBool(IsCurationInProgress) && !common.IsHexAddress(GetString(CurationAddressForValidation)) {
-		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only this user can make calls",CurationAddressForValidation)
-	}
 
+//Feature in Daemon to restrict access to only certain users , this feature is useful,when you are
+//in a test environment and dont want everyone to make requests to your service.
+//Since this was flag was introduced to restrict users while in testing mode, we dont want this configuration
+//to be mistakenly set on mainnet
+func allowedUserConfigurationChecks() error {
+	if GetBool(AllowedUserFlag) {
+		if GetString(BlockChainNetworkSelected) == "main" {
+			return fmt.Errorf("service cannot be restricted to certain users when set up against Ethereum mainnet,the flag %v is set to true", AllowedUserFlag)
+		}
+		if err := SetAllowedUsers(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 func validateMeteringChecks() (err error) {
@@ -321,6 +324,35 @@ func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error 
 		(daemonHost == "0.0.0.0") &&
 		(passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost") {
 		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+	}
+	return nil
+}
+
+var userAddress []common.Address
+
+func IsAllowedUser(address *common.Address) bool {
+	for _, user := range userAddress {
+		if user == *address {
+			return true
+		}
+	}
+	return false
+}
+
+//Set the list of allowed users
+func SetAllowedUsers() (err error) {
+	users := vip.GetStringSlice(AllowedUserAddresses)
+	if users == nil || len(users) == 0 {
+		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only these users can make calls", AllowedUserAddresses)
+	}
+	userAddress = make([]common.Address, len(users))
+	for _, user := range users {
+		if !common.IsHexAddress(user) {
+			err = fmt.Errorf("%v is not a valid hex address", user)
+			return err
+		} else {
+			userAddress = append(userAddress, common.Address(common.BytesToAddress(common.FromHex(user))))
+		}
 	}
 	return nil
 }

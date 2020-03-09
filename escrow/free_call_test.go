@@ -20,8 +20,11 @@ type FreeCallServiceSuite struct {
 
 func (suite *FreeCallServiceSuite) FreeCallUserData() *FreeCallUserData {
 	return &FreeCallUserData{
-		UserId:"user1",
-		FreeCallsMade: 11,
+		UserId:         "user1",
+		FreeCallsMade:  11,
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupID:        "ewAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 	}
 }
 func (suite *FreeCallServiceSuite) SetupSuite() {

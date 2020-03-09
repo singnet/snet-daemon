@@ -23,7 +23,6 @@ type FreeCallPayment struct {
 	AuthToken []byte
 	//Token expiration date in blocks
 	AuthTokenExpiryBlockNumber *big.Int
-
 }
 
 func (key *FreeCallPayment) String() string {
@@ -44,13 +43,16 @@ func (key *FreeCallUserKey) String() string {
 }
 
 type FreeCallUserData struct {
-	UserId        string
-	FreeCallsMade int
+	UserId         string
+	FreeCallsMade  int
+	OrganizationId string
+	ServiceId      string
+	GroupID        string
 }
 
 func (data *FreeCallUserData) String() string {
-	return fmt.Sprintf("{User %v has made %v free calls}",data.UserId,
-		data.FreeCallsMade)
+	return fmt.Sprintf("{User %v has made %v free calls for org_id=%v, service_id=%v, group_id=%v }", data.UserId,
+		data.FreeCallsMade, data.OrganizationId, data.ServiceId, data.GroupID)
 }
 
 type FreeCallUserService interface {

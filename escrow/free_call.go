@@ -33,7 +33,7 @@ func (h *lockingFreeCallUserService) FreeCallUser(key *FreeCallUserKey) (freeCal
 		return
 	}
 	if !ok {
-		return &FreeCallUserData{FreeCallsMade: 0,UserId:key.UserId}, true, nil
+		return &FreeCallUserData{FreeCallsMade: 0, UserId: key.UserId, GroupID: key.GroupID, ServiceId: key.ServiceId, OrganizationId: key.OrganizationId}, true, nil
 	}
 	return
 }
@@ -69,6 +69,10 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 		return nil, NewPaymentError(Internal, "payment freeCallUserKey error:"+err.Error())
 	}
 	freeCallUserData, ok, err := h.FreeCallUser(userKey)
+	//todo , will remove this line once all data is re initialized
+	freeCallUserData.ServiceId = userKey.ServiceId
+	freeCallUserData.OrganizationId = userKey.OrganizationId
+	freeCallUserData.GroupID = userKey.GroupID
 
 	if err != nil {
 		return nil, NewPaymentError(Internal, "payment freeCallUserData error:"+err.Error())

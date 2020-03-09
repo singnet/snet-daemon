@@ -6,4 +6,5 @@ SNETD_VERSION=`curl -s https://api.github.com/repos/singnet/snet-daemon/releases
 echo 'version' $SNETD_VERSION
 wget https://github.com/singnet/snet-daemon/releases/download/${SNETD_VERSION}/snet-daemon-${SNETD_VERSION}-linux-amd64.tar.gz
 tar -xvf snet-daemon-${SNETD_VERSION}-linux-amd64.tar.gz
-sudo mv snet-daemon-${SNETD_VERSION}-linux-amd64/snetd /usr/bin/snetd
+WITH_SUDO=$([ "$EUID" != 0 ] && echo "sudo" || echo "")
+$WITH_SUDO mv snet-daemon-${SNETD_VERSION}-linux-amd64/snetd /usr/bin/snetd

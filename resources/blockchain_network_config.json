@@ -17,7 +17,7 @@
     "network_id":"7"
   },
   "main":{
-    "ethereum_json_rpc_endpoint":"https://mainnet.infura.io",
+    "ethereum_json_rpc_endpoint":"https://mainnet.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
     "network_id":"1"
   }
 }

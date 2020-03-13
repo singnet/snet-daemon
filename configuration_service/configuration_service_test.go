@@ -43,7 +43,7 @@ func TestConfigurationService_authenticate(t *testing.T) {
 	publicKey := crypto.PubkeyToAddress(privateKey.PublicKey)
 	msg := service.getMessageBytes("__GetConfiguration", uint64(currBlk.Int64()))
 	sig := authutils.GetSignature(msg, privateKey)
-	auth := &CallerAuthentication{UserAddress: publicKey.Hex(), CurrentBlock: uint64(currBlk.Int64()), Signature: sig}
+	auth := &CallerAuthentication{CurrentBlock: uint64(currBlk.Int64()), Signature: sig}
 	err := service.authenticate("__GetConfiguration", auth)
 	assert.Contains(t, err.Error(), "unauthorized access")
 	config.Vip().Set(config.AuthenticationAddresses, []string{publicKey.Hex(), "0x06A1D29e9FfA2415434A7A571235744F8DA2a514", "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})

@@ -2,7 +2,6 @@
 // All rights reserved.
 // <<add licence terms for code reuse>>
 
-
 // package for monitoring and reporting the daemon metrics
 package metrics
 
@@ -39,6 +38,7 @@ type DaemonHeartbeat struct {
 	Timestamp        string `json:"timestamp"`
 	Status           string `json:"status"`
 	ServiceHeartbeat string `json:"serviceheartbeat"`
+	DaemonVersion    string `json:"daemonVersion"`
 }
 
 // Converts the enum index into enum names
@@ -79,8 +79,8 @@ func ValidateHeartbeatConfig() error {
 }
 
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
-func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (heartbeat DaemonHeartbeat,err error) {
-	heartbeat = DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "{}"}
+func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (heartbeat DaemonHeartbeat, err error) {
+	heartbeat = DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "{}", config.GetVersionTag()}
 	var curResp = `{"serviceID":"` + serviceID + `","status":"NOT_SERVING"}`
 	if serviceType == "none" || serviceType == "" || isNoHeartbeatURL {
 		curResp = `{"serviceID":"` + serviceID + `","status":"SERVING"}`
@@ -113,7 +113,7 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (hear
 		}
 	}
 	heartbeat.ServiceHeartbeat = curResp
-	return heartbeat,err
+	return heartbeat, err
 }
 
 // Heartbeat request handler function : upon request it will hit the service for status and
@@ -123,7 +123,7 @@ func HeartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 	serviceType := config.GetString(config.ServiceHeartbeatType)
 	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
 	serviceID := config.GetString(config.ServiceId)
-	heartbeat,_ := GetHeartbeat(serviceURL, serviceType, serviceID)
+	heartbeat, _ := GetHeartbeat(serviceURL, serviceType, serviceID)
 	err := json.NewEncoder(rw).Encode(heartbeat)
 	if err != nil {
 		log.WithError(err).Infof("Failed to write heartbeat message.")
@@ -131,23 +131,22 @@ func HeartbeatHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 // Check implements `service Health`.
-func (service *DaemonHeartbeat) Check( ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+func (service *DaemonHeartbeat) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 
-	heartbeat,err := GetHeartbeat(config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
+	heartbeat, err := GetHeartbeat(config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
 		config.GetString(config.ServiceId))
 
-	if strings.Compare(heartbeat.Status,Online.String()) == 0  {
-	 	return &grpc_health_v1.HealthCheckResponse{Status:grpc_health_v1.HealthCheckResponse_SERVING},nil
+	if strings.Compare(heartbeat.Status, Online.String()) == 0 {
+		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 	}
 
-	return &grpc_health_v1.HealthCheckResponse{Status:grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN},errors.New("Service heartbeat unknown "+err.Error())
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN}, errors.New("Service heartbeat unknown " + err.Error())
 }
 
 // Watch implements `service Watch todo for later`.
-func (service *DaemonHeartbeat) Watch(*grpc_health_v1.HealthCheckRequest, grpc_health_v1.Health_WatchServer) (error) {
+func (service *DaemonHeartbeat) Watch(*grpc_health_v1.HealthCheckRequest, grpc_health_v1.Health_WatchServer) error {
 	return nil
 }
-
 
 /*
 service heartbeat/grpc heartbeat

@@ -25,6 +25,7 @@ var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
 
 type grpcHandler struct {
 	grpcConn            *grpc.ClientConn
+	options             grpc.DialOption
 	enc                 string
 	passthroughEndpoint string
 	executable          string
@@ -41,6 +42,9 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		enc:                 serviceMetadata.GetWireEncoding(),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 		executable:          config.GetString(config.ExecutablePathKey),
+		options: grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
+			grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024)),
 	}
 
 	switch serviceMetadata.GetServiceType() {
@@ -50,7 +54,7 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 			log.WithError(err).Panic("error parsing passthrough endpoint")
 		}
 
-		conn, err := grpc.Dial(passthroughURL.Host, grpc.WithInsecure())
+		conn, err := grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
 		if err != nil {
 			log.WithError(err).Panic("error dialing service")
 		}

@@ -20,7 +20,7 @@ import (
 const (
 	AllowedUserFlag                = "allowed_user_flag"
 	AllowedUserAddresses           = "allowed_user_addresses"
-	AuthenticationAddress          = "authentication_address"
+	AuthenticationAddresses        = "authentication_addresses"
 	AutoSSLDomainKey               = "auto_ssl_domain"
 	AutoSSLCacheDirKey             = "auto_ssl_cache_dir"
 	BlockchainEnabledKey           = "blockchain_enabled"

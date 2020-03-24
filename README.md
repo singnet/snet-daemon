@@ -35,7 +35,7 @@ deploying SingularityNET services using SingularityNET Daemon should install the
 $ go get -u github.com/golang/protobuf/protoc-gen-go
 ```
 
-* install [grpc]
+* install [grpc] `grpc version > 1.25` 
 ```bash
 $ go get -u google.golang.org/grpc
 ```
@@ -234,6 +234,7 @@ see [logger configuration](./logger/README.md)
 The default value set is to 4 (units are in MB ), this is used to configure the max size in MB of the message received by the Daemon.
 In case of Large messages , it is recommended to use streaming than setting a very high value on this configuration.
 It is not recommended to set the value more than 4GB
+`Please make sure your grpc version > 1.25` 
 
 * **metering_enabled** (optional,default: `false`) -
 This is used to define if metering needs to be enabled or not .You will need to define a valid ` metering_end_point` 

@@ -12,40 +12,37 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"math/big"
-
 )
 
 type ProviderControlService struct {
-	channelService  PaymentChannelService
-	serviceMetaData *blockchain.ServiceMetadata
+	channelService       PaymentChannelService
+	serviceMetaData      *blockchain.ServiceMetadata
 	organizationMetaData *blockchain.OrganizationMetaData
-	mpeAddress common.Address
+	mpeAddress           common.Address
 }
 
-
 type BlockChainDisabledProviderControlService struct {
-
 }
 
 func (service *BlockChainDisabledProviderControlService) GetListUnclaimed(ctx context.Context, request *GetPaymentsListRequest) (paymentReply *PaymentsListReply, err error) {
- return &PaymentsListReply{},nil
+	return &PaymentsListReply{}, nil
 }
 
 func (service *BlockChainDisabledProviderControlService) GetListInProgress(ctx context.Context, request *GetPaymentsListRequest) (reply *PaymentsListReply, err error) {
-	return &PaymentsListReply{},nil
+	return &PaymentsListReply{}, nil
 }
 
 func (service *BlockChainDisabledProviderControlService) StartClaim(ctx context.Context, startClaim *StartClaimRequest) (paymentReply *PaymentReply, err error) {
-	return &PaymentReply{},nil
+	return &PaymentReply{}, nil
 }
 
 func NewProviderControlService(channelService PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData) *ProviderControlService {
 	return &ProviderControlService{
-		channelService:  channelService,
-		serviceMetaData: serMetaData,
-		organizationMetaData:orgMetadata,
-		mpeAddress: common.HexToAddress(serMetaData.MpeAddress),
+		channelService:       channelService,
+		serviceMetaData:      serMetaData,
+		organizationMetaData: orgMetadata,
+		mpeAddress:           common.HexToAddress(serMetaData.MpeAddress),
 	}
 }
 
@@ -180,8 +177,13 @@ func (service *ProviderControlService) verifySigner(message []byte, signature []
 //Begin the claim process on the current channel and Increment the channel nonce and
 //decrease the full amount to allow channel sender to continue working with remaining amount.
 func (service *ProviderControlService) beginClaimOnChannel(channelId *big.Int) (*PaymentReply, error) {
-	latestChannel, _, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelId})
+	latestChannel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelId})
 	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		err = fmt.Errorf("channel Id %v was not found on blockchain or storage", channelId)
 		return nil, err
 	}
 	//Check if there is any Authorized amount to initiate a claim

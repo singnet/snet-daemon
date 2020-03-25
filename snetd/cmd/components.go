@@ -472,7 +472,7 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 		return components.daemonHeartbeat
 	}
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
-	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID()}
+	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID(), DaemonVersion: config.GetVersionTag()}
 	return components.daemonHeartbeat
 }
 

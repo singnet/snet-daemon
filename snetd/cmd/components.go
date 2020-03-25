@@ -204,7 +204,7 @@ func (components *Components) AtomicStorage() escrow.AtomicStorage {
 		storage = escrow.NewMemStorage()
 	}
 	//by default set the network selected in the storage path
-	components.atomicStorage = escrow.NewPrefixedAtomicStorage(storage, config.GetString(config.BlockChainNetworkSelected))
+	components.atomicStorage = escrow.NewPrefixedAtomicStorage(storage, config.GetString(config.BlockChainNetworkSelected)+"/"+config.GetString(config.OrganizationId)+"/"+components.OrganizationMetaData().GetGroupIdString())
 
 	return components.atomicStorage
 }
@@ -472,7 +472,7 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 		return components.daemonHeartbeat
 	}
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
-	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID(), DaemonVersion: config.GetVersionTag()}
+	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID()}
 	return components.daemonHeartbeat
 }
 

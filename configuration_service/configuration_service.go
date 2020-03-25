@@ -7,24 +7,42 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/authutils"
-	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"math/big"
 	"sort"
-	"strings"
 )
 
 type ConfigurationService struct {
-	//Has the authentication address that will be used to validate any incoming requests for Configuration Service
-	address string
-	broadcast *MessageBroadcaster
+	//Has the authentication authenticationAddressList that will be used to validate any incoming requests for Configuration Service
+	authenticationAddressList []common.Address
+	broadcast                 *MessageBroadcaster
 }
+
 const (
 	START_PROCESSING_ANY_REQUEST = 1
-	STOP_PROCESING_ANY_REQUEST = 0
+	STOP_PROCESING_ANY_REQUEST   = 0
 )
+
+//Set the list of allowed users
+func getAuthenticationAddress() []common.Address {
+	users := config.Vip().GetStringSlice(config.AuthenticationAddresses)
+	userAddress := make([]common.Address, 0)
+	if users == nil || len(users) == 0 {
+		return userAddress
+	}
+	for _, user := range users {
+		if !common.IsHexAddress(user) {
+			fmt.Errorf("%v is not a valid hex address", user)
+
+		} else {
+			userAddress = append(userAddress, common.Address(common.BytesToAddress(common.FromHex(user))))
+		}
+	}
+	return userAddress
+}
+
 //TO DO Separate PRs will be submitted to implement all the function below
 func (service ConfigurationService) GetConfiguration(ctx context.Context, request *EmptyRequest) (response *ConfigurationResponse, err error) {
 	//Authentication checks
@@ -56,7 +74,7 @@ func (service ConfigurationService) StopProcessingRequests(ctx context.Context, 
 		return nil, err
 	}
 	service.broadcast.trigger <- STOP_PROCESING_ANY_REQUEST
-	return &StatusResponse{CurrentProcessingStatus:StatusResponse_HAS_STOPPED_PROCESSING_REQUESTS}, nil
+	return &StatusResponse{CurrentProcessingStatus: StatusResponse_HAS_STOPPED_PROCESSING_REQUESTS}, nil
 }
 
 func (service ConfigurationService) StartProcessingRequests(ctx context.Context, request *EmptyRequest) (response *StatusResponse, err error) {
@@ -65,7 +83,7 @@ func (service ConfigurationService) StartProcessingRequests(ctx context.Context,
 		return nil, err
 	}
 	service.broadcast.trigger <- START_PROCESSING_ANY_REQUEST
-	return &StatusResponse{CurrentProcessingStatus:StatusResponse_REQUEST_IN_PROGRESS}, nil
+	return &StatusResponse{CurrentProcessingStatus: StatusResponse_REQUEST_IN_PROGRESS}, nil
 }
 
 func (service ConfigurationService) IsDaemonProcessingRequests(ctx context.Context, request *EmptyRequest) (response *StatusResponse, err error) {
@@ -78,61 +96,51 @@ func (service ConfigurationService) IsDaemonProcessingRequests(ctx context.Conte
 
 func (service ConfigurationService) authenticate(prefix string, auth *CallerAuthentication) (err error) {
 
-	//Check if the address passed is the expected authentication address
-	if err = service.checkAuthenticationAddress(auth.UserAddress); err != nil {
-		return err
-	}
-
 	//Check if the Signature is not Expired
 	if err = authutils.CompareWithLatestBlockNumber(big.NewInt(int64(auth.CurrentBlock))); err != nil {
 		return err
 	}
 
+	signerFromMessage, err := authutils.GetSignerAddressFromMessage(service.getMessageBytes(prefix, auth.CurrentBlock), auth.GetSignature())
+	if err != nil {
+		log.Error(err)
+		return err
+	}
 	//Check if the Signature is Valid and Signed accordingly
-	if err = authutils.VerifySigner(service.getMessageBytes(prefix, auth.CurrentBlock),
-		auth.GetSignature(), blockchain.HexToAddress(service.address)); err != nil {
+	if err = service.checkAuthenticationAddress(*signerFromMessage); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (service ConfigurationService) checkAuthenticationAddress(address string) error {
+func (service ConfigurationService) checkAuthenticationAddress(signer common.Address) error {
 
-	if !common.IsHexAddress(service.address) {
-		return fmt.Errorf("invalid hex address specified/missing for configuration 'authentication_address' ,this is a mandatory configuration required to be set up manually for remote updates")
+	for _, user := range service.authenticationAddressList {
+		if user == signer {
+			return nil
+		}
 	}
-	if !common.IsHexAddress(address) {
-		return fmt.Errorf("%v is an invalid hex Address", address)
-	} else if strings.Compare(service.address, address) != 0 {
-		return fmt.Errorf("unauthorized access, %v is not authorized", address)
-	}
+	return fmt.Errorf("unauthorized access, %v is not authorized", signer.Hex())
+
 	return nil
 }
 
 //You will be able to start the Daemon without an Authentication Address for now
-//but without Authentication address , you cannot use the operator UI functionality
+//but without Authentication authenticationAddressList , you cannot use the operator UI functionality
 func NewConfigurationService(messageBroadcaster *MessageBroadcaster) *ConfigurationService {
 	service := &ConfigurationService{
-		address: config.GetString(config.AuthenticationAddress),
-		broadcast:messageBroadcaster,
+		authenticationAddressList: getAuthenticationAddress(),
+		broadcast:                 messageBroadcaster,
 	}
-	authAddress := config.GetString(config.AuthenticationAddress)
-	//Make sure the address is a valid Hex Address
-	if !common.IsHexAddress(authAddress) {
-		service.address = ""
-		log.Errorf("invalid hex address specified/missing for 'authentication_address' in configuration , you cannot make remote update to current configurations")
-	}
-
 	return service
 }
 
-//Message format has been agreed to be as the below ( prefix,block number,and authenticating address)
-func (service *ConfigurationService) getMessageBytes(prefixMessage string, blocknumber uint64) []byte {
+//Message format has been agreed to be as the below ( prefix,block number,and authenticating authenticationAddressList)
+func (service *ConfigurationService) getMessageBytes(prefixMessage string, blockNumber uint64) []byte {
 	message := bytes.Join([][]byte{
-		[]byte (prefixMessage),
-		abi.U256(big.NewInt(int64(blocknumber))),
-		blockchain.HexToAddress(service.address).Bytes(),
+		[]byte(prefixMessage),
+		abi.U256(big.NewInt(int64(blockNumber))),
 	}, nil)
 	return message
 }
@@ -180,7 +188,7 @@ func convertToConfigurationType(value string) ConfigurationParameter_Type {
 	case "bool":
 		return ConfigurationParameter_BOOLEAN
 
-	case "address":
+	case "authenticationAddressList":
 		return ConfigurationParameter_ADDRESS
 
 	default:
@@ -196,7 +204,6 @@ func convertToUpdateAction(value bool) ConfigurationParameter_UpdateAction {
 	}
 	return ConfigurationParameter_NO_IMPACT
 }
-
 
 func getCurrentConfig() map[string]string {
 	currentConfigMap := make(map[string]string, len(config.Vip().AllKeys()))

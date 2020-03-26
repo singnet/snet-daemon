@@ -204,7 +204,7 @@ func (components *Components) AtomicStorage() escrow.AtomicStorage {
 		storage = escrow.NewMemStorage()
 	}
 	//by default set the network selected in the storage path
-	components.atomicStorage = escrow.NewPrefixedAtomicStorage(storage, config.GetString(config.BlockChainNetworkSelected))
+	components.atomicStorage = escrow.NewPrefixedAtomicStorage(storage, config.GetString(config.BlockChainNetworkSelected)+"/"+config.GetString(config.OrganizationId)+"/"+components.OrganizationMetaData().GetGroupIdString())
 
 	return components.atomicStorage
 }

@@ -139,6 +139,7 @@ func (service *ProviderControlService) listChannels() (*PaymentsListReply, error
 			ChannelId:    bigIntToBytes(channel.ChannelID),
 			ChannelNonce: bigIntToBytes(channel.Nonce),
 			SignedAmount: bigIntToBytes(channel.AuthorizedAmount),
+			Expiry:       bigIntToBytes(channel.Expiration),
 		}
 		output = append(output, paymentReply)
 	}

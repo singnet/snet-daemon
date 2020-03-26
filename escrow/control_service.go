@@ -136,10 +136,10 @@ func (service *ProviderControlService) listChannels() (*PaymentsListReply, error
 			continue
 		}
 		paymentReply := &PaymentReply{
-			ChannelId:    bigIntToBytes(channel.ChannelID),
-			ChannelNonce: bigIntToBytes(channel.Nonce),
-			SignedAmount: bigIntToBytes(channel.AuthorizedAmount),
-			Expiry:       bigIntToBytes(channel.Expiration),
+			ChannelId:     bigIntToBytes(channel.ChannelID),
+			ChannelNonce:  bigIntToBytes(channel.Nonce),
+			SignedAmount:  bigIntToBytes(channel.AuthorizedAmount),
+			ChannelExpiry: bigIntToBytes(channel.Expiration),
 		}
 		output = append(output, paymentReply)
 	}

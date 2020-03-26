@@ -51,7 +51,7 @@ message PaymentReply {
     bytes signature = 4;
 
     //indicative of the Channel Expiry in block number
-    bytes expiry = 5;
+    bytes channel_expiry = 5;
 }
 
 message PaymentsListReply {

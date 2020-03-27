@@ -108,7 +108,7 @@ func (service *ProviderControlService) StartClaimForMultipleChannels(ctx context
 func (service *ProviderControlService) startClaims(request *StartMultipleClaimRequest) (reply *PaymentsListReply, err error) {
 	reply = &PaymentsListReply{}
 	payments := make([]*PaymentReply, 0)
-	reply.Payments = payments
+
 	for _, channelId := range request.GetChannelIds() {
 		payment, err := service.beginClaimOnChannel(big.NewInt(int64(channelId)))
 		if err != nil {
@@ -117,6 +117,7 @@ func (service *ProviderControlService) startClaims(request *StartMultipleClaimRe
 		}
 		payments = append(payments, payment)
 	}
+	reply.Payments = payments
 	return reply, nil
 }
 
@@ -382,7 +383,6 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 //Check if the mpe address passed matches to what is present in the metadata.
 func (service *ProviderControlService) checkMpeAddress(mpeAddress string) error {
 	passedAddress := common.HexToAddress(mpeAddress)
-
 	if !(service.mpeAddress == passedAddress) {
 		return fmt.Errorf("the mpeAddress: %s passed does not match to what has been registered", mpeAddress)
 	}

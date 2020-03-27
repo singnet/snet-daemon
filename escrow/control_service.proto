@@ -53,6 +53,9 @@ message PaymentReply {
 
     //this filed must be OMITED in GetListUnclaimed request
     bytes signature = 4;
+
+    //indicative of the Channel Expiry in block number
+    bytes channel_expiry = 5;
 }
 
 message PaymentsListReply {

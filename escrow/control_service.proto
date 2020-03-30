@@ -15,8 +15,12 @@ service ProviderControlService {
     //get list of all payments in progress
     rpc GetListInProgress(GetPaymentsListRequest) returns (PaymentsListReply) {}
 
-    //initilize claim for specific channel
+    //initialize claim for specific channel
     rpc StartClaim(StartClaimRequest) returns (PaymentReply) {}
+
+    //initiate multiple claims at a time
+    rpc StartClaimForMultipleChannels(StartMultipleClaimRequest) returns (PaymentsListReply) {}
+
 }
 
 
@@ -58,3 +62,12 @@ message PaymentsListReply {
     repeated PaymentReply payments = 1;
 }
 
+message StartMultipleClaimRequest {
+    //address of MultiPartyEscrow contract
+    string mpe_address = 1;
+    repeated uint64 channel_ids    = 2;
+    uint64 current_block = 3;
+    //signature will be as follows ( sequence is an ascending order of channel_ids)
+    //("__StartClaimForMultipleChannels_, mpe_address,channel_id1,channel_id2,...,current_block_number)
+    bytes signature = 4;
+}

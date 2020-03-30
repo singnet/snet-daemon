@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gogo/protobuf/sortkeys"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
@@ -34,6 +35,10 @@ func (service *BlockChainDisabledProviderControlService) GetListInProgress(ctx c
 
 func (service *BlockChainDisabledProviderControlService) StartClaim(ctx context.Context, startClaim *StartClaimRequest) (paymentReply *PaymentReply, err error) {
 	return &PaymentReply{}, nil
+}
+
+func (service *BlockChainDisabledProviderControlService) StartClaimForMultipleChannels(ctx context.Context, request *StartMultipleClaimRequest) (reply *PaymentsListReply, err error) {
+	return &PaymentsListReply{}, nil
 }
 
 func NewProviderControlService(channelService PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
@@ -67,6 +72,89 @@ func (service *ProviderControlService) GetListUnclaimed(ctx context.Context, req
 		return nil, err
 	}
 	return service.listChannels()
+}
+
+/*
+We need to have an ability to StartClaims for multiple channels too!
+The User makes a Daemon call to the get all the pending claims
+The user then needs to call the start claim for every channel that he intends to claim ( thus a new signature again ) for every invocation of StartClaim !
+PS You can make Multiple Claims in BlockChain in a single call multiChannelClaim
+You can now initiate multiple claims using this function StartClaimsOnMultipleChannels that takes a list of ChannelIds , What Daemon will do is invoke the StartClaim internally for every channel Id passed
+If an error is encountered , then we return back whatever was successful and stop with the channel ID that had an issue
+and return the error that was encountered.
+*/
+func (service *ProviderControlService) StartClaimForMultipleChannels(ctx context.Context, request *StartMultipleClaimRequest) (reply *PaymentsListReply, err error) {
+
+	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
+		return nil, err
+	}
+
+	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+		return nil, err
+	}
+
+	if err := service.verifySignerForStartClaimForMultipleChannels(request); err != nil {
+		return nil, err
+	}
+	err = service.removeClaimedPayments()
+	if err != nil {
+		log.Errorf("unable to remove payments from which are already claimed")
+		return nil, err
+	}
+	return service.startClaims(request)
+
+}
+
+func (service *ProviderControlService) startClaims(request *StartMultipleClaimRequest) (reply *PaymentsListReply, err error) {
+	reply = &PaymentsListReply{}
+	payments := make([]*PaymentReply, 0)
+
+	for _, channelId := range request.GetChannelIds() {
+		payment, err := service.beginClaimOnChannel(big.NewInt(int64(channelId)))
+		if err != nil {
+			// we stop here and return back what ever was successful as reply
+			return reply, err
+		}
+		payments = append(payments, payment)
+	}
+	reply.Payments = payments
+	return reply, nil
+}
+
+//("__StartClaimForMultipleChannels_, mpe_address,channel_id1,channel_id2,...,current_block_number)
+func (service *ProviderControlService) verifySignerForStartClaimForMultipleChannels(request *StartMultipleClaimRequest) error {
+	message := bytes.Join([][]byte{
+		[]byte("__StartClaimForMultipleChannels_"),
+		service.serviceMetaData.GetMpeAddress().Bytes(),
+		getBytesOfChannelIds(request),
+		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+	}, nil)
+	return service.verifySigner(message, request.GetSignature())
+}
+
+func getBytesOfChannelIds(request *StartMultipleClaimRequest) []byte {
+	channelIds := make([]uint64, 0)
+	for _, channelId := range request.GetChannelIds() {
+		channelIds = append(channelIds, channelId)
+	}
+	//sort the channel Ids
+	sortkeys.Uint64s(channelIds)
+	channelIdInBytes := make([]byte, 0)
+
+	for index, channelId := range channelIds {
+		if index == 0 {
+			channelIdInBytes = bytes.Join([][]byte{
+				bigIntToBytes(big.NewInt(int64(channelId))),
+			}, nil)
+		} else {
+			channelIdInBytes = bytes.Join([][]byte{
+				channelIdInBytes,
+				bigIntToBytes(big.NewInt(int64(channelId))),
+			}, nil)
+		}
+
+	}
+	return channelIdInBytes
 }
 
 //Get the list of all claims that have been initiated but not completed yet.
@@ -296,7 +384,6 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 //Check if the mpe address passed matches to what is present in the metadata.
 func (service *ProviderControlService) checkMpeAddress(mpeAddress string) error {
 	passedAddress := common.HexToAddress(mpeAddress)
-
 	if !(service.mpeAddress == passedAddress) {
 		return fmt.Errorf("the mpeAddress: %s passed does not match to what has been registered", mpeAddress)
 	}

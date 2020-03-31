@@ -322,16 +322,23 @@ func (service *ProviderControlService) listClaims() (*PaymentsListReply, error) 
 	output := make([]*PaymentReply, 0)
 	for _, claimRetrieved := range claimsRetrieved {
 		payment := claimRetrieved.Payment()
+		//To Get the Expiration of the Channel ( always get the latest state)
+		latestChannel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: payment.ChannelID})
+		if !ok || err != nil {
+			log.Errorf("Unable to retrieve the latest Channel State", payment.ChannelID, payment.ChannelNonce)
+			continue
+		}
 		if payment.Signature == nil || payment.Amount.Int64() == 0 {
 			log.Errorf("The Signature or the Amount is not defined on the Payment with"+
 				" Channel Id:%v , Nonce:%v", payment.ChannelID, payment.ChannelNonce)
 			continue
 		}
 		paymentReply := &PaymentReply{
-			ChannelId:    bigIntToBytes(payment.ChannelID),
-			ChannelNonce: bigIntToBytes(payment.ChannelNonce),
-			SignedAmount: bigIntToBytes(payment.Amount),
-			Signature:    payment.Signature,
+			ChannelId:     bigIntToBytes(payment.ChannelID),
+			ChannelNonce:  bigIntToBytes(payment.ChannelNonce),
+			SignedAmount:  bigIntToBytes(payment.Amount),
+			Signature:     payment.Signature,
+			ChannelExpiry: bigIntToBytes(latestChannel.Expiration),
 		}
 		output = append(output, paymentReply)
 	}

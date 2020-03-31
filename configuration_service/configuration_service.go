@@ -96,9 +96,12 @@ func (service ConfigurationService) IsDaemonProcessingRequests(ctx context.Conte
 
 func (service ConfigurationService) authenticate(prefix string, auth *CallerAuthentication) (err error) {
 
-	//Check if the Signature is not Expired
-	if err = authutils.CompareWithLatestBlockNumber(big.NewInt(int64(auth.CurrentBlock))); err != nil {
-		return err
+	//Check if the Signature is not Expired only when block chain is enabled, current block number has no
+	//meaning when block chain is in Disabled mode
+	if config.GetBool(config.BlockchainEnabledKey) {
+		if err = authutils.CompareWithLatestBlockNumber(big.NewInt(int64(auth.CurrentBlock))); err != nil {
+			return err
+		}
 	}
 
 	signerFromMessage, err := authutils.GetSignerAddressFromMessage(service.getMessageBytes(prefix, auth.CurrentBlock), auth.GetSignature())
@@ -123,7 +126,6 @@ func (service ConfigurationService) checkAuthenticationAddress(signer common.Add
 	}
 	return fmt.Errorf("unauthorized access, %v is not authorized", signer.Hex())
 
-	return nil
 }
 
 //You will be able to start the Daemon without an Authentication Address for now

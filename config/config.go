@@ -310,7 +310,7 @@ func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error 
 
 	passthroughURL, err := url.Parse(passthroughEndpoint)
 	if err != nil || passthroughURL.Host == "" {
-		return errors.New("passthrough_endpoint must be a valid URL")
+		return errors.New("passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.")
 	}
 	daemonHost, daemonPort, err := net.SplitHostPort(daemonEndpoint)
 	if err != nil {

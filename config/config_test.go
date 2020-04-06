@@ -115,6 +115,8 @@ func TestValidateEndpoints(t *testing.T) {
 	assert.Equal(t, nil, err)
 	err = ValidateEndpoints("1.2.3.4:8080", "http://127.0.0.1:8080")
 	assert.Equal(t, nil, err)
+	err = ValidateEndpoints("1.2.3.4:8080", "")
+	assert.Equal(t, "passthrough_endpoint must be a valid URL", err.Error())
 }
 
 func TestAllowedUserChecks(t *testing.T) {

@@ -181,12 +181,14 @@ metadata][service-configuration-metadata].
 Id of the service to search for [service configuration
 metadata][service-configuration-metadata].
 
-* **passthrough_enabled** (optional; default: `false`) - 
+* **passthrough_enabled** (optional; default: `true`) - 
 when passthrough is disabled, daemon echoes requests back as responses; `false`
 reserved mostly for testing purposes.
 
 * **passthrough_endpoint** (required if `service_type` != `executable`) - 
 endpoint to which requests should be proxied for handling by service.
+This config is mandatory when `passthrough_enabled` is set to true.
+and needs to be a valid url
 
 * **executable_path** (required if `service_type` == `executable`) - 
 path to executable to expose as a service.

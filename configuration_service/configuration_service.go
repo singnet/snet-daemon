@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/context"
 	"math/big"
 	"sort"
+	"strings"
 )
 
 type ConfigurationService struct {
@@ -212,6 +213,9 @@ func getCurrentConfig() map[string]string {
 	keys := config.Vip().AllKeys()
 	sort.Strings(keys)
 	for _, key := range keys {
+		if config.HiddenKeys[strings.ToUpper(key)] {
+			continue
+		}
 		currentConfigMap[key] = config.GetString(key)
 	}
 	return currentConfigMap

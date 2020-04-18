@@ -274,13 +274,20 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	return sub
 }
 
+var HiddenKeys = map[string]bool{
+	strings.ToUpper(PvtKeyForMetering): true,
+}
+
 func LogConfig() {
 	log.Info("Final configuration:")
 	keys := vip.AllKeys()
 	sort.Strings(keys)
 	for _, key := range keys {
-		log.Infof("%v: %v", key, vip.Get(key))
-
+		if HiddenKeys[strings.ToUpper(key)] {
+			log.Infof("%v: ***", key)
+		} else {
+			log.Infof("%v: %v", key, vip.Get(key))
+		}
 	}
 }
 

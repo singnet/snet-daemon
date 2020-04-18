@@ -213,10 +213,10 @@ func getCurrentConfig() map[string]string {
 	keys := config.Vip().AllKeys()
 	sort.Strings(keys)
 	for _, key := range keys {
-		if config.HiddenKeys[strings.ToUpper(key)] {
-			continue
+		if config.DisplayKeys[strings.ToUpper(key)] {
+			currentConfigMap[key] = config.GetString(key)
 		}
-		currentConfigMap[key] = config.GetString(key)
+
 	}
 	return currentConfigMap
 }

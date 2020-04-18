@@ -99,6 +99,9 @@ func Test_getCurrentConfig(t *testing.T) {
 
 	currentConfig := getCurrentConfig()
 	assert.NotEmpty(t, currentConfig[config.DaemonEndPoint])
+	config.Vip().Set(config.PvtKeyForMetering, "HIDDEN")
+	currentConfig = getCurrentConfig()
+	assert.Empty(t, currentConfig[config.PvtKeyForMetering])
 }
 
 func TestConfigurationService_buildSchemaDetails(t *testing.T) {

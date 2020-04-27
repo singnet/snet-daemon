@@ -90,6 +90,9 @@ $ ./scripts/build-xgo <version>
 $ ../build/snetd-linux-amd64
 ```
 
+### Signatures in Daemon 
+[Payment](/escrow/README.md).
+[Configuration](/configuration_service/README.md).
 
 ### Main commands
 

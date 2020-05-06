@@ -44,14 +44,32 @@ func (h *allowedUserPaymentHandler) Payment(context *handler.GrpcStreamContext) 
 	return internalPayment, nil
 }
 
-func (h *allowedUserPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *AllowedUserPayment, err *handler.GrpcError) {
-
-	signature, err := handler.GetBytes(context.MD, handler.AllowedUserSignatureHeader)
+func (h *allowedUserPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *handler.GrpcError) {
+	channelID, err := handler.GetBigInt(context.MD, handler.PaymentChannelIDHeader)
 	if err != nil {
 		return
 	}
-	return &AllowedUserPayment{
-		Signature: signature,
+
+	channelNonce, err := handler.GetBigInt(context.MD, handler.PaymentChannelNonceHeader)
+	if err != nil {
+		return
+	}
+
+	amount, err := handler.GetBigInt(context.MD, handler.PaymentChannelAmountHeader)
+	if err != nil {
+		return
+	}
+
+	signature, err := handler.GetBytes(context.MD, handler.PaymentChannelSignatureHeader)
+	if err != nil {
+		return
+	}
+
+	return &Payment{
+		ChannelID:    channelID,
+		ChannelNonce: channelNonce,
+		Amount:       amount,
+		Signature:    signature,
 	}, nil
 }
 

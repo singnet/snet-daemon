@@ -125,10 +125,6 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 
 //Check if the block number passed is not more +- 5 from the latest block number on chain
 func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
-	//If block chain mode is disabled , then skip the block number check
-	if !config.GetBool(config.BlockchainEnabledKey) {
-		return nil
-	}
 	latestBlockNumber, err := validator.currentBlock()
 	if err != nil {
 		return err

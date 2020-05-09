@@ -1,20 +1,11 @@
 package escrow
 
 import (
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/handler"
+	"google.golang.org/grpc/codes"
 )
-
-const (
-
-	// EscrowPaymentType each call should have id and nonce of payment channel
-	// in metadata.
-	AllowedUserPaymentType = "allowed-user"
-)
-
-type AllowedUserPayment struct {
-	// Signature passed
-	Signature []byte
-}
 
 type allowedUserPaymentHandler struct {
 	validator *AllowedUserPaymentValidator
@@ -26,8 +17,9 @@ func AllowedUserPaymentHandler() handler.PaymentHandler {
 	}
 }
 
+//clients should be oblivious to this handler
 func (h *allowedUserPaymentHandler) Type() (typ string) {
-	return AllowedUserPaymentType
+	return EscrowPaymentType
 }
 
 func (h *allowedUserPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *handler.GrpcError) {
@@ -60,16 +52,27 @@ func (h *allowedUserPaymentHandler) getPaymentFromContext(context *handler.GrpcS
 		return
 	}
 
+	address, err := handler.GetSingleValue(context.MD, handler.PaymentMultiPartyEscrowAddressHeader)
+	if err != nil {
+		return
+	}
+	if !common.IsHexAddress(address) {
+		err = handler.NewGrpcErrorf(codes.InvalidArgument, "Address is not a valid Hex address \"%v\": %v",
+			handler.PaymentMultiPartyEscrowAddressHeader, address)
+		return
+	}
+
 	signature, err := handler.GetBytes(context.MD, handler.PaymentChannelSignatureHeader)
 	if err != nil {
 		return
 	}
 
 	return &Payment{
-		ChannelID:    channelID,
-		ChannelNonce: channelNonce,
-		Amount:       amount,
-		Signature:    signature,
+		ChannelID:          channelID,
+		ChannelNonce:       channelNonce,
+		Amount:             amount,
+		Signature:          signature,
+		MpeContractAddress: common.HexToAddress(blockchain.ToChecksumAddress(address)),
 	}, nil
 }
 

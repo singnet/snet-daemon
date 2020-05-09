@@ -41,6 +41,13 @@ const (
 	// PaymentChannelSignatureHeader is a signature of the client to confirm
 	// amount withdrawing authorization. Value is an array of bytes.
 	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
+	// This is useful information in the header sent in by the client
+	// All clients will have this information and they need this to Sign anyways
+	// When Daemon is running in the block chain disabled mode , it would use this
+	// header to get the MPE address. The goal here is to keep the client oblivious to the
+	// Daemon block chain enabled or disabled mode and also standardize the signatures.
+	// id. Value is a string containing a decimal number.
+	PaymentMultiPartyEscrowAddressHeader = "snet-payment-mpe-address"
 
 	// This metadata will be used ONLY when block chain is disabled and allowed user flag is enabled
 	AllowedUserSignatureHeader = "snet-allowed-user-signature-bin"

@@ -35,23 +35,9 @@ func NewFreeCallPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int,
 type AllowedUserPaymentValidator struct {
 }
 
-func (validator *AllowedUserPaymentValidator) Validate(payment *AllowedUserPayment) (err error) {
-	//verify signature
-	message := bytes.Join([][]byte{
-		[]byte(AllowedUserPrefixSignature),
-		[]byte(config.GetString(config.OrganizationId)),
-		[]byte(config.GetString(config.ServiceId)),
-	}, nil)
-	signer, err := authutils.GetSignerAddressFromMessage(message, payment.Signature)
-	if err != nil {
-		log.WithError(err).Error("cannot get signer during curation")
-		return err
-	}
-	if !config.IsAllowedUser(signer) {
-		return fmt.Errorf("you are not authorized to call this service")
-
-	}
-	return nil
+func (validator *AllowedUserPaymentValidator) Validate(payment *Payment) (err error) {
+	_, err = getSignerAddressFromPayment(payment)
+	return err
 }
 
 func (validator *FreeCallPaymentValidator) Validate(payment *FreeCallPayment) (err error) {

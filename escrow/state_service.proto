@@ -58,7 +58,7 @@ message ChannelStateReply {
     //If the client / user chooses to sign upfront , the usage amount in cogs will be indicative of how much of the
     //planned amount has actually been used.
     //For pay per use, this will be zero
-    uint64 usage_amount = 7;
+    uint64 used_amount = 7;
 
  }
 

@@ -35,7 +35,6 @@ message TokenRequest {
     // current_nonce is a latest nonce of the payment channel.
     uint64 current_nonce = 2;
     //signed_amount is the amount signed by client with current_nonce
-    //it could be absent if none message was signed with current_nonce
     uint64 signed_amount = 3;
     // signature is a client signature of the message which contains
     //"__MPE_claim_message"+MpeContractAddress+ChannelID+ChannelNonce+SignedAmount

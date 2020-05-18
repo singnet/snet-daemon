@@ -50,6 +50,16 @@ message ChannelStateReply {
 
     // last signature sent by client with nonce = current_nonce - 1
     bytes old_nonce_signature = 5;
+
+    //If the client / user chooses to sign upfront , the planned amount in cogs will be indicative of this.
+    //For pay per use, this will be zero
+    uint64 planned_amount = 6;
+
+    //If the client / user chooses to sign upfront , the usage amount in cogs will be indicative of how much of the
+    //planned amount has actually been used.
+    //For pay per use, this will be zero
+    uint64 usage_amount = 7;
+
  }
 
 //Used to determine free calls available for a given user.
@@ -79,3 +89,4 @@ message FreeCallStateReply {
     //Balance number of free calls available
     uint64 free_calls_available = 2;
 }
+

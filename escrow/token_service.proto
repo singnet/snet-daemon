@@ -19,7 +19,6 @@ service TokenService {
     // 2) Signed amount >= Last amount Signed.
     //  if Signed amount == Last Signed amount , then check if planned_amount < used_amount
     //  if Signed amount > Last Signed amount , then update the planned amount = Signed Amount
-    //  if Signed amount < Last Signed amount , then an error is returned back stating invalid amount
     // GetToken method in a way behaves as a renew Token too!.
 }
 

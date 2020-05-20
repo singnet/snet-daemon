@@ -17,15 +17,10 @@ service TokenService {
     //"__MPE_claim_message"+MpeContractAddress+ChannelID+ChannelNonce+SignedAmount
     //Signature is to let the Service Provider make a claim
     // 2) Signed amount >= Last amount Signed.
-    //planned amount 10 , usage 5 , this signed 10 cogs
     //  if Signed amount == Last Signed amount , then check if planned_amount < used_amount
-    //  if Signed amount > Last Signed amount , then update the planned amount = planned amount + Signed Amount
+    //  if Signed amount > Last Signed amount , then update the planned amount = Signed Amount
     //  if Signed amount < Last Signed amount , then an error is returned back stating invalid amount
     // GetToken method in a way behaves as a renew Token too!.
-    rpc GetToken(TokenRequest) returns (TokenReply) {}
-
-
-
 }
 
 // TokenRequest is a request for getting a valid token.

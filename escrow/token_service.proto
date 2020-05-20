@@ -47,7 +47,6 @@ message TokenReply {
     // current_nonce is a latest nonce of the payment channel.
     uint64 channel_id = 1;
 
-    // current_signed_amount is a last amount which were signed by client with current_nonce
     //it could be absent if none message was signed with current_nonce
     bytes token = 2;
 

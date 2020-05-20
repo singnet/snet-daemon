@@ -276,13 +276,53 @@ func SubWithDefault(config *viper.Viper, key string) *viper.Viper {
 	return sub
 }
 
+var DisplayKeys = map[string]bool{
+	strings.ToUpper(AllowedUserFlag):                true,
+	strings.ToUpper(AllowedUserAddresses):           true,
+	strings.ToUpper(AuthenticationAddresses):        true,
+	strings.ToUpper(AutoSSLDomainKey):               true,
+	strings.ToUpper(AutoSSLCacheDirKey):             true,
+	strings.ToUpper(BlockchainEnabledKey):           true,
+	strings.ToUpper(BlockChainNetworkSelected):      true,
+	strings.ToUpper(BurstSize):                      true,
+	strings.ToUpper(ConfigPathKey):                  true,
+	strings.ToUpper(DaemonGroupName):                true,
+	strings.ToUpper(DaemonTypeKey):                  true,
+	strings.ToUpper(DaemonEndPoint):                 true,
+	strings.ToUpper(ExecutablePathKey):              true,
+	strings.ToUpper(IpfsEndPoint):                   true,
+	strings.ToUpper(IpfsTimeout):                    true,
+	strings.ToUpper(LogKey):                         true,
+	strings.ToUpper(MaxMessageSizeInMB):             true,
+	strings.ToUpper(MeteringEnabled):                true,
+	strings.ToUpper(OrganizationId):                 true,
+	strings.ToUpper(ServiceId):                      true,
+	strings.ToUpper(PassthroughEnabledKey):          true,
+	strings.ToUpper(PassthroughEndpointKey):         true,
+	strings.ToUpper(RateLimitPerMinute):             true,
+	strings.ToUpper(SSLCertPathKey):                 true,
+	strings.ToUpper(SSLKeyPathKey):                  true,
+	strings.ToUpper(PaymentChannelCertPath):         true,
+	strings.ToUpper(PaymentChannelCaPath):           true,
+	strings.ToUpper(PaymentChannelKeyPath):          true,
+	strings.ToUpper(PaymentChannelStorageTypeKey):   true,
+	strings.ToUpper(PaymentChannelStorageClientKey): true,
+	strings.ToUpper(PaymentChannelStorageServerKey): true,
+	strings.ToUpper(AlertsEMail):                    true,
+	strings.ToUpper(HeartbeatServiceEndpoint):       true,
+	strings.ToUpper(MeteringEndPoint):               true,
+	strings.ToUpper(NotificationServiceEndpoint):    true,
+	strings.ToUpper(ServiceHeartbeatType):           true,
+}
+
 func LogConfig() {
 	log.Info("Final configuration:")
 	keys := vip.AllKeys()
 	sort.Strings(keys)
 	for _, key := range keys {
-		log.Infof("%v: %v", key, vip.Get(key))
-
+		if DisplayKeys[strings.ToUpper(key)] {
+			log.Infof("%v: %v", key, vip.Get(key))
+		}
 	}
 }
 

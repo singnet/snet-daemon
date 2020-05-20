@@ -3,11 +3,13 @@ package escrow
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
+	"math/big"
 	"testing"
 )
 
@@ -31,21 +33,29 @@ func Test_allowedUserPaymentHandler_getPaymentFromContext(t *testing.T) {
 	config.SetAllowedUsers()
 	testhandler := AllowedUserPaymentHandler()
 	md := metadata.New(map[string]string{})
-	md.Set(handler.AllowedUserSignatureHeader, string(SignAllowedUserSignature(allowedUserPvtKey)))
-	md.Set(handler.PaymentTypeHeader, AllowedUserPaymentType)
+	md.Set(handler.PaymentChannelSignatureHeader, string(SignAllowedUserSignature(allowedUserPvtKey)))
+	md.Set(handler.PaymentTypeHeader, EscrowPaymentType)
+	md.Set(handler.PaymentChannelAmountHeader, "3")
+	md.Set(handler.PaymentChannelNonceHeader, "0")
+	md.Set(handler.PaymentChannelIDHeader, "1")
 	cntxt := &handler.GrpcStreamContext{
 		MD: md,
 	}
 	_, err := testhandler.Payment(cntxt)
+	assert.Equal(t, "rpc error: code = InvalidArgument desc = missing \"snet-payment-mpe-address\"", err.Err().Error())
+	md.Set(handler.PaymentMultiPartyEscrowAddressHeader, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
+	_, err = testhandler.Payment(cntxt)
 	assert.Nil(t, err)
 
 }
 
 func SignAllowedUserSignature(privateKey *ecdsa.PrivateKey) []byte {
 	message := bytes.Join([][]byte{
-		[]byte(AllowedUserPrefixSignature),
-		[]byte(config.GetString(config.OrganizationId)),
-		[]byte(config.GetString(config.ServiceId)),
+		[]byte(PrefixInSignature),
+		common.HexToAddress("0x94d04332C4f5273feF69c4a52D24f42a3aF1F207").Bytes(),
+		bigIntToBytes(big.NewInt(1)),
+		bigIntToBytes(big.NewInt(0)),
+		bigIntToBytes(big.NewInt(3)),
 	}, nil)
 
 	return getSignature(message, privateKey)

@@ -56,6 +56,8 @@ const (
 	PvtKeyForMetering           = "pvt_key_for_metering"
 	NotificationServiceEndpoint = "notification_svc_end_point"
 	ServiceHeartbeatType        = "service_heartbeat_type"
+	TokenExpiryInSeconds        = "token_expiry_in_seconds"
+	TokenSecretKey              = "token_secret_key"
 	//none|grpc|http
 	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `

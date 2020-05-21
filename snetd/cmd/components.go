@@ -46,6 +46,7 @@ type Components struct {
 	configurationService       *configuration_service.ConfigurationService
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
 	organizationMetaData       *blockchain.OrganizationMetaData
+	prepaidPaymentHandler      handler.PaymentHandler
 	freeCallPaymentHandler     handler.PaymentHandler
 	freeCallUserService        escrow.FreeCallUserService
 	freeCallUserStorage        *escrow.FreeCallUserStorage
@@ -311,6 +312,17 @@ func (components *Components) AllowedUserPaymentHandler() handler.PaymentHandler
 	return components.allowedUserPaymentHandler
 }
 
+func (components *Components) PrePaidPaymentHandler() handler.PaymentHandler {
+	if components.prepaidPaymentHandler != nil {
+		return components.freeCallPaymentHandler
+	}
+
+	components.prepaidPaymentHandler = escrow.
+		NewPrePaidPaymentHandler(nil, components.OrganizationMetaData(), components.ServiceMetaData())
+
+	return components.prepaidPaymentHandler
+}
+
 //Add a chain of interceptors
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
@@ -414,7 +426,7 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(), components.FreeCallPaymentHandler())
+		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(), components.FreeCallPaymentHandler(), components.Pre)
 	}
 }
 

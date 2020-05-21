@@ -49,6 +49,10 @@ const (
 	// id. Value is a string containing a decimal number.
 	PaymentMultiPartyEscrowAddressHeader = "snet-payment-mpe-address"
 
+	//Users may decide to sign upfront and make calls .Daemon generates and Auth Token
+	//Users/Clients will need to use this token to make calls for the amount signed upfront.
+	PrePaidAuthTokenHeader = "snet-prepaid-auth-token"
+
 	// This metadata will be used ONLY when block chain is disabled and allowed user flag is enabled
 	AllowedUserSignatureHeader = "snet-allowed-user-signature-bin"
 

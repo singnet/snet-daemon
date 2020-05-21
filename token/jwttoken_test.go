@@ -9,7 +9,7 @@ import (
 )
 
 func Test_customJWTokenClaimsImpl_CreateToken(t *testing.T) {
-	tokenImpl := &customJWTokenClaimsImpl{
+	tokenImpl := &customJWTokenServiceImpl{
 		getGroupId: func() string {
 			return "GroupID"
 		},
@@ -28,7 +28,7 @@ func Test_customJWTokenClaimsImpl_CreateToken(t *testing.T) {
 }
 
 func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
-	tokenImpl := &customJWTokenClaimsImpl{
+	tokenImpl := &customJWTokenServiceImpl{
 		getGroupId: func() string {
 			return "GroupID"
 		},
@@ -41,7 +41,7 @@ func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
 	err = tokenImpl.VerifyToken(token, "any struct")
 	assert.Equal(t, "organization ExampleOrganizationId is not associated with this Daemon", err.Error())
 	config.Vip().Set(config.OrganizationId, "ExampleOrganizationId")
-	tokenImpl2 := &customJWTokenClaimsImpl{
+	tokenImpl2 := &customJWTokenServiceImpl{
 		getGroupId: func() string {
 			return "GroupID2"
 		},

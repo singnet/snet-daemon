@@ -3,16 +3,26 @@ package token
 import (
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"strings"
 	"time"
 )
 
-type customJWTokenClaimsImpl struct {
+type customJWTokenServiceImpl struct {
 	getGroupId func() string
 }
 
-func (service customJWTokenClaimsImpl) CreateToken(payLoad PayLoad) (CustomToken, error) {
+//This will be used in components as a service to Create and Validate tokens
+func NewJWTTokenService(data blockchain.OrganizationMetaData) Service {
+	return &customJWTokenServiceImpl{
+		getGroupId: func() string {
+			return data.GetGroupIdString()
+		},
+	}
+}
+
+func (service customJWTokenServiceImpl) CreateToken(payLoad PayLoad) (CustomToken, error) {
 	atClaims := jwt.MapClaims{}
 	atClaims["payload"] = fmt.Sprintf("%v", payLoad)
 	atClaims["orgId"] = config.GetString(config.OrganizationId)
@@ -24,7 +34,7 @@ func (service customJWTokenClaimsImpl) CreateToken(payLoad PayLoad) (CustomToken
 	return jwtToken.SignedString([]byte(config.GetString(config.TokenSecretKey)))
 }
 
-func (service customJWTokenClaimsImpl) VerifyToken(receivedToken CustomToken, payLoad PayLoad) (err error) {
+func (service customJWTokenServiceImpl) VerifyToken(receivedToken CustomToken, payLoad PayLoad) (err error) {
 	tokenString := fmt.Sprintf("%v", receivedToken)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -44,7 +54,7 @@ func (service customJWTokenClaimsImpl) VerifyToken(receivedToken CustomToken, pa
 	return nil
 }
 
-func (service customJWTokenClaimsImpl) checkJwtTokenClaims(claims jwt.MapClaims, payload PayLoad) (err error) {
+func (service customJWTokenServiceImpl) checkJwtTokenClaims(claims jwt.MapClaims, payload PayLoad) (err error) {
 	if strings.Compare(fmt.Sprintf("%v", claims["payload"]), fmt.Sprintf("%v", payload)) != 0 {
 		return fmt.Errorf("payload %v used to generate the Token doesnt match expected values", claims["payload"])
 	}

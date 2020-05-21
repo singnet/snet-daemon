@@ -426,7 +426,8 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(), components.FreeCallPaymentHandler(), components.Pre)
+		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(),
+			components.FreeCallPaymentHandler(), components.PrePaidPaymentHandler())
 	}
 }
 

@@ -6,7 +6,7 @@ option java_package = "io.singularitynet.daemon.escrow";
 //It is expected that the user would call the GetChannelState to Determine the Current state of the Channel
 //Based on the usage forecast, the user/client will have to sign for an amount L + U , where L is the last amount Signed
 //and U is the amount based on expected usage.
-//Please be aware that the Signing up an amount upfront ( Pre Paid)  does come with a risk and hence the
+//Please be aware that the Signing up an amount upfront ( Pre Paid) does come with a risk and hence the
 //user must exercise caution on the amount signed specially with new service providers.
 //If there is no need of making concurrent calls then you may consider pay per mode.
 //Using a Token, the Client can now make concurrent calls, which was not supported previously with the pay per mode.
@@ -20,6 +20,10 @@ service TokenService {
     //  if Signed amount == Last Signed amount , then check if planned_amount < used_amount
     //  if Signed amount > Last Signed amount , then update the planned amount = Signed Amount
     // GetToken method in a way behaves as a renew Token too!.
+    rpc GetToken(TokenRequest) returns (TokenReply) {}
+
+
+
 }
 
 // TokenRequest is a request for getting a valid token.
@@ -30,9 +34,12 @@ message TokenRequest {
     uint64 current_nonce = 2;
     //signed_amount is the amount signed by client with current_nonce
     uint64 signed_amount = 3;
-    // signature is a client signature of the message which contains
-    //"__MPE_claim_message"+MpeContractAddress+ChannelID+ChannelNonce+SignedAmount
+    // Signature is a client signature of the message which contains 2 parts
+    //Part 1 : MPE Signature "__MPE_claim_message"+MpeContractAddress+ChannelID+ChannelNonce+SignedAmount
+    //Part 2 : Current Block Number
     bytes signature = 4;
+    //current block number (signature will be valid only for short time around this block number)
+    uint64 current_block = 5;
 
 }
 

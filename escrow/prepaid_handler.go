@@ -4,6 +4,7 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/pricing"
 )
 
 const (
@@ -12,14 +13,17 @@ const (
 
 //todo
 type PrePaidPaymentValidator struct {
+	priceStrategy *pricing.PricingStrategy
 }
 
-func NewPrePaidPaymentValidator() *PrePaidPaymentValidator {
-	return &PrePaidPaymentValidator{}
+func NewPrePaidPaymentValidator(pricing *pricing.PricingStrategy) *PrePaidPaymentValidator {
+	return &PrePaidPaymentValidator{
+		priceStrategy: pricing,
+	}
 }
 
 type PrePaidPaymentHandler struct {
-	service                 PrePaidUserService
+	service                 PrePaidService
 	PrePaidPaymentValidator *PrePaidPaymentValidator
 	orgMetadata             *blockchain.OrganizationMetaData
 	serviceMetadata         *blockchain.ServiceMetadata
@@ -28,22 +32,20 @@ type PrePaidPaymentHandler struct {
 //todo
 func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (err error) {
 	//Validate the token
-	//lock the state
-	//Check if used amount + Price <= planned amount
-	//update used amount
-	//Release the lock on state
+
+	//Ensure that the amount in Channel >= Signed Amount !!
 	return nil
 }
 
 // NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewPrePaidPaymentHandler(
-	PrePaidService PrePaidUserService, metadata *blockchain.OrganizationMetaData,
-	pServiceMetaData *blockchain.ServiceMetadata) handler.PaymentHandler {
+	PrePaidService PrePaidService, metadata *blockchain.OrganizationMetaData,
+	pServiceMetaData *blockchain.ServiceMetadata, pricing *pricing.PricingStrategy) handler.PaymentHandler {
 	return &PrePaidPaymentHandler{
 		service:                 PrePaidService,
 		orgMetadata:             metadata,
 		serviceMetadata:         pServiceMetaData,
-		PrePaidPaymentValidator: NewPrePaidPaymentValidator(),
+		PrePaidPaymentValidator: NewPrePaidPaymentValidator(pricing),
 	}
 }
 
@@ -51,26 +53,31 @@ func (h *PrePaidPaymentHandler) Type() (typ string) {
 	return PrePaidPaymentType
 }
 
-func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *handler.GrpcError) {
-	internalPayment, err := h.getPaymentFromContext(context)
-	if err != nil {
-		return
-	}
+func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (transaction handler.Payment,
+	err *handler.GrpcError) {
 
-	e := h.PrePaidPaymentValidator.Validate(internalPayment)
-	if e != nil {
-		return nil, paymentErrorToGrpcError(e)
+	prePaidPayment, err := h.getPaymentFromContext(context)
+	price, priceError := h.PrePaidPaymentValidator.priceStrategy.GetPrice(context)
+	if priceError != nil {
+		return nil, paymentErrorToGrpcError(priceError)
 	}
+	key := prePaidPayment.GetKey()
 
-	transaction, e := h.service.StartPrePaidUserTransaction(internalPayment)
-	if e != nil {
-		return nil, paymentErrorToGrpcError(e)
+	//Check if Token is Valid
+	validateErr := h.PrePaidPaymentValidator.Validate(prePaidPayment)
+	if validateErr != nil {
+		return nil, paymentErrorToGrpcError(validateErr)
 	}
-
+	//Increment the used amount
+	if err := h.service.UpdateUsage(key, IncreaseUsedAmount, price); err != nil {
+		return nil, paymentErrorToGrpcError(validateErr)
+	}
+	transaction = &prePaidTransactionImpl{price: price, key: key}
 	return transaction, nil
 }
 
-func (h *PrePaidPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *PrePaidPayment, err *handler.GrpcError) {
+func (h *PrePaidPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *PrePaidPayment,
+	err *handler.GrpcError) {
 
 	organizationId := config.GetString(config.OrganizationId)
 	channelID, err := handler.GetBigInt(context.MD, handler.PaymentChannelIDHeader)
@@ -91,7 +98,6 @@ func (h *PrePaidPaymentHandler) getPaymentFromContext(context *handler.GrpcStrea
 	}, nil
 }
 
-//todo
 func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	return nil
 }
@@ -99,5 +105,6 @@ func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.
 //todo
 func (h *PrePaidPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
 	//we need to decrement the used amount ( used amount = used amount - price ) as the service errored  !!
-	return nil
+	prePaidTransaction := payment.(PrePaidTransaction)
+	return paymentErrorToGrpcError(h.service.UpdateUsage(prePaidTransaction.PrePaidKey(), DecreaseUsedAmount, prePaidTransaction.Price()))
 }

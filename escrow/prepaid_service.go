@@ -57,7 +57,7 @@ func (h *lockingPrepaidService) UpdateUsage(key *PrePaidUserKey, usage UpdateUsa
 	}
 
 	if !ok {
-		return fmt.Errorf("Channel ID %v is not set for pre paid usage")
+		return fmt.Errorf("Channel ID %v is not set for pre paid usage", key)
 	}
 
 	newValue, err := usage(oldValue, revisedAmount)
@@ -69,7 +69,7 @@ func (h *lockingPrepaidService) UpdateUsage(key *PrePaidUserKey, usage UpdateUsa
 	}
 
 	if !ok {
-		return fmt.Errorf("unable to CompareAndSwap pre paid storage for k", key)
+		return fmt.Errorf("unable to CompareAndSwap pre paid storage for %v", key)
 	}
 
 	defer func() {

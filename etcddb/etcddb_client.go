@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/escrow"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -42,16 +43,16 @@ type EtcdClient struct {
 
 // NewEtcdClient create new etcd storage client.
 func NewEtcdClient(metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
-	return NewEtcdClientFromVip(config.Vip(),metaData)
+	return NewEtcdClientFromVip(config.Vip(), metaData)
 }
 
 // NewEtcdClientFromVip create new etcd storage client from viper.
-func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
+func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
 
-	conf, err := GetEtcdClientConf(vip,metaData)
+	conf, err := GetEtcdClientConf(vip, metaData)
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	log.WithField("PaymentChannelStorageClient", fmt.Sprintf("%+v", conf)).Info()
@@ -59,32 +60,30 @@ func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMeta
 	var etcdv3 *clientv3.Client
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	if checkIfHttps(metaData.GetPaymentStorageEndPoints()) {
-		if tlsConfig,err := getTlsConfig();err == nil {
+		if tlsConfig, err := getTlsConfig(); err == nil {
 			etcdv3, err = clientv3.New(clientv3.Config{
 				Endpoints:   metaData.GetPaymentStorageEndPoints(),
 				DialTimeout: conf.ConnectionTimeout,
 				TLS:         tlsConfig,
 			})
-		}else {
-			return nil,err
+		} else {
+			return nil, err
 		}
 
-	}else {
+	} else {
 		//Regular http call
 		etcdv3, err = clientv3.New(clientv3.Config{
 			Endpoints:   metaData.GetPaymentStorageEndPoints(),
 			DialTimeout: conf.ConnectionTimeout,
-
 		})
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 	}
-
 
 	session, err := concurrency.NewSession(etcdv3)
 	if err != nil {
@@ -100,34 +99,35 @@ func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMeta
 }
 func getTlsConfig() (*tls.Config, error) {
 
-		log.Debug("enabling SSL support via X509 keypair")
-		cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
+	log.Debug("enabling SSL support via X509 keypair")
+	cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
 
-		if err != nil {
-			panic("unable to load specific SSL X509 keypair for etcd")
-		}
-		caCert, err := ioutil.ReadFile(config.GetString(config.PaymentChannelCaPath))
-		if err != nil {
-			return nil, err
-		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			RootCAs:      caCertPool,
-		}
-		return tlsConfig, nil
+	if err != nil {
+		panic("unable to load specific SSL X509 keypair for etcd")
+	}
+	caCert, err := ioutil.ReadFile(config.GetString(config.PaymentChannelCaPath))
+	if err != nil {
+		return nil, err
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caCertPool,
+	}
+	return tlsConfig, nil
 
 }
 
-func checkIfHttps(endpoints []string ) bool {
-	for _,endpoint:= range endpoints {
-		if strings.Contains(endpoint,"https")  {
+func checkIfHttps(endpoints []string) bool {
+	for _, endpoint := range endpoints {
+		if strings.Contains(endpoint, "https") {
 			return true
 		}
 	}
 	return false
 }
+
 // Get gets value from etcd by key
 func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 
@@ -311,6 +311,11 @@ func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err erro
 	m := concurrency.NewMutex(client.session, key)
 	mutex = &EtcdClientMutex{mutex: m}
 	return
+}
+
+// Create a mutex for the given key
+func (client *EtcdClient) Mutex(key string) (mutex escrow.CustomMutex, err error) {
+	return client.NewMutex(key)
 }
 
 // Close closes etcd client

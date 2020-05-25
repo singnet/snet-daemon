@@ -61,9 +61,6 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 		transaction.Rollback()
 		return nil, paymentErrorToGrpcError(e)
 	}
-	//// todo additionally
-	// todo we will need to update the planned amount to the latest signed amount
-	// todo used amount be incremented by the price
 
 	return transaction, nil
 }
@@ -135,8 +132,6 @@ func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
 }
 
 func (h *paymentChannelPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
-	// todo we will need to update the planned amount to the last Max signed amount
-	// todo decrease the used amount by the price
 	return paymentErrorToGrpcError(payment.(*paymentTransaction).Rollback())
 }
 

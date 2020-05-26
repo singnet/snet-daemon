@@ -37,11 +37,6 @@ func (storage *memoryStorage) Get(key string) (value string, ok bool, err error)
 	return storage.unsafeGet(key)
 }
 
-//todo
-func (storage *memoryStorage) Mutex(key string) (mutex CustomMutex, err error) {
-	return nil, nil
-}
-
 func (storage *memoryStorage) GetByKeyPrefix(prefix string) (values []string, err error) {
 	storage.mutex.RLock()
 	defer storage.mutex.RUnlock()

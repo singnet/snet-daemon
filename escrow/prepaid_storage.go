@@ -123,7 +123,3 @@ func (storage *PrepaidStorage) CompareAndSwap(Prepaid *PrePaidUserKey, oldValue 
 	newValue *PrePaidUsageData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(Prepaid.ID(), oldValue, newValue)
 }
-
-func (storage *PrepaidStorage) GetMutex(key string) (mutex CustomMutex, err error) {
-	return storage.delegate.Mutex(key)
-}

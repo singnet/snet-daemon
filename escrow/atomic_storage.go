@@ -1,14 +1,8 @@
 package escrow
 
 import (
-	"context"
 	"reflect"
 )
-
-type CustomMutex interface {
-	Lock(ctx context.Context) error
-	Unlock(ctx context.Context) error
-}
 
 // AtomicStorage is an interface to key-value storage with atomic operations.
 type AtomicStorage interface {
@@ -30,8 +24,6 @@ type AtomicStorage interface {
 	CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key string) (err error)
-	//todo discuss with Team , if there is an better way to do this.
-	Mutex(key string) (CustomMutex, error)
 }
 
 // PrefixedAtomicStorage is decorator for atomic storage which adds a prefix to
@@ -77,10 +69,6 @@ func (storage *PrefixedAtomicStorage) Delete(key string) (err error) {
 	return storage.delegate.Delete(storage.keyPrefix + "/" + key)
 }
 
-func (storage *PrefixedAtomicStorage) Mutex(key string) (mutex CustomMutex, err error) {
-	return storage.delegate.Mutex(key)
-}
-
 // TypedAtomicStorage is an atomic storage which automatically
 // serializes/deserializes values and keys
 type TypedAtomicStorage interface {
@@ -97,8 +85,6 @@ type TypedAtomicStorage interface {
 	CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key interface{}) (err error)
-
-	Mutex(key string) (mutex CustomMutex, err error)
 }
 
 // TypedAtomicStorageImpl is an implementation of TypedAtomicStorage interface
@@ -213,9 +199,4 @@ func (storage *TypedAtomicStorageImpl) Delete(key interface{}) (err error) {
 	}
 
 	return storage.atomicStorage.Delete(keyString)
-}
-
-func (storage *TypedAtomicStorageImpl) Mutex(key string) (mutex CustomMutex, err error) {
-
-	return storage.atomicStorage.Mutex(key)
 }

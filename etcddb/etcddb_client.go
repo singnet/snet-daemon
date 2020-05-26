@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/escrow"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -311,11 +310,6 @@ func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err erro
 	m := concurrency.NewMutex(client.session, key)
 	mutex = &EtcdClientMutex{mutex: m}
 	return
-}
-
-// Create a mutex for the given key
-func (client *EtcdClient) Mutex(key string) (mutex escrow.CustomMutex, err error) {
-	return client.NewMutex(key)
 }
 
 // Close closes etcd client

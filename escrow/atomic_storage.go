@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -24,6 +25,10 @@ type AtomicStorage interface {
 	CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key string) (err error)
+	//Compares and Swaps if the compare conditions are met , else it returns you the
+	//Latest version and Value of the key passed , this can be used to do any pre Validations and request
+	//again for an update
+	CAS(request *CASRequestEtcd) (response *CASResponseEtcd, err error)
 }
 
 // PrefixedAtomicStorage is decorator for atomic storage which adds a prefix to
@@ -69,6 +74,10 @@ func (storage *PrefixedAtomicStorage) Delete(key string) (err error) {
 	return storage.delegate.Delete(storage.keyPrefix + "/" + key)
 }
 
+func (storage *PrefixedAtomicStorage) CAS(request *CASRequestEtcd) (response *CASResponseEtcd, err error) {
+	return storage.delegate.CAS(request)
+}
+
 // TypedAtomicStorage is an atomic storage which automatically
 // serializes/deserializes values and keys
 type TypedAtomicStorage interface {
@@ -85,6 +94,70 @@ type TypedAtomicStorage interface {
 	CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key interface{}) (err error)
+
+	VerifyAndUpdate(details *ValidateAndUpdateStorageDetails) (err error)
+}
+
+type CASRequestEtcd struct {
+	Key             string
+	OldValue        interface{}
+	ModifiedVersion int64
+	NewValue        string
+	Compare         CustomCompareOptions
+}
+
+type CASResponseEtcd struct {
+	Key             string
+	Value           string
+	ModifiedVersion int64
+	Succeeded       bool
+}
+
+type CustomCompareOptions struct {
+	Operator  Comparison_Operator
+	CompareOn Comparison_On
+}
+type Comparison_On string
+
+const (
+	VALUE            Comparison_On = "Value"
+	MODIFIED_VERSION Comparison_On = "Modified_Version"
+)
+
+type Comparison_Operator string
+
+const (
+	EQUAL     Comparison_Operator = "="
+	GREATER   Comparison_Operator = ">"
+	LESS      Comparison_Operator = "<"
+	NOT_EQUAL Comparison_Operator = "!="
+)
+
+type ValidateAndUpdateStorageDetails struct {
+	//old Value of the record
+	oldValue interface{}
+	//new value to be replaced with
+	newValue interface{}
+
+	//Consider the following Scenarios
+
+	/*
+			oldvalue is the state you last read from the storage
+			newValue is the state you decide based on some validations and derive this state
+			Just before you update , you need to make sure the oldvalue you got was actually the latest value
+			if it was not, then you need to take the latest value from storage and apply any validations
+			and then re generate the newValue, the below function helps you do this when the retry option is set to true.
+		    if you dont want the old value to be swapped with the latest DB value
+	*/
+	//this function will take the old value , check for conditions and return back a new Value.
+
+	Validate func(oldValue interface{}, params ...interface{}) (newValue interface{}, err error)
+	Retry    bool
+	//to retrieve the record
+	Key interface{}
+	//What kind of comparision is desired
+	Comparision Comparison_Operator
+	Params      interface{}
 }
 
 // TypedAtomicStorageImpl is an implementation of TypedAtomicStorage interface
@@ -199,4 +272,48 @@ func (storage *TypedAtomicStorageImpl) Delete(key interface{}) (err error) {
 	}
 
 	return storage.atomicStorage.Delete(keyString)
+}
+
+func (storage *TypedAtomicStorageImpl) VerifyAndUpdate(details *ValidateAndUpdateStorageDetails) (err error) {
+
+	oldValue := details.oldValue
+	newValue := details.newValue
+	//oldValueString, err := serialize(oldValue)
+	key, err := serialize(details.Key)
+	var newValueString string
+	request := &CASRequestEtcd{
+		Key:             key,
+		ModifiedVersion: 1, //You cannot help it , we need to make one Read to get the latest version or value
+		Compare:         CustomCompareOptions{Operator: EQUAL, CompareOn: MODIFIED_VERSION},
+	}
+	//todo, how long do we re try, disucss this with Team ?
+	for {
+		if newValue != nil {
+			if newValueString, err = serialize(newValue); err != nil {
+				return err
+			}
+			request.NewValue = newValueString
+		}
+
+		response, err := storage.atomicStorage.CAS(request)
+		if err != nil {
+			return err
+		}
+		//Nothing to do more, the comparision and update was successful
+		if response.Succeeded {
+			return nil
+		}
+
+		if !details.Retry {
+			return fmt.Errorf("CAS did not succeed ,retry not attempted")
+		}
+		oldValue = reflect.New(storage.valueType).Interface()
+		err = deserialize(string(response.Value), oldValue)
+		request.ModifiedVersion = response.ModifiedVersion
+		newValue, err = details.Validate(oldValue, details.Params)
+		if err != nil {
+			return err
+		}
+
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/escrow"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -310,6 +311,87 @@ func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err erro
 	m := concurrency.NewMutex(client.session, key)
 	mutex = &EtcdClientMutex{mutex: m}
 	return
+}
+
+func (client *EtcdClient) CAS(request *escrow.CASRequestEtcd) (response *escrow.CASResponseEtcd, err error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	defer cancel()
+	defer ctx.Done()
+
+	key := request.Key
+	txn := client.etcdv3.KV.Txn(ctx)
+	var txnResp *clientv3.TxnResponse
+	if txn, err = client.buildComparable(txn, request); err != nil {
+		return
+	}
+	if txnResp, err = txn.Then(
+		clientv3.OpPut(key, request.NewValue),
+		//You cant really do Nested Else if in here
+		//clientv3.OpGet(key), Avoid an Unnecessary Read
+	).Else(
+		clientv3.OpGet(key),
+	).Commit(); err != nil {
+		return response, err
+	}
+	response = &escrow.CASResponseEtcd{Key: request.Key}
+	if txnResp != nil {
+		//succeeded is set to true if the compare evaluated to true or false otherwise.
+		response.Succeeded = txnResp.Succeeded
+	}
+
+	if latestValue, err := client.checkTxnResponse(txnResp, key); err != nil {
+		return response, err
+	} else {
+		response.Value = string(latestValue.data)
+		response.ModifiedVersion = latestValue.version
+	}
+
+	return response, err
+}
+
+func (client *EtcdClient) buildComparable(txn clientv3.Txn, request *escrow.CASRequestEtcd) (clientv3.Txn, error) {
+	operator := fmt.Sprint(request.Compare.Operator)
+	switch request.Compare.CompareOn {
+	case escrow.VALUE:
+		//this is a Lexical comparision , please note "10" < "4" in Lexical comparision
+		//you need "10" < "04" (padded zeros to compare the value accurately) - Not Ideal if you have numbers to check
+		txn.If(clientv3.Compare(clientv3.Value(request.Key), operator, request.OldValue))
+	case escrow.MODIFIED_VERSION:
+		txn.If(clientv3.Compare(clientv3.ModRevision(request.Key), operator, request.ModifiedVersion))
+	default:
+		return nil, fmt.Errorf("Unknown Type of Comparision op")
+	}
+	return txn, nil
+}
+
+func (client *EtcdClient) checkTxnResponse(txnResp *clientv3.TxnResponse, key string) (*latestState, error) {
+
+	if txnResp != nil && !txnResp.Succeeded {
+		txnGetValue := (*clientv3.GetResponse)(txnResp.Responses[0].GetResponseRange())
+		return client.getState(txnGetValue, key)
+	} else if txnResp != nil {
+		//No new Value to Return and nothing to Error , the IF comparision was successful
+		return &latestState{}, nil
+	}
+	return nil, fmt.Errorf("tranaction did not succeed and no value found on key %v", key)
+}
+
+type latestState struct {
+	//Incase we need to switch to revision comparision, this is much faster than value comparision
+	version int64
+	data    []byte
+}
+
+func (client *EtcdClient) getState(getResp *clientv3.GetResponse, key string) (*latestState, error) {
+	state := &latestState{}
+	if len(getResp.Kvs) == 0 {
+		return nil, fmt.Errorf("State NOT found for key :%v", key)
+	} else {
+		state.version = getResp.Kvs[0].ModRevision
+		state.data = getResp.Kvs[0].Value
+	}
+	return state, nil
 }
 
 // Close closes etcd client

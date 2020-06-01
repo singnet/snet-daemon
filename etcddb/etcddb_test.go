@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/escrow"
 	"os"
 	"strconv"
 	"sync"
@@ -18,8 +19,8 @@ import (
 
 type EtcdTestSuite struct {
 	suite.Suite
-	client *EtcdClient
-	server *EtcdServer
+	client   *EtcdClient
+	server   *EtcdServer
 	metaData *blockchain.OrganizationMetaData
 }
 
@@ -62,7 +63,7 @@ func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 	err = server.Start()
 	assert.Nil(t, err)
 
-	client, err := NewEtcdClientFromVip(vip,suite.metaData)
+	client, err := NewEtcdClientFromVip(vip, suite.metaData)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
@@ -372,4 +373,40 @@ func removeWorkDir(t *testing.T, workDir string) {
 
 	err = os.RemoveAll(dir + "/" + workDir)
 	assert.Nil(t, err)
+}
+
+func (suite *EtcdTestSuite) TestCAS() {
+	t := suite.T()
+	client := suite.client
+	err := client.Put("1", "val1")
+	assert.Nil(t, err)
+	request := &escrow.CASRequestEtcd{
+		Key:             "1",
+		ModifiedVersion: 1,
+		Compare:         escrow.CustomCompareOptions{CompareOn: escrow.MODIFIED_VERSION, Operator: escrow.EQUAL},
+	}
+
+	response, err := client.CAS(request)
+	assert.Nil(t, err)
+	assert.False(t, response.Succeeded)
+	assert.Equal(t, response.Value, "val1")
+	value, _, _ := client.Get("1")
+	assert.Equal(t, value, "val1")
+
+	//set the version to the latest version received
+	request.ModifiedVersion = response.ModifiedVersion
+	request.NewValue = "val2"
+	response, err = client.CAS(request)
+	assert.Nil(t, err)
+	assert.True(t, response.Succeeded)
+	assert.Equal(t, response.Value, "")
+	value, _, _ = client.Get("1")
+	assert.Equal(t, value, "val2")
+
+	request.Compare = escrow.CustomCompareOptions{CompareOn: escrow.VALUE, Operator: escrow.EQUAL}
+	request.OldValue = "val2"
+	request.NewValue = "val3"
+	response, err = client.CAS(request)
+	value, _, _ = client.Get("1")
+	assert.Equal(t, value, "val3")
 }

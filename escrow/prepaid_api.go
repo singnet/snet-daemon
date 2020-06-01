@@ -40,39 +40,40 @@ func (transaction prePaidTransactionImpl) Rollback() error {
 	return nil
 }
 
-type UpdateUsage func(oldValue *PrePaidUsageData, price *big.Int) (newValue *PrePaidUsageData, err error)
+//First param is the used Amount, Second param is the Planned Amount, Planned amount will be updated only when
+//the second param is passed
+type UpdateUsage func(old interface{}, params ...interface{}) (new interface{}, err error)
 
 var (
-	IncreaseUsedAmount UpdateUsage = func(oldValue *PrePaidUsageData, price *big.Int) (newValue *PrePaidUsageData,
-		err error) {
-		newValue = oldValue.Clone()
-		//Check if planned amount < used amount , error out
-		if newValue.PlannedAmount.Cmp(newValue.UsedAmount.Add(newValue.UsedAmount, price)) < 0 {
-			return nil, fmt.Errorf("Current Usage:%v + Price:%v > Planned Usage%v",
-				oldValue.UsedAmount, price, oldValue.PlannedAmount)
+	UpdateUsedAmount = func(old interface{}, params ...interface{}) (new interface{}, err error) {
+		oldValue := old.(*PrePaidUsageData)
+		newValue := oldValue.Clone()
+		if len(params) == 0 {
+			return nil, fmt.Errorf("You need to specify atleast the Usage amount to be revised")
 		}
-		return newValue, nil
-	}
-	//This will be used , when the service call errors and , you need to reduce the usage , usage is incremented
-	//just before initiating the service call .
-	DecreaseUsedAmount UpdateUsage = func(oldValue *PrePaidUsageData, price *big.Int) (newValue *PrePaidUsageData, err error) {
-		newValue = oldValue.Clone()
-		newValue.UsedAmount = newValue.UsedAmount.Sub(newValue.UsedAmount, price)
-		//reset the counter to zero
+		usage := params[0].(*big.Int)
+		//Check if planned amount < used amount , error out
+		if newValue.PlannedAmount.Cmp(newValue.UsedAmount.Add(newValue.UsedAmount, usage)) < 0 {
+			return nil, fmt.Errorf("Current Usage:%v + Price:%v > Planned Usage%v",
+				oldValue.UsedAmount, params, oldValue.PlannedAmount)
+		}
+		//This can happen when Usage is Negative ( we had incremented the usage, but now need to reduce as the
+		//Service call Failed, this is to check make sure we dont go negative
 		if newValue.UsedAmount.Int64() < 0 {
 			newValue.UsedAmount = big.NewInt(0)
 		}
-		return newValue, nil
-	}
-	//This will be used when a request for a new Token comes in !
-	IncreasePlannedUsage UpdateUsage = func(oldValue *PrePaidUsageData, revisedPlannedAmount *big.Int) (newValue *PrePaidUsageData, err error) {
-
+		if len(params) == 1 {
+			return newValue, nil
+		}
+		//if we have 2 params , the second param is the revised Planned Amount
+		revisedPlannedAmount := params[1].(*big.Int)
 		if oldValue.PlannedAmount.Cmp(revisedPlannedAmount) >= 0 {
 			return nil, fmt.Errorf("Current Planned Amount:%v > Revised Planned Amount:%v",
 				oldValue.PlannedAmount, revisedPlannedAmount)
 		}
-		newValue = oldValue.Clone()
+
 		newValue.PlannedAmount = revisedPlannedAmount
+
 		return newValue, nil
 	}
 )

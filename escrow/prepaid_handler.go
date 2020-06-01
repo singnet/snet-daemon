@@ -69,7 +69,7 @@ func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (tra
 		return nil, paymentErrorToGrpcError(validateErr)
 	}
 	//Increment the used amount
-	if err := h.service.UpdateUsage(key, IncreaseUsedAmount, price); err != nil {
+	if err := h.service.UpdateUsage(key, UpdateUsedAmount, price); err != nil {
 		return nil, paymentErrorToGrpcError(validateErr)
 	}
 	transaction = &prePaidTransactionImpl{price: price, key: key}
@@ -104,7 +104,9 @@ func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.
 
 //todo
 func (h *PrePaidPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
+	return nil
 	//we need to decrement the used amount ( used amount = used amount - price ) as the service errored  !!
 	prePaidTransaction := payment.(PrePaidTransaction)
-	return paymentErrorToGrpcError(h.service.UpdateUsage(prePaidTransaction.PrePaidKey(), DecreaseUsedAmount, prePaidTransaction.Price()))
+	return paymentErrorToGrpcError(h.service.UpdateUsage(prePaidTransaction.PrePaidKey(), UpdateUsedAmount,
+		prePaidTransaction.Price().Neg(prePaidTransaction.Price())))
 }

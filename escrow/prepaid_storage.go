@@ -2,7 +2,6 @@ package escrow
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"reflect"
 )
@@ -36,7 +35,7 @@ func (p *PrePaidUserKey) ID() string {
 }
 
 type PrePaidUsageData struct {
-	SenderAddress  common.Address
+	SenderAddress  string
 	ChannelID      *big.Int
 	PlannedAmount  *big.Int
 	UsedAmount     *big.Int
@@ -65,8 +64,8 @@ func (oldValue *PrePaidUsageData) Validate(newValue *PrePaidUsageData) error {
 }
 
 func (data *PrePaidUsageData) String() string {
-	return fmt.Sprintf("{User %v on Channel %v has planned amount:%v, used amount:%v "+
-		"for the organization_id:%v and group_id=%v }", data.SenderAddress,
+	return fmt.Sprintf("{\"SenderAddress\":\"%v\",\"ChannelID\":%v,\"PlannedAmount\":%v,\"UsedAmount\":%v,"+
+		"\"OrganizationId\":\"%v\",\"GroupID\":\"%v\"}", data.SenderAddress,
 		data.ChannelID, data.PlannedAmount, data.UsedAmount, data.OrganizationId, data.GroupID)
 }
 
@@ -89,6 +88,10 @@ func NewPrepaidStorage(atomicStorage AtomicStorage) *PrepaidStorage {
 			valueType:         reflect.TypeOf(PrePaidUsageData{}),
 		},
 	}
+}
+
+func (storage *PrepaidStorage) UpdateUsage() (err error) {
+	return nil
 }
 
 func (storage *PrepaidStorage) GetAll() (states []*PrePaidUsageData, err error) {
@@ -122,4 +125,8 @@ func (storage *PrepaidStorage) Delete(Prepaid *PrePaidUserKey) (err error) {
 func (storage *PrepaidStorage) CompareAndSwap(Prepaid *PrePaidUserKey, oldValue *PrePaidUsageData,
 	newValue *PrePaidUsageData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(Prepaid.ID(), oldValue, newValue)
+}
+
+func (storage *PrepaidStorage) VerifyAndUpdate(cas *ValidateAndUpdateStorageDetails) (err error) {
+	return storage.delegate.VerifyAndUpdate(cas)
 }

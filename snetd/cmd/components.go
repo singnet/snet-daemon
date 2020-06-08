@@ -9,6 +9,7 @@ import (
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/pricing"
+	"github.com/singnet/snet-daemon/token"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -53,6 +54,7 @@ type Components struct {
 	freeCallUserService        escrow.FreeCallUserService
 	freeCallUserStorage        *escrow.FreeCallUserStorage
 	freeCallLockerStorage      *escrow.PrefixedAtomicStorage
+	tokenService               token.Service
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -541,4 +543,14 @@ func (components *Components) ConfigurationService() *configuration_service.Conf
 	components.configurationService = configuration_service.NewConfigurationService(components.ChannelBroadcast())
 
 	return components.configurationService
+}
+
+func (components *Components) TokenService() token.Service {
+	if components.tokenService != nil {
+		return components.tokenService
+	}
+
+	components.tokenService = token.NewJWTTokenService(*components.OrganizationMetaData())
+
+	return components.tokenService
 }

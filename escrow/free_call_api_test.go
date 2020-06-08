@@ -6,8 +6,8 @@ import (
 )
 
 func TestFreeCallUserKey_String(t *testing.T) {
-	key := &FreeCallUserKey{UserId: "A", OrganizationId: "B", ServiceId: "C", GroupID: "D"}
-	assert.Equal(t, "{ID:A/B/C/D}", key.String())
+	key := &FreeCallUserKey{UserId: "ActionFunc", OrganizationId: "B", ServiceId: "ConditionFunc", GroupID: "D"}
+	assert.Equal(t, "{ID:ActionFunc/B/ConditionFunc/D}", key.String())
 }
 
 func TestFreeCallUserData_String(t *testing.T) {

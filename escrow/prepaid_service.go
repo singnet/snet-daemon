@@ -24,22 +24,16 @@ func (h *lockingPrepaidService) ListPrePaidUsers() (users []*PrePaidUsageData, e
 	return h.storage.GetAll()
 }
 
-func (h *lockingPrepaidService) GetPrePaidUserKey(payment *PrePaidPayment) (userKey *PrePaidUserKey, err error) {
+func (h *lockingPrepaidService) GetPrePaidUserKey(payment *PrePaidPayment) (userKey *PrePaidChannelKey, err error) {
 	return nil, nil
 }
 
-func (h *lockingPrepaidService) GetPrePaidUser(key *PrePaidUserKey) (PrePaidUser *PrePaidUsageData, ok bool, err error) {
+func (h *lockingPrepaidService) GetPrePaidUser(key *PrePaidChannelKey) (PrePaidUser *PrePaidUsageData, ok bool, err error) {
 	return h.storage.Get(key.ID())
 }
 
-func (h *lockingPrepaidService) UpdateUsage(key *PrePaidUserKey,
+func (h *lockingPrepaidService) UpdateUsage(key *PrePaidChannelKey,
 	usage UpdateUsage, revisedAmount *big.Int) (err error) {
-	cas := &ValidateAndUpdateStorageDetails{
-		Validate: usage,
-		Retry:    true,
-		Key:      key,
-		Params:   revisedAmount,
-	}
-
-	return h.storage.VerifyAndUpdate(cas)
+	//todo
+	return nil
 }

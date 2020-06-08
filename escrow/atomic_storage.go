@@ -2,7 +2,9 @@ package escrow
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
+	"strings"
 )
 
 // AtomicStorage is an interface to key-value storage with atomic operations.
@@ -28,7 +30,7 @@ type AtomicStorage interface {
 	//Compares and Swaps if the compare conditions are met , else it returns you the
 	//Latest version and Value of the key passed , this can be used to do any pre Validations and request
 	//again for an update
-	CAS(request *CASRequestEtcd) (response *CASResponseEtcd, err error)
+	CAS(request *CASRequest) (response *CASResponse, err error)
 }
 
 // PrefixedAtomicStorage is decorator for atomic storage which adds a prefix to
@@ -74,7 +76,7 @@ func (storage *PrefixedAtomicStorage) Delete(key string) (err error) {
 	return storage.delegate.Delete(storage.keyPrefix + "/" + key)
 }
 
-func (storage *PrefixedAtomicStorage) CAS(request *CASRequestEtcd) (response *CASResponseEtcd, err error) {
+func (storage *PrefixedAtomicStorage) CAS(request *CASRequest) (response *CASResponse, err error) {
 	return storage.delegate.CAS(request)
 }
 
@@ -89,28 +91,36 @@ type TypedAtomicStorage interface {
 	Put(key interface{}, value interface{}) (err error)
 	// PutIfAbsent puts value by key if and only if key is absent in storage
 	PutIfAbsent(key interface{}, value interface{}) (ok bool, err error)
-	// CompareAndSwap puts newValue by key if and only if previous value is equal
+	// CompareAndSwap puts newValues by key if and only if previous value is equal
 	// to prevValue
 	CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key interface{}) (err error)
-
-	VerifyAndUpdate(details *ValidateAndUpdateStorageDetails) (err error)
 }
 
-type CASRequestEtcd struct {
-	Key             string
-	OldValue        interface{}
-	ModifiedVersion int64
-	NewValue        string
-	Compare         CustomCompareOptions
+type ReadFunc func(params ...interface{}) (businessData interface{}, err error)
+type ConditionFunc func(params ...interface{}) (newValues interface{}, err error)
+type ActionFunc func(params ...interface{}) (casOldValues []*KeyValueData, casNewValues []*KeyValueData, err error)
+
+type CASRequest struct {
+	KeyPrefix    string
+	OldKeyValues []*KeyValueData
+	NewKeyValues []*KeyValueData
+	Read         ReadFunc
+	Condition    ConditionFunc
+	Action       ActionFunc
 }
 
-type CASResponseEtcd struct {
-	Key             string
-	Value           string
-	ModifiedVersion int64
-	Succeeded       bool
+type CASResponse struct {
+	Succeeded  bool
+	LatestData []*KeyValueData
+}
+type KeyValueData struct {
+	//Incase we need to switch to revision comparision, this is much faster than value comparision
+	Version int64
+	Value   string
+	Key     string //Lets not keep it over generic and complicate, make the key as string
+	Compare CustomCompareOptions
 }
 
 type CustomCompareOptions struct {
@@ -132,33 +142,6 @@ const (
 	LESS      Comparison_Operator = "<"
 	NOT_EQUAL Comparison_Operator = "!="
 )
-
-type ValidateAndUpdateStorageDetails struct {
-	//old Value of the record
-	oldValue interface{}
-	//new value to be replaced with
-	newValue interface{}
-
-	//Consider the following Scenarios
-
-	/*
-			oldvalue is the state you last read from the storage
-			newValue is the state you decide based on some validations and derive this state
-			Just before you update , you need to make sure the oldvalue you got was actually the latest value
-			if it was not, then you need to take the latest value from storage and apply any validations
-			and then re generate the newValue, the below function helps you do this when the retry option is set to true.
-		    if you dont want the old value to be swapped with the latest DB value
-	*/
-	//this function will take the old value , check for conditions and return back a new Value.
-
-	Validate func(oldValue interface{}, params ...interface{}) (newValue interface{}, err error)
-	Retry    bool
-	//to retrieve the record
-	Key interface{}
-	//What kind of comparision is desired
-	Comparision Comparison_Operator
-	Params      interface{}
-}
 
 // TypedAtomicStorageImpl is an implementation of TypedAtomicStorage interface
 type TypedAtomicStorageImpl struct {
@@ -274,46 +257,96 @@ func (storage *TypedAtomicStorageImpl) Delete(key interface{}) (err error) {
 	return storage.atomicStorage.Delete(keyString)
 }
 
-func (storage *TypedAtomicStorageImpl) VerifyAndUpdate(details *ValidateAndUpdateStorageDetails) (err error) {
+func (storage *TypedAtomicStorageImpl) VerifyAndUpdate(key string) (err error) {
 
-	oldValue := details.oldValue
-	newValue := details.newValue
-	//oldValueString, err := serialize(oldValue)
-	key, err := serialize(details.Key)
-	var newValueString string
-	request := &CASRequestEtcd{
-		Key:             key,
-		ModifiedVersion: 1, //You cannot help it , we need to make one Read to get the latest version or value
-		Compare:         CustomCompareOptions{Operator: EQUAL, CompareOn: MODIFIED_VERSION},
-	}
-	//todo, how long do we re try, disucss this with Team ?
-	for {
-		if newValue != nil {
-			if newValueString, err = serialize(newValue); err != nil {
-				return err
-			}
-			request.NewValue = newValueString
-		}
-
-		response, err := storage.atomicStorage.CAS(request)
-		if err != nil {
-			return err
-		}
-		//Nothing to do more, the comparision and update was successful
-		if response.Succeeded {
-			return nil
-		}
-
-		if !details.Retry {
-			return fmt.Errorf("CAS did not succeed ,retry not attempted")
-		}
-		oldValue = reflect.New(storage.valueType).Interface()
-		err = deserialize(string(response.Value), oldValue)
-		request.ModifiedVersion = response.ModifiedVersion
-		newValue, err = details.Validate(oldValue, details.Params)
-		if err != nil {
-			return err
-		}
-
-	}
+	return nil
 }
+
+var (
+	ConvertRawDataToPrePaidUsage = func(params ...interface{}) (new interface{}, err error) {
+		businessObject := &PrePaidUsageData{}
+
+		compare := CustomCompareOptions{Operator: EQUAL, CompareOn: MODIFIED_VERSION}
+		data := params[0].([]*KeyValueData)
+		for _, dataRetrieved := range data {
+			if dataRetrieved == nil {
+				continue
+			}
+			dataRetrieved.Compare = compare
+			amount := big.NewInt(0)
+			if _, ok := amount.SetString(dataRetrieved.Value, 10); !ok {
+				return nil, fmt.Errorf("Unable to convert %v to BigInt, key:%v",
+					dataRetrieved.Value, dataRetrieved.Key)
+			}
+			//todo for now hardcoding the channel Id, remove this
+			businessObject.ChannelID = big.NewInt(1)
+			//Lets try to use serialize and de serialize here todo rather than this !
+			businessObject.LastModifiedVersion = dataRetrieved.Version
+			if strings.Contains(dataRetrieved.Key, USED_AMOUNT) {
+				businessObject.UsedAmount = amount
+				businessObject.UsageType = USED_AMOUNT
+			} else if strings.Contains(dataRetrieved.Key, PLANNED_AMOUNT) {
+				businessObject.PlannedAmount = amount
+				businessObject.UsageType = PLANNED_AMOUNT
+			} else if strings.Contains(dataRetrieved.Key, FAILED_AMOUNT) {
+				businessObject.FailedAmount = amount
+				businessObject.UsageType = FAILED_AMOUNT
+			}
+		}
+		if businessObject.PlannedAmount == nil {
+			return nil, fmt.Errorf("Planned amount cannot be Nil")
+		}
+		if businessObject.FailedAmount == nil {
+			businessObject.FailedAmount = big.NewInt(0)
+		}
+		if businessObject.UsedAmount == nil {
+			businessObject.UsedAmount = big.NewInt(0)
+		}
+		return businessObject, nil
+	}
+
+	BuildOldAndNewValuesForCAS = func(params ...interface{}) (oldValues []*KeyValueData,
+		newValues []*KeyValueData, err error) {
+		if len(params) == 0 {
+			return nil, nil, fmt.Errorf("No parameters passed for the Action function")
+		}
+		data := params[0].(*PrePaidUsageData)
+		if data == nil {
+			return nil, nil, fmt.Errorf("Expected PrePaidUsageData in Params as the first parmeter")
+		}
+		newValue := &KeyValueData{Key: data.Key(), Value: data.UsedAmount.String()}
+		newValues = make([]*KeyValueData, 0)
+		oldValues = make([]*KeyValueData, 0)
+		oldValue := &KeyValueData{
+			Key:     data.Key(),
+			Version: data.LastModifiedVersion,
+			Compare: CustomCompareOptions{Operator: EQUAL, CompareOn: MODIFIED_VERSION},
+		}
+		newValues = append(newValues, newValue)
+		oldValues = append(oldValues, oldValue)
+
+		return oldValues, newValues, nil
+	}
+)
+
+var (
+	IncrementUsageAmount = func(params ...interface{}) (new interface{}, err error) {
+
+		if len(params) == 0 {
+			return nil, fmt.Errorf("You need to pass a struct of type PrePaidUsageData")
+		}
+		//Make sure the order expected is honored
+		//create a dynamic function and initialize the price from there , this way
+		//you dont need to pass the price !!!!!!!! todo anonymous function
+
+		price := big.NewInt(3)
+		oldState := params[0].(*PrePaidUsageData)
+		newState := oldState.Clone()
+		newState.UsedAmount.Add(price, oldState.UsedAmount)
+		if newState.UsedAmount.Cmp(oldState.PlannedAmount.Add(oldState.PlannedAmount, oldState.FailedAmount)) > 0 {
+			return nil, fmt.Errorf("Usage Exceeded on channel %v", oldState.ChannelID)
+		}
+		return newState, nil
+
+	}
+)

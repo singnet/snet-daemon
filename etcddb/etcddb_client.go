@@ -313,89 +313,220 @@ func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err erro
 	return
 }
 
-func (client *EtcdClient) CAS(request *escrow.CASRequestEtcd) (response *escrow.CASResponseEtcd, err error) {
+func (client *EtcdClient) CAS(request *escrow.CASRequest) (response *escrow.CASResponse, err error) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout*time.Second*100)
 	defer cancel()
 	defer ctx.Done()
 
-	key := request.Key
 	txn := client.etcdv3.KV.Txn(ctx)
 	var txnResp *clientv3.TxnResponse
-	if txn, err = client.buildComparable(txn, request); err != nil {
+	if txn, err = client.buildIf(txn, request); err != nil {
 		return
 	}
-	if txnResp, err = txn.Then(
-		clientv3.OpPut(key, request.NewValue),
-		//You cant really do Nested Else if in here
-		//clientv3.OpGet(key), Avoid an Unnecessary Read
-	).Else(
-		clientv3.OpGet(key),
-	).Commit(); err != nil {
+	if txn, err = client.buildThenOperations(txn, request); err != nil {
+		return
+	}
+	if txn, err = client.buildElseOperations(txn, request); err != nil {
+		return
+	}
+	txnResp, err = txn.Commit()
+
+	if err != nil {
 		return response, err
 	}
-	response = &escrow.CASResponseEtcd{Key: request.Key}
+
 	if txnResp != nil {
+		response = &escrow.CASResponse{}
 		//succeeded is set to true if the compare evaluated to true or false otherwise.
 		response.Succeeded = txnResp.Succeeded
+		if latestValues, err := client.checkTxnResponse(txnResp); err != nil {
+			return nil, err
+		} else {
+			response.LatestData = latestValues
+		}
 	}
-
-	if latestValue, err := client.checkTxnResponse(txnResp, key); err != nil {
-		return response, err
-	} else {
-		response.Value = string(latestValue.data)
-		response.ModifiedVersion = latestValue.version
-	}
-
 	return response, err
 }
 
-func (client *EtcdClient) buildComparable(txn clientv3.Txn, request *escrow.CASRequestEtcd) (clientv3.Txn, error) {
-	operator := fmt.Sprint(request.Compare.Operator)
-	switch request.Compare.CompareOn {
-	case escrow.VALUE:
-		//this is a Lexical comparision , please note "10" < "4" in Lexical comparision
-		//you need "10" < "04" (padded zeros to compare the value accurately) - Not Ideal if you have numbers to check
-		txn.If(clientv3.Compare(clientv3.Value(request.Key), operator, request.OldValue))
-	case escrow.MODIFIED_VERSION:
-		txn.If(clientv3.Compare(clientv3.ModRevision(request.Key), operator, request.ModifiedVersion))
-	default:
-		return nil, fmt.Errorf("Unknown Type of Comparision op")
+func (client *EtcdClient) buildIf(txn clientv3.Txn, request *escrow.CASRequest) (clientv3.Txn, error) {
+
+	cmps := make([]clientv3.Cmp, len(request.OldKeyValues))
+
+	for i, cmp := range request.OldKeyValues {
+		operator := fmt.Sprint(cmp.Compare.Operator)
+		switch cmp.Compare.CompareOn {
+		case escrow.VALUE:
+			//this is a Lexical comparision , please note "10" < "4" in Lexical comparision
+			//you need "10" < "04" (padded zeros to compare the value accurately) - Not Ideal if you have numbers to check
+			cmps[i] = clientv3.Compare(clientv3.Value(cmp.Key), operator, cmp.Value)
+		case escrow.MODIFIED_VERSION:
+			cmps[i] = clientv3.Compare(clientv3.ModRevision(cmp.Key), operator, cmp.Version)
+		default:
+			return nil, fmt.Errorf("Unknown Type of Comparision op")
+		}
 	}
-	return txn, nil
+	return txn.If(cmps...), nil
 }
 
-func (client *EtcdClient) checkTxnResponse(txnResp *clientv3.TxnResponse, key string) (*latestState, error) {
-
-	if txnResp != nil && !txnResp.Succeeded {
-		txnGetValue := (*clientv3.GetResponse)(txnResp.Responses[0].GetResponseRange())
-		return client.getState(txnGetValue, key)
-	} else if txnResp != nil {
-		//No new Value to Return and nothing to Error , the IF comparision was successful
-		return &latestState{}, nil
+func (client *EtcdClient) buildThenOperations(txn clientv3.Txn, request *escrow.CASRequest) (clientv3.Txn, error) {
+	ops := make([]clientv3.Op, len(request.NewKeyValues))
+	for index, op := range request.NewKeyValues {
+		if op == nil {
+			continue
+		}
+		ops[index] = clientv3.OpPut(op.Key, op.Value)
 	}
-	return nil, fmt.Errorf("tranaction did not succeed and no value found on key %v", key)
+	return txn.Then(ops...), nil
 }
 
-type latestState struct {
-	//Incase we need to switch to revision comparision, this is much faster than value comparision
-	version int64
-	data    []byte
+func (client *EtcdClient) buildElseOperations(txn clientv3.Txn, request *escrow.CASRequest) (clientv3.Txn, error) {
+	/*	We can Enhance this better and also define what values to Read.
+		   ops := make([]clientv3.Op, len(request.OldKeyValues))
+			for index, op := range request.OldKeyValues {
+				ops[index] = clientv3.OpPut(op.Key, op.Value)
+			}*/
+	return txn.Else(clientv3.OpGet(request.KeyPrefix, clientv3.WithPrefix())), nil
 }
 
-func (client *EtcdClient) getState(getResp *clientv3.GetResponse, key string) (*latestState, error) {
-	state := &latestState{}
+func (client *EtcdClient) checkTxnResponse(txnResp *clientv3.TxnResponse) (latestStateArray []*escrow.KeyValueData, err error) {
+
+	if !txnResp.Succeeded {
+		latestStateArray = make([]*escrow.KeyValueData, 0)
+		for _, response := range txnResp.Responses {
+			txnGetValue := (*clientv3.GetResponse)(response.GetResponseRange())
+			latestValues, err := client.getState(txnGetValue)
+			if err != nil {
+				return nil, err
+			}
+			latestStateArray = append(latestStateArray, latestValues...)
+		}
+		return latestStateArray, nil
+	}
+	return nil, nil
+}
+
+func (client *EtcdClient) getState(getResp *clientv3.GetResponse) (latestStateArray []*escrow.KeyValueData, err error) {
+
 	if len(getResp.Kvs) == 0 {
-		return nil, fmt.Errorf("State NOT found for key :%v", key)
+		return nil, fmt.Errorf("State NOT found for keys passed")
 	} else {
-		state.version = getResp.Kvs[0].ModRevision
-		state.data = getResp.Kvs[0].Value
+		latestStateArray = make([]*escrow.KeyValueData, len(getResp.Kvs))
+		for _, eachResponse := range getResp.Kvs {
+			state := &escrow.KeyValueData{}
+			state.Version = eachResponse.ModRevision
+			state.Value = string(eachResponse.Value)
+			state.Key = string(eachResponse.Key)
+			latestStateArray = append(latestStateArray, state)
+		}
 	}
-	return state, nil
+	return latestStateArray, nil
 }
 
 // Close closes etcd client
 func (client *EtcdClient) Close() {
 	defer client.session.Close()
 	defer client.etcdv3.Close()
+}
+
+// Close closes etcd client
+func (client *EtcdClient) DODO(request *escrow.CASRequest) (*escrow.CASResponse, error) {
+
+	transaction := client.
+		CasTransaction(request.KeyPrefix).
+		ConvertToBusinessData(request.Read).
+		If(request.Condition).
+		Then(request.Action)
+
+	return &escrow.CASResponse{Succeeded: transaction.transactionResult,
+		LatestData: transaction.latestValuesRead}, transaction.err
+}
+
+func (client *EtcdClient) CasTransaction(key string) (transaction *casTransaction) {
+	transaction = &casTransaction{client: client}
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	defer cancel()
+
+	keyEnd := clientv3.GetPrefixRangeEnd(key)
+	txnResp, err := client.etcdv3.Get(ctx, key, clientv3.WithRange(keyEnd))
+
+	if err != nil {
+		log.WithError(err).Error("Unable to get value by key prefix")
+		return
+	}
+	if txnResp != nil {
+
+		if latestValues, err := client.getState(txnResp); err != nil {
+			transaction.err = err
+			return transaction
+		} else {
+			transaction.latestValuesRead = latestValues
+		}
+	}
+
+	return transaction
+}
+
+type casTransaction struct {
+	client            *EtcdClient
+	key               string
+	transactionResult bool
+	err               error
+	latestValuesRead  []*escrow.KeyValueData
+	newValuesWrite    interface{}
+	businessData      interface{}
+}
+
+func (transaction *casTransaction) ConvertToBusinessData(read escrow.ReadFunc) *casTransaction {
+	//Do the next steps ONLY if there is no error
+	if structuredBusinessData, err := read(transaction.latestValuesRead); err != nil {
+		transaction.err = err
+		return transaction
+	} else {
+		transaction.businessData = structuredBusinessData
+	}
+
+	return transaction
+}
+
+func (transaction *casTransaction) If(condition escrow.ConditionFunc) *casTransaction {
+	//Do the next steps ONLY if there is no error
+	if transaction.err != nil {
+		return transaction
+	}
+	if newValuesDetermined, err := condition(transaction.businessData); err != nil {
+		transaction.err = err
+		return transaction
+	} else {
+		transaction.businessData = newValuesDetermined
+	}
+
+	return transaction
+}
+func (transaction *casTransaction) Then(action escrow.ActionFunc) *casTransaction {
+	if transaction.err != nil {
+		return transaction
+	}
+
+	oldKeyValues, newKeyValues, err := action(transaction.businessData)
+	if err != nil {
+		transaction.err = err
+		return transaction
+	}
+	request := &escrow.CASRequest{NewKeyValues: newKeyValues, OldKeyValues: oldKeyValues}
+	//todo , see if you can move the below bit using anonymous function
+	if response, err := transaction.client.CAS(request); err != nil {
+		transaction.err = err
+		return transaction
+	} else {
+		transaction.transactionResult = response.Succeeded
+	}
+
+	return transaction
+
+}
+
+//todo for future use !
+func (transaction *casTransaction) Else(condition func()) *casTransaction {
+	return transaction
 }

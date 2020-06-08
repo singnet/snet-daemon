@@ -109,6 +109,6 @@ func (storage *memoryStorage) Clear() (err error) {
 }
 
 //todo
-func (storage *memoryStorage) CAS(request *CASRequestEtcd) (response *CASResponseEtcd, err error) {
+func (storage *memoryStorage) CAS(request *CASRequest) (response *CASResponse, err error) {
 	return response, err
 }

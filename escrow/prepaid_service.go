@@ -81,7 +81,7 @@ var (
 		return usageData, nil
 	}
 
-	BuildOldAndNewValuesForCAS = func(params ...interface{}) (oldValues []*KeyValueData,
+	BuildOldAndNewValuesForCAS ActionFunc = func(params ...interface{}) (oldValues []*KeyValueData,
 		newValues []*KeyValueData, err error) {
 		if len(params) == 0 {
 			return nil, nil, fmt.Errorf("No parameters passed for the Action function")
@@ -111,7 +111,8 @@ var (
 )
 
 var (
-	IncrementUsedAmount = func(latestReadData interface{}, params ...interface{}) (new interface{}, err error) {
+	IncrementUsedAmount ConditionFunc = func(latestReadData interface{},
+		params ...interface{}) (new interface{}, err error) {
 		data := latestReadData.([]*KeyValueData)
 		if len(params) == 0 {
 			return nil, fmt.Errorf("You need to pass the Price ")
@@ -132,7 +133,7 @@ var (
 
 	}
 	//Make sure you update the planned amount ONLY when the new value is greater than what was last persisted
-	IncrementPlannedAmount = func(latestReadData interface{}, params ...interface{}) (new interface{}, err error) {
+	IncrementPlannedAmount ConditionFunc = func(latestReadData interface{}, params ...interface{}) (new interface{}, err error) {
 		data := latestReadData.([]*KeyValueData)
 		if len(params) == 0 {
 			return nil, fmt.Errorf("You need to pass the Price and the Channel Id ")
@@ -153,7 +154,7 @@ var (
 
 	}
 	//If there is no refund amount yet, put it , else add latest value in DB with the additional refund to be done
-	IncrementRefundAmount = func(latestReadData interface{}, params ...interface{}) (new interface{}, err error) {
+	IncrementRefundAmount ConditionFunc = func(latestReadData interface{}, params ...interface{}) (new interface{}, err error) {
 		data := latestReadData.([]*KeyValueData)
 		if len(params) == 0 {
 			return nil, fmt.Errorf("You need to pass the Price ")

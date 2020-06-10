@@ -389,6 +389,13 @@ func serialize(value interface{}) (slice string) {
 	slice = string(b.Bytes())
 	return
 }
+
+func deserialize(slice string, value interface{}) (err error) {
+	b := bytes.NewBuffer([]byte(slice))
+	d := gob.NewDecoder(b)
+	err = d.Decode(value)
+	return
+}
 func (suite *EtcdTestSuite) TestCAS() {
 	t := suite.T()
 	client := suite.client
@@ -459,4 +466,66 @@ func (suite *EtcdTestSuite) TestEtcdCas() {
 	assert.True(t, ok)
 	assert.Equal(t, value, "NewValue")
 
+}
+
+func (suite *EtcdTestSuite) TestCASConcurrentUpdate() {
+	t := suite.T()
+	client := suite.client
+
+	usedData := &escrow.PrePaidDataUnit{ChannelID: big.NewInt(6), Amount: big.NewInt(4), UsageType: escrow.USED_AMOUNT}
+	plannedData := &escrow.PrePaidDataUnit{ChannelID: big.NewInt(6), Amount: big.NewInt(10), UsageType: escrow.PLANNED_AMOUNT}
+	failedData := &escrow.PrePaidDataUnit{ChannelID: big.NewInt(6), Amount: big.NewInt(4), UsageType: escrow.REFUND_AMOUNT}
+
+	_ = client.Put(plannedData.Key(), serialize(plannedData))
+
+	n := 7
+	var start sync.WaitGroup
+
+	start.Add(n)
+
+	concurrentRequests := func(i int) {
+		request := &escrow.CASRequest{
+			KeyPrefix:               "6",
+			Condition:               escrow.IncrementUsedAmount,
+			Action:                  escrow.BuildOldAndNewValuesForCAS,
+			AdditionalParameters:    usedData,
+			RetryTillSuccessOrError: true,
+		}
+		client.CAS(request)
+		defer start.Done()
+	}
+
+	for i := 0; i < n; i++ {
+		go concurrentRequests(i)
+	}
+	start.Wait()
+
+	//Now Add data for failed service calls
+	_ = client.Put(failedData.Key(), serialize(failedData))
+	value, ok, err := client.Get(usedData.Key())
+	assert.True(t, ok)
+	latestUsage := &escrow.PrePaidDataUnit{}
+	err = deserialize(value, latestUsage)
+	assert.Nil(t, err)
+	assert.Equal(t, latestUsage.Amount, big.NewInt(8))
+	_ = client.Put(failedData.Key(), serialize(failedData))
+
+	assert.Nil(t, err)
+	start.Add(n)
+	for i := 0; i < n; i++ {
+		go concurrentRequests(i)
+	}
+	start.Wait()
+
+	value, ok, err = client.Get(usedData.Key())
+	assert.True(t, ok)
+	assert.Nil(t, err)
+	latestUsage = &escrow.PrePaidDataUnit{}
+	err = deserialize(value, latestUsage)
+	assert.Nil(t, err)
+	//Price is 4
+	//Last Planned Amount was 10, Last Refund Amount was 4, last used amount was 8 , usage is 4
+	// max usage that can be allowed is 12
+	// 8 + x*4 <= 10 + 4 , so even though there were multiple threads only 1 could make it !!!!
+	assert.Equal(t, latestUsage.Amount, big.NewInt(12))
 }

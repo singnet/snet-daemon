@@ -23,10 +23,10 @@ type prePaidTransactionImpl struct {
 }
 
 func (transaction prePaidTransactionImpl) ChannelId() *big.Int {
-	return nil
+	return transaction.channelId
 }
 func (transaction prePaidTransactionImpl) Price() *big.Int {
-	return nil
+	return transaction.price
 }
 func (transaction prePaidTransactionImpl) Commit() error {
 	return nil

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/escrow"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -42,16 +43,16 @@ type EtcdClient struct {
 
 // NewEtcdClient create new etcd storage client.
 func NewEtcdClient(metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
-	return NewEtcdClientFromVip(config.Vip(),metaData)
+	return NewEtcdClientFromVip(config.Vip(), metaData)
 }
 
 // NewEtcdClientFromVip create new etcd storage client from viper.
-func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
+func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
 
-	conf, err := GetEtcdClientConf(vip,metaData)
+	conf, err := GetEtcdClientConf(vip, metaData)
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	log.WithField("PaymentChannelStorageClient", fmt.Sprintf("%+v", conf)).Info()
@@ -59,32 +60,30 @@ func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMeta
 	var etcdv3 *clientv3.Client
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	if checkIfHttps(metaData.GetPaymentStorageEndPoints()) {
-		if tlsConfig,err := getTlsConfig();err == nil {
+		if tlsConfig, err := getTlsConfig(); err == nil {
 			etcdv3, err = clientv3.New(clientv3.Config{
 				Endpoints:   metaData.GetPaymentStorageEndPoints(),
 				DialTimeout: conf.ConnectionTimeout,
 				TLS:         tlsConfig,
 			})
-		}else {
-			return nil,err
+		} else {
+			return nil, err
 		}
 
-	}else {
+	} else {
 		//Regular http call
 		etcdv3, err = clientv3.New(clientv3.Config{
 			Endpoints:   metaData.GetPaymentStorageEndPoints(),
 			DialTimeout: conf.ConnectionTimeout,
-
 		})
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 	}
-
 
 	session, err := concurrency.NewSession(etcdv3)
 	if err != nil {
@@ -100,34 +99,35 @@ func NewEtcdClientFromVip(vip *viper.Viper,metaData *blockchain.OrganizationMeta
 }
 func getTlsConfig() (*tls.Config, error) {
 
-		log.Debug("enabling SSL support via X509 keypair")
-		cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
+	log.Debug("enabling SSL support via X509 keypair")
+	cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
 
-		if err != nil {
-			panic("unable to load specific SSL X509 keypair for etcd")
-		}
-		caCert, err := ioutil.ReadFile(config.GetString(config.PaymentChannelCaPath))
-		if err != nil {
-			return nil, err
-		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			RootCAs:      caCertPool,
-		}
-		return tlsConfig, nil
+	if err != nil {
+		panic("unable to load specific SSL X509 keypair for etcd")
+	}
+	caCert, err := ioutil.ReadFile(config.GetString(config.PaymentChannelCaPath))
+	if err != nil {
+		return nil, err
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caCertPool,
+	}
+	return tlsConfig, nil
 
 }
 
-func checkIfHttps(endpoints []string ) bool {
-	for _,endpoint:= range endpoints {
-		if strings.Contains(endpoint,"https")  {
+func checkIfHttps(endpoints []string) bool {
+	for _, endpoint := range endpoints {
+		if strings.Contains(endpoint, "https") {
 			return true
 		}
 	}
 	return false
 }
+
 // Get gets value from etcd by key
 func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 
@@ -313,8 +313,211 @@ func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err erro
 	return
 }
 
+//we can make this exposed , if there are no Old values, to compare, then this method
+//can be used to write in the new values , if the key does not exist then put it in a transaction
+
+func (client *EtcdClient) etcdCas(request *escrow.CASRequest) (response *escrow.CASResponse, err error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout*time.Second*100)
+	defer cancel()
+	defer ctx.Done()
+
+	txn := client.etcdv3.KV.Txn(ctx)
+	var txnResp *clientv3.TxnResponse
+	if txn, err = client.buildIf(txn, request); err != nil {
+		return
+	}
+	if txn, err = client.buildThenOperations(txn, request); err != nil {
+		return
+	}
+	if txn, err = client.buildElseOperations(txn, request); err != nil {
+		return
+	}
+	txnResp, err = txn.Commit()
+
+	if err != nil {
+		return response, err
+	}
+
+	if txnResp != nil {
+		response = &escrow.CASResponse{}
+		//succeeded is set to true if the compare evaluated to true or false otherwise.
+		response.Succeeded = txnResp.Succeeded
+		if latestValues, err := client.checkTxnResponse(txnResp); err != nil {
+			return nil, err
+		} else {
+			response.LatestData = latestValues
+		}
+	}
+	return response, err
+}
+
+func (client *EtcdClient) buildIf(txn clientv3.Txn, request *escrow.CASRequest) (clientv3.Txn, error) {
+
+	cmps := make([]clientv3.Cmp, len(request.OldKeyValues))
+
+	for i, cmp := range request.OldKeyValues {
+		operator := fmt.Sprint(cmp.Compare.Operator)
+		switch cmp.Compare.CompareOn {
+		case escrow.VALUE:
+			//this is a Lexical comparision , please note "10" < "4" in Lexical comparision
+			//you need "10" < "04" (padded zeros to compare the value accurately)
+			// - Not Ideal if you have numbers to check
+			cmps[i] = clientv3.Compare(clientv3.Value(cmp.Key), operator, cmp.Value)
+		case escrow.MODIFIED_VERSION:
+			cmps[i] = clientv3.Compare(clientv3.ModRevision(cmp.Key), operator, cmp.Version)
+		default:
+			return nil, fmt.Errorf("Unknown Type of Comparision op")
+		}
+	}
+	return txn.If(cmps...), nil
+}
+
+func (client *EtcdClient) buildThenOperations(txn clientv3.Txn, request *escrow.CASRequest) (clientv3.Txn, error) {
+	ops := make([]clientv3.Op, len(request.NewKeyValues))
+	for index, op := range request.NewKeyValues {
+		if op == nil {
+			continue
+		}
+		ops[index] = clientv3.OpPut(op.Key, op.Value)
+	}
+	return txn.Then(ops...), nil
+}
+
+func (client *EtcdClient) buildElseOperations(txn clientv3.Txn, request *escrow.CASRequest) (clientv3.Txn, error) {
+	return txn.Else(clientv3.OpGet(request.KeyPrefix, clientv3.WithPrefix())), nil
+}
+
+func (client *EtcdClient) checkTxnResponse(txnResp *clientv3.TxnResponse) (latestStateArray []*escrow.KeyValueData, err error) {
+
+	if !txnResp.Succeeded {
+		latestStateArray = make([]*escrow.KeyValueData, 0)
+		for _, response := range txnResp.Responses {
+			txnGetValue := (*clientv3.GetResponse)(response.GetResponseRange())
+			latestValues, err := client.getState(txnGetValue)
+			if err != nil {
+				return nil, err
+			}
+			latestStateArray = append(latestStateArray, latestValues...)
+		}
+		return latestStateArray, nil
+	}
+	return nil, nil
+}
+
+func (client *EtcdClient) getState(getResp *clientv3.GetResponse) (latestStateArray []*escrow.KeyValueData, err error) {
+
+	if len(getResp.Kvs) == 0 {
+		return nil, nil
+	} else {
+		latestStateArray = make([]*escrow.KeyValueData, len(getResp.Kvs))
+		for _, eachResponse := range getResp.Kvs {
+			state := &escrow.KeyValueData{}
+			state.Version = eachResponse.ModRevision
+			state.Value = string(eachResponse.Value)
+			state.Key = string(eachResponse.Key)
+			latestStateArray = append(latestStateArray, state)
+		}
+	}
+	return latestStateArray, nil
+}
+
 // Close closes etcd client
 func (client *EtcdClient) Close() {
 	defer client.session.Close()
 	defer client.etcdv3.Close()
 }
+
+// Close closes etcd client
+func (client *EtcdClient) CAS(request *escrow.CASRequest) (*escrow.CASResponse, error) {
+	for {
+		transaction := client.
+			casTransaction(request.KeyPrefix, request.AdditionalParameters).
+			If(request.Condition).
+			Then(request.Action)
+		if transaction.err != nil {
+			return nil, transaction.err
+		}
+		if !transaction.transactionResult && request.RetryTillSuccessOrError {
+			continue
+		}
+		return &escrow.CASResponse{Succeeded: transaction.transactionResult,
+			LatestData: transaction.latestValuesRead}, transaction.err
+	}
+}
+
+func (client *EtcdClient) casTransaction(key string, params interface{}) (transaction *casTransaction) {
+	transaction = &casTransaction{client: client, additionalParams: params}
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	defer cancel()
+
+	keyEnd := clientv3.GetPrefixRangeEnd(key)
+	txnResp, err := client.etcdv3.Get(ctx, key, clientv3.WithRange(keyEnd))
+
+	if err != nil {
+		log.WithError(err).Error("rrror in getting value by key prefix")
+		return
+	}
+	if txnResp != nil {
+
+		if latestValues, err := client.getState(txnResp); err != nil {
+			transaction.err = err
+			return transaction
+		} else {
+			transaction.latestValuesRead = latestValues
+		}
+	}
+
+	return transaction
+}
+
+type casTransaction struct {
+	client            *EtcdClient
+	key               string
+	transactionResult bool
+	err               error
+	latestValuesRead  []*escrow.KeyValueData
+	newValuesWrite    []*escrow.KeyValueData
+	businessData      interface{}
+	additionalParams  interface{}
+}
+
+func (transaction *casTransaction) If(condition escrow.ConditionFunc) *casTransaction {
+	//Do the next steps ONLY if there is no error
+	if transaction.err != nil {
+		return transaction
+	}
+	if newValuesDetermined, err := condition(transaction.latestValuesRead, transaction.additionalParams); err != nil {
+		transaction.err = err
+		return transaction
+	} else {
+		transaction.businessData = newValuesDetermined
+	}
+
+	return transaction
+}
+func (transaction *casTransaction) Then(action escrow.ActionFunc) *casTransaction {
+	if transaction.err != nil {
+		return transaction
+	}
+
+	oldKeyValues, newKeyValues, err := action(transaction.businessData)
+	if err != nil {
+		transaction.err = err
+		return transaction
+	}
+	request := &escrow.CASRequest{NewKeyValues: newKeyValues, OldKeyValues: oldKeyValues}
+	if response, err := transaction.client.etcdCas(request); err != nil {
+		transaction.err = err
+		return transaction
+	} else {
+		transaction.transactionResult = response.Succeeded
+	}
+	return transaction
+
+}
+
+/*todo for future use !
+func (transaction *casTransaction) Else(action func()) *casTransaction {
+	return transaction
+}*/

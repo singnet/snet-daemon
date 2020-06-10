@@ -1,9 +1,13 @@
 package etcddb
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/escrow"
+	"math/big"
 	"os"
 	"strconv"
 	"sync"
@@ -18,8 +22,8 @@ import (
 
 type EtcdTestSuite struct {
 	suite.Suite
-	client *EtcdClient
-	server *EtcdServer
+	client   *EtcdClient
+	server   *EtcdServer
 	metaData *blockchain.OrganizationMetaData
 }
 
@@ -62,7 +66,7 @@ func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 	err = server.Start()
 	assert.Nil(t, err)
 
-	client, err := NewEtcdClientFromVip(vip,suite.metaData)
+	client, err := NewEtcdClientFromVip(vip, suite.metaData)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
@@ -372,4 +376,87 @@ func removeWorkDir(t *testing.T, workDir string) {
 
 	err = os.RemoveAll(dir + "/" + workDir)
 	assert.Nil(t, err)
+}
+
+func serialize(value interface{}) (slice string) {
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err := e.Encode(value)
+	if err != nil {
+		return ""
+	}
+
+	slice = string(b.Bytes())
+	return
+}
+func (suite *EtcdTestSuite) TestCAS() {
+	t := suite.T()
+	client := suite.client
+
+	usedData := &escrow.PrePaidDataUnit{ChannelID: big.NewInt(1), Amount: big.NewInt(4), UsageType: escrow.USED_AMOUNT}
+	plannedData := &escrow.PrePaidDataUnit{ChannelID: big.NewInt(1), Amount: big.NewInt(10), UsageType: escrow.PLANNED_AMOUNT}
+	failedData := &escrow.PrePaidDataUnit{ChannelID: big.NewInt(1), Amount: big.NewInt(4), UsageType: escrow.REFUND_AMOUNT}
+	err := client.Put("5", "val1")
+	_ = client.Put(plannedData.Key(), serialize(plannedData))
+	_ = client.Put(usedData.Key(), serialize(usedData))
+	_ = client.Put(failedData.Key(), serialize(failedData))
+	assert.Nil(t, err)
+	request := &escrow.CASRequest{
+		KeyPrefix:               "1",
+		Condition:               escrow.IncrementUsedAmount,
+		Action:                  escrow.BuildOldAndNewValuesForCAS,
+		AdditionalParameters:    usedData,
+		RetryTillSuccessOrError: true,
+	}
+	response, err := client.CAS(request)
+
+	//assert.NotNil(t, err.Error(), "Usage Exceeded on channel 1")
+	assert.Nil(t, err)
+	assert.True(t, response.Succeeded)
+
+}
+
+func (suite *EtcdTestSuite) TestPlannedUsageCAS() {
+	t := suite.T()
+	client := suite.client
+
+	plannedData := &escrow.PrePaidDataUnit{ChannelID: big.NewInt(1), Amount: big.NewInt(10), UsageType: escrow.PLANNED_AMOUNT}
+	assert.Equal(t, plannedData.ChannelID, big.NewInt(1))
+	request := &escrow.CASRequest{
+		KeyPrefix:               "3",
+		Condition:               escrow.IncrementPlannedAmount,
+		Action:                  escrow.BuildOldAndNewValuesForCAS,
+		AdditionalParameters:    &escrow.PrePaidDataUnit{ChannelID: big.NewInt(3), Amount: big.NewInt(20)},
+		RetryTillSuccessOrError: true,
+	}
+	response, err := client.CAS(request)
+
+	//assert.NotNil(t, err.Error(), "Usage Exceeded on channel 1")
+	assert.Nil(t, err)
+	assert.True(t, response.Succeeded)
+	value, ok, err := client.Get("3/P")
+	assert.True(t, ok)
+	assert.NotNil(t, value)
+
+}
+
+func (suite *EtcdTestSuite) TestEtcdCas() {
+	t := suite.T()
+	client := suite.client
+
+	plannedData := &escrow.PrePaidDataUnit{ChannelID: big.NewInt(1), Amount: big.NewInt(10), UsageType: escrow.PLANNED_AMOUNT}
+	assert.Equal(t, plannedData.ChannelID, big.NewInt(1))
+	request := &escrow.CASRequest{
+		KeyPrefix:    "NoKey",
+		NewKeyValues: []*escrow.KeyValueData{&escrow.KeyValueData{Key: "NewKey", Value: "NewValue"}},
+	}
+	response, err := client.etcdCas(request)
+
+	//assert.NotNil(t, err.Error(), "Usage Exceeded on channel 1")
+	assert.Nil(t, err)
+	assert.True(t, response.Succeeded)
+	value, ok, err := client.Get("NewKey")
+	assert.True(t, ok)
+	assert.Equal(t, value, "NewValue")
+
 }

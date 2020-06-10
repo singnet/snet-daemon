@@ -107,3 +107,14 @@ func (storage *memoryStorage) Clear() (err error) {
 
 	return
 }
+
+//todo
+func (storage *memoryStorage) CAS(request *CASRequest) (response *CASResponse, err error) {
+
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+	//You need to get a Range of all the Key-Value pairs !!!
+	//If the key is not found, put it ( put if Absent)
+	//If the Key is found , keep attempting till you are the one who has the latest value read and successfully write
+	return response, err
+}

@@ -90,16 +90,21 @@ var (
 		if data == nil {
 			return nil, nil, fmt.Errorf("Expected PrePaidUsageData in Params as the first parmeter")
 		}
-		usageType := &PrePaidDataUnit{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType, Amount: data.UsedAmount}
-		serializedValue, err := serialize(usageType)
+		updateUsage := &PrePaidDataUnit{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType}
+		if amt, err := data.GetAmountForUsageType(); err != nil {
+			return nil, nil, err
+		} else {
+			updateUsage.Amount = amt
+		}
+		serializedValue, err := serialize(updateUsage)
 		if err != nil {
 			return nil, nil, err
 		}
-		newValue := &KeyValueData{Key: usageType.Key(), Value: serializedValue}
+		newValue := &KeyValueData{Key: updateUsage.Key(), Value: serializedValue}
 		newValues = make([]*KeyValueData, 0)
 
 		oldValue := &KeyValueData{
-			Key:     usageType.Key(),
+			Key:     updateUsage.Key(),
 			Version: data.LastModifiedVersion,
 			Compare: CustomCompareOptions{Operator: EQUAL, CompareOn: MODIFIED_VERSION},
 		}

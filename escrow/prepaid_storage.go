@@ -60,6 +60,18 @@ func (data *PrePaidUsageData) String() string {
 		data.ChannelID, data.PlannedAmount, data.UsedAmount, data.OrganizationId, data.GroupID)
 }
 
+func (data *PrePaidUsageData) GetAmountForUsageType() (*big.Int, error) {
+	switch data.UpdateUsageType {
+	case PLANNED_AMOUNT:
+		return data.PlannedAmount, nil
+	case REFUND_AMOUNT:
+		return data.FailedAmount, nil
+	case USED_AMOUNT:
+		return data.UsedAmount, nil
+	}
+	return nil, fmt.Errorf("Unknown Usage Type %v", data.UpdateUsageType)
+}
+
 func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 	return &PrePaidUsageData{
 		SenderAddress:   data.SenderAddress,

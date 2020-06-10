@@ -455,7 +455,7 @@ func (client *EtcdClient) casTransaction(key string, params interface{}) (transa
 	txnResp, err := client.etcdv3.Get(ctx, key, clientv3.WithRange(keyEnd))
 
 	if err != nil {
-		log.WithError(err).Error("rrror in getting value by key prefix")
+		log.WithError(err).Error("error in getting value by key prefix")
 		return
 	}
 	if txnResp != nil {

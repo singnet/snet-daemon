@@ -442,8 +442,10 @@ func (suite *EtcdTestSuite) TestPlannedUsageCAS() {
 	assert.Nil(t, err)
 	assert.True(t, response.Succeeded)
 	value, ok, err := client.Get("3/P")
+	data := &escrow.PrePaidDataUnit{}
+	deserialize(value, data)
 	assert.True(t, ok)
-	assert.NotNil(t, value)
+	assert.Equal(t, data.Amount, big.NewInt(20))
 
 }
 
@@ -528,4 +530,79 @@ func (suite *EtcdTestSuite) TestCASConcurrentUpdate() {
 	// max usage that can be allowed is 12
 	// 8 + x*4 <= 10 + 4 , so even though there were multiple threads only 1 could make it !!!!
 	assert.Equal(t, latestUsage.Amount, big.NewInt(12))
+}
+func (suite *EtcdTestSuite) TestConcurrencyForDifferentCasUpdates() {
+	t := suite.T()
+	client := suite.client
+
+	increaseUsedAmount := &escrow.CASRequest{
+		KeyPrefix:               "8",
+		Condition:               escrow.IncrementUsedAmount,
+		Action:                  escrow.BuildOldAndNewValuesForCAS,
+		AdditionalParameters:    &escrow.PrePaidDataUnit{ChannelID: big.NewInt(8), Amount: big.NewInt(1)},
+		RetryTillSuccessOrError: true,
+	}
+
+	increasePlannedAmount := &escrow.CASRequest{
+		KeyPrefix:               "8",
+		Condition:               escrow.IncrementPlannedAmount,
+		Action:                  escrow.BuildOldAndNewValuesForCAS,
+		AdditionalParameters:    &escrow.PrePaidDataUnit{ChannelID: big.NewInt(8), Amount: big.NewInt(4)},
+		RetryTillSuccessOrError: true,
+	}
+
+	increaseRefundAmount := &escrow.CASRequest{
+		KeyPrefix:               "8",
+		Condition:               escrow.IncrementRefundAmount,
+		Action:                  escrow.BuildOldAndNewValuesForCAS,
+		AdditionalParameters:    &escrow.PrePaidDataUnit{ChannelID: big.NewInt(8), Amount: big.NewInt(1)},
+		RetryTillSuccessOrError: true,
+	}
+	n := 5
+	var start sync.WaitGroup
+
+	start.Add(n)
+	client.CAS(increasePlannedAmount)
+	concurrentRequests := func(i int) {
+
+		if i%4 == 0 {
+			client.CAS(increasePlannedAmount)
+		}
+		if i%3 == 0 {
+			defer client.CAS(increaseRefundAmount)
+		}
+
+		defer func() {
+			client.CAS(increaseUsedAmount)
+			start.Done()
+
+		}()
+
+	}
+
+	for i := 0; i < n; i++ {
+		go concurrentRequests(i)
+	}
+	start.Wait()
+
+	//Now Add data for failed service calls
+
+	usedValue, ok, err := client.Get("8/U")
+	assert.True(t, ok)
+	usedAmt := &escrow.PrePaidDataUnit{}
+	err = deserialize(usedValue, usedAmt)
+
+	planedValue, ok, err := client.Get("8/P")
+	assert.True(t, ok)
+	plndAmt := &escrow.PrePaidDataUnit{}
+	err = deserialize(planedValue, plndAmt)
+
+	refundValue, ok, err := client.Get("8/R")
+	assert.True(t, ok)
+	refundAmt := &escrow.PrePaidDataUnit{}
+	err = deserialize(refundValue, refundAmt)
+
+	assert.Nil(t, err)
+	assert.True(t, usedAmt.Amount.Cmp(plndAmt.Amount.Add(plndAmt.Amount, refundAmt.Amount)) <= 0)
+
 }

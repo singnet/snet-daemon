@@ -7,13 +7,13 @@ import (
 )
 
 type lockingPrepaidService struct {
-	storage        *PrepaidStorage
+	storage        TypedAtomicStorage
 	validator      *PrePaidPaymentValidator
 	replicaGroupID func() ([32]byte, error)
 }
 
 func NewPrePaidService(
-	storage *PrepaidStorage,
+	storage TypedAtomicStorage,
 	prepaidValidator *PrePaidPaymentValidator, groupIdReader func() ([32]byte, error)) PrePaidService {
 	return &lockingPrepaidService{
 		storage:        storage,
@@ -23,32 +23,56 @@ func NewPrePaidService(
 }
 
 func (h *lockingPrepaidService) ListPrePaidUsers() (users []*PrePaidDataUnit, err error) {
-	return h.storage.GetAll()
+	data, err := h.storage.GetAll()
+	return data.([]*PrePaidDataUnit), err
 }
 
+//Defines the condition that needs to be met, it generates the new business struct if all validations
+//conditions are satisfied, you define your own validations in here
+//It takes in the latest values read on the Key Passed, Please note all keys with this prefix will be read
+type ConditionFunc func(latestReadData interface{}, params ...interface{}) (newValues interface{}, err error)
+
 func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *big.Int, updateUsageType string) (err error) {
-	request := &CASRequest{
-		KeyPrefix:               channelId.String(),
-		Action:                  BuildOldAndNewValuesForCAS,
-		AdditionalParameters:    revisedAmount,
-		RetryTillSuccessOrError: true,
-	}
+	var conditionFunc ConditionFunc = nil
+
 	switch updateUsageType {
 	case USED_AMOUNT:
-		request.Condition = IncrementUsedAmount
+		conditionFunc = IncrementUsedAmount
 
 	case PLANNED_AMOUNT:
-		request.Condition = IncrementPlannedAmount
+		conditionFunc = IncrementPlannedAmount
 
 	case REFUND_AMOUNT:
-		request.Condition = IncrementRefundAmount
+		conditionFunc = IncrementRefundAmount
 
 	default:
 		return fmt.Errorf("Unknow Update type %v", updateUsageType)
 	}
-	if _, err := h.storage.CAS(request); err != nil {
+
+	transaction, err := h.storage.StartTransaction(channelId.String())
+	if err != nil {
 		return err
 	}
+
+	for {
+		var newValues interface{}
+		var newKeyValues []*TypedKeyValueData
+
+		if newValues, err = conditionFunc(transaction.GetConditionValues(), revisedAmount); err != nil {
+			return err
+		}
+		if newKeyValues, err = BuildOldAndNewValuesForCAS(newValues); err != nil {
+			return err
+		}
+		ok, err := h.storage.CompleteTransaction(transaction, newKeyValues)
+		if err != nil {
+			return err
+		}
+		if ok {
+			break
+		}
+	}
+
 	return nil
 }
 
@@ -80,40 +104,28 @@ var (
 		}
 		return usageData, nil
 	}
-
-	BuildOldAndNewValuesForCAS ActionFunc = func(params ...interface{}) (oldValues []*KeyValueData,
-		newValues []*KeyValueData, err error) {
-		if len(params) == 0 {
-			return nil, nil, fmt.Errorf("No parameters passed for the Action function")
-		}
-		data := params[0].(*PrePaidUsageData)
-		if data == nil {
-			return nil, nil, fmt.Errorf("Expected PrePaidUsageData in Params as the first parmeter")
-		}
-		updateUsage := &PrePaidDataUnit{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType}
-		if amt, err := data.GetAmountForUsageType(); err != nil {
-			return nil, nil, err
-		} else {
-			updateUsage.Amount = amt
-		}
-		serializedValue, err := serialize(updateUsage)
-		if err != nil {
-			return nil, nil, err
-		}
-		newValue := &KeyValueData{Key: updateUsage.Key(), Value: serializedValue}
-		newValues = make([]*KeyValueData, 0)
-
-		oldValue := &KeyValueData{
-			Key:     updateUsage.Key(),
-			Version: data.LastModifiedVersion,
-			Compare: CustomCompareOptions{Operator: EQUAL, CompareOn: MODIFIED_VERSION},
-		}
-		newValues = append(newValues, newValue)
-		oldValues = append(oldValues, oldValue)
-
-		return oldValues, newValues, nil
-	}
 )
+
+func BuildOldAndNewValuesForCAS(params ...interface{}) (newValues []*TypedKeyValueData, err error) {
+	if len(params) == 0 {
+		return nil, fmt.Errorf("No parameters passed for the Action function")
+	}
+	data := params[0].(*PrePaidUsageData)
+	if data == nil {
+		return nil, fmt.Errorf("Expected PrePaidUsageData in Params as the first parmeter")
+	}
+	updateUsage := &PrePaidDataUnit{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType}
+	if amt, err := data.GetAmountForUsageType(); err != nil {
+		return nil, err
+	} else {
+		updateUsage.Amount = amt
+	}
+	newValue := &TypedKeyValueData{Key: updateUsage.Key(), Value: updateUsage}
+	newValues = make([]*TypedKeyValueData, 0)
+	newValues = append(newValues, newValue)
+
+	return newValues, nil
+}
 
 var (
 	IncrementUsedAmount ConditionFunc = func(latestReadData interface{},
@@ -195,7 +207,6 @@ func setLastUpdatedVersion(data []*KeyValueData, usageData *PrePaidUsageData, up
 			continue
 		}
 		if strings.Contains(data.Key, updateUsageType) {
-			usageData.LastModifiedVersion = data.Version
 			usageData.UpdateUsageType = updateUsageType
 		}
 	}

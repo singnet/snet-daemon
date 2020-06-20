@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -108,13 +109,10 @@ func (storage *memoryStorage) Clear() (err error) {
 	return
 }
 
-//todo
-func (storage *memoryStorage) CAS(request *CASRequest) (response *CASResponse, err error) {
+func (storage *memoryStorage) StartTransaction(keyPrefix string) (transaction Transaction, err error) {
+	return nil, fmt.Errorf("Not implemented")
+}
 
-	storage.mutex.Lock()
-	defer storage.mutex.Unlock()
-	//You need to get a Range of all the Key-Value pairs !!!
-	//If the key is not found, put it ( put if Absent)
-	//If the Key is found , keep attempting till you are the one who has the latest value read and successfully write
-	return response, err
+func (storage *memoryStorage) CompleteTransaction(transaction Transaction, update []*KeyValueData) (ok bool, err error) {
+	return false, fmt.Errorf("Not implemented")
 }

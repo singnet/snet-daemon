@@ -428,7 +428,6 @@ func (client *EtcdClient) Close() {
 	defer client.etcdv3.Close()
 }
 
-// Close closes etcd client
 func (client *EtcdClient) CAS(request *escrow.CASRequest) (*escrow.CASResponse, error) {
 	for {
 		transaction := client.

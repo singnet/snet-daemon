@@ -43,15 +43,14 @@ const (
 
 //This will ony be used for doing any business checks
 type PrePaidUsageData struct {
-	SenderAddress       string
-	ChannelID           *big.Int
-	PlannedAmount       *big.Int
-	UsedAmount          *big.Int
-	FailedAmount        *big.Int
-	OrganizationId      string
-	GroupID             string
-	LastModifiedVersion int64
-	UpdateUsageType     string
+	SenderAddress   string
+	ChannelID       *big.Int
+	PlannedAmount   *big.Int
+	UsedAmount      *big.Int
+	FailedAmount    *big.Int
+	OrganizationId  string
+	GroupID         string
+	UpdateUsageType string
 }
 
 func (data *PrePaidUsageData) String() string {
@@ -85,50 +84,13 @@ func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 	}
 }
 
-//PrepaidStorage is a storage to keep track of usage , it has 3 types of usage and each of them is stored as a separate key-value
-//planned amount
-//used amount
-//refund amount
-// PrepaidChannelKey based on TypedAtomicStorage implementation
-type PrepaidStorage struct {
-	delegate TypedAtomicStorage
-}
-
-// NewPrepaidStorage returns new instance of PrepaidStorage
-// implementation
-func NewPrepaidStorage(atomicStorage AtomicStorage) *PrepaidStorage {
-	return &PrepaidStorage{
-		delegate: &TypedAtomicStorageImpl{
-
-			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage"),
-			keySerializer:     serialize,
-			valueSerializer:   serialize,
-			valueDeserializer: deserialize,
-			valueType:         reflect.TypeOf(PrePaidDataUnit{}),
-		},
+// NewPrepaidStorage returns new instance of TypedAtomicStorage
+func NewPrepaidStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
+	return &TypedAtomicStorageImpl{
+		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage"),
+		keySerializer:     serialize,
+		valueSerializer:   serialize,
+		valueDeserializer: deserialize,
+		valueType:         reflect.TypeOf(PrePaidDataUnit{}),
 	}
-}
-
-func (storage *PrepaidStorage) GetAll() (states []*PrePaidDataUnit, err error) {
-	values, err := storage.delegate.GetAll()
-	if err != nil {
-		return
-	}
-
-	return values.([]*PrePaidDataUnit), nil
-}
-
-func (storage *PrepaidStorage) Get(key string) (Prepaid *PrePaidDataUnit, ok bool, err error) {
-	value, ok, err := storage.delegate.Get(key)
-	if err != nil {
-		return
-	}
-	if !ok {
-		return
-	}
-	return value.(*PrePaidDataUnit), true, nil
-}
-
-func (storage *PrepaidStorage) CAS(request *CASRequest) (*CASResponse, error) {
-	return storage.delegate.CAS(request)
 }

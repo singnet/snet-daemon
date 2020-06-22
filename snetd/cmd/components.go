@@ -48,7 +48,7 @@ type Components struct {
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
 	organizationMetaData       *blockchain.OrganizationMetaData
 	prepaidPaymentHandler      handler.PaymentHandler
-	prepaidUserStorage         *escrow.PrepaidStorage
+	prepaidUserStorage         escrow.TypedAtomicStorage
 	prepaidUserService         escrow.PrePaidService
 	freeCallPaymentHandler     handler.PaymentHandler
 	freeCallUserService        escrow.FreeCallUserService
@@ -246,7 +246,7 @@ func (components *Components) FreeCallUserStorage() *escrow.FreeCallUserStorage 
 	return components.freeCallUserStorage
 }
 
-func (components *Components) PrepaidUserStorage() *escrow.PrepaidStorage {
+func (components *Components) PrepaidUserStorage() escrow.TypedAtomicStorage {
 	if components.prepaidUserStorage != nil {
 		return components.prepaidUserStorage
 	}

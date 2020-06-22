@@ -24,12 +24,18 @@ type AtomicStorage interface {
 	CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key string) (err error)
-	//Compares and Swaps if the compare conditions are met , else it returns you the
-	//Latest version and Values of the keyprefix passed ,
-	//this can be used to do any pre Validations and request
-	//again for an update.
-	//You can also use this function to do PutIfAbsent
-	CAS(request *CASRequest) (response *CASResponse, err error)
+
+	StartTransaction(keyPrefix string) (transaction Transaction, err error)
+	CompleteTransaction(transaction Transaction, update []*KeyValueData) (ok bool, err error)
+}
+
+type Transaction interface {
+	GetConditionValues() []string
+}
+
+type KeyValueData struct {
+	Key   string
+	Value string
 }
 
 // PrefixedAtomicStorage is decorator for atomic storage which adds a prefix to
@@ -75,8 +81,12 @@ func (storage *PrefixedAtomicStorage) Delete(key string) (err error) {
 	return storage.delegate.Delete(storage.keyPrefix + "/" + key)
 }
 
-func (storage *PrefixedAtomicStorage) CAS(request *CASRequest) (response *CASResponse, err error) {
-	return storage.delegate.CAS(request)
+func (storage *PrefixedAtomicStorage) StartTransaction(keyPrefix string) (transaction Transaction, err error) {
+	return storage.delegate.StartTransaction(keyPrefix)
+}
+
+func (storage *PrefixedAtomicStorage) CompleteTransaction(transaction Transaction, update []*KeyValueData) (ok bool, err error) {
+	return storage.delegate.CompleteTransaction(transaction, update)
 }
 
 // TypedAtomicStorage is an atomic storage which automatically
@@ -95,83 +105,19 @@ type TypedAtomicStorage interface {
 	CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key interface{}) (err error)
-	//You can do the below
-	//If the Key isn't Found, Put it , PutIfAbsent is supported with this function in a single transaction.
-	//If you always want to compare with the latest State and do your write operation in a single transaction
-	//On this latest State, use this function
-	//You can keep attempting to read the latest and write if the business conditions are satisfied.
-	CAS(request *CASRequest) (*CASResponse, error)
+
+	StartTransaction(keyPrefix string) (transaction TypedTransaction, err error)
+	CompleteTransaction(transaction TypedTransaction, update []*TypedKeyValueData) (ok bool, err error)
 }
 
-//Defines the condition that needs to be met, it generates the new business struct if all validations
-//conditions are satisfied, you define your own validations in here
-//It takes in the latest values read on the Key Passed, Please note all keys with this prefix will be read
-type ConditionFunc func(latestReadData interface{}, params ...interface{}) (newValues interface{}, err error)
-
-//The O/P of the ConditionFunc is passed as a parameter to this function.
-//This function then generates the CAS - Compare Old Values and if the conditions of the comparision are met
-//You put the new Values in a Single Transaction
-type ActionFunc func(params ...interface{}) (casOldValues []*KeyValueData,
-	casNewValues []*KeyValueData, err error)
-
-//Generic structure to capture a whole bunch of data points to perform CAS
-type CASRequest struct {
-	//You will get all the key-value pair that match the Prefix, pass the exact unique key if you
-	//need the exact key-pair!
-	KeyPrefix string
-	//All the key-value pairs are read and referenced here
-	OldKeyValues []*KeyValueData
-	//These are generated and filled in the by the Action function
-	NewKeyValues []*KeyValueData
-	//Pass any Business conditions you need to verify. I/P to this function is what you have JUST read from Storage
-	Condition ConditionFunc
-	//Generates How to compare the  Old Values you have with what is there in the storage
-	// and New Values to be Swapped if the comparision of old values is successful.
-	Action ActionFunc
-	//You will need this if you have any additional parameters to be passed.
-	AdditionalParameters interface{}
-	//Keep trying till you have successfully written on the Latest Value read.If the last value you read was obsolete
-	//then the condition and action are applied again!
-	RetryTillSuccessOrError bool
+type TypedTransaction interface {
+	GetConditionValues() []interface{}
 }
 
-type CASResponse struct {
-	Succeeded  bool
-	LatestData []*KeyValueData
+type TypedKeyValueData struct {
+	Key   interface{}
+	Value interface{}
 }
-
-//This wil be used to support different types of comparision , for example , comparision by Value
-//or comparision by Modified version, which is a lot faster compared to comparision by Value.
-//our fundamental concept on storing data as a Key-Value pair remains irrespective of what underlying data-storage we use
-
-type KeyValueData struct {
-	//Incase we need to switch to revision comparision, this is much faster than value comparision
-	Version int64
-	Value   string
-	Key     string
-	Compare CustomCompareOptions
-}
-
-//Define your own comparision on the operator and the type of comparision you want
-type CustomCompareOptions struct {
-	Operator  Comparison_Operator
-	CompareOn Comparison_On
-}
-type Comparison_On string
-
-const (
-	VALUE            Comparison_On = "Value"
-	MODIFIED_VERSION Comparison_On = "Modified_Version"
-)
-
-type Comparison_Operator string
-
-const (
-	EQUAL     Comparison_Operator = "="
-	GREATER   Comparison_Operator = ">"
-	LESS      Comparison_Operator = "<"
-	NOT_EQUAL Comparison_Operator = "!="
-)
 
 // TypedAtomicStorageImpl is an implementation of TypedAtomicStorage interface
 type TypedAtomicStorageImpl struct {
@@ -287,7 +233,48 @@ func (storage *TypedAtomicStorageImpl) Delete(key interface{}) (err error) {
 	return storage.atomicStorage.Delete(keyString)
 }
 
-func (storage *TypedAtomicStorageImpl) CAS(req *CASRequest) (response *CASResponse, err error) {
+type typedTransactionImpl struct {
+	transactionString Transaction
+	storage           *TypedAtomicStorageImpl
+}
 
-	return storage.atomicStorage.CAS(req)
+func (transaction *typedTransactionImpl) GetConditionValues() []interface{} {
+	resultString := transaction.transactionString.GetConditionValues()
+	result := make([]interface{}, len(resultString))
+	for i, valueString := range resultString {
+		result[i] = reflect.New(transaction.storage.valueType)
+		transaction.storage.valueDeserializer(valueString, result[i])
+	}
+	return result
+}
+
+func (storage *TypedAtomicStorageImpl) StartTransaction(keyPrefix string) (transaction TypedTransaction, err error) {
+	transactionString, err := storage.atomicStorage.StartTransaction(keyPrefix)
+	if err != nil {
+		return
+	}
+
+	return &typedTransactionImpl{
+		transactionString: transactionString,
+		storage:           storage,
+	}, nil
+}
+
+func (storage *TypedAtomicStorageImpl) CompleteTransaction(transaction TypedTransaction, update []*TypedKeyValueData) (ok bool, err error) {
+	updateString := make([]*KeyValueData, len(update))
+	for i, keyValue := range update {
+		key, err := storage.keySerializer(keyValue.Key)
+		if err != nil {
+			return false, err
+		}
+		value, err := storage.valueSerializer(keyValue.Value)
+		if err != nil {
+			return false, err
+		}
+		updateString[i] = &KeyValueData{
+			Key:   key,
+			Value: value,
+		}
+	}
+	return storage.atomicStorage.CompleteTransaction(transaction.(*typedTransactionImpl).transactionString, updateString)
 }

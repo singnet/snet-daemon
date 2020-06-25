@@ -49,7 +49,21 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 		return fmt.Errorf("Unknow Update type %v", updateUsageType)
 	}
 
-	request := TypedCASRequest{Condition: conditionFunc, RetryTillSuccessOrError: true, ConditionKeyPrefix: channelId.String() + "/"}
+	typedUpdateFunc := func(conditionValues []interface{}) (update []*TypedKeyValueData, err error) {
+		var newValues interface{}
+
+		if newValues, err = conditionFunc(conditionValues, revisedAmount); err != nil {
+			return nil, err
+		}
+
+		return BuildOldAndNewValuesForCAS(newValues)
+	}
+
+	request := TypedCASRequest{
+		Update:                  typedUpdateFunc,
+		RetryTillSuccessOrError: true,
+		ConditionKeyPrefix:      channelId.String() + "/",
+	}
 	ok, err := h.storage.ExecuteTransaction(request)
 	if err != nil {
 		return err

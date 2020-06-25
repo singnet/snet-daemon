@@ -34,6 +34,15 @@ type Transaction interface {
 	GetConditionValues() []string
 }
 
+//Best to change this to KeyValueData , will do this in the next commit
+type UpdateFunc func(conditionValues []string) (update []*KeyValueData, err error)
+
+type CASRequest struct {
+	RetryTillSuccessOrError bool
+	Update                  UpdateFunc
+	ConditionKeyPrefix      string
+}
+
 type KeyValueData struct {
 	Key   string
 	Value string
@@ -120,15 +129,12 @@ type TypedTransaction interface {
 	GetConditionValues() []interface{}
 }
 
+//Best to change this to KeyValueData , will do this in the next commit
+type TypedUpdateFunc func(conditionValues []interface{}) (update []*TypedKeyValueData, err error)
+
 type TypedCASRequest struct {
 	RetryTillSuccessOrError bool
-	Condition               ConditionFunc
-	ConditionKeyPrefix      string
-}
-
-type CASRequest struct {
-	RetryTillSuccessOrError bool
-	Update                  UpdateFunc
+	Update                  TypedUpdateFunc
 	ConditionKeyPrefix      string
 }
 
@@ -275,41 +281,25 @@ func (storage *TypedAtomicStorageImpl) GetConditionTypedValues(conditionKeyValue
 	return result
 }
 
-//Best to change this to KeyValueData , will do this in the next commit
-type UpdateFunc func(conditionValues []string) (update []*KeyValueData, err error)
+func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASRequest) (ok bool, err error) {
 
-func (storage *TypedAtomicStorageImpl) getUpdateFunction(request TypedCASRequest) UpdateFunc {
-	return func(conditionValues []string) (update []*KeyValueData, err error) {
+	updateFunction := func(conditionValues []string) (update []*KeyValueData, err error) {
 		typedValues := storage.GetConditionTypedValues(conditionValues)
-		newTypedValues, err := request.Condition(typedValues)
+		typedUpdate, err := request.Update(typedValues)
 		if err != nil {
 			return nil, err
 		}
-		return storage.ConvertToKeyValueData(newTypedValues)
+		return storage.ConvertToKeyValueData(typedUpdate)
 	}
-}
-func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASRequest) (ok bool, err error) {
 
 	storageRequest := CASRequest{
 		RetryTillSuccessOrError: request.RetryTillSuccessOrError,
-		Update:                  storage.getUpdateFunction(request),
+		Update:                  updateFunction,
 		ConditionKeyPrefix:      request.ConditionKeyPrefix,
 	}
 	return storage.atomicStorage.ExecuteTransaction(storageRequest)
-	/*for {
-		typedValues, err := request.Condition(transaction.GetConditionValues());
-		if err != nil {
-			return false,err
-		}
-		if ok ,err = storage.CompleteTransaction(transaction, typedValues); err != nil {
-			return false,err
-		}
-		if !request.RetryTillSuccessOrError {
-			break
-		}
-	}*/
-
 }
+
 func (storage *TypedAtomicStorageImpl) StartTransaction(keyPrefix string) (transaction TypedTransaction, err error) {
 	transactionString, err := storage.atomicStorage.StartTransaction(keyPrefix)
 	if err != nil {

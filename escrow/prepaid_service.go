@@ -27,10 +27,10 @@ func (h *lockingPrepaidService) ListPrePaidUsers() (users []*PrePaidDataUnit, er
 	return data.([]*PrePaidDataUnit), err
 }
 
-//Defines the condition that needs to be met, it generates the new business struct if all validations
+//Defines the condition that needs to be met, it generates the respective typed Data when
 //conditions are satisfied, you define your own validations in here
-//It takes in the latest values read on the Key Passed, Please note all keys with this prefix will be read
-type ConditionFunc func(latestReadData interface{}, params ...interface{}) (newValues interface{}, err error)
+//It takes in the latest typed values read.
+type ConditionFunc func(params ...interface{}) ([]*TypedKeyValueData, error)
 
 func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *big.Int, updateUsageType string) (err error) {
 	var conditionFunc ConditionFunc = nil
@@ -49,48 +49,26 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 		return fmt.Errorf("Unknow Update type %v", updateUsageType)
 	}
 
-	transaction, err := h.storage.StartTransaction(channelId.String())
+	request := TypedCASRequest{Condition: conditionFunc, RetryTillSuccessOrError: true, ConditionKeyPrefix: channelId.String() + "/"}
+	ok, err := h.storage.ExecuteTransaction(request)
 	if err != nil {
 		return err
 	}
-
-	for {
-		var newValues interface{}
-		var newKeyValues []*TypedKeyValueData
-
-		if newValues, err = conditionFunc(transaction.GetConditionValues(), revisedAmount); err != nil {
-			return err
-		}
-		if newKeyValues, err = BuildOldAndNewValuesForCAS(newValues); err != nil {
-			return err
-		}
-		ok, err := h.storage.CompleteTransaction(transaction, newKeyValues)
-		if err != nil {
-			return err
-		}
-		if ok {
-			break
-		}
+	if !ok {
+		return fmt.Errorf("Error in executing ExecuteTransaction for usage type"+
+			"  %v on channel %v ", updateUsageType, channelId)
 	}
-
 	return nil
 }
 
 var (
-	//this function will be used to read data from Storage and convert it in to a business structure
-	//on which validations can be easily performed.
+	//this function will be used to read typed data ,convert it in to a business structure
+	//on which validations can be easily performed and return back the business structure.
 	convertRawDataToPrePaidUsage = func(latestReadData interface{}) (new interface{}, err error) {
-		data := latestReadData.([]*KeyValueData)
+		data := latestReadData.([]*PrePaidDataUnit)
 		usageData := &PrePaidUsageData{PlannedAmount: big.NewInt(0),
 			UsedAmount: big.NewInt(0), FailedAmount: big.NewInt(0)}
-		for _, dataRetrieved := range data {
-			if dataRetrieved == nil {
-				continue
-			}
-			usageType := &PrePaidDataUnit{}
-			if err = deserialize(dataRetrieved.Value, usageType); err != nil {
-				return nil, err
-			}
+		for _, usageType := range data {
 			usageData.ChannelID = usageType.ChannelID
 			if strings.Compare(usageType.UsageType, USED_AMOUNT) == 0 {
 				usageData.UsedAmount = usageType.Amount
@@ -128,9 +106,8 @@ func BuildOldAndNewValuesForCAS(params ...interface{}) (newValues []*TypedKeyVal
 }
 
 var (
-	IncrementUsedAmount ConditionFunc = func(latestReadData interface{},
-		params ...interface{}) (new interface{}, err error) {
-		data := latestReadData.([]*KeyValueData)
+	IncrementUsedAmount ConditionFunc = func(params ...interface{}) (newValues []*TypedKeyValueData, err error) {
+		data := params[0].([]*PrePaidDataUnit)
 		if len(params) == 0 {
 			return nil, fmt.Errorf("You need to pass the Price ")
 		}
@@ -145,13 +122,12 @@ var (
 		if newState.UsedAmount.Cmp(oldState.PlannedAmount.Add(oldState.PlannedAmount, oldState.FailedAmount)) > 0 {
 			return nil, fmt.Errorf("Usage Exceeded on channel %v", oldState.ChannelID)
 		}
-		setLastUpdatedVersion(data, newState, USED_AMOUNT)
-		return newState, nil
+		return BuildOldAndNewValuesForCAS(newState)
 
 	}
 	//Make sure you update the planned amount ONLY when the new value is greater than what was last persisted
-	IncrementPlannedAmount ConditionFunc = func(latestReadData interface{}, params ...interface{}) (new interface{}, err error) {
-		data := latestReadData.([]*KeyValueData)
+	IncrementPlannedAmount ConditionFunc = func(params ...interface{}) (newValues []*TypedKeyValueData, err error) {
+		data := params[0].([]*PrePaidDataUnit)
 		if len(params) == 0 {
 			return nil, fmt.Errorf("You need to pass the Price and the Channel Id ")
 		}
@@ -166,13 +142,12 @@ var (
 			return nil, fmt.Errorf("A revised higher planned amount has been signed "+
 				"already for %v on channel %v", oldState.PlannedAmount, oldState.ChannelID)
 		}
-		setLastUpdatedVersion(data, newState, PLANNED_AMOUNT)
-		return newState, nil
+		return BuildOldAndNewValuesForCAS(newState)
 
 	}
 	//If there is no refund amount yet, put it , else add latest value in DB with the additional refund to be done
-	IncrementRefundAmount ConditionFunc = func(latestReadData interface{}, params ...interface{}) (new interface{}, err error) {
-		data := latestReadData.([]*KeyValueData)
+	IncrementRefundAmount ConditionFunc = func(params ...interface{}) (newValues []*TypedKeyValueData, err error) {
+		data := params[0].([]*PrePaidDataUnit)
 		if len(params) == 0 {
 			return nil, fmt.Errorf("You need to pass the Price ")
 		}
@@ -180,10 +155,9 @@ var (
 		if err != nil {
 			return nil, err
 		}
-		usageData := businessObject.(*PrePaidUsageData)
-		updateDetails(usageData, REFUND_AMOUNT, params[0].(*PrePaidDataUnit))
-		setLastUpdatedVersion(data, usageData, REFUND_AMOUNT)
-		return usageData, nil
+		newState := businessObject.(*PrePaidUsageData)
+		updateDetails(newState, REFUND_AMOUNT, params[0].(*PrePaidDataUnit))
+		return BuildOldAndNewValuesForCAS(newState)
 
 	}
 )
@@ -198,16 +172,5 @@ func updateDetails(usageData *PrePaidUsageData, updateUsageType string, details 
 		usageData.PlannedAmount.Add(details.Amount, usageData.PlannedAmount)
 	case REFUND_AMOUNT:
 		usageData.FailedAmount.Add(details.Amount, usageData.FailedAmount)
-	}
-}
-
-func setLastUpdatedVersion(data []*KeyValueData, usageData *PrePaidUsageData, updateUsageType string) {
-	for _, data := range data {
-		if data == nil {
-			continue
-		}
-		if strings.Contains(data.Key, updateUsageType) {
-			usageData.UpdateUsageType = updateUsageType
-		}
 	}
 }

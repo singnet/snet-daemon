@@ -116,3 +116,7 @@ func (storage *memoryStorage) StartTransaction(keyPrefix string) (transaction Tr
 func (storage *memoryStorage) CompleteTransaction(transaction Transaction, update []*KeyValueData) (ok bool, err error) {
 	return false, fmt.Errorf("Not implemented")
 }
+
+func (client *memoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
+	return false, fmt.Errorf("Not implemented")
+}

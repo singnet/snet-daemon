@@ -282,7 +282,7 @@ func (suite *EtcdTestSuite) TestEtcdNilValue() {
 	ok, err = client.PutIfAbsent(key, firstValue)
 	assert.Nil(t, err)
 	//If it was not Absent , we still can put the key successfully!
-	assert.True(t, ok)
+	assert.False(t, ok)
 
 }
 

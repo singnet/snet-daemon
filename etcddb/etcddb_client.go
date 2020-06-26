@@ -218,8 +218,11 @@ func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue 
 		return false, err
 	}
 	update := make([]*escrow.KeyValueData, 0)
-	values := transaction.GetConditionValues()
-	if strings.Compare(values[0], prevValue) == 0 {
+	values, err := transaction.GetConditionValues()
+	if err != nil {
+		return false, err
+	}
+	if strings.Compare(values[0].Value, prevValue) == 0 {
 		update = append(update, &escrow.KeyValueData{Key: key, Value: newValue})
 		return client.CompleteTransaction(transaction, update)
 	}
@@ -270,9 +273,16 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 		log.WithError(err).Error("Error in PutIfAbsent while trying to retrieve key")
 		return false, err
 	}
-	update := make([]*escrow.KeyValueData, 0)
-	update = append(update, &escrow.KeyValueData{Key: key, Value: value})
-	return client.CompleteTransaction(transaction, update)
+	values, err := transaction.GetConditionValues()
+	if err != nil {
+		return false, err
+	}
+	if len(values) == 0 || !values[0].Present {
+		update := make([]*escrow.KeyValueData, 0)
+		update = append(update, &escrow.KeyValueData{Key: key, Value: value})
+		return client.CompleteTransaction(transaction, update)
+	}
+	return false, nil
 }
 
 // NewMutex Create a mutex for the given key
@@ -291,7 +301,11 @@ func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool
 	}
 	//We should also have a configuration on how many times you try this ( say 100 times )
 	for {
-		newValues, err := request.Update(transaction.GetConditionValues())
+		oldValues, err := transaction.GetConditionValues()
+		if err != nil {
+			return false, err
+		}
+		newValues, err := request.Update(oldValues)
 		if err != nil {
 			return false, err
 		}
@@ -449,10 +463,14 @@ type etcdTransaction struct {
 	KeyPrefix       string
 }
 
-func (transaction *etcdTransaction) GetConditionValues() []string {
-	values := make([]string, len(transaction.ConditionValues))
+func (transaction *etcdTransaction) GetConditionValues() ([]*escrow.KeyValueData, error) {
+	values := make([]*escrow.KeyValueData, len(transaction.ConditionValues))
 	for i, value := range transaction.ConditionValues {
-		values[i] = value.Value
+		values[i] = &escrow.KeyValueData{
+			Key:     value.Key,
+			Value:   value.Value,
+			Present: true,
+		}
 	}
-	return values
+	return values, nil
 }

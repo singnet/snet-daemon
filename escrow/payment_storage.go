@@ -18,6 +18,8 @@ func NewPaymentStorage(atomicStorage AtomicStorage) *PaymentStorage {
 
 			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment/storage"),
 			keySerializer:     serialize,
+			keyDeserializer:   deserialize,
+			keyType:           reflect.TypeOf(""),
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,
 			valueType:         reflect.TypeOf(Payment{}),

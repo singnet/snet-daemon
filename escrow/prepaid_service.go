@@ -49,10 +49,16 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 		return fmt.Errorf("Unknow Update type %v", updateUsageType)
 	}
 
-	typedUpdateFunc := func(conditionValues []interface{}) (update []*TypedKeyValueData, err error) {
+	typedUpdateFunc := func(conditionValues []*TypedKeyValueData) (update []*TypedKeyValueData, err error) {
+		var oldValues []interface{}
 		var newValues interface{}
 
-		if newValues, err = conditionFunc(conditionValues, revisedAmount); err != nil {
+		oldValues = make([]interface{}, len(conditionValues))
+		for i, keyValue := range conditionValues {
+			oldValues[i] = keyValue.Value
+		}
+
+		if newValues, err = conditionFunc(oldValues, revisedAmount); err != nil {
 			return nil, err
 		}
 

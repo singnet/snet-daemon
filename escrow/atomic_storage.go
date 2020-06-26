@@ -31,11 +31,11 @@ type AtomicStorage interface {
 }
 
 type Transaction interface {
-	GetConditionValues() []string
+	GetConditionValues() ([]*KeyValueData, error)
 }
 
 //Best to change this to KeyValueData , will do this in the next commit
-type UpdateFunc func(conditionValues []string) (update []*KeyValueData, err error)
+type UpdateFunc func(conditionValues []*KeyValueData) (update []*KeyValueData, err error)
 
 type CASRequest struct {
 	RetryTillSuccessOrError bool
@@ -44,8 +44,9 @@ type CASRequest struct {
 }
 
 type KeyValueData struct {
-	Key   string
-	Value string
+	Key     string
+	Value   string
+	Present bool
 }
 
 // PrefixedAtomicStorage is decorator for atomic storage which adds a prefix to
@@ -126,11 +127,11 @@ type TypedAtomicStorage interface {
 }
 
 type TypedTransaction interface {
-	GetConditionValues() []interface{}
+	GetConditionValues() ([]*TypedKeyValueData, error)
 }
 
 //Best to change this to KeyValueData , will do this in the next commit
-type TypedUpdateFunc func(conditionValues []interface{}) (update []*TypedKeyValueData, err error)
+type TypedUpdateFunc func(conditionValues []*TypedKeyValueData) (update []*TypedKeyValueData, err error)
 
 type TypedCASRequest struct {
 	RetryTillSuccessOrError bool
@@ -139,8 +140,9 @@ type TypedCASRequest struct {
 }
 
 type TypedKeyValueData struct {
-	Key   interface{}
-	Value interface{}
+	Key     interface{}
+	Value   interface{}
+	Present bool
 }
 
 // TypedAtomicStorageImpl is an implementation of TypedAtomicStorage interface
@@ -169,13 +171,30 @@ func (storage *TypedAtomicStorageImpl) Get(key interface{}) (value interface{}, 
 		return
 	}
 
-	value = reflect.New(storage.valueType).Interface()
-	err = storage.valueDeserializer(valueString, value)
+	value, err = storage.deserializeValue(valueString)
 	if err != nil {
 		return nil, false, err
 	}
 
 	return value, true, nil
+}
+
+func (storage *TypedAtomicStorageImpl) deserializeKey(keyString string) (key interface{}, err error) {
+	key = reflect.New(storage.keyType).Interface()
+	err = storage.keyDeserializer(keyString, key)
+	if err != nil {
+		return nil, err
+	}
+	return key, err
+}
+
+func (storage *TypedAtomicStorageImpl) deserializeValue(valueString string) (value interface{}, err error) {
+	value = reflect.New(storage.valueType).Interface()
+	err = storage.valueDeserializer(valueString, value)
+	if err != nil {
+		return nil, err
+	}
+	return value, err
 }
 
 func (storage *TypedAtomicStorageImpl) GetAll() (array interface{}, err error) {
@@ -264,34 +283,47 @@ type typedTransactionImpl struct {
 	storage           *TypedAtomicStorageImpl
 }
 
-func (transaction *typedTransactionImpl) GetConditionValues() []interface{} {
-	resultString := transaction.transactionString.GetConditionValues()
-	result := make([]interface{}, len(resultString))
-	for i, valueString := range resultString {
-		result[i] = reflect.New(transaction.storage.valueType)
-		transaction.storage.valueDeserializer(valueString, result[i])
+func (transaction *typedTransactionImpl) GetConditionValues() ([]*TypedKeyValueData, error) {
+	keyValueDataString, err := transaction.transactionString.GetConditionValues()
+	if err != nil {
+		return nil, err
 	}
-	return result
+	return transaction.storage.convertKeyValueDataToTyped(keyValueDataString)
 }
 
-func (storage *TypedAtomicStorageImpl) GetConditionTypedValues(conditionKeyValues []string) []interface{} {
-	result := make([]interface{}, len(conditionKeyValues))
-	for i, valueString := range conditionKeyValues {
-		result[i] = reflect.New(storage.valueType)
-		storage.valueDeserializer(valueString, result[i])
+func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData []*KeyValueData) ([]*TypedKeyValueData, error) {
+	result := make([]*TypedKeyValueData, len(keyValueData))
+	for i, keyValueString := range keyValueData {
+		// TODO: how to process err here?
+		key, err := storage.deserializeKey(keyValueString.Key)
+		if err != nil {
+			return nil, err
+		}
+		value, err := storage.deserializeValue(keyValueString.Value)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = &TypedKeyValueData{
+			Key:     key,
+			Value:   value,
+			Present: keyValueString.Present,
+		}
 	}
-	return result
+	return result, nil
 }
 
 func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASRequest) (ok bool, err error) {
 
-	updateFunction := func(conditionValues []string) (update []*KeyValueData, err error) {
-		typedValues := storage.GetConditionTypedValues(conditionValues)
+	updateFunction := func(conditionValues []*KeyValueData) (update []*KeyValueData, err error) {
+		typedValues, err := storage.convertKeyValueDataToTyped(conditionValues)
+		if err != nil {
+			return nil, err
+		}
 		typedUpdate, err := request.Update(typedValues)
 		if err != nil {
 			return nil, err
 		}
-		return storage.ConvertToKeyValueData(typedUpdate)
+		return storage.convertTypedKeyValueDataToString(typedUpdate)
 	}
 
 	storageRequest := CASRequest{
@@ -314,7 +346,7 @@ func (storage *TypedAtomicStorageImpl) StartTransaction(keyPrefix string) (trans
 	}, nil
 }
 
-func (storage *TypedAtomicStorageImpl) ConvertToKeyValueData(
+func (storage *TypedAtomicStorageImpl) convertTypedKeyValueDataToString(
 	update []*TypedKeyValueData) (data []*KeyValueData, err error) {
 	updateString := make([]*KeyValueData, len(update))
 	for i, keyValue := range update {
@@ -334,7 +366,7 @@ func (storage *TypedAtomicStorageImpl) ConvertToKeyValueData(
 	return updateString, nil
 }
 func (storage *TypedAtomicStorageImpl) CompleteTransaction(transaction TypedTransaction, update []*TypedKeyValueData) (ok bool, err error) {
-	updateString, err := storage.ConvertToKeyValueData(update)
+	updateString, err := storage.convertTypedKeyValueDataToString(update)
 	if err != nil {
 		return false, err
 	}

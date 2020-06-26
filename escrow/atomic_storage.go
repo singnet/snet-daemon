@@ -147,6 +147,8 @@ type TypedKeyValueData struct {
 type TypedAtomicStorageImpl struct {
 	atomicStorage     AtomicStorage
 	keySerializer     func(key interface{}) (serialized string, err error)
+	keyDeserializer   func(serialized string, key interface{}) (err error)
+	keyType           reflect.Type
 	valueSerializer   func(value interface{}) (serialized string, err error)
 	valueDeserializer func(serialized string, value interface{}) (err error)
 	valueType         reflect.Type

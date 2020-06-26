@@ -89,6 +89,8 @@ func NewPrepaidStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
 	return &TypedAtomicStorageImpl{
 		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage"),
 		keySerializer:     serialize,
+		keyDeserializer:   deserialize,
+		keyType:           reflect.TypeOf(""),
 		valueSerializer:   serialize,
 		valueDeserializer: deserialize,
 		valueType:         reflect.TypeOf(PrePaidDataUnit{}),

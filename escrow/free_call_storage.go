@@ -16,6 +16,8 @@ func NewFreeCallUserStorage(atomicStorage AtomicStorage) *FreeCallUserStorage {
 				keyPrefix: "/free-call-user/storage",
 			},
 			keySerializer:     serialize,
+			keyDeserializer:   deserialize,
+			keyType:           reflect.TypeOf(FreeCallUserKey{}),
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,
 			valueType:         reflect.TypeOf(FreeCallUserData{}),

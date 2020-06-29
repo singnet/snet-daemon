@@ -68,7 +68,7 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 	request := TypedCASRequest{
 		Update:                  typedUpdateFunc,
 		RetryTillSuccessOrError: true,
-		ConditionKeyPrefix:      channelId.String() + "/",
+		ConditionKeys:           getAllKeys(channelId),
 	}
 	ok, err := h.storage.ExecuteTransaction(request)
 	if err != nil {
@@ -79,6 +79,14 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 			"  %v on channel %v ", updateUsageType, channelId)
 	}
 	return nil
+}
+
+func getAllKeys(channelId *big.Int) []string {
+	keys := make([]string, 3)
+	for i, typ := range []string{REFUND_AMOUNT, PLANNED_AMOUNT, USED_AMOUNT} {
+		keys[i] = channelId.String() + "/" + typ
+	}
+	return keys
 }
 
 var (

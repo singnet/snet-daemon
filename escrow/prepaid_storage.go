@@ -32,10 +32,11 @@ func (data *PrePaidDataUnit) String() string {
 }
 
 func (data *PrePaidDataUnit) Key() string {
-	return fmt.Sprintf("%v/%v", data.ChannelID, data.UsageType)
+	return fmt.Sprintf("%v%v%v", data.ChannelID, DELIMITER, data.UsageType)
 }
 
 const (
+	DELIMITER      string = "/"
 	USED_AMOUNT    string = "U"
 	PLANNED_AMOUNT string = "P"
 	REFUND_AMOUNT  string = "R"

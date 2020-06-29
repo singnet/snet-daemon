@@ -213,7 +213,7 @@ type EtcdKeyValue struct {
 // CompareAndSwap uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
 
-	transaction, err := client.StartTransaction(key)
+	transaction, err := client.StartTransaction([]string{key})
 	if err != nil {
 		return false, err
 	}
@@ -268,7 +268,7 @@ func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValu
 func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err error) {
 	log := log.WithField("func", "PutIfAbsent").WithField("key", key).WithField("client", client)
 
-	transaction, err := client.StartTransaction(key)
+	transaction, err := client.StartTransaction([]string{key})
 	if err != nil {
 		log.WithError(err).Error("Error in PutIfAbsent while trying to retrieve key")
 		return false, err
@@ -295,7 +295,7 @@ func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err erro
 
 func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool, err error) {
 
-	transaction, err := client.StartTransaction("")
+	transaction, err := client.StartTransaction(request.ConditionKeys)
 	if err != nil {
 		return false, err
 	}
@@ -338,7 +338,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 	if txn, err = client.buildThenOperations(txn, update); err != nil {
 		return false, err
 	}
-	if txn, err = client.buildElseOperations(txn, transaction.KeyPrefix); err != nil {
+	if txn, err = client.buildElseOperations(txn, GetKeysFromKeyValueData(update)); err != nil {
 		return false, err
 	}
 	txnResp, err = txn.Commit()
@@ -350,6 +350,9 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 	if txnResp == nil {
 		return false, fmt.Errorf("transaction response is nil")
 	}
+	if txnResp.Succeeded {
+		return true, nil
+	}
 
 	var latestValues []*keyValueVersion
 	if latestValues, err = client.checkTxnResponse(txnResp); err != nil {
@@ -359,6 +362,14 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 	transaction.ConditionValues = latestValues
 	//succeeded is set to true if the compare evaluated to true or false otherwise.
 	return txnResp.Succeeded, nil
+}
+
+func GetKeysFromKeyValueData(update []*escrow.KeyValueData) []string {
+	keys := make([]string, len(update))
+	for i, key := range update {
+		keys[i] = key.Key
+	}
+	return keys
 }
 
 func (client *EtcdClient) buildIf(txn clientv3.Txn, transaction *etcdTransaction) (clientv3.Txn, error) {
@@ -382,24 +393,28 @@ func (client *EtcdClient) buildThenOperations(txn clientv3.Txn, update []*escrow
 	return txn.Then(ops...), nil
 }
 
-func (client *EtcdClient) buildElseOperations(txn clientv3.Txn, keyPrefix string) (clientv3.Txn, error) {
-	return txn.Else(clientv3.OpGet(keyPrefix, clientv3.WithPrefix())), nil
+func (client *EtcdClient) buildElseOperations(txn clientv3.Txn, conditionKeys []string) (clientv3.Txn, error) {
+	ops := make([]clientv3.Op, len(conditionKeys))
+	for index, key := range conditionKeys {
+		ops[index] = clientv3.OpGet(key)
+	}
+	return txn.Else(ops...), nil
 }
 
 func (client *EtcdClient) checkTxnResponse(txnResp *clientv3.TxnResponse) (latestStateArray []*keyValueVersion, err error) {
 
-	if !txnResp.Succeeded {
-		latestStateArray = make([]*keyValueVersion, 0)
-		for _, response := range txnResp.Responses {
-			txnGetValue := (*clientv3.GetResponse)(response.GetResponseRange())
-			latestValues, err := client.getState(txnGetValue)
-			if err != nil {
-				return nil, err
-			}
-			latestStateArray = append(latestStateArray, latestValues...)
+	//if !txnResp.Succeeded {
+	latestStateArray = make([]*keyValueVersion, 0)
+	for _, response := range txnResp.Responses {
+		txnGetValue := (*clientv3.GetResponse)(response.GetResponseRange())
+		latestValues, err := client.getState(txnGetValue)
+		if err != nil {
+			return nil, err
 		}
-		return latestStateArray, nil
+		latestStateArray = append(latestStateArray, latestValues...)
 	}
+	return latestStateArray, nil
+	//}
 	return nil, nil
 }
 
@@ -426,15 +441,22 @@ func (client *EtcdClient) Close() {
 	defer client.etcdv3.Close()
 }
 
-func (client *EtcdClient) StartTransaction(keyPrefix string) (_transaction escrow.Transaction, err error) {
+func (client *EtcdClient) StartTransaction(keys []string) (_transaction escrow.Transaction, err error) {
 	transaction := &etcdTransaction{
-		KeyPrefix: keyPrefix,
+		ConditionKeys: keys,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
-	keyEnd := clientv3.GetPrefixRangeEnd(keyPrefix)
-	txnResp, err := client.etcdv3.Get(ctx, keyPrefix, clientv3.WithRange(keyEnd))
+	ops := make([]clientv3.Op, len(keys))
+	for i, key := range keys {
+		ops[i] = clientv3.OpGet(key)
+	}
+	txn := client.etcdv3.KV.Txn(ctx)
+	//Goal is to read all the key values in one Shot !
+	//todo is there a better way to read all values in one transaction
+	txn.If(clientv3.Compare(clientv3.ModRevision("dummyKey"), "=", 0)).Then(ops...)
+	txnResp, err := txn.Commit()
 
 	if err != nil {
 		log.WithError(err).Error("error in getting value by key prefix")
@@ -442,7 +464,7 @@ func (client *EtcdClient) StartTransaction(keyPrefix string) (_transaction escro
 	}
 	if txnResp != nil {
 
-		if latestValues, err := client.getState(txnResp); err != nil {
+		if latestValues, err := client.checkTxnResponse(txnResp); err != nil {
 			return nil, err
 		} else {
 			transaction.ConditionValues = latestValues
@@ -460,7 +482,7 @@ type keyValueVersion struct {
 
 type etcdTransaction struct {
 	ConditionValues []*keyValueVersion
-	KeyPrefix       string
+	ConditionKeys   []string
 }
 
 func (transaction *etcdTransaction) GetConditionValues() ([]*escrow.KeyValueData, error) {

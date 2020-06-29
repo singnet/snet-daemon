@@ -25,7 +25,7 @@ type AtomicStorage interface {
 	// Delete removes value by key
 	Delete(key string) (err error)
 
-	StartTransaction(keyPrefix string) (transaction Transaction, err error)
+	StartTransaction(conditionKeys []string) (transaction Transaction, err error)
 	CompleteTransaction(transaction Transaction, update []*KeyValueData) (ok bool, err error)
 	ExecuteTransaction(request CASRequest) (ok bool, err error)
 }
@@ -40,7 +40,7 @@ type UpdateFunc func(conditionValues []*KeyValueData) (update []*KeyValueData, e
 type CASRequest struct {
 	RetryTillSuccessOrError bool
 	Update                  UpdateFunc
-	ConditionKeyPrefix      string
+	ConditionKeys           []string
 }
 
 type KeyValueData struct {
@@ -92,8 +92,8 @@ func (storage *PrefixedAtomicStorage) Delete(key string) (err error) {
 	return storage.delegate.Delete(storage.keyPrefix + "/" + key)
 }
 
-func (storage *PrefixedAtomicStorage) StartTransaction(keyPrefix string) (transaction Transaction, err error) {
-	return storage.delegate.StartTransaction(keyPrefix)
+func (storage *PrefixedAtomicStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
+	return storage.delegate.StartTransaction(conditionKeys)
 }
 
 func (storage *PrefixedAtomicStorage) CompleteTransaction(transaction Transaction, update []*KeyValueData) (ok bool, err error) {
@@ -121,7 +121,7 @@ type TypedAtomicStorage interface {
 	// Delete removes value by key
 	Delete(key interface{}) (err error)
 	/*
-		StartTransaction(ConditionKeyPrefix string) (transaction TypedTransaction, err error)
+		StartTransaction(ConditionKeys string) (transaction TypedTransaction, err error)
 		CompleteTransaction(transaction TypedTransaction, update []*TypedKeyValueData) (ok bool, err error)
 	*/ExecuteTransaction(request TypedCASRequest) (ok bool, err error)
 }
@@ -136,7 +136,7 @@ type TypedUpdateFunc func(conditionValues []*TypedKeyValueData) (update []*Typed
 type TypedCASRequest struct {
 	RetryTillSuccessOrError bool
 	Update                  TypedUpdateFunc
-	ConditionKeyPrefix      string
+	ConditionKeys           []string
 }
 
 type TypedKeyValueData struct {
@@ -329,13 +329,13 @@ func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASReques
 	storageRequest := CASRequest{
 		RetryTillSuccessOrError: request.RetryTillSuccessOrError,
 		Update:                  updateFunction,
-		ConditionKeyPrefix:      request.ConditionKeyPrefix,
+		ConditionKeys:           request.ConditionKeys,
 	}
 	return storage.atomicStorage.ExecuteTransaction(storageRequest)
 }
 
-func (storage *TypedAtomicStorageImpl) StartTransaction(keyPrefix string) (transaction TypedTransaction, err error) {
-	transactionString, err := storage.atomicStorage.StartTransaction(keyPrefix)
+func (storage *TypedAtomicStorageImpl) StartTransaction(conditionKeys []string) (transaction TypedTransaction, err error) {
+	transactionString, err := storage.atomicStorage.StartTransaction(conditionKeys)
 	if err != nil {
 		return
 	}

@@ -109,7 +109,7 @@ func (storage *memoryStorage) Clear() (err error) {
 	return
 }
 
-func (storage *memoryStorage) StartTransaction(keyPrefix string) (transaction Transaction, err error) {
+func (storage *memoryStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
 	return nil, fmt.Errorf("Not implemented")
 }
 

@@ -294,7 +294,6 @@ func (transaction *typedTransactionImpl) GetConditionValues() ([]*TypedKeyValueD
 func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData []*KeyValueData) ([]*TypedKeyValueData, error) {
 	result := make([]*TypedKeyValueData, len(keyValueData))
 	for i, keyValueString := range keyValueData {
-		// TODO: how to process err here?
 		key, err := storage.deserializeKey(keyValueString.Key)
 		if err != nil {
 			return nil, err

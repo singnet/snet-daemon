@@ -5,7 +5,7 @@ import (
 )
 
 type PrePaidService interface {
-	ListPrePaidUsers() (PrePaidUsers []*PrePaidDataUnit, err error)
+	ListPrePaidUsers() (PrePaidUsers []*PrePaidData, err error)
 
 	UpdateUsage(channelId *big.Int, revisedAmount *big.Int, updateUsageType string) error
 }

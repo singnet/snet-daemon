@@ -21,20 +21,26 @@ func (payment *PrePaidPayment) String() string {
 
 //Kept the bare minimum here , other details like group and sender address of this channel can
 //always be retrieved from BlockChain
-type PrePaidDataUnit struct {
+type PrePaidData struct {
+	Amount *big.Int
+}
+
+type PrePaidDataKey struct {
 	ChannelID *big.Int
-	Amount    *big.Int
 	UsageType string
 }
 
-func (data *PrePaidDataUnit) String() string {
-	return fmt.Sprintf("{ChannelID:%v,Amount:%v,UsageType:%v}", data.ChannelID, data.Amount, data.UsageType)
+func (data *PrePaidData) String() string {
+	return fmt.Sprintf("{Amount:%v}", data.Amount)
+}
+func (key *PrePaidDataKey) String() string {
+	return fmt.Sprintf("{%v%v%v}", key.ChannelID, DELIMITER, key.UsageType)
 }
 
-func (data *PrePaidDataUnit) Key() string {
-	return fmt.Sprintf("%v%v%v", data.ChannelID, DELIMITER, data.UsageType)
+/*func (data *PrePaidData) Key() string {
+	return fmt.Sprintf("%v%v%v", data.ChannelID,DELIMITER,data.UsageType)
 }
-
+*/
 const (
 	DELIMITER      string = "/"
 	USED_AMOUNT    string = "U"
@@ -91,9 +97,9 @@ func NewPrepaidStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
 		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage"),
 		keySerializer:     serialize,
 		keyDeserializer:   deserialize,
-		keyType:           reflect.TypeOf(""),
+		keyType:           reflect.TypeOf(PrePaidDataKey{}),
 		valueSerializer:   serialize,
 		valueDeserializer: deserialize,
-		valueType:         reflect.TypeOf(PrePaidDataUnit{}),
+		valueType:         reflect.TypeOf(PrePaidData{}),
 	}
 }

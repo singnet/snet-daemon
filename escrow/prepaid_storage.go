@@ -84,9 +84,9 @@ func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 		ChannelID:       data.ChannelID,
 		OrganizationId:  data.OrganizationId,
 		GroupID:         data.GroupID,
-		PlannedAmount:   big.NewInt(data.PlannedAmount.Int64()),
-		UsedAmount:      big.NewInt(data.UsedAmount.Int64()),
-		FailedAmount:    big.NewInt(data.FailedAmount.Int64()),
+		PlannedAmount:   big.NewInt(0).Set(data.PlannedAmount),
+		UsedAmount:      big.NewInt(0).Set(data.UsedAmount),
+		FailedAmount:    big.NewInt(0).Set(data.FailedAmount),
 		UpdateUsageType: data.UpdateUsageType,
 	}
 }

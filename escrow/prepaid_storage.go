@@ -46,20 +46,16 @@ const (
 
 //This will ony be used for doing any business checks
 type PrePaidUsageData struct {
-	SenderAddress   string
 	ChannelID       *big.Int
 	PlannedAmount   *big.Int
 	UsedAmount      *big.Int
-	FailedAmount    *big.Int
-	OrganizationId  string
-	GroupID         string
+	RefundAmount    *big.Int
 	UpdateUsageType string
 }
 
 func (data *PrePaidUsageData) String() string {
-	return fmt.Sprintf("{SenderAddress:%v,ChannelID:%v,PlannedAmount:%v,UsedAmount:%v,"+
-		"OrganizationId:%v,GroupID:%v}", data.SenderAddress,
-		data.ChannelID, data.PlannedAmount, data.UsedAmount, data.OrganizationId, data.GroupID)
+	return fmt.Sprintf("{ChannelID:%v,PlannedAmount:%v,UsedAmount:%v,RefundAmount:%v,UsageTpe:%v}",
+		data.ChannelID, data.PlannedAmount, data.UsedAmount, data.RefundAmount, data.UpdateUsageType)
 }
 
 func (data *PrePaidUsageData) GetAmountForUsageType() (*big.Int, error) {
@@ -67,7 +63,7 @@ func (data *PrePaidUsageData) GetAmountForUsageType() (*big.Int, error) {
 	case PLANNED_AMOUNT:
 		return data.PlannedAmount, nil
 	case REFUND_AMOUNT:
-		return data.FailedAmount, nil
+		return data.RefundAmount, nil
 	case USED_AMOUNT:
 		return data.UsedAmount, nil
 	}
@@ -82,7 +78,7 @@ func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 		GroupID:         data.GroupID,
 		PlannedAmount:   big.NewInt(0).Set(data.PlannedAmount),
 		UsedAmount:      big.NewInt(0).Set(data.UsedAmount),
-		FailedAmount:    big.NewInt(0).Set(data.FailedAmount),
+		RefundAmount:    big.NewInt(0).Set(data.RefundAmount),
 		UpdateUsageType: data.UpdateUsageType,
 	}
 }

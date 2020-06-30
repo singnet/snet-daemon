@@ -5,6 +5,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/pricing"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -94,9 +95,13 @@ func (h *PrePaidPaymentHandler) getPaymentFromContext(context *handler.GrpcStrea
 	}, nil
 }
 
-//Nothing to do here , as we increase the usage before calling the service
+//Just logging , as we increase the usage before calling the service
 //assuming the service call will be successful
 func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
+	prePaidTransaction := payment.(PrePaidTransaction)
+	log.Debugf("usage %v successfully updated and channel id: %v state is consistent",
+		prePaidTransaction.Price(),
+		prePaidTransaction.ChannelId())
 	return nil
 }
 
@@ -104,6 +109,13 @@ func (h *PrePaidPaymentHandler) CompleteAfterError(payment handler.Payment, resu
 	//we need to Keep track of the amount charged for service that errored
 	//and refund back  !!
 	prePaidTransaction := payment.(PrePaidTransaction)
-	return paymentErrorToGrpcError(h.service.UpdateUsage(prePaidTransaction.ChannelId(),
-		prePaidTransaction.Price(), REFUND_AMOUNT))
+	if err = paymentErrorToGrpcError(h.service.UpdateUsage(prePaidTransaction.ChannelId(),
+		prePaidTransaction.Price(), REFUND_AMOUNT)); err != nil {
+		log.Error(err)
+		log.Errorf("usage INCONSISTENT state on Channel id:%v , usage wrongly increased by %v",
+			prePaidTransaction.ChannelId(), prePaidTransaction.Price())
+	}
+	log.Debugf("usage:%v on channel id:%v was updated already, however the refund state has been"+
+		"adjusted accordingly", prePaidTransaction.Price(), prePaidTransaction.ChannelId())
+	return err
 }

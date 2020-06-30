@@ -37,10 +37,6 @@ func (key *PrePaidDataKey) String() string {
 	return fmt.Sprintf("{%v%v%v}", key.ChannelID, DELIMITER, key.UsageType)
 }
 
-/*func (data *PrePaidData) Key() string {
-	return fmt.Sprintf("%v%v%v", data.ChannelID,DELIMITER,data.UsageType)
-}
-*/
 const (
 	DELIMITER      string = "/"
 	USED_AMOUNT    string = "U"

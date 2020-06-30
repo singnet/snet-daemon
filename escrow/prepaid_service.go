@@ -22,9 +22,13 @@ func NewPrePaidService(
 	}
 }
 
-func (h *lockingPrepaidService) ListPrePaidUsers() (users []*PrePaidData, err error) {
-	data, err := h.storage.GetAll()
-	return data.([]*PrePaidData), err
+func (h *lockingPrepaidService) GetUsage(key PrePaidDataKey) (data *PrePaidData, ok bool, err error) {
+	value, ok, err := h.storage.Get(key)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	return value.(*PrePaidData), ok, err
+
 }
 
 //Defines the condition that needs to be met, it generates the respective typed Data when
@@ -50,19 +54,17 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 	}
 
 	typedUpdateFunc := func(conditionValues []*TypedKeyValueData) (update []*TypedKeyValueData, err error) {
-
-		var newValues interface{}
-		if newValues, err = conditionFunc(conditionValues, revisedAmount); err != nil {
+		var newValues []*TypedKeyValueData
+		if newValues, err = conditionFunc(conditionValues, revisedAmount, channelId); err != nil {
 			return nil, err
 		}
-
-		return BuildOldAndNewValuesForCAS(newValues)
+		return newValues, nil
 	}
-
+	typedKeys := getAllKeys(channelId)
 	request := TypedCASRequest{
 		Update:                  typedUpdateFunc,
 		RetryTillSuccessOrError: true,
-		ConditionKeys:           getAllKeys(channelId),
+		ConditionKeys:           typedKeys,
 	}
 	ok, err := h.storage.ExecuteTransaction(request)
 	if err != nil {
@@ -74,11 +76,10 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 	}
 	return nil
 }
-
-func getAllKeys(channelId *big.Int) []string {
-	keys := make([]string, 3)
-	for i, typ := range []string{REFUND_AMOUNT, PLANNED_AMOUNT, USED_AMOUNT} {
-		keys[i] = channelId.String() + "/" + typ
+func getAllKeys(channelId *big.Int) []interface{} {
+	keys := make([]interface{}, 3)
+	for i, usageType := range []string{REFUND_AMOUNT, PLANNED_AMOUNT, USED_AMOUNT} {
+		keys[i] = PrePaidDataKey{ChannelID: channelId, UsageType: usageType}
 	}
 	return keys
 }
@@ -86,10 +87,10 @@ func getAllKeys(channelId *big.Int) []string {
 var (
 	//this function will be used to read typed data ,convert it in to a business structure
 	//on which validations can be easily performed and return back the business structure.
-	convertTypedDataToPrePaidUsage = func(latestReadData interface{}) (new interface{}, err error) {
-		data := latestReadData.([]*TypedKeyValueData)
+	convertTypedDataToPrePaidUsage = func(typedConditionKeyValueData interface{}) (new interface{}, err error) {
+		data := typedConditionKeyValueData.([]*TypedKeyValueData)
 		usageData := &PrePaidUsageData{PlannedAmount: big.NewInt(0),
-			UsedAmount: big.NewInt(0), FailedAmount: big.NewInt(0)}
+			UsedAmount: big.NewInt(0), RefundAmount: big.NewInt(0)}
 		for _, usageType := range data {
 			key := usageType.Key.(*PrePaidDataKey)
 			data := usageType.Value.(*PrePaidData)
@@ -99,7 +100,7 @@ var (
 			} else if strings.Compare(key.UsageType, PLANNED_AMOUNT) == 0 {
 				usageData.PlannedAmount = data.Amount
 			} else if strings.Compare(key.UsageType, REFUND_AMOUNT) == 0 {
-				usageData.FailedAmount = data.Amount
+				usageData.RefundAmount = data.Amount
 			} else {
 				return nil, fmt.Errorf("Unknown Usage Type %v", key.UsageType)
 			}
@@ -124,8 +125,8 @@ func BuildOldAndNewValuesForCAS(params ...interface{}) (newValues []*TypedKeyVal
 		updateUsageData.Amount = amt
 	}
 	newValue := &TypedKeyValueData{Key: updateUsageKey, Value: updateUsageData}
-	newValues = make([]*TypedKeyValueData, 0)
-	newValues = append(newValues, newValue)
+	newValues = make([]*TypedKeyValueData, 1)
+	newValues[0] = newValue
 
 	return newValues, nil
 }
@@ -136,16 +137,18 @@ var (
 		if len(params) == 0 {
 			return nil, fmt.Errorf("You need to pass the Price ")
 		}
+		channelId := params[2].(*big.Int)
+		usage := params[1].(*big.Int)
 		businessObject, err := convertTypedDataToPrePaidUsage(data)
 		if err != nil {
 			return nil, err
 		}
 		oldState := businessObject.(*PrePaidUsageData)
-
+		oldState.ChannelID = channelId
 		newState := oldState.Clone()
 		usageKey := &PrePaidDataKey{UsageType: USED_AMOUNT, ChannelID: oldState.ChannelID}
-		updateDetails(newState, usageKey, params[0].(*PrePaidData))
-		if newState.UsedAmount.Cmp(oldState.PlannedAmount.Add(oldState.PlannedAmount, oldState.FailedAmount)) > 0 {
+		updateDetails(newState, usageKey, usage)
+		if newState.UsedAmount.Cmp(oldState.PlannedAmount.Add(oldState.PlannedAmount, oldState.RefundAmount)) > 0 {
 			return nil, fmt.Errorf("Usage Exceeded on channel %v", oldState.ChannelID)
 		}
 		return BuildOldAndNewValuesForCAS(newState)
@@ -153,18 +156,24 @@ var (
 	}
 	//Make sure you update the planned amount ONLY when the new value is greater than what was last persisted
 	IncrementPlannedAmount ConditionFunc = func(params ...interface{}) (newValues []*TypedKeyValueData, err error) {
-		data := params[0].([]*PrePaidData)
 		if len(params) == 0 {
-			return nil, fmt.Errorf("You need to pass the Price and the Channel Id ")
+			return nil, fmt.Errorf("You need to pass typed Key Value data , Price and the Channel Id ")
 		}
+		data := params[0].([]*TypedKeyValueData)
+
 		businessObject, err := convertTypedDataToPrePaidUsage(data)
 		if err != nil {
 			return nil, err
 		}
+		channelId := params[2].(*big.Int)
+		usage := params[1].(*big.Int)
 		oldState := businessObject.(*PrePaidUsageData)
+		//Assuming there are no entries yet on this channel, it is very easy to pass the channel ID to the condition
+		//function and pick it from there
+		oldState.ChannelID = channelId
 		newState := oldState.Clone()
 		usageKey := &PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: oldState.ChannelID}
-		updateDetails(newState, usageKey, params[0].(*PrePaidData))
+		updateDetails(newState, usageKey, usage)
 		if newState.PlannedAmount.Cmp(oldState.PlannedAmount) < 0 {
 			return nil, fmt.Errorf("A revised higher planned amount has been signed "+
 				"already for %v on channel %v", oldState.PlannedAmount, oldState.ChannelID)
@@ -174,31 +183,34 @@ var (
 	}
 	//If there is no refund amount yet, put it , else add latest value in DB with the additional refund to be done
 	IncrementRefundAmount ConditionFunc = func(params ...interface{}) (newValues []*TypedKeyValueData, err error) {
-		data := params[0].([]*PrePaidData)
+		data := params[0].([]*TypedKeyValueData)
 		if len(params) == 0 {
 			return nil, fmt.Errorf("You need to pass the Price ")
 		}
+		channelId := params[2].(*big.Int)
+		usage := params[1].(*big.Int)
 		businessObject, err := convertTypedDataToPrePaidUsage(data)
 		if err != nil {
 			return nil, err
 		}
 		newState := businessObject.(*PrePaidUsageData)
+		newState.ChannelID = channelId
 		usageKey := &PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: newState.ChannelID}
-		updateDetails(newState, usageKey, params[0].(*PrePaidData))
+		updateDetails(newState, usageKey, usage)
 		return BuildOldAndNewValuesForCAS(newState)
 
 	}
 )
 
-func updateDetails(usageData *PrePaidUsageData, key *PrePaidDataKey, details *PrePaidData) {
+func updateDetails(usageData *PrePaidUsageData, key *PrePaidDataKey, usage *big.Int) {
 	usageData.ChannelID = key.ChannelID
 	usageData.UpdateUsageType = key.UsageType
 	switch key.UsageType {
 	case USED_AMOUNT:
-		usageData.UsedAmount.Add(details.Amount, usageData.UsedAmount)
+		usageData.UsedAmount.Add(usage, usageData.UsedAmount)
 	case PLANNED_AMOUNT:
-		usageData.PlannedAmount.Add(details.Amount, usageData.PlannedAmount)
+		usageData.PlannedAmount.Add(usage, usageData.PlannedAmount)
 	case REFUND_AMOUNT:
-		usageData.FailedAmount.Add(details.Amount, usageData.FailedAmount)
+		usageData.RefundAmount.Add(usage, usageData.RefundAmount)
 	}
 }

@@ -195,7 +195,7 @@ var (
 		}
 		newState := businessObject.(*PrePaidUsageData)
 		newState.ChannelID = channelId
-		usageKey := &PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: newState.ChannelID}
+		usageKey := &PrePaidDataKey{UsageType: REFUND_AMOUNT, ChannelID: newState.ChannelID}
 		updateDetails(newState, usageKey, usage)
 		return BuildOldAndNewValuesForCAS(newState)
 

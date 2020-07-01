@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/escrow"
+	"math/big"
 	"os"
 	"strconv"
 	"sync"
@@ -373,4 +375,30 @@ func removeWorkDir(t *testing.T, workDir string) {
 
 	err = os.RemoveAll(dir + "/" + workDir)
 	assert.Nil(t, err)
+}
+
+func (suite *EtcdTestSuite) TestExecuteTransaction() {
+	t := suite.T()
+
+	channelId := big.NewInt(1)
+	price := big.NewInt(2)
+	storage := escrow.NewPrepaidStorage(suite.client)
+	service := escrow.NewPrePaidService(storage, nil, func() (bytes [32]byte, e error) {
+		return [32]byte{123}, nil
+	})
+
+	err := service.UpdateUsage(channelId, big.NewInt(10), escrow.PLANNED_AMOUNT)
+	value, ok, err := service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.PLANNED_AMOUNT})
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, big.NewInt(10))
+	assert.Nil(t, err)
+	err = service.UpdateUsage(channelId, price, escrow.USED_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err = service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.USED_AMOUNT})
+	assert.Equal(t, value.Amount, price)
+	err = service.UpdateUsage(channelId, price, escrow.REFUND_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err = service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.REFUND_AMOUNT})
+	assert.Equal(t, value.Amount, price)
+
 }

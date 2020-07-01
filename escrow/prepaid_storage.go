@@ -34,11 +34,10 @@ func (data *PrePaidData) String() string {
 	return fmt.Sprintf("{Amount:%v}", data.Amount)
 }
 func (key *PrePaidDataKey) String() string {
-	return fmt.Sprintf("{%v%v%v}", key.ChannelID, DELIMITER, key.UsageType)
+	return fmt.Sprintf("{ChannelID:%v,UsageType:%v}", key.ChannelID, key.UsageType)
 }
 
 const (
-	DELIMITER      string = "/"
 	USED_AMOUNT    string = "U"
 	PLANNED_AMOUNT string = "P"
 	REFUND_AMOUNT  string = "R"
@@ -72,10 +71,7 @@ func (data *PrePaidUsageData) GetAmountForUsageType() (*big.Int, error) {
 
 func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 	return &PrePaidUsageData{
-		SenderAddress:   data.SenderAddress,
 		ChannelID:       data.ChannelID,
-		OrganizationId:  data.OrganizationId,
-		GroupID:         data.GroupID,
 		PlannedAmount:   big.NewInt(0).Set(data.PlannedAmount),
 		UsedAmount:      big.NewInt(0).Set(data.UsedAmount),
 		RefundAmount:    big.NewInt(0).Set(data.RefundAmount),

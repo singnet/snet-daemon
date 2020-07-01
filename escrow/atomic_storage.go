@@ -1,7 +1,9 @@
 package escrow
 
 import (
+	log "github.com/sirupsen/logrus"
 	"reflect"
+	"strings"
 )
 
 // AtomicStorage is an interface to key-value storage with atomic operations.
@@ -96,12 +98,53 @@ func (storage *PrefixedAtomicStorage) StartTransaction(conditionKeys []string) (
 	return storage.delegate.StartTransaction(conditionKeys)
 }
 
+func (storage *PrefixedAtomicStorage) appendKeyPrefix(conditionKeys []string) (preFixedConditionKeys []string) {
+	preFixedConditionKeys = make([]string, len(conditionKeys))
+	for i, key := range conditionKeys {
+		preFixedConditionKeys[i] = storage.keyPrefix + "/" + key
+	}
+	return preFixedConditionKeys
+}
+
+func (storage *PrefixedAtomicStorage) appendKeyPrefixOn(update []*KeyValueData) []*KeyValueData {
+	for _, keyValue := range update {
+		keyValue.Key = storage.keyPrefix + "/" + keyValue.Key
+	}
+	return update
+}
+
+func (storage *PrefixedAtomicStorage) appendKeyPrefixOnCASRequest(request CASRequest) []string {
+	prefixedKeys := make([]string, len(request.ConditionKeys))
+	for i, key := range request.ConditionKeys {
+		prefixedKeys[i] = storage.keyPrefix + "/" + key
+	}
+	request.ConditionKeys = prefixedKeys
+	return prefixedKeys
+}
+
+func (storage *PrefixedAtomicStorage) removeKeyPrefixOn(update []*KeyValueData) {
+	for _, keyValue := range update {
+		originalKey := keyValue.Key
+		prefixRemovedkey := strings.Replace(originalKey, storage.keyPrefix+"/", "", -1)
+		keyValue.Key = prefixRemovedkey
+	}
+}
+
 func (storage *PrefixedAtomicStorage) CompleteTransaction(transaction Transaction, update []*KeyValueData) (ok bool, err error) {
-	return storage.delegate.CompleteTransaction(transaction, update)
+	return storage.delegate.CompleteTransaction(transaction, storage.appendKeyPrefixOn(update))
 }
 
 func (storage *PrefixedAtomicStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
-	return storage.delegate.ExecuteTransaction(request)
+	updateFunction := func(conditionValues []*KeyValueData) (update []*KeyValueData, err error) {
+		//the keys retrieved will have the storage prefix, we need to remove it ! else deserizalize of key will fail
+		storage.removeKeyPrefixOn(conditionValues)
+		newValues, err := request.Update(conditionValues)
+		storage.appendKeyPrefixOn(newValues)
+		return newValues, err
+	}
+	prefixedRequest := CASRequest{ConditionKeys: storage.appendKeyPrefixOnCASRequest(request),
+		RetryTillSuccessOrError: request.RetryTillSuccessOrError, Update: updateFunction}
+	return storage.delegate.ExecuteTransaction(prefixedRequest)
 }
 
 // TypedAtomicStorage is an atomic storage which automatically
@@ -120,10 +163,7 @@ type TypedAtomicStorage interface {
 	CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key interface{}) (err error)
-	/*
-		StartTransaction(ConditionKeys string) (transaction TypedTransaction, err error)
-		CompleteTransaction(transaction TypedTransaction, update []*TypedKeyValueData) (ok bool, err error)
-	*/ExecuteTransaction(request TypedCASRequest) (ok bool, err error)
+	ExecuteTransaction(request TypedCASRequest) (ok bool, err error)
 }
 
 type TypedTransaction interface {
@@ -136,7 +176,7 @@ type TypedUpdateFunc func(conditionValues []*TypedKeyValueData) (update []*Typed
 type TypedCASRequest struct {
 	RetryTillSuccessOrError bool
 	Update                  TypedUpdateFunc
-	ConditionKeys           []string
+	ConditionKeys           []interface{} //Typed Keys
 }
 
 type TypedKeyValueData struct {
@@ -328,11 +368,22 @@ func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASReques
 	storageRequest := CASRequest{
 		RetryTillSuccessOrError: request.RetryTillSuccessOrError,
 		Update:                  updateFunction,
-		ConditionKeys:           request.ConditionKeys,
+		ConditionKeys:           storage.convertTypedKeyToString(request.ConditionKeys),
 	}
 	return storage.atomicStorage.ExecuteTransaction(storageRequest)
 }
 
+func (storage *TypedAtomicStorageImpl) convertTypedKeyToString(typedKeys []interface{}) []string {
+	stringKeys := make([]string, len(typedKeys))
+	for i, key := range typedKeys {
+		serializedKey, err := storage.keySerializer(key)
+		stringKeys[i] = serializedKey
+		if err != nil {
+			log.Error(err)
+		}
+	}
+	return stringKeys
+}
 func (storage *TypedAtomicStorageImpl) StartTransaction(conditionKeys []string) (transaction TypedTransaction, err error) {
 	transactionString, err := storage.atomicStorage.StartTransaction(conditionKeys)
 	if err != nil {

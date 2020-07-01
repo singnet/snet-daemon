@@ -312,7 +312,10 @@ func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool
 		if ok, err = client.CompleteTransaction(transaction, newValues); err != nil {
 			return false, err
 		}
-		if request.RetryTillSuccessOrError && !ok {
+		if ok {
+			return true, nil
+		}
+		if request.RetryTillSuccessOrError {
 			continue
 		}
 	}
@@ -326,7 +329,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 
 	var transaction *etcdTransaction = _transaction.(*etcdTransaction)
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout*time.Second*100)
 	defer cancel()
 	defer ctx.Done()
 
@@ -373,13 +376,19 @@ func GetKeysFromKeyValueData(update []*escrow.KeyValueData) []string {
 }
 
 func (client *EtcdClient) buildIf(txn clientv3.Txn, transaction *etcdTransaction) (clientv3.Txn, error) {
-
+	if len(transaction.ConditionValues) == 0 {
+		return txn.If(client.alwaysTrueCompare()), nil
+	}
 	cmps := make([]clientv3.Cmp, len(transaction.ConditionValues))
 
 	for i, cmp := range transaction.ConditionValues {
 		cmps[i] = clientv3.Compare(clientv3.ModRevision(cmp.Key), "=", cmp.Version)
 	}
 	return txn.If(cmps...), nil
+}
+
+func (client *EtcdClient) alwaysTrueCompare() clientv3.Cmp {
+	return clientv3.Compare(clientv3.ModRevision("dummyKey"), "=", 0)
 }
 
 func (client *EtcdClient) buildThenOperations(txn clientv3.Txn, update []*escrow.KeyValueData) (clientv3.Txn, error) {
@@ -455,7 +464,7 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction escrow.T
 	txn := client.etcdv3.KV.Txn(ctx)
 	//Goal is to read all the key values in one Shot !
 	//todo is there a better way to read all values in one transaction
-	txn.If(clientv3.Compare(clientv3.ModRevision("dummyKey"), "=", 0)).Then(ops...)
+	txn.If(client.alwaysTrueCompare()).Then(ops...)
 	txnResp, err := txn.Commit()
 
 	if err != nil {

@@ -113,7 +113,7 @@ func (storage *memoryStorage) StartTransaction(conditionKeys []string) (transact
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (storage *memoryStorage) CompleteTransaction(transaction Transaction, update []*KeyValueData) (ok bool, err error) {
+func (storage *memoryStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
 	return false, fmt.Errorf("Not implemented")
 }
 

@@ -1,7 +1,6 @@
 package escrow
 
 import (
-	log "github.com/sirupsen/logrus"
 	"reflect"
 	"strings"
 )
@@ -363,25 +362,28 @@ func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASReques
 		}
 		return storage.convertTypedKeyValueDataToString(typedUpdate)
 	}
-
+	conditionKeysString, err := storage.convertTypedKeyToString(request.ConditionKeys)
+	if err != nil {
+		return false, err
+	}
 	storageRequest := CASRequest{
 		RetryTillSuccessOrError: request.RetryTillSuccessOrError,
 		Update:                  updateFunction,
-		ConditionKeys:           storage.convertTypedKeyToString(request.ConditionKeys),
+		ConditionKeys:           conditionKeysString,
 	}
 	return storage.atomicStorage.ExecuteTransaction(storageRequest)
 }
 
-func (storage *TypedAtomicStorageImpl) convertTypedKeyToString(typedKeys []interface{}) []string {
+func (storage *TypedAtomicStorageImpl) convertTypedKeyToString(typedKeys []interface{}) ([]string, error) {
 	stringKeys := make([]string, len(typedKeys))
 	for i, key := range typedKeys {
 		serializedKey, err := storage.keySerializer(key)
 		stringKeys[i] = serializedKey
 		if err != nil {
-			log.Error(err)
+			return nil, err
 		}
 	}
-	return stringKeys
+	return stringKeys, nil
 }
 func (storage *TypedAtomicStorageImpl) StartTransaction(conditionKeys []string) (transaction TypedTransaction, err error) {
 	transactionString, err := storage.atomicStorage.StartTransaction(conditionKeys)

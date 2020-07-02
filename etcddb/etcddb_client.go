@@ -315,8 +315,8 @@ func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool
 		if ok {
 			return true, nil
 		}
-		if request.RetryTillSuccessOrError {
-			continue
+		if !request.RetryTillSuccessOrError {
+			break
 		}
 	}
 }

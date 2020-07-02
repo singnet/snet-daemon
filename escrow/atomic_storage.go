@@ -93,8 +93,26 @@ func (storage *PrefixedAtomicStorage) Delete(key string) (err error) {
 	return storage.delegate.Delete(storage.keyPrefix + "/" + key)
 }
 
+type prefixedTransactionImpl struct {
+	transaction Transaction
+	storage     *PrefixedAtomicStorage
+}
+
+func (transaction prefixedTransactionImpl) GetConditionValues() ([]KeyValueData, error) {
+	conditionKeyValues, err := transaction.GetConditionValues()
+	if err != nil {
+		return nil, err
+	}
+	unPrefixedKeyValues := transaction.storage.removeKeyPrefixOn(conditionKeyValues)
+	return unPrefixedKeyValues, nil
+}
 func (storage *PrefixedAtomicStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
-	return storage.delegate.StartTransaction(conditionKeys)
+	prefixedKeys := storage.appendKeyPrefix(conditionKeys)
+	transaction, err = storage.delegate.StartTransaction(prefixedKeys)
+	if err != nil {
+		return nil, err
+	}
+	return prefixedTransactionImpl{storage: storage, transaction: transaction}, nil
 }
 
 func (storage *PrefixedAtomicStorage) appendKeyPrefix(conditionKeys []string) (preFixedConditionKeys []string) {
@@ -134,7 +152,7 @@ func (storage *PrefixedAtomicStorage) removeKeyPrefixOn(update []KeyValueData) [
 }
 
 func (storage *PrefixedAtomicStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
-	return storage.delegate.CompleteTransaction(transaction, storage.appendKeyPrefixOn(update))
+	return storage.delegate.CompleteTransaction(transaction.(*prefixedTransactionImpl).transaction, storage.appendKeyPrefixOn(update))
 }
 
 func (storage *PrefixedAtomicStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {

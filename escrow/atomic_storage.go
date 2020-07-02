@@ -118,7 +118,6 @@ func (storage *PrefixedAtomicStorage) appendKeyPrefixOnCASRequest(request CASReq
 	for i, key := range request.ConditionKeys {
 		prefixedKeys[i] = storage.keyPrefix + "/" + key
 	}
-	request.ConditionKeys = prefixedKeys
 	return prefixedKeys
 }
 

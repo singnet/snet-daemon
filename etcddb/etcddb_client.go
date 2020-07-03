@@ -310,9 +310,12 @@ func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool
 		if err != nil {
 			return false, err
 		}
-		newValues, err := request.Update(oldValues)
+		newValues, ok, err := request.Update(oldValues)
 		if err != nil {
 			return false, err
+		}
+		if !ok {
+			return false, nil
 		}
 		if ok, err = client.CompleteTransaction(transaction, newValues); err != nil {
 			return false, err

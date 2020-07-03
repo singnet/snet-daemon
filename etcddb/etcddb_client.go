@@ -309,7 +309,13 @@ func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool
 		if err != nil {
 			return false, err
 		}
-		if ok, err = client.CompleteTransaction(transaction, newValues); err != nil {
+		//we dont have any old values , then use putIfAbsent to persist
+		if len(oldValues) == 0 {
+			for _, updateKeyValue := range newValues {
+				ok, err = client.PutIfAbsent(updateKeyValue.Key, updateKeyValue.Value)
+			}
+
+		} else if ok, err = client.CompleteTransaction(transaction, newValues); err != nil {
 			return false, err
 		}
 		if ok {
@@ -323,7 +329,6 @@ func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool
 
 //If there are no Old values in the transaction, to compare, then this method
 //can be used to write in the new values , if the key does not exist then put it in a transaction
-
 func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, update []escrow.KeyValueData) (
 	ok bool, err error) {
 
@@ -335,16 +340,23 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 
 	txn := client.etcdv3.KV.Txn(ctx)
 	var txnResp *clientv3.TxnResponse
-	if txn, err = client.buildIf(txn, transaction); err != nil {
-		return false, err
+	conditionKeys := transaction.ConditionKeys
+
+	ifCompares := make([]clientv3.Cmp, len(transaction.ConditionValues))
+	for i, cmp := range transaction.ConditionValues {
+		ifCompares[i] = clientv3.Compare(clientv3.ModRevision(cmp.Key), "=", cmp.Version)
 	}
-	if txn, err = client.buildThenOperations(txn, update); err != nil {
-		return false, err
+
+	thenOps := make([]clientv3.Op, len(update))
+	for index, op := range update {
+		thenOps[index] = clientv3.OpPut(op.Key, op.Value)
 	}
-	if txn, err = client.buildElseOperations(txn, GetKeysFromKeyValueData(update)); err != nil {
-		return false, err
+
+	elseOps := make([]clientv3.Op, len(conditionKeys))
+	for index, key := range conditionKeys {
+		elseOps[index] = clientv3.OpGet(key)
 	}
-	txnResp, err = txn.Commit()
+	txnResp, err = txn.If(ifCompares...).Then(thenOps...).Else(elseOps...).Commit()
 
 	if err != nil {
 		return false, err
@@ -367,49 +379,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 	return txnResp.Succeeded, nil
 }
 
-func GetKeysFromKeyValueData(update []escrow.KeyValueData) []string {
-	keys := make([]string, len(update))
-	for i, key := range update {
-		keys[i] = key.Key
-	}
-	return keys
-}
-
-func (client *EtcdClient) buildIf(txn clientv3.Txn, transaction *etcdTransaction) (clientv3.Txn, error) {
-	if len(transaction.ConditionValues) == 0 {
-		return txn.If(client.alwaysTrueCompare()), nil
-	}
-	cmps := make([]clientv3.Cmp, len(transaction.ConditionValues))
-
-	for i, cmp := range transaction.ConditionValues {
-		cmps[i] = clientv3.Compare(clientv3.ModRevision(cmp.Key), "=", cmp.Version)
-	}
-	return txn.If(cmps...), nil
-}
-
-func (client *EtcdClient) alwaysTrueCompare() clientv3.Cmp {
-	return clientv3.Compare(clientv3.ModRevision("dummyKey"), "=", 0)
-}
-
-func (client *EtcdClient) buildThenOperations(txn clientv3.Txn, update []escrow.KeyValueData) (clientv3.Txn, error) {
-	ops := make([]clientv3.Op, len(update))
-	for index, op := range update {
-		ops[index] = clientv3.OpPut(op.Key, op.Value)
-	}
-	return txn.Then(ops...), nil
-}
-
-func (client *EtcdClient) buildElseOperations(txn clientv3.Txn, conditionKeys []string) (clientv3.Txn, error) {
-	ops := make([]clientv3.Op, len(conditionKeys))
-	for index, key := range conditionKeys {
-		ops[index] = clientv3.OpGet(key)
-	}
-	return txn.Else(ops...), nil
-}
-
 func (client *EtcdClient) checkTxnResponse(txnResp *clientv3.TxnResponse) (latestStateArray []*keyValueVersion, err error) {
-
-	//if !txnResp.Succeeded {
 	latestStateArray = make([]*keyValueVersion, 0)
 	for _, response := range txnResp.Responses {
 		txnGetValue := (*clientv3.GetResponse)(response.GetResponseRange())
@@ -457,14 +427,18 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction escrow.T
 	for i, key := range keys {
 		ops[i] = clientv3.OpGet(key)
 	}
+
+	cmps := make([]clientv3.Cmp, len(transaction.ConditionValues))
+
+	for i, cmp := range transaction.ConditionValues {
+		cmps[i] = clientv3.Compare(clientv3.CreateRevision(cmp.Key), ">", 0)
+	}
 	txn := client.etcdv3.KV.Txn(ctx)
-	//Goal is to read all the key values in one Shot !
-	//todo is there a better way to read all values in one transaction
-	txn.If(client.alwaysTrueCompare()).Then(ops...)
+	txn.If(cmps...).Then(ops...)
 	txnResp, err := txn.Commit()
 
 	if err != nil {
-		log.WithError(err).Error("error in getting value by key prefix")
+		log.WithError(err).Error("error in getting values")
 		return nil, err
 	}
 	if txnResp != nil {

@@ -213,21 +213,20 @@ type EtcdKeyValue struct {
 
 // CompareAndSwap uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
-
-	transaction, err := client.StartTransaction([]string{key})
-	if err != nil {
-		return false, err
-	}
-	update := make([]escrow.KeyValueData, 0)
-	values, err := transaction.GetConditionValues()
-	if err != nil {
-		return false, err
-	}
-	if strings.Compare(values[0].Value, prevValue) == 0 {
-		update = append(update, escrow.KeyValueData{Key: key, Value: newValue})
-		return client.CompleteTransaction(transaction, update)
-	}
-	return false, nil
+	return client.ExecuteTransaction(escrow.CASRequest{
+		RetryTillSuccessOrError: false,
+		ConditionKeys:           []string{key},
+		Update: func(oldValues []escrow.KeyValueData) (update []escrow.KeyValueData, ok bool, err error) {
+			if oldValues[0].Present && strings.Compare(oldValues[0].Value, prevValue) == 0 {
+				return []escrow.KeyValueData{escrow.KeyValueData{
+					Key:   key,
+					Value: newValue,
+				}}, true, nil
+			} else {
+				return nil, false, nil
+			}
+		},
+	})
 }
 
 // Transaction uses CAS operation to compare and set multiple key values
@@ -267,27 +266,19 @@ func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValu
 
 // PutIfAbsent puts value if absent
 func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err error) {
-	log := log.WithField("func", "PutIfAbsent").WithField("key", key).WithField("client", client)
-
-	transaction, err := client.StartTransaction([]string{key})
-	if err != nil {
-		log.WithError(err).Error("Error in PutIfAbsent while trying to retrieve key")
-		return false, err
-	}
-
-	values, err := transaction.GetConditionValues()
-	if err != nil {
-		return false, err
-	}
-	for _, value := range values {
-		if value.Present {
-			return false, nil
-		}
-	}
-
-	update := make([]escrow.KeyValueData, 0)
-	update = append(update, escrow.KeyValueData{Key: key, Value: value})
-	return client.CompleteTransaction(transaction, update)
+	return client.ExecuteTransaction(escrow.CASRequest{
+		RetryTillSuccessOrError: false,
+		ConditionKeys:           []string{key},
+		Update: func(oldValues []escrow.KeyValueData) (update []escrow.KeyValueData, ok bool, err error) {
+			if oldValues[0].Present {
+				return nil, false, nil
+			}
+			return []escrow.KeyValueData{escrow.KeyValueData{
+				Key:   key,
+				Value: value,
+			}}, true, nil
+		},
+	})
 }
 
 // NewMutex Create a mutex for the given key

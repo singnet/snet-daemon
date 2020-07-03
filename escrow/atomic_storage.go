@@ -147,6 +147,7 @@ func (storage *PrefixedAtomicStorage) removeKeyPrefixOn(update []KeyValueData) [
 		keyValue.Key = originalKey
 		noPrefixKeyValue[i].Key = originalKey
 		noPrefixKeyValue[i].Value = keyValue.Value
+		noPrefixKeyValue[i].Present = keyValue.Present
 	}
 	return noPrefixKeyValue
 }
@@ -351,21 +352,22 @@ func (transaction *typedTransactionImpl) GetConditionValues() ([]TypedKeyValueDa
 	return transaction.storage.convertKeyValueDataToTyped(keyValueDataString)
 }
 
-func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData []KeyValueData) ([]TypedKeyValueData, error) {
-	result := make([]TypedKeyValueData, len(keyValueData))
+func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData []KeyValueData) (result []TypedKeyValueData, err error) {
+	result = make([]TypedKeyValueData, len(keyValueData))
 	for i, keyValueString := range keyValueData {
-		key, err := storage.deserializeKey(keyValueString.Key)
-		if err != nil {
-			return nil, err
-		}
-		value, err := storage.deserializeValue(keyValueString.Value)
-		if err != nil {
-			return nil, err
-		}
 		result[i] = TypedKeyValueData{
-			Key:     key,
-			Value:   value,
 			Present: keyValueString.Present,
+		}
+		result[i].Key, err = storage.deserializeKey(keyValueString.Key)
+		if err != nil {
+			return nil, err
+		}
+		if !keyValueString.Present {
+			continue
+		}
+		result[i].Value, err = storage.deserializeValue(keyValueString.Value)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return result, nil
@@ -423,17 +425,19 @@ func (storage *TypedAtomicStorageImpl) convertTypedKeyValueDataToString(
 	update []TypedKeyValueData) (data []KeyValueData, err error) {
 	updateString := make([]KeyValueData, len(update))
 	for i, keyValue := range update {
-		key, err := storage.keySerializer(keyValue.Key)
-		if err != nil {
-			return nil, err
-		}
-		value, err := storage.valueSerializer(keyValue.Value)
-		if err != nil {
-			return nil, err
-		}
 		updateString[i] = KeyValueData{
-			Key:   key,
-			Value: value,
+			Present: keyValue.Present,
+		}
+		updateString[i].Key, err = storage.keySerializer(keyValue.Key)
+		if err != nil {
+			return nil, err
+		}
+		if !keyValue.Present {
+			continue
+		}
+		updateString[i].Value, err = storage.valueSerializer(keyValue.Value)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return updateString, nil

@@ -36,7 +36,7 @@ type Transaction interface {
 }
 
 //Best to change this to KeyValueData , will do this in the next commit
-type UpdateFunc func(conditionValues []KeyValueData) (update []KeyValueData, err error)
+type UpdateFunc func(conditionValues []KeyValueData) (update []KeyValueData, ok bool, err error)
 
 type CASRequest struct {
 	RetryTillSuccessOrError bool
@@ -103,9 +103,10 @@ func (transaction prefixedTransactionImpl) GetConditionValues() ([]KeyValueData,
 	if err != nil {
 		return nil, err
 	}
-	unPrefixedKeyValues := transaction.storage.removeKeyPrefixOn(conditionKeyValues)
+	unPrefixedKeyValues := transaction.storage.removeKeyValuePrefix(conditionKeyValues)
 	return unPrefixedKeyValues, nil
 }
+
 func (storage *PrefixedAtomicStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
 	prefixedKeys := storage.appendKeyPrefix(conditionKeys)
 	transaction, err = storage.delegate.StartTransaction(prefixedKeys)
@@ -116,54 +117,51 @@ func (storage *PrefixedAtomicStorage) StartTransaction(conditionKeys []string) (
 }
 
 func (storage *PrefixedAtomicStorage) appendKeyPrefix(conditionKeys []string) (preFixedConditionKeys []string) {
-	preFixedConditionKeys = make([]string, len(conditionKeys))
-	for i, key := range conditionKeys {
-		preFixedConditionKeys[i] = storage.keyPrefix + "/" + key
-	}
-	return preFixedConditionKeys
-}
-
-func (storage *PrefixedAtomicStorage) appendKeyPrefixOn(update []KeyValueData) []KeyValueData {
-	prefixedKeyValueData := make([]KeyValueData, len(update))
-	for i, keyValue := range update {
-		prefixedKeyValueData[i].Key = storage.keyPrefix + "/" + keyValue.Key
-		prefixedKeyValueData[i].Value = keyValue.Value
-	}
-	return prefixedKeyValueData
-}
-
-func (storage *PrefixedAtomicStorage) appendKeyPrefixOnCASRequest(request CASRequest) []string {
-	prefixedKeys := make([]string, len(request.ConditionKeys))
-	for i, key := range request.ConditionKeys {
+	prefixedKeys := make([]string, len(conditionKeys))
+	copy(prefixedKeys, conditionKeys)
+	for i, key := range prefixedKeys {
 		prefixedKeys[i] = storage.keyPrefix + "/" + key
 	}
 	return prefixedKeys
 }
 
-func (storage *PrefixedAtomicStorage) removeKeyPrefixOn(update []KeyValueData) []KeyValueData {
-	noPrefixKeyValue := make([]KeyValueData, len(update))
-	for i, keyValue := range update {
-		originalKey := strings.Replace(keyValue.Key, storage.keyPrefix+"/", "", -1)
-		keyValue.Key = originalKey
-		noPrefixKeyValue[i].Key = originalKey
-		noPrefixKeyValue[i].Value = keyValue.Value
+func (storage *PrefixedAtomicStorage) appendKeyValuePrefix(update []KeyValueData) []KeyValueData {
+	if update == nil {
+		return nil
 	}
-	return noPrefixKeyValue
+	prefixedKeyValueData := make([]KeyValueData, len(update))
+	copy(prefixedKeyValueData, update)
+	for i, keyValue := range prefixedKeyValueData {
+		prefixedKeyValueData[i].Key = storage.keyPrefix + "/" + keyValue.Key
+	}
+	return prefixedKeyValueData
+}
+
+func (storage *PrefixedAtomicStorage) removeKeyValuePrefix(update []KeyValueData) []KeyValueData {
+	unprefixedKeyValueData := make([]KeyValueData, len(update))
+	copy(unprefixedKeyValueData, update)
+	for i, keyValue := range unprefixedKeyValueData {
+		unprefixedKeyValueData[i].Key = strings.Replace(keyValue.Key, storage.keyPrefix+"/", "", -1)
+	}
+	return unprefixedKeyValueData
 }
 
 func (storage *PrefixedAtomicStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
-	return storage.delegate.CompleteTransaction(transaction.(*prefixedTransactionImpl).transaction, storage.appendKeyPrefixOn(update))
+	return storage.delegate.CompleteTransaction(transaction.(*prefixedTransactionImpl).transaction, storage.appendKeyValuePrefix(update))
 }
 
 func (storage *PrefixedAtomicStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
-	updateFunction := func(conditionKeyValues []KeyValueData) (update []KeyValueData, err error) {
+	updateFunction := func(conditionKeyValues []KeyValueData) (update []KeyValueData, ok bool, err error) {
 		//the keys retrieved will have the storage prefix, we need to remove it ! else deserizalize of key will fail
-		originalKeyValues := storage.removeKeyPrefixOn(conditionKeyValues)
-		newValues, err := request.Update(originalKeyValues)
-		return storage.appendKeyPrefixOn(newValues), err
+		originalKeyValues := storage.removeKeyValuePrefix(conditionKeyValues)
+		newValues, ok, err := request.Update(originalKeyValues)
+		return storage.appendKeyValuePrefix(newValues), ok, err
 	}
-	prefixedRequest := CASRequest{ConditionKeys: storage.appendKeyPrefixOnCASRequest(request),
-		RetryTillSuccessOrError: request.RetryTillSuccessOrError, Update: updateFunction}
+	prefixedRequest := CASRequest{
+		ConditionKeys:           storage.appendKeyPrefix(request.ConditionKeys),
+		RetryTillSuccessOrError: request.RetryTillSuccessOrError,
+		Update:                  updateFunction,
+	}
 	return storage.delegate.ExecuteTransaction(prefixedRequest)
 }
 
@@ -191,7 +189,7 @@ type TypedTransaction interface {
 }
 
 //Best to change this to KeyValueData , will do this in the next commit
-type TypedUpdateFunc func(conditionValues []TypedKeyValueData) (update []TypedKeyValueData, err error)
+type TypedUpdateFunc func(conditionValues []TypedKeyValueData) (update []TypedKeyValueData, ok bool, err error)
 
 type TypedCASRequest struct {
 	RetryTillSuccessOrError bool
@@ -351,21 +349,22 @@ func (transaction *typedTransactionImpl) GetConditionValues() ([]TypedKeyValueDa
 	return transaction.storage.convertKeyValueDataToTyped(keyValueDataString)
 }
 
-func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData []KeyValueData) ([]TypedKeyValueData, error) {
-	result := make([]TypedKeyValueData, len(keyValueData))
+func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData []KeyValueData) (result []TypedKeyValueData, err error) {
+	result = make([]TypedKeyValueData, len(keyValueData))
 	for i, keyValueString := range keyValueData {
-		key, err := storage.deserializeKey(keyValueString.Key)
-		if err != nil {
-			return nil, err
-		}
-		value, err := storage.deserializeValue(keyValueString.Value)
-		if err != nil {
-			return nil, err
-		}
 		result[i] = TypedKeyValueData{
-			Key:     key,
-			Value:   value,
 			Present: keyValueString.Present,
+		}
+		result[i].Key, err = storage.deserializeKey(keyValueString.Key)
+		if err != nil {
+			return nil, err
+		}
+		if !keyValueString.Present {
+			continue
+		}
+		result[i].Value, err = storage.deserializeValue(keyValueString.Value)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return result, nil
@@ -373,16 +372,17 @@ func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData [
 
 func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASRequest) (ok bool, err error) {
 
-	updateFunction := func(conditionValues []KeyValueData) (update []KeyValueData, err error) {
+	updateFunction := func(conditionValues []KeyValueData) (update []KeyValueData, ok bool, err error) {
 		typedValues, err := storage.convertKeyValueDataToTyped(conditionValues)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		typedUpdate, err := request.Update(typedValues)
+		typedUpdate, ok, err := request.Update(typedValues)
 		if err != nil {
-			return nil, err
+			return nil, ok, err
 		}
-		return storage.convertTypedKeyValueDataToString(typedUpdate)
+		stringUpdate, err := storage.convertTypedKeyValueDataToString(typedUpdate)
+		return stringUpdate, ok, err
 	}
 	conditionKeysString, err := storage.convertTypedKeyToString(request.ConditionKeys)
 	if err != nil {
@@ -396,11 +396,10 @@ func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASReques
 	return storage.atomicStorage.ExecuteTransaction(storageRequest)
 }
 
-func (storage *TypedAtomicStorageImpl) convertTypedKeyToString(typedKeys []interface{}) ([]string, error) {
-	stringKeys := make([]string, len(typedKeys))
+func (storage *TypedAtomicStorageImpl) convertTypedKeyToString(typedKeys []interface{}) (stringKeys []string, err error) {
+	stringKeys = make([]string, len(typedKeys))
 	for i, key := range typedKeys {
-		serializedKey, err := storage.keySerializer(key)
-		stringKeys[i] = serializedKey
+		stringKeys[i], err = storage.keySerializer(key)
 		if err != nil {
 			return nil, err
 		}
@@ -421,19 +420,24 @@ func (storage *TypedAtomicStorageImpl) StartTransaction(conditionKeys []string) 
 
 func (storage *TypedAtomicStorageImpl) convertTypedKeyValueDataToString(
 	update []TypedKeyValueData) (data []KeyValueData, err error) {
+	if update == nil {
+		return nil, nil
+	}
 	updateString := make([]KeyValueData, len(update))
 	for i, keyValue := range update {
-		key, err := storage.keySerializer(keyValue.Key)
-		if err != nil {
-			return nil, err
-		}
-		value, err := storage.valueSerializer(keyValue.Value)
-		if err != nil {
-			return nil, err
-		}
 		updateString[i] = KeyValueData{
-			Key:   key,
-			Value: value,
+			Present: keyValue.Present,
+		}
+		updateString[i].Key, err = storage.keySerializer(keyValue.Key)
+		if err != nil {
+			return nil, err
+		}
+		if !keyValue.Present {
+			continue
+		}
+		updateString[i].Value, err = storage.valueSerializer(keyValue.Value)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return updateString, nil

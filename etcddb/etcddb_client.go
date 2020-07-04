@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/golang-collections/collections/set"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/escrow"
 	"io/ioutil"
@@ -212,21 +213,20 @@ type EtcdKeyValue struct {
 
 // CompareAndSwap uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
-
-	transaction, err := client.StartTransaction([]string{key})
-	if err != nil {
-		return false, err
-	}
-	update := make([]escrow.KeyValueData, 0)
-	values, err := transaction.GetConditionValues()
-	if err != nil {
-		return false, err
-	}
-	if strings.Compare(values[0].Value, prevValue) == 0 {
-		update = append(update, escrow.KeyValueData{Key: key, Value: newValue})
-		return client.CompleteTransaction(transaction, update)
-	}
-	return false, nil
+	return client.ExecuteTransaction(escrow.CASRequest{
+		RetryTillSuccessOrError: false,
+		ConditionKeys:           []string{key},
+		Update: func(oldValues []escrow.KeyValueData) (update []escrow.KeyValueData, ok bool, err error) {
+			if oldValues[0].Present && strings.Compare(oldValues[0].Value, prevValue) == 0 {
+				return []escrow.KeyValueData{escrow.KeyValueData{
+					Key:   key,
+					Value: newValue,
+				}}, true, nil
+			} else {
+				return nil, false, nil
+			}
+		},
+	})
 }
 
 // Transaction uses CAS operation to compare and set multiple key values
@@ -266,23 +266,19 @@ func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValu
 
 // PutIfAbsent puts value if absent
 func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err error) {
-	log := log.WithField("func", "PutIfAbsent").WithField("key", key).WithField("client", client)
-
-	transaction, err := client.StartTransaction([]string{key})
-	if err != nil {
-		log.WithError(err).Error("Error in PutIfAbsent while trying to retrieve key")
-		return false, err
-	}
-	values, err := transaction.GetConditionValues()
-	if err != nil {
-		return false, err
-	}
-	if len(values) == 0 || !values[0].Present {
-		update := make([]escrow.KeyValueData, 0)
-		update = append(update, escrow.KeyValueData{Key: key, Value: value})
-		return client.CompleteTransaction(transaction, update)
-	}
-	return false, nil
+	return client.ExecuteTransaction(escrow.CASRequest{
+		RetryTillSuccessOrError: false,
+		ConditionKeys:           []string{key},
+		Update: func(oldValues []escrow.KeyValueData) (update []escrow.KeyValueData, ok bool, err error) {
+			if oldValues[0].Present {
+				return nil, false, nil
+			}
+			return []escrow.KeyValueData{escrow.KeyValueData{
+				Key:   key,
+				Value: value,
+			}}, true, nil
+		},
+	})
 }
 
 // NewMutex Create a mutex for the given key
@@ -305,17 +301,14 @@ func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool
 		if err != nil {
 			return false, err
 		}
-		newValues, err := request.Update(oldValues)
+		newValues, ok, err := request.Update(oldValues)
 		if err != nil {
 			return false, err
 		}
-		//we dont have any old values , then use putIfAbsent to persist
-		if len(oldValues) == 0 {
-			for _, updateKeyValue := range newValues {
-				ok, err = client.PutIfAbsent(updateKeyValue.Key, updateKeyValue.Value)
-			}
-
-		} else if ok, err = client.CompleteTransaction(transaction, newValues); err != nil {
+		if !ok {
+			return false, nil
+		}
+		if ok, err = client.CompleteTransaction(transaction, newValues); err != nil {
 			return false, err
 		}
 		if ok {
@@ -344,7 +337,11 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 
 	ifCompares := make([]clientv3.Cmp, len(transaction.ConditionValues))
 	for i, cmp := range transaction.ConditionValues {
-		ifCompares[i] = clientv3.Compare(clientv3.ModRevision(cmp.Key), "=", cmp.Version)
+		if cmp.Present {
+			ifCompares[i] = clientv3.Compare(clientv3.ModRevision(cmp.Key), "=", cmp.Version)
+		} else {
+			ifCompares[i] = clientv3.Compare(clientv3.CreateRevision(cmp.Key), "=", 0)
+		}
 	}
 
 	thenOps := make([]clientv3.Op, len(update))
@@ -369,8 +366,8 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 		return true, nil
 	}
 
-	var latestValues []*keyValueVersion
-	if latestValues, err = client.checkTxnResponse(txnResp); err != nil {
+	var latestValues []keyValueVersion
+	if latestValues, err = client.checkTxnResponse(conditionKeys, txnResp); err != nil {
 		return false, err
 	}
 
@@ -379,33 +376,42 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 	return txnResp.Succeeded, nil
 }
 
-func (client *EtcdClient) checkTxnResponse(txnResp *clientv3.TxnResponse) (latestStateArray []*keyValueVersion, err error) {
-	latestStateArray = make([]*keyValueVersion, 0)
+func (client *EtcdClient) checkTxnResponse(keys []string, txnResp *clientv3.TxnResponse) (latestStateArray []keyValueVersion, err error) {
+	keySet := set.New()
+	for _, key := range keys {
+		keySet.Insert(key)
+	}
+	// FIXME: allocate len(keys) array
+	latestStateArray = make([]keyValueVersion, 0)
 	for _, response := range txnResp.Responses {
 		txnGetValue := (*clientv3.GetResponse)(response.GetResponseRange())
-		latestValues, err := client.getState(txnGetValue)
+		latestValues, err := client.getState(keySet, txnGetValue)
 		if err != nil {
 			return nil, err
 		}
 		latestStateArray = append(latestStateArray, latestValues...)
 	}
+	keySet.Do(func(elem interface{}) {
+		latestStateArray = append(latestStateArray, keyValueVersion{
+			Key:     elem.(string),
+			Present: false,
+		})
+	})
 	return latestStateArray, nil
 
 }
 
-func (client *EtcdClient) getState(getResp *clientv3.GetResponse) (latestStateArray []*keyValueVersion, err error) {
-
-	if len(getResp.Kvs) == 0 {
-		return nil, nil
-	} else {
-		latestStateArray = make([]*keyValueVersion, len(getResp.Kvs))
-		for i, eachResponse := range getResp.Kvs {
-			state := &keyValueVersion{}
-			state.Version = eachResponse.ModRevision
-			state.Value = string(eachResponse.Value)
-			state.Key = string(eachResponse.Key)
-			latestStateArray[i] = state
+func (client *EtcdClient) getState(keySet *set.Set, getResp *clientv3.GetResponse) (latestStateArray []keyValueVersion, err error) {
+	latestStateArray = make([]keyValueVersion, len(getResp.Kvs))
+	for i, eachResponse := range getResp.Kvs {
+		state := keyValueVersion{
+			Present: true,
+			Version: eachResponse.ModRevision,
+			Value:   string(eachResponse.Value),
+			Key:     string(eachResponse.Key),
 		}
+		keySet.Remove(state.Key)
+		latestStateArray[i] = state
 	}
 	return latestStateArray, nil
 }
@@ -428,13 +434,8 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction escrow.T
 		ops[i] = clientv3.OpGet(key)
 	}
 
-	cmps := make([]clientv3.Cmp, len(transaction.ConditionValues))
-
-	for i, cmp := range transaction.ConditionValues {
-		cmps[i] = clientv3.Compare(clientv3.CreateRevision(cmp.Key), ">", 0)
-	}
 	txn := client.etcdv3.KV.Txn(ctx)
-	txn.If(cmps...).Then(ops...)
+	txn.Then(ops...)
 	txnResp, err := txn.Commit()
 
 	if err != nil {
@@ -442,8 +443,7 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction escrow.T
 		return nil, err
 	}
 	if txnResp != nil {
-
-		if latestValues, err := client.checkTxnResponse(txnResp); err != nil {
+		if latestValues, err := client.checkTxnResponse(keys, txnResp); err != nil {
 			return nil, err
 		} else {
 			transaction.ConditionValues = latestValues
@@ -455,12 +455,13 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction escrow.T
 
 type keyValueVersion struct {
 	Key     string
-	Version int64
 	Value   string
+	Present bool
+	Version int64
 }
 
 type etcdTransaction struct {
-	ConditionValues []*keyValueVersion
+	ConditionValues []keyValueVersion
 	ConditionKeys   []string
 }
 
@@ -470,7 +471,7 @@ func (transaction *etcdTransaction) GetConditionValues() ([]escrow.KeyValueData,
 		values[i] = escrow.KeyValueData{
 			Key:     value.Key,
 			Value:   value.Value,
-			Present: true,
+			Present: value.Present,
 		}
 	}
 	return values, nil

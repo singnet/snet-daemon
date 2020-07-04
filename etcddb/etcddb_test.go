@@ -287,6 +287,35 @@ func (suite *EtcdTestSuite) TestEtcdNilValue() {
 
 }
 
+func (suite *EtcdTestSuite) TestPutIfAbsentTransactionFailsAfterConcurrentPut() {
+
+	t := suite.T()
+	client := suite.client
+
+	// before
+	key := "key-put-if-absent-transaction-fails-after-concurrent-put"
+	_, ok, err := client.Get(key)
+	assert.Nil(t, err)
+	assert.False(t, ok)
+
+	// when
+	transaction, err := client.StartTransaction([]string{key})
+	assert.Nil(t, err)
+
+	err = client.Put(key, "concurrent-value")
+	assert.Nil(t, err)
+
+	// then
+	ok, err = client.CompleteTransaction(transaction, []escrow.KeyValueData{
+		escrow.KeyValueData{
+			Key:     key,
+			Value:   "transaction-value",
+			Present: true,
+		}})
+	assert.Nil(t, err)
+	assert.False(t, ok)
+}
+
 func (suite *EtcdTestSuite) TestEtcdMutex() {
 
 	t := suite.T()
@@ -387,17 +416,24 @@ func (suite *EtcdTestSuite) TestExecuteTransaction() {
 	})
 
 	err := service.UpdateUsage(channelId, big.NewInt(10), escrow.PLANNED_AMOUNT)
+	assert.Nil(t, err)
 	value, ok, err := service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.PLANNED_AMOUNT})
+	assert.Nil(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, value.Amount, big.NewInt(10))
-	assert.Nil(t, err)
+
 	err = service.UpdateUsage(channelId, price, escrow.USED_AMOUNT)
 	assert.Nil(t, err)
 	value, ok, err = service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.USED_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
 	assert.Equal(t, value.Amount, price)
+
 	err = service.UpdateUsage(channelId, price, escrow.REFUND_AMOUNT)
 	assert.Nil(t, err)
 	value, ok, err = service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.REFUND_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
 	assert.Equal(t, value.Amount, price)
 
 }

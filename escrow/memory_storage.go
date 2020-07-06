@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -106,4 +107,16 @@ func (storage *memoryStorage) Clear() (err error) {
 	storage.data = make(map[string]string)
 
 	return
+}
+
+func (storage *memoryStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
+func (storage *memoryStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
+	return false, fmt.Errorf("Not implemented")
+}
+
+func (client *memoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
+	return false, fmt.Errorf("Not implemented")
 }

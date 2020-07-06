@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/escrow"
+	"math/big"
 	"os"
 	"strconv"
 	"sync"
@@ -18,8 +20,8 @@ import (
 
 type EtcdTestSuite struct {
 	suite.Suite
-	client *EtcdClient
-	server *EtcdServer
+	client   *EtcdClient
+	server   *EtcdServer
 	metaData *blockchain.OrganizationMetaData
 }
 
@@ -28,7 +30,7 @@ func TestEtcdTestSuite(t *testing.T) {
 }
 
 func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
-	var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"org_id1\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
+	var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"org_id1\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"500s\",           \"request_timeout\": \"300s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
 	suite.metaData, _ = blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
 
 	const confJSON = `
@@ -62,7 +64,7 @@ func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 	err = server.Start()
 	assert.Nil(t, err)
 
-	client, err := NewEtcdClientFromVip(vip,suite.metaData)
+	client, err := NewEtcdClientFromVip(vip, suite.metaData)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
@@ -285,6 +287,35 @@ func (suite *EtcdTestSuite) TestEtcdNilValue() {
 
 }
 
+func (suite *EtcdTestSuite) TestPutIfAbsentTransactionFailsAfterConcurrentPut() {
+
+	t := suite.T()
+	client := suite.client
+
+	// before
+	key := "key-put-if-absent-transaction-fails-after-concurrent-put"
+	_, ok, err := client.Get(key)
+	assert.Nil(t, err)
+	assert.False(t, ok)
+
+	// when
+	transaction, err := client.StartTransaction([]string{key})
+	assert.Nil(t, err)
+
+	err = client.Put(key, "concurrent-value")
+	assert.Nil(t, err)
+
+	// then
+	ok, err = client.CompleteTransaction(transaction, []escrow.KeyValueData{
+		escrow.KeyValueData{
+			Key:     key,
+			Value:   "transaction-value",
+			Present: true,
+		}})
+	assert.Nil(t, err)
+	assert.False(t, ok)
+}
+
 func (suite *EtcdTestSuite) TestEtcdMutex() {
 
 	t := suite.T()
@@ -372,4 +403,37 @@ func removeWorkDir(t *testing.T, workDir string) {
 
 	err = os.RemoveAll(dir + "/" + workDir)
 	assert.Nil(t, err)
+}
+
+func (suite *EtcdTestSuite) TestExecuteTransaction() {
+	t := suite.T()
+
+	channelId := big.NewInt(1)
+	price := big.NewInt(2)
+	storage := escrow.NewPrepaidStorage(suite.client)
+	service := escrow.NewPrePaidService(storage, nil, func() (bytes [32]byte, e error) {
+		return [32]byte{123}, nil
+	})
+
+	err := service.UpdateUsage(channelId, big.NewInt(10), escrow.PLANNED_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err := service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.PLANNED_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, big.NewInt(10))
+
+	err = service.UpdateUsage(channelId, price, escrow.USED_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err = service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.USED_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, price)
+
+	err = service.UpdateUsage(channelId, price, escrow.REFUND_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err = service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.REFUND_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, price)
+
 }

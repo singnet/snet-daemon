@@ -49,9 +49,6 @@ const (
 	// id. Value is a string containing a decimal number.
 	PaymentMultiPartyEscrowAddressHeader = "snet-payment-mpe-address"
 
-	// This metadata will be used ONLY when block chain is disabled and allowed user flag is enabled
-	AllowedUserSignatureHeader = "snet-allowed-user-signature-bin"
-
 	//Added for free call support in Daemon
 
 	//The user Id of the person making the call
@@ -64,6 +61,10 @@ const (
 	FreeCallAuthTokenHeader = "snet-free-call-auth-token-bin"
 	//Block number on when the Token was issued , to track the expiry of the token , which is ~ 1 Month
 	FreeCallAuthTokenExpiryBlockNumberHeader = "snet-free-call-token-expiry-block"
+
+	//Users may decide to sign upfront and make calls .Daemon generates and Auth Token
+	//Users/Clients will need to use this token to make calls for the amount signed upfront.
+	PrePaidAuthTokenHeader = "snet-prepaid-auth-token"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to

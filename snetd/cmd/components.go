@@ -47,6 +47,9 @@ type Components struct {
 	configurationService       *configuration_service.ConfigurationService
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
 	organizationMetaData       *blockchain.OrganizationMetaData
+	prepaidPaymentHandler      handler.PaymentHandler
+	prepaidUserStorage         escrow.TypedAtomicStorage
+	prepaidUserService         escrow.PrePaidService
 	freeCallPaymentHandler     handler.PaymentHandler
 	freeCallUserService        escrow.FreeCallUserService
 	freeCallUserStorage        *escrow.FreeCallUserStorage
@@ -243,6 +246,15 @@ func (components *Components) FreeCallUserStorage() *escrow.FreeCallUserStorage 
 	return components.freeCallUserStorage
 }
 
+func (components *Components) PrepaidUserStorage() escrow.TypedAtomicStorage {
+	if components.prepaidUserStorage != nil {
+		return components.prepaidUserStorage
+	}
+
+	components.prepaidUserStorage = escrow.NewPrepaidStorage(components.AtomicStorage())
+
+	return components.prepaidUserStorage
+}
 func (components *Components) PaymentChannelService() escrow.PaymentChannelService {
 	if components.paymentChannelService != nil {
 		return components.paymentChannelService
@@ -311,6 +323,30 @@ func (components *Components) AllowedUserPaymentHandler() handler.PaymentHandler
 	components.allowedUserPaymentHandler = escrow.AllowedUserPaymentHandler()
 
 	return components.allowedUserPaymentHandler
+}
+
+func (components *Components) PrePaidPaymentHandler() handler.PaymentHandler {
+	if components.prepaidPaymentHandler != nil {
+		return components.freeCallPaymentHandler
+	}
+
+	components.prepaidPaymentHandler = escrow.
+		NewPrePaidPaymentHandler(components.PrePaidService(), components.OrganizationMetaData(), components.ServiceMetaData(),
+			components.PricingStrategy())
+
+	return components.prepaidPaymentHandler
+}
+
+func (components *Components) PrePaidService() escrow.PrePaidService {
+	if components.prepaidUserService != nil {
+		return components.prepaidUserService
+	}
+	components.prepaidUserService = escrow.NewPrePaidService(components.PrepaidUserStorage(),
+		escrow.NewPrePaidPaymentValidator(components.PricingStrategy()), func() ([32]byte, error) {
+			s := components.OrganizationMetaData().GetGroupId()
+			return s, nil
+		})
+	return components.prepaidUserService
 }
 
 //Add a chain of interceptors
@@ -416,7 +452,8 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 		return handler.NoOpInterceptor
 	} else {
 		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
-		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(), components.FreeCallPaymentHandler())
+		return handler.GrpcPaymentValidationInterceptor(components.EscrowPaymentHandler(),
+			components.FreeCallPaymentHandler(), components.PrePaidPaymentHandler())
 	}
 }
 

@@ -111,9 +111,6 @@ func convertTypedDataToPrePaidUsage(data []TypedKeyValueData) (new *PrePaidUsage
 }
 
 func BuildOldAndNewValuesForCAS(data *PrePaidUsageData) (newValues []TypedKeyValueData, err error) {
-	if data == nil {
-		return nil, fmt.Errorf("Expected PrePaidUsageData in Params as the first parmeter")
-	}
 	updateUsageData := &PrePaidData{}
 	updateUsageKey := &PrePaidDataKey{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType}
 	if amt, err := data.GetAmountForUsageType(); err != nil {
@@ -139,7 +136,7 @@ var (
 		usageKey := &PrePaidDataKey{UsageType: USED_AMOUNT, ChannelID: oldState.ChannelID}
 		updateDetails(newState, usageKey, revisedAmount)
 		if newState.UsedAmount.Cmp(oldState.PlannedAmount.Add(oldState.PlannedAmount, oldState.RefundAmount)) > 0 {
-			return nil, fmt.Errorf("Usage Exceeded on channel %v", oldState.ChannelID)
+			return nil, fmt.Errorf("Usage Exceeded on channel Id %v", oldState.ChannelID)
 		}
 		return BuildOldAndNewValuesForCAS(newState)
 
@@ -154,11 +151,12 @@ var (
 		//function and pick it from there
 		oldState.ChannelID = channelId
 		newState := oldState.Clone()
-		usageKey := &PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: oldState.ChannelID}
-		updateDetails(newState, usageKey, revisedAmount)
+		//we dont add the old amount planned amont , we just replace it with the latest planned amount signed
+		newState.UpdateUsageType = PLANNED_AMOUNT
+		newState.PlannedAmount = revisedAmount
 		if newState.PlannedAmount.Cmp(oldState.PlannedAmount) < 0 {
-			return nil, fmt.Errorf("A revised higher planned amount has been signed "+
-				"already for %v on channel %v", oldState.PlannedAmount, oldState.ChannelID)
+			return nil, fmt.Errorf("you need to sign for a higher planned amount than %v"+
+				" on the channel Id %v", oldState.PlannedAmount, oldState.ChannelID)
 		}
 		return BuildOldAndNewValuesForCAS(newState)
 

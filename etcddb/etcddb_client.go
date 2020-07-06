@@ -346,6 +346,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 
 	thenOps := make([]clientv3.Op, len(update))
 	for index, op := range update {
+		// TODO: add OpDelete if op.Present is false
 		thenOps[index] = clientv3.OpPut(op.Key, op.Value)
 	}
 

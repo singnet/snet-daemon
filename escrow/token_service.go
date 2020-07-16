@@ -1,3 +1,4 @@
+//go:generate protoc -I . ./token_service.proto --go_out=plugins=grpc:.
 package escrow
 
 import (

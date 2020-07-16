@@ -414,8 +414,8 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 		return false, fmt.Errorf("Empty response received.")
 	}
 	if response.StatusCode != http.StatusOK {
-		log.Error("Manager call failed with status code : %d ", response.StatusCode)
-		return false, fmt.Errorf("Manager call failed with status code : %d ", response.StatusCode)
+		log.Error("Service call failed with status code : %d ", response.StatusCode)
+		return false, fmt.Errorf("Service call failed with status code : %d ", response.StatusCode)
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -430,7 +430,7 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 	defer response.Body.Close()
 
 	if strings.Compare(responseBody.Data, "success") != 0 {
-		return false, fmt.Errorf("Error returned by by Metering Manager %s Verification,"+
+		return false, fmt.Errorf("Error returned by by Metering Service %s Verification,"+
 			" pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
 			"to the private key in Daemon config.", config.GetString(config.MeteringEndPoint)+"/verify")
 	}

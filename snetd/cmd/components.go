@@ -54,7 +54,8 @@ type Components struct {
 	freeCallUserService        escrow.FreeCallUserService
 	freeCallUserStorage        *escrow.FreeCallUserStorage
 	freeCallLockerStorage      *escrow.PrefixedAtomicStorage
-	tokenService               token.Service
+	tokenManager               token.Manager
+	tokenService               *escrow.TokenService
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -413,8 +414,8 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 		return false, fmt.Errorf("Empty response received.")
 	}
 	if response.StatusCode != http.StatusOK {
-		log.Error("Service call failed with status code : %d ", response.StatusCode)
-		return false, fmt.Errorf("Service call failed with status code : %d ", response.StatusCode)
+		log.Error("Manager call failed with status code : %d ", response.StatusCode)
+		return false, fmt.Errorf("Manager call failed with status code : %d ", response.StatusCode)
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -429,7 +430,7 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 	defer response.Body.Close()
 
 	if strings.Compare(responseBody.Data, "success") != 0 {
-		return false, fmt.Errorf("Error returned by by Metering Service %s Verification,"+
+		return false, fmt.Errorf("Error returned by by Metering Manager %s Verification,"+
 			" pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
 			"to the private key in Daemon config.", config.GetString(config.MeteringEndPoint)+"/verify")
 	}
@@ -545,12 +546,25 @@ func (components *Components) ConfigurationService() *configuration_service.Conf
 	return components.configurationService
 }
 
-func (components *Components) TokenService() token.Service {
+func (components *Components) TokenManager() token.Manager {
+	if components.tokenManager != nil {
+		return components.tokenManager
+	}
+
+	components.tokenManager = token.NewJWTTokenService(*components.OrganizationMetaData())
+
+	return components.tokenManager
+}
+
+func (components *Components) TokenService() *escrow.TokenService {
 	if components.tokenService != nil {
 		return components.tokenService
 	}
 
-	components.tokenService = token.NewJWTTokenService(*components.OrganizationMetaData())
+	components.tokenService = escrow.NewTokenService(components.PaymentChannelService(),
+		components.PrePaidService(), components.TokenManager(),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()),
+		components.ServiceMetaData())
 
 	return components.tokenService
 }

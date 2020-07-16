@@ -41,6 +41,8 @@ message TokenRequest {
     //current block number (signature will be valid only for short time around this block number)
     uint64 current_block = 5;
 
+    bytes claim_signature = 6;
+
 }
 
 // TokenReply message contains a latest channel state. current_nonce and

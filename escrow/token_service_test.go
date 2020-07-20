@@ -135,7 +135,7 @@ func TestTokenServiceTestSuite(t *testing.T) {
 func (suite *TokenServiceTestSuite) TestGetToken() {
 	request := &TokenRequest{
 		ChannelId:    1,
-		SignedAmount: 10,
+		SignedAmount: 11,
 		CurrentNonce: 0,
 		CurrentBlock: 100,
 	}
@@ -143,13 +143,28 @@ func (suite *TokenServiceTestSuite) TestGetToken() {
 	reply, err := suite.service.GetToken(nil, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), reply.UsedAmount, big.NewInt(0).Uint64())
-	assert.Equal(suite.T(), reply.PlannedAmount, big.NewInt(10).Uint64())
+	assert.Equal(suite.T(), reply.PlannedAmount, big.NewInt(1).Uint64())
 
 	usage, ok, err := suite.service.prePaidUsageService.GetUsage(
 		PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: suite.channelID})
 	assert.True(suite.T(), ok)
 	assert.Nil(suite.T(), err)
-	assert.Equal(suite.T(), usage.Amount, big.NewInt(10))
+	assert.Equal(suite.T(), usage.Amount, big.NewInt(1))
+
+	channel, ok, err := suite.service.channelService.PaymentChannel(&PaymentChannelKey{ID: suite.channelID})
+	assert.Equal(suite.T(), channel.AuthorizedAmount, big.NewInt(11))
+	assert.True(suite.T(), ok)
+	assert.Nil(suite.T(), err)
+	// Request a Token for the same last signed amount
+	reply, err = suite.service.GetToken(nil, request)
+	assert.Nil(suite.T(), err)
+	assert.Equal(suite.T(), reply.UsedAmount, big.NewInt(0).Uint64())
+	assert.Equal(suite.T(), reply.PlannedAmount, big.NewInt(1).Uint64())
+	request.SignedAmount = 13
+	suite.SignRequest(request, suite.senderPvtKy)
+	assert.Nil(suite.T(), err)
+	assert.Equal(suite.T(), reply.UsedAmount, big.NewInt(0).Uint64())
+	assert.Equal(suite.T(), reply.PlannedAmount, big.NewInt(3).Uint64())
 
 }
 
@@ -194,7 +209,7 @@ func (suite *TokenServiceTestSuite) TestInvalidChannelID() {
 func (suite *TokenServiceTestSuite) TestInvalidSignature() {
 	request := &TokenRequest{
 		ChannelId:    1,
-		SignedAmount: 12,
+		SignedAmount: 14,
 	}
 	reply, err := suite.service.GetToken(nil, request)
 	assert.Nil(suite.T(), reply)

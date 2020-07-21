@@ -113,12 +113,9 @@ func TestFuncPlannedAmount(t *testing.T) {
 		Present: true,
 	}
 
-	newValues, err := IncrementPlannedAmount(typedArray, big.NewInt(0), channelId)
-	assert.Nil(t, newValues)
-	assert.Equal(t, err.Error(), "you need to sign for a higher planned amount than 3 on the channel Id 10")
-	newValues, err = IncrementPlannedAmount(typedArray, big.NewInt(4), channelId)
+	newValues, err := IncrementPlannedAmount(typedArray, big.NewInt(4), channelId)
 	assert.Nil(t, err)
-	assert.Equal(t, newValues[0].Value, &PrePaidData{Amount: big.NewInt(4)})
+	assert.Equal(t, newValues[0].Value, &PrePaidData{Amount: big.NewInt(7)})
 }
 
 func TestFuncRefundAmount(t *testing.T) {

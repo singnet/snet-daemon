@@ -145,11 +145,11 @@ func (suite *TokenServiceTestSuite) TestGetToken() {
 	assert.Equal(suite.T(), reply.UsedAmount, big.NewInt(0).Uint64())
 	assert.Equal(suite.T(), reply.PlannedAmount, big.NewInt(1).Uint64())
 
-	usage, ok, err := suite.service.prePaidUsageService.GetUsage(
+	plannedusage, ok, err := suite.service.prePaidUsageService.GetUsage(
 		PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: suite.channelID})
 	assert.True(suite.T(), ok)
 	assert.Nil(suite.T(), err)
-	assert.Equal(suite.T(), usage.Amount, big.NewInt(1))
+	assert.Equal(suite.T(), plannedusage.Amount, big.NewInt(1))
 
 	channel, ok, err := suite.service.channelService.PaymentChannel(&PaymentChannelKey{ID: suite.channelID})
 	assert.Equal(suite.T(), channel.AuthorizedAmount, big.NewInt(11))
@@ -162,6 +162,7 @@ func (suite *TokenServiceTestSuite) TestGetToken() {
 	assert.Equal(suite.T(), reply.PlannedAmount, big.NewInt(1).Uint64())
 	request.SignedAmount = 13
 	suite.SignRequest(request, suite.senderPvtKy)
+	reply, err = suite.service.GetToken(nil, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), reply.UsedAmount, big.NewInt(0).Uint64())
 	assert.Equal(suite.T(), reply.PlannedAmount, big.NewInt(3).Uint64())

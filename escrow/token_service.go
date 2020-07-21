@@ -76,7 +76,7 @@ func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId
 	if err = service.validator.Validate(payment, channel); err != nil {
 		return err
 	}
-	//update the channel Signature if you have a new Amount received
+	//update the channel Signature if you have a new Signed Amount received
 	if latestAuthorizedAmount.Cmp(channel.AuthorizedAmount) > 0 {
 		transaction, err := service.channelService.StartPaymentTransaction(payment)
 		if err != nil {
@@ -85,10 +85,11 @@ func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId
 		if err = transaction.Commit(); err != nil {
 			return err
 		}
+		if err = service.prePaidUsageService.UpdateUsage(channelId, latestAuthorizedAmount.Sub(latestAuthorizedAmount, channel.AuthorizedAmount), PLANNED_AMOUNT); err != nil {
+			return err
+		}
 	}
-	if err = service.prePaidUsageService.UpdateUsage(channelId, latestAuthorizedAmount.Sub(latestAuthorizedAmount, channel.AuthorizedAmount), PLANNED_AMOUNT); err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -151,8 +152,8 @@ func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest
 	if err != nil {
 		return nil, err
 	}
-	token, err := service.tokenManager.CreateToken(channelID)
-	tokenBytes := []byte(fmt.Sprintf("%v", token))
+	tokenGenerated, err := service.tokenManager.CreateToken(channelID)
+	tokenBytes := []byte(fmt.Sprintf("%v", tokenGenerated))
 	return &TokenReply{ChannelId: request.ChannelId, Token: tokenBytes, PlannedAmount: plannedAmount.Amount.Uint64(),
 		UsedAmount: usageAmount.Uint64()}, nil
 }

@@ -328,7 +328,7 @@ func (components *Components) AllowedUserPaymentHandler() handler.PaymentHandler
 
 func (components *Components) PrePaidPaymentHandler() handler.PaymentHandler {
 	if components.prepaidPaymentHandler != nil {
-		return components.freeCallPaymentHandler
+		return components.PrePaidPaymentHandler()
 	}
 
 	components.prepaidPaymentHandler = escrow.

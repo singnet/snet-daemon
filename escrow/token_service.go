@@ -62,7 +62,7 @@ func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId
 		return fmt.Errorf("error:%v was seen on retreiving details of channelID:%v",
 			err.Error(), channelId)
 	}
-	if channel.AuthorizedAmount.Cmp(latestAuthorizedAmount) >= 0 {
+	if channel.AuthorizedAmount.Cmp(latestAuthorizedAmount) > 0 {
 		return fmt.Errorf("signed amount for token request needs to be greater than last signed amount")
 	}
 	if channel.FullAmount.Cmp(latestAuthorizedAmount) < 0 {

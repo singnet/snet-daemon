@@ -138,7 +138,10 @@ func (storage *memoryStorage) CompleteTransaction(transaction Transaction, updat
 	for _, olddata := range originalValues {
 		if olddata.Present {
 			//make sure the current value is the same as the value last read
-			currentValue, _, _ := storage.Get(olddata.Key)
+			currentValue, ok, err := storage.Get(olddata.Key)
+			if !ok || err != nil {
+				return ok, err
+			}
 			if strings.Compare(currentValue, olddata.Value) == 0 {
 				if updatedData, ok := getValueDataForKey(olddata.Key, update); ok {
 					if err = storage.Put(updatedData.Key, updatedData.Value); err != nil {

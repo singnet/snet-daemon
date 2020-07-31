@@ -14,7 +14,7 @@ type customJWTokenServiceImpl struct {
 }
 
 //This will be used in components as a service to Create and Validate tokens
-func NewJWTTokenService(data blockchain.OrganizationMetaData) Service {
+func NewJWTTokenService(data blockchain.OrganizationMetaData) Manager {
 	return &customJWTokenServiceImpl{
 		getGroupId: func() string {
 			return data.GetGroupIdString()

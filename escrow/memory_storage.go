@@ -1,7 +1,6 @@
 package escrow
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 )
@@ -110,13 +109,104 @@ func (storage *memoryStorage) Clear() (err error) {
 }
 
 func (storage *memoryStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
-	return nil, fmt.Errorf("Not implemented")
+	conditionKeyValues := make([]KeyValueData, len(conditionKeys))
+	for i, key := range conditionKeys {
+		value, ok, err := storage.Get(key)
+		if err != nil {
+			return nil, err
+		} else if !ok {
+			conditionKeyValues[i] = KeyValueData{Key: key, Value: "", Present: false}
+		} else {
+			conditionKeyValues[i] = KeyValueData{Key: key, Value: value, Present: true}
+		}
+
+	}
+	transaction = &memoryStorageTransaction{ConditionKeys: conditionKeys, ConditionValues: conditionKeyValues}
+	return transaction, nil
 }
 
+func getValueDataForKey(key string, update []KeyValueData) (data KeyValueData, present bool) {
+	for _, data := range update {
+		if strings.Compare(data.Key, key) == 0 {
+			return data, true
+		}
+	}
+	return data, false
+}
 func (storage *memoryStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
-	return false, fmt.Errorf("Not implemented")
+	originalValues := transaction.(*memoryStorageTransaction).ConditionValues
+	for _, olddata := range originalValues {
+		if olddata.Present {
+			//make sure the current value is the same as the value last read
+			currentValue, ok, err := storage.Get(olddata.Key)
+			if !ok || err != nil {
+				return ok, err
+			}
+			if strings.Compare(currentValue, olddata.Value) == 0 {
+				if updatedData, ok := getValueDataForKey(olddata.Key, update); ok {
+					if err = storage.Put(updatedData.Key, updatedData.Value); err != nil {
+						return false, err
+					}
+					continue
+				}
+			}
+
+		} else {
+			if updatedData, ok := getValueDataForKey(olddata.Key, update); ok {
+				if ok, err := storage.PutIfAbsent(updatedData.Key, updatedData.Value); err != nil {
+					return false, err
+				} else if !ok {
+					return ok, nil
+				}
+				continue
+			}
+		}
+	}
+	return true, nil
 }
 
 func (client *memoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
-	return false, fmt.Errorf("Not implemented")
+
+	transaction, err := client.StartTransaction(request.ConditionKeys)
+	if err != nil {
+		return false, err
+	}
+	for {
+		oldvalues, err := transaction.GetConditionValues()
+		if err != nil {
+			return false, err
+		}
+		newvalues, ok, err := request.Update(oldvalues)
+		if err != nil {
+			return false, err
+		}
+		ok, err = client.CompleteTransaction(transaction, newvalues)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+		if request.RetryTillSuccessOrError {
+			continue
+		}
+	}
+	return true, nil
+}
+
+type memoryStorageTransaction struct {
+	ConditionValues []KeyValueData
+	ConditionKeys   []string
+}
+
+func (transaction *memoryStorageTransaction) GetConditionValues() ([]KeyValueData, error) {
+	values := make([]KeyValueData, len(transaction.ConditionValues))
+	for i, value := range transaction.ConditionValues {
+		values[i] = KeyValueData{
+			Key:     value.Key,
+			Value:   value.Value,
+			Present: value.Present,
+		}
+	}
+	return values, nil
 }

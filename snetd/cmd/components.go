@@ -333,7 +333,7 @@ func (components *Components) PrePaidPaymentHandler() handler.PaymentHandler {
 
 	components.prepaidPaymentHandler = escrow.
 		NewPrePaidPaymentHandler(components.PrePaidService(), components.OrganizationMetaData(), components.ServiceMetaData(),
-			components.PricingStrategy())
+			components.PricingStrategy(), components.TokenManager())
 
 	return components.prepaidPaymentHandler
 }
@@ -343,7 +343,7 @@ func (components *Components) PrePaidService() escrow.PrePaidService {
 		return components.prepaidUserService
 	}
 	components.prepaidUserService = escrow.NewPrePaidService(components.PrepaidUserStorage(),
-		escrow.NewPrePaidPaymentValidator(components.PricingStrategy()), func() ([32]byte, error) {
+		escrow.NewPrePaidPaymentValidator(components.PricingStrategy(), components.TokenManager()), func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil
 		})
@@ -556,9 +556,12 @@ func (components *Components) TokenManager() token.Manager {
 	return components.tokenManager
 }
 
-func (components *Components) TokenService() *escrow.TokenService {
+func (components *Components) TokenService() escrow.TokenServiceServer {
 	if components.tokenService != nil {
 		return components.tokenService
+	}
+	if !config.GetBool(config.BlockchainEnabledKey) {
+		return &escrow.BlockChainDisabledTokenService{}
 	}
 
 	components.tokenService = escrow.NewTokenService(components.PaymentChannelService(),

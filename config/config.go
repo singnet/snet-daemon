@@ -120,7 +120,8 @@ const (
 		"enabled": false
 	},
 	"alerts_email": "", 
-	"service_heartbeat_type": "http"
+	"service_heartbeat_type": "http",
+    "token_expiry_in_seconds": 20
 }
 `
 )

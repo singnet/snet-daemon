@@ -5,6 +5,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/pricing"
+	"github.com/singnet/snet-daemon/token"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -14,11 +15,13 @@ const (
 
 type PrePaidPaymentValidator struct {
 	priceStrategy *pricing.PricingStrategy
+	tokenManager  token.Manager
 }
 
-func NewPrePaidPaymentValidator(pricing *pricing.PricingStrategy) *PrePaidPaymentValidator {
+func NewPrePaidPaymentValidator(pricing *pricing.PricingStrategy, manager token.Manager) *PrePaidPaymentValidator {
 	return &PrePaidPaymentValidator{
 		priceStrategy: pricing,
+		tokenManager:  manager,
 	}
 }
 
@@ -29,23 +32,20 @@ type PrePaidPaymentHandler struct {
 	serviceMetadata         *blockchain.ServiceMetadata
 }
 
-//todo
 func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (err error) {
 	//Validate the token
-
-	//Ensure that the amount in Channel >= Signed Amount !!
-	return nil
+	return validator.tokenManager.VerifyToken(string(payment.AuthToken), payment.ChannelID)
 }
 
 // NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewPrePaidPaymentHandler(
 	PrePaidService PrePaidService, metadata *blockchain.OrganizationMetaData,
-	pServiceMetaData *blockchain.ServiceMetadata, pricing *pricing.PricingStrategy) handler.PaymentHandler {
+	pServiceMetaData *blockchain.ServiceMetadata, pricing *pricing.PricingStrategy, manager token.Manager) handler.PaymentHandler {
 	return &PrePaidPaymentHandler{
 		service:                 PrePaidService,
 		orgMetadata:             metadata,
 		serviceMetadata:         pServiceMetaData,
-		PrePaidPaymentValidator: NewPrePaidPaymentValidator(pricing),
+		PrePaidPaymentValidator: NewPrePaidPaymentValidator(pricing, manager),
 	}
 }
 
@@ -85,7 +85,7 @@ func (h *PrePaidPaymentHandler) getPaymentFromContext(context *handler.GrpcStrea
 		return
 	}
 
-	authToken, err := handler.GetBytes(context.MD, handler.PrePaidAuthTokenHeader)
+	authToken, err := handler.GetSingleValue(context.MD, handler.PrePaidAuthTokenHeader)
 	if err != nil {
 		return
 	}

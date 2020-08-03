@@ -291,7 +291,7 @@ If a value is specified , it will be used and no attempt will be made to auto de
 
 * **is_curation_in_progress** (optional; default: `false`) - You may need to protect the service provider 's service in test environment from being called by anyone, only Authorized users can make calls , when this flag is set to true, you can enforce this behaviour.Also see `curation_address_for_validation`
 
-* **token_expiry_in_seconds** (optional; default: `30`) - This is the default expiry time for a JWT token issued.
+* **token_expiry_in_minutes** (optional; default: `1440` minutes ~24hrs) - This is the default expiry time for a JWT token issued.
 
 * **token_secret_key** (optional;) - This is the secret key used to sign a JWT token , please do add this in your configuration to make your tokens a lot more secure.
 

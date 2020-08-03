@@ -56,14 +56,13 @@ func (suite *FreeCallStateServiceSuite) SetupSuite() {
 		suite.serviceMetaData)
 	suite.stateService = NewFreeCallStateService(suite.orgMetaData, suite.serviceMetaData, suite.service, suite.freeCallPaymentValidator)
 
-
 }
 
 func (suite *FreeCallStateServiceSuite) TestGetFreeCallsAvailable() {
 	suite.request = &FreeCallStateRequest{
 		UserId:               "ar@gmail.test.com",
 		CurrentBlock:         8308168,
-		TokenExpiryDateBlock: 8408168,
+		TokenExpiryDateBlock: 9408168,
 	}
 	SetAuthToken(suite)
 	SetSignature(suite)
@@ -77,7 +76,7 @@ func (suite *FreeCallStateServiceSuite) TestErrors() {
 	suite.request = &FreeCallStateRequest{
 		UserId:               "ar@invalid.test.com",
 		CurrentBlock:         8308168,
-		TokenExpiryDateBlock: 8408168,
+		TokenExpiryDateBlock: 9408168,
 	}
 	SetAuthToken(suite)
 	SetSignature(suite)
@@ -112,4 +111,3 @@ func SetSignature(suite *FreeCallStateServiceSuite) {
 	suite.request.Signature = getSignature(message, suite.freeCallUserPrivateKey)
 
 }
-

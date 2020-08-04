@@ -153,7 +153,6 @@ func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest
 		return nil, err
 	}
 	tokenGenerated, err := service.tokenManager.CreateToken(channelID)
-	tokenBytes := []byte(fmt.Sprintf("%v", tokenGenerated))
-	return &TokenReply{ChannelId: request.ChannelId, Token: tokenBytes, PlannedAmount: plannedAmount.Amount.Uint64(),
+	return &TokenReply{ChannelId: request.ChannelId, Token: fmt.Sprintf("%v", tokenGenerated), PlannedAmount: plannedAmount.Amount.Uint64(),
 		UsedAmount: usageAmount.Uint64()}, nil
 }

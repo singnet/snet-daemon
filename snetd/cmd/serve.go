@@ -35,7 +35,7 @@ var corsOptions = []handlers.CORSOption{
 }
 
 var ServeCmd = &cobra.Command{
-	Use: "serve",
+	Use:   "serve",
 	Short: "Is the default option which starts the Daemon.",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
@@ -129,7 +129,6 @@ func newDaemon(components *Components) (daemon, error) {
 	return d, nil
 }
 
-
 func (d *daemon) start() {
 
 	var tlsConfig *tls.Config
@@ -181,10 +180,11 @@ func (d *daemon) start() {
 			maxsizeOpt,
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
-		escrow.RegisterProviderControlServiceServer(d.grpcServer,d.components.ProviderControlService())
-		escrow.RegisterFreeCallStateServiceServer(d.grpcServer,d.components.FreeCallStateService())
-		grpc_health_v1.RegisterHealthServer(d.grpcServer,d.components.DaemonHeartBeat())
-		configuration_service.RegisterConfigurationServiceServer(d.grpcServer,d.components.ConfigurationService())
+		escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
+		escrow.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
+		escrow.RegisterTokenServiceServer(d.grpcServer, d.components.TokenService())
+		grpc_health_v1.RegisterHealthServer(d.grpcServer, d.components.DaemonHeartBeat())
+		configuration_service.RegisterConfigurationServiceServer(d.grpcServer, d.components.ConfigurationService())
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:

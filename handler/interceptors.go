@@ -64,7 +64,7 @@ const (
 
 	//Users may decide to sign upfront and make calls .Daemon generates and Auth Token
 	//Users/Clients will need to use this token to make calls for the amount signed upfront.
-	PrePaidAuthTokenHeader = "snet-prepaid-auth-token"
+	PrePaidAuthTokenHeader = "snet-prepaid-auth-token-bin"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to

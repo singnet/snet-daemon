@@ -54,7 +54,8 @@ type Components struct {
 	freeCallUserService        escrow.FreeCallUserService
 	freeCallUserStorage        *escrow.FreeCallUserStorage
 	freeCallLockerStorage      *escrow.PrefixedAtomicStorage
-	tokenService               token.Service
+	tokenManager               token.Manager
+	tokenService               *escrow.TokenService
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -327,7 +328,7 @@ func (components *Components) AllowedUserPaymentHandler() handler.PaymentHandler
 
 func (components *Components) PrePaidPaymentHandler() handler.PaymentHandler {
 	if components.prepaidPaymentHandler != nil {
-		return components.freeCallPaymentHandler
+		return components.PrePaidPaymentHandler()
 	}
 
 	components.prepaidPaymentHandler = escrow.
@@ -545,12 +546,25 @@ func (components *Components) ConfigurationService() *configuration_service.Conf
 	return components.configurationService
 }
 
-func (components *Components) TokenService() token.Service {
+func (components *Components) TokenManager() token.Manager {
+	if components.tokenManager != nil {
+		return components.tokenManager
+	}
+
+	components.tokenManager = token.NewJWTTokenService(*components.OrganizationMetaData())
+
+	return components.tokenManager
+}
+
+func (components *Components) TokenService() *escrow.TokenService {
 	if components.tokenService != nil {
 		return components.tokenService
 	}
 
-	components.tokenService = token.NewJWTTokenService(*components.OrganizationMetaData())
+	components.tokenService = escrow.NewTokenService(components.PaymentChannelService(),
+		components.PrePaidService(), components.TokenManager(),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()),
+		components.ServiceMetaData())
 
 	return components.tokenService
 }

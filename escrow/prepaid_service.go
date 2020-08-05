@@ -151,13 +151,8 @@ var (
 		//function and pick it from there
 		oldState.ChannelID = channelId
 		newState := oldState.Clone()
-		//we dont add the old amount planned amont , we just replace it with the latest planned amount signed
-		newState.UpdateUsageType = PLANNED_AMOUNT
-		newState.PlannedAmount = revisedAmount
-		if newState.PlannedAmount.Cmp(oldState.PlannedAmount) < 0 {
-			return nil, fmt.Errorf("you need to sign for a higher planned amount than %v"+
-				" on the channel Id %v", oldState.PlannedAmount, oldState.ChannelID)
-		}
+		usageKey := &PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: oldState.ChannelID}
+		updateDetails(newState, usageKey, revisedAmount)
 		return BuildOldAndNewValuesForCAS(newState)
 
 	}

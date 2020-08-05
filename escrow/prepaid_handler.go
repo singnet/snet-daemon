@@ -57,6 +57,9 @@ func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (tra
 	err *handler.GrpcError) {
 
 	prePaidPayment, err := h.getPaymentFromContext(context)
+	if err != nil {
+		return nil, err
+	}
 	price, priceError := h.PrePaidPaymentValidator.priceStrategy.GetPrice(context)
 	if priceError != nil {
 		return nil, paymentErrorToGrpcError(priceError)

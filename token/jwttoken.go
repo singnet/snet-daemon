@@ -29,7 +29,7 @@ func (service customJWTokenServiceImpl) CreateToken(payLoad PayLoad) (CustomToke
 	atClaims["groupId"] = service.getGroupId()
 	//set the Expiry of the Token generated
 	atClaims["exp"] = time.Now().UTC().
-		Add(time.Second * time.Duration(config.GetInt(config.TokenExpiryInSeconds))).Unix()
+		Add(time.Minute * time.Duration(config.GetInt(config.TokenExpiryInMinutes))).Unix()
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
 	return jwtToken.SignedString([]byte(config.GetString(config.TokenSecretKey)))
 }

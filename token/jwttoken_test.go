@@ -1,6 +1,8 @@
 package token
 
 import (
+	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -14,11 +16,11 @@ func Test_customJWTokenClaimsImpl_CreateToken(t *testing.T) {
 			return "GroupID"
 		},
 	}
-	token, err := tokenImpl.CreateToken("any struct")
+	token, err := tokenImpl.CreateToken(big.NewInt(10))
 	assert.Nil(t, err)
 	assert.NotNil(t, token)
-	err = tokenImpl.VerifyToken(token, "any struct")
-	config.Vip().Set(config.TokenExpiryInSeconds, 1)
+	err = tokenImpl.VerifyToken(fmt.Sprintf("%v", token), big.NewInt(10))
+	config.Vip().Set(config.TokenExpiryInMinutes, 0.1)
 	token, err = tokenImpl.CreateToken("any struct")
 	time.Sleep(time.Second * 5)
 	assert.Nil(t, err)
@@ -33,7 +35,7 @@ func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
 			return "GroupID"
 		},
 	}
-	config.Vip().Set(config.TokenExpiryInSeconds, 50)
+	config.Vip().Set(config.TokenExpiryInMinutes, 0.1)
 	token, err := tokenImpl.CreateToken("any struct")
 	err = tokenImpl.VerifyToken(token, "different struct")
 	assert.Equal(t, "payload any struct used to generate the Token doesnt match expected values", err.Error())

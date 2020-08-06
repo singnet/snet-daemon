@@ -11,7 +11,7 @@ type PrePaidPayment struct {
 	ChannelID      *big.Int
 	OrganizationId string
 	GroupId        string
-	AuthToken      []byte
+	AuthToken      string
 }
 
 //Used when the Request comes in

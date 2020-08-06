@@ -70,7 +70,7 @@ func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (tra
 	}
 	//Increment the used amount
 	if err := h.service.UpdateUsage(prePaidPayment.ChannelID, price, USED_AMOUNT); err != nil {
-		return nil, paymentErrorToGrpcError(validateErr)
+		return nil, paymentErrorToGrpcError(err)
 	}
 	transaction = &prePaidTransactionImpl{price: price, channelId: prePaidPayment.ChannelID}
 	return transaction, nil

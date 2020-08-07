@@ -207,7 +207,6 @@ type TypedKeyValueData struct {
 type TypedAtomicStorageImpl struct {
 	atomicStorage     AtomicStorage
 	keySerializer     func(key interface{}) (serialized string, err error)
-	keyDeserializer   func(serialized string) (key interface{}, err error)
 	keyType           reflect.Type
 	valueSerializer   func(value interface{}) (serialized string, err error)
 	valueDeserializer func(serialized string, value interface{}) (err error)
@@ -327,28 +326,22 @@ func (storage *TypedAtomicStorageImpl) Delete(key interface{}) (err error) {
 	return storage.atomicStorage.Delete(keyString)
 }
 
-type typedTransactionImpl struct {
-	transactionString Transaction
-	storage           *TypedAtomicStorageImpl
-}
-
-func (transaction *typedTransactionImpl) GetConditionValues() ([]TypedKeyValueData, error) {
-	keyValueDataString, err := transaction.transactionString.GetConditionValues()
-	if err != nil {
-		return nil, err
-	}
-	return transaction.storage.convertKeyValueDataToTyped(keyValueDataString)
-}
-
-func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData []KeyValueData) (result []TypedKeyValueData, err error) {
-	result = make([]TypedKeyValueData, len(keyValueData))
-	for i, keyValueString := range keyValueData {
-		result[i] = TypedKeyValueData{
-			Present: keyValueString.Present,
-		}
-		result[i].Key, err = storage.keyDeserializer(keyValueString.Key)
+func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(conditionKeys []interface{}, keyValueData []KeyValueData) (result []TypedKeyValueData, err error) {
+	result = make([]TypedKeyValueData, len(conditionKeys))
+	for i, conditionKey := range conditionKeys {
+		conditionKeyString, err := storage.keySerializer(conditionKey)
 		if err != nil {
 			return nil, err
+		}
+		result[i] = TypedKeyValueData{
+			Key:     conditionKey,
+			Present: false,
+		}
+		keyValueString, ok := findKeyValueByKey(keyValueData, conditionKeyString)
+		if ok {
+			result[i].Present = keyValueString.Present
+		} else {
+			result[i].Present = false
 		}
 		if !keyValueString.Present {
 			continue
@@ -361,10 +354,19 @@ func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData [
 	return result, nil
 }
 
+func findKeyValueByKey(keyValueData []KeyValueData, key string) (keyValueString *KeyValueData, ok bool) {
+	for _, keyValueString := range keyValueData {
+		if keyValueString.Key == key {
+			return &keyValueString, true
+		}
+	}
+	return nil, false
+}
+
 func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASRequest) (ok bool, err error) {
 
 	updateFunction := func(conditionValues []KeyValueData) (update []KeyValueData, ok bool, err error) {
-		typedValues, err := storage.convertKeyValueDataToTyped(conditionValues)
+		typedValues, err := storage.convertKeyValueDataToTyped(request.ConditionKeys, conditionValues)
 		if err != nil {
 			return nil, false, err
 		}
@@ -397,17 +399,6 @@ func (storage *TypedAtomicStorageImpl) convertTypedKeyToString(typedKeys []inter
 	}
 	return stringKeys, nil
 }
-func (storage *TypedAtomicStorageImpl) StartTransaction(conditionKeys []string) (transaction TypedTransaction, err error) {
-	transactionString, err := storage.atomicStorage.StartTransaction(conditionKeys)
-	if err != nil {
-		return
-	}
-
-	return &typedTransactionImpl{
-		transactionString: transactionString,
-		storage:           storage,
-	}, nil
-}
 
 func (storage *TypedAtomicStorageImpl) convertTypedKeyValueDataToString(
 	update []TypedKeyValueData) (data []KeyValueData, err error) {
@@ -432,11 +423,4 @@ func (storage *TypedAtomicStorageImpl) convertTypedKeyValueDataToString(
 		}
 	}
 	return updateString, nil
-}
-func (storage *TypedAtomicStorageImpl) CompleteTransaction(transaction TypedTransaction, update []TypedKeyValueData) (ok bool, err error) {
-	updateString, err := storage.convertTypedKeyValueDataToString(update)
-	if err != nil {
-		return false, err
-	}
-	return storage.atomicStorage.CompleteTransaction(transaction.(*typedTransactionImpl).transactionString, updateString)
 }

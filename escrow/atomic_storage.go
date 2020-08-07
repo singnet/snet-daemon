@@ -207,7 +207,7 @@ type TypedKeyValueData struct {
 type TypedAtomicStorageImpl struct {
 	atomicStorage     AtomicStorage
 	keySerializer     func(key interface{}) (serialized string, err error)
-	keyDeserializer   func(serialized string, key interface{}) (err error)
+	keyDeserializer   func(serialized string) (key interface{}, err error)
 	keyType           reflect.Type
 	valueSerializer   func(value interface{}) (serialized string, err error)
 	valueDeserializer func(serialized string, value interface{}) (err error)
@@ -235,15 +235,6 @@ func (storage *TypedAtomicStorageImpl) Get(key interface{}) (value interface{}, 
 	}
 
 	return value, true, nil
-}
-
-func (storage *TypedAtomicStorageImpl) deserializeKey(keyString string) (key interface{}, err error) {
-	key = reflect.New(storage.keyType).Interface()
-	err = storage.keyDeserializer(keyString, key)
-	if err != nil {
-		return nil, err
-	}
-	return key, err
 }
 
 func (storage *TypedAtomicStorageImpl) deserializeValue(valueString string) (value interface{}, err error) {
@@ -355,7 +346,7 @@ func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(keyValueData [
 		result[i] = TypedKeyValueData{
 			Present: keyValueString.Present,
 		}
-		result[i].Key, err = storage.deserializeKey(keyValueString.Key)
+		result[i].Key, err = storage.keyDeserializer(keyValueString.Key)
 		if err != nil {
 			return nil, err
 		}

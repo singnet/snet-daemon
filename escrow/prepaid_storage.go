@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strings"
 )
 
 // To Support PrePaid calls and also concurrency
@@ -34,7 +35,7 @@ func (data *PrePaidData) String() string {
 	return fmt.Sprintf("{Amount:%v}", data.Amount)
 }
 func (key *PrePaidDataKey) String() string {
-	return fmt.Sprintf("{ChannelID:%v,UsageType:%v}", key.ChannelID, key.UsageType)
+	return fmt.Sprintf("{ID:%v/%v}", key.ChannelID, key.UsageType)
 }
 
 const (
@@ -79,12 +80,32 @@ func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 	}
 }
 
+func serializePrePaidKey(key interface{}) (serialized string, err error) {
+	myKey := key.(PrePaidDataKey)
+	return myKey.String(), nil
+}
+
+func deserializePrePaidKey(keyString string) (key interface{}, err error) {
+	keyString = strings.Replace(keyString, "{ID:", "", -1)
+	keyString = strings.Replace(keyString, "}", "", -1)
+	keydetails := strings.Split(keyString, "/")
+	prePaidKey := PrePaidDataKey{}
+
+	channeId, ok := big.NewInt(0).SetString(keydetails[0], 10)
+	if !ok {
+		return nil, fmt.Errorf("not a valid number")
+	}
+	prePaidKey.ChannelID = channeId
+	prePaidKey.UsageType = keydetails[1]
+	return prePaidKey, nil
+}
+
 // NewPrepaidStorage returns new instance of TypedAtomicStorage
 func NewPrepaidStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
 	return &TypedAtomicStorageImpl{
 		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage"),
-		keySerializer:     serialize,
-		keyDeserializer:   deserialize,
+		keySerializer:     serializePrePaidKey,
+		keyDeserializer:   deserializePrePaidKey,
 		keyType:           reflect.TypeOf(PrePaidDataKey{}),
 		valueSerializer:   serialize,
 		valueDeserializer: deserialize,

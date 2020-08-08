@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
-	"strings"
 )
 
 // To Support PrePaid calls and also concurrency
@@ -85,27 +84,11 @@ func serializePrePaidKey(key interface{}) (serialized string, err error) {
 	return myKey.String(), nil
 }
 
-func deserializePrePaidKey(keyString string) (key interface{}, err error) {
-	keyString = strings.Replace(keyString, "{ID:", "", -1)
-	keyString = strings.Replace(keyString, "}", "", -1)
-	keydetails := strings.Split(keyString, "/")
-	prePaidKey := PrePaidDataKey{}
-
-	channeId, ok := big.NewInt(0).SetString(keydetails[0], 10)
-	if !ok {
-		return nil, fmt.Errorf("not a valid number")
-	}
-	prePaidKey.ChannelID = channeId
-	prePaidKey.UsageType = keydetails[1]
-	return prePaidKey, nil
-}
-
 // NewPrepaidStorage returns new instance of TypedAtomicStorage
 func NewPrepaidStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
 	return &TypedAtomicStorageImpl{
 		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage"),
 		keySerializer:     serializePrePaidKey,
-		keyDeserializer:   deserializePrePaidKey,
 		keyType:           reflect.TypeOf(PrePaidDataKey{}),
 		valueSerializer:   serialize,
 		valueDeserializer: deserialize,

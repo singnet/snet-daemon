@@ -25,8 +25,7 @@ func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorag
 	return &PaymentChannelStorage{
 		delegate: &TypedAtomicStorageImpl{
 			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment-channel/storage"),
-			keySerializer:     serialize,
-			keyDeserializer:   deserialize,
+			keySerializer:     serializeKey,
 			keyType:           reflect.TypeOf(PaymentChannelKey{}),
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,
@@ -35,6 +34,9 @@ func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorag
 	}
 }
 
+func serializeKey(key interface{}) (slice string, err error) {
+	return fmt.Sprintf("%v", key), nil
+}
 func serialize(value interface{}) (slice string, err error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)

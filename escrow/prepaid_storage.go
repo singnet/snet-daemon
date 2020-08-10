@@ -34,7 +34,7 @@ func (data *PrePaidData) String() string {
 	return fmt.Sprintf("{Amount:%v}", data.Amount)
 }
 func (key *PrePaidDataKey) String() string {
-	return fmt.Sprintf("{ChannelID:%v,UsageType:%v}", key.ChannelID, key.UsageType)
+	return fmt.Sprintf("{ID:%v/%v}", key.ChannelID, key.UsageType)
 }
 
 const (
@@ -79,12 +79,16 @@ func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 	}
 }
 
+func serializePrePaidKey(key interface{}) (serialized string, err error) {
+	myKey := key.(PrePaidDataKey)
+	return myKey.String(), nil
+}
+
 // NewPrepaidStorage returns new instance of TypedAtomicStorage
 func NewPrepaidStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
 	return &TypedAtomicStorageImpl{
 		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage"),
-		keySerializer:     serialize,
-		keyDeserializer:   deserialize,
+		keySerializer:     serializePrePaidKey,
 		keyType:           reflect.TypeOf(PrePaidDataKey{}),
 		valueSerializer:   serialize,
 		valueDeserializer: deserialize,

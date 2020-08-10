@@ -91,7 +91,7 @@ func convertTypedDataToPrePaidUsage(data []TypedKeyValueData) (new *PrePaidUsage
 	usageData := &PrePaidUsageData{PlannedAmount: big.NewInt(0),
 		UsedAmount: big.NewInt(0), RefundAmount: big.NewInt(0)}
 	for _, usageType := range data {
-		key := usageType.Key.(*PrePaidDataKey)
+		key := usageType.Key.(PrePaidDataKey)
 		usageData.ChannelID = key.ChannelID
 		if !usageType.Present {
 			continue
@@ -112,7 +112,7 @@ func convertTypedDataToPrePaidUsage(data []TypedKeyValueData) (new *PrePaidUsage
 
 func BuildOldAndNewValuesForCAS(data *PrePaidUsageData) (newValues []TypedKeyValueData, err error) {
 	updateUsageData := &PrePaidData{}
-	updateUsageKey := &PrePaidDataKey{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType}
+	updateUsageKey := PrePaidDataKey{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType}
 	if amt, err := data.GetAmountForUsageType(); err != nil {
 		return nil, err
 	} else {
@@ -133,7 +133,7 @@ var (
 		}
 		oldState.ChannelID = channelId
 		newState := oldState.Clone()
-		usageKey := &PrePaidDataKey{UsageType: USED_AMOUNT, ChannelID: oldState.ChannelID}
+		usageKey := PrePaidDataKey{UsageType: USED_AMOUNT, ChannelID: oldState.ChannelID}
 		updateDetails(newState, usageKey, revisedAmount)
 		if newState.UsedAmount.Cmp(oldState.PlannedAmount.Add(oldState.PlannedAmount, oldState.RefundAmount)) > 0 {
 			return nil, fmt.Errorf("Usage Exceeded on channel Id %v", oldState.ChannelID)
@@ -151,7 +151,7 @@ var (
 		//function and pick it from there
 		oldState.ChannelID = channelId
 		newState := oldState.Clone()
-		usageKey := &PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: oldState.ChannelID}
+		usageKey := PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: oldState.ChannelID}
 		updateDetails(newState, usageKey, revisedAmount)
 		return BuildOldAndNewValuesForCAS(newState)
 
@@ -163,14 +163,14 @@ var (
 			return nil, err
 		}
 		newState.ChannelID = channelId
-		usageKey := &PrePaidDataKey{UsageType: REFUND_AMOUNT, ChannelID: newState.ChannelID}
+		usageKey := PrePaidDataKey{UsageType: REFUND_AMOUNT, ChannelID: newState.ChannelID}
 		updateDetails(newState, usageKey, revisedAmount)
 		return BuildOldAndNewValuesForCAS(newState)
 
 	}
 )
 
-func updateDetails(usageData *PrePaidUsageData, key *PrePaidDataKey, usage *big.Int) {
+func updateDetails(usageData *PrePaidUsageData, key PrePaidDataKey, usage *big.Int) {
 	usageData.ChannelID = key.ChannelID
 	usageData.UpdateUsageType = key.UsageType
 	switch key.UsageType {

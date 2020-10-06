@@ -31,18 +31,18 @@ func Test_getAllKeys(t *testing.T) {
 func Test_convertTypedDataToPrePaidUsage(t *testing.T) {
 	typedArray := make([]TypedKeyValueData, 3)
 	typedArray[0] = TypedKeyValueData{
-		Key:     &PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: USED_AMOUNT},
+		Key:     PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: USED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
 	}
 	typedArray[1] = TypedKeyValueData{
-		Key:     &PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: PLANNED_AMOUNT},
+		Key:     PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: PLANNED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(10)},
 		Present: true,
 	}
 
 	typedArray[2] = TypedKeyValueData{
-		Key:     &PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: REFUND_AMOUNT},
+		Key:     PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: REFUND_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(4)},
 		Present: true,
 	}
@@ -53,7 +53,7 @@ func Test_convertTypedDataToPrePaidUsage(t *testing.T) {
 	assert.Equal(t, newState.RefundAmount, big.NewInt(4))
 
 	typedArray[0] = TypedKeyValueData{
-		Key:     &PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: "BAD"},
+		Key:     PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: "BAD"},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
 	}
@@ -78,8 +78,16 @@ func TestBuildOldAndNewValuesForCAS(t *testing.T) {
 func Test_updateDetails(t *testing.T) {
 	usage := &PrePaidUsageData{PlannedAmount: big.NewInt(10),
 		UpdateUsageType: PLANNED_AMOUNT}
-	updateDetails(usage, &PrePaidDataKey{ChannelID: big.NewInt(11), UsageType: PLANNED_AMOUNT}, big.NewInt(10))
+	updateDetails(usage, PrePaidDataKey{ChannelID: big.NewInt(11), UsageType: PLANNED_AMOUNT}, big.NewInt(10))
 	assert.Equal(t, usage.PlannedAmount, big.NewInt(20))
+
+}
+
+func Test_KeySerializeAndDeserialize(t *testing.T) {
+	key := PrePaidDataKey{ChannelID: big.NewInt(11), UsageType: PLANNED_AMOUNT}
+	newkey, err := serializePrePaidKey(key)
+	assert.Equal(t, "{ID:11/P}", newkey)
+	assert.Nil(t, err)
 
 }
 
@@ -87,12 +95,12 @@ func TestFuncUsedAmount(t *testing.T) {
 	channelId := big.NewInt(10)
 	typedArray := make([]TypedKeyValueData, 2)
 	typedArray[0] = TypedKeyValueData{
-		Key:     &PrePaidDataKey{ChannelID: channelId, UsageType: USED_AMOUNT},
+		Key:     PrePaidDataKey{ChannelID: channelId, UsageType: USED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
 	}
 	typedArray[1] = TypedKeyValueData{
-		Key:     &PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT},
+		Key:     PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(30)},
 		Present: true,
 	}
@@ -108,7 +116,7 @@ func TestFuncPlannedAmount(t *testing.T) {
 	channelId := big.NewInt(10)
 	typedArray := make([]TypedKeyValueData, 1)
 	typedArray[0] = TypedKeyValueData{
-		Key:     &PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT},
+		Key:     PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
 	}
@@ -122,7 +130,7 @@ func TestFuncRefundAmount(t *testing.T) {
 	channelId := big.NewInt(10)
 	typedArray := make([]TypedKeyValueData, 1)
 	typedArray[0] = TypedKeyValueData{
-		Key:     &PrePaidDataKey{ChannelID: channelId, UsageType: REFUND_AMOUNT},
+		Key:     PrePaidDataKey{ChannelID: channelId, UsageType: REFUND_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
 	}

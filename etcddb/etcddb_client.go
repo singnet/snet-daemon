@@ -330,7 +330,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 	defer ctx.Done()
-
+	startime := time.Now()
 	txn := client.etcdv3.KV.Txn(ctx)
 	var txnResp *clientv3.TxnResponse
 	conditionKeys := transaction.ConditionKeys
@@ -356,6 +356,9 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 	}
 	txnResp, err = txn.If(ifCompares...).Then(thenOps...).Else(elseOps...).Commit()
 
+	endtime := time.Now()
+
+	log.Debug("etcd Transaction took %v", endtime.Sub(startime))
 	if err != nil {
 		return false, err
 	}

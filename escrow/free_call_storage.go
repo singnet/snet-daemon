@@ -15,8 +15,7 @@ func NewFreeCallUserStorage(atomicStorage AtomicStorage) *FreeCallUserStorage {
 				delegate:  atomicStorage,
 				keyPrefix: "/free-call-user/storage",
 			},
-			keySerializer:     serialize,
-			keyDeserializer:   deserialize,
+			keySerializer:     serializeFreeCallKey,
 			keyType:           reflect.TypeOf(FreeCallUserKey{}),
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,
@@ -25,6 +24,10 @@ func NewFreeCallUserStorage(atomicStorage AtomicStorage) *FreeCallUserStorage {
 	}
 }
 
+func serializeFreeCallKey(key interface{}) (serialized string, err error) {
+	myKey := key.(*FreeCallUserKey)
+	return myKey.String(), nil
+}
 func (storage *FreeCallUserStorage) Get(key *FreeCallUserKey) (state *FreeCallUserData, ok bool, err error) {
 	value, ok, err := storage.delegate.Get(key)
 	if err != nil || !ok {

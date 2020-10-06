@@ -17,8 +17,7 @@ func NewPaymentStorage(atomicStorage AtomicStorage) *PaymentStorage {
 		delegate: &TypedAtomicStorageImpl{
 
 			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment/storage"),
-			keySerializer:     serialize,
-			keyDeserializer:   deserialize,
+			keySerializer:     serializeKey,
 			keyType:           reflect.TypeOf(""),
 			valueSerializer:   serialize,
 			valueDeserializer: deserialize,

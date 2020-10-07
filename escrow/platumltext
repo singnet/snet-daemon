@@ -1,0 +1,35 @@
+@startuml
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 300
+skinparam maxmessagesize 300
+skinparam sequenceParticipant underline
+
+participant "Client" as C
+participant "Ethereum" as E
+participant "Daemon" as D
+
+Activate C
+C -> C : GenearteBytesBasedOnagreedFormatAndSequence
+C -> E :GenerateSignature([]bytes,PrivateKey)
+Activate E
+E-> E: crypto.Keccak256([]bytes) calculates and returns the Keccak256 hash of the input data
+
+E-> E: crypto.Sign(hash, privateKey)
+
+return signature
+deactivate E
+deactivate C
+
+C -> D: Pass The Signature along with some metadata in header used to build the signature( ex block number)
+activate D
+D -> D: GenearteBytesBasedOnagreedFormatAndSequence, Some details are in the header passed
+D -> E: GetmessageHash := crypto.Keccak256(BytesGenerated)
+activate E
+return
+D -> D: verify r,s,v from the Signature passed 0-32,32-64 and 65th byte
+D -> E: crypto.SigToPub(messageHash, signature)
+activate E
+return publickey
+D -> D: Verify if the publick key is the one expected ( say the channel's sender / signer)
+
+@enduml

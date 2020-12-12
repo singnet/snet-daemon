@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.10.4-node
+      - image: circleci/golang:1.15-node
     working_directory: /go/src/github.com/singnet/snet-daemon
     environment:
       TRIGGER_BUILD_BRANCH: master
@@ -13,8 +13,6 @@ jobs:
           command: |
             # install protobuf
             sudo apt-get install protobuf-compiler
-            # install golint
-            sudo apt-get install golint
       - run:
           name: Run install script
           command: ./scripts/install

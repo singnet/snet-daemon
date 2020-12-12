@@ -180,7 +180,7 @@ func getTokenFromResponse(response *http.Response) (string, bool) {
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Infof("Unable to retrieve Token from Body , : %f ", err.Error())
+		log.Infof("Unable to retrieve Token from Body , : %s ", err.Error())
 		return "", false
 	}
 	var data TokenGenerated

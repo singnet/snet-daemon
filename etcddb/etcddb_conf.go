@@ -113,15 +113,15 @@ func (formatter *capnslogToLogrusLogFormatter) Format(pkg string, level capnslog
 
 	switch level {
 	case capnslog.CRITICAL, capnslog.ERROR:
-		l.Error(entries)
+		l.Error(entries...)
 	case capnslog.WARNING, capnslog.NOTICE:
-		l.Warning(entries)
+		l.Warning(entries...)
 	case capnslog.INFO:
-		l.Info(entries)
+		l.Info(entries...)
 	case capnslog.DEBUG:
 		fallthrough
 	case capnslog.TRACE:
-		l.Debug(entries)
+		l.Debug(entries...)
 	default:
 		l.Warning("Unknown log level", level)
 	}

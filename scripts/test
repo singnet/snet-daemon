@@ -17,7 +17,7 @@ for d in */ ; do
   for entry in "$d"/*;do
 	  if [[ $entry =~ [a-zA-Z-]{1,}(_test.go)$  ]];
 	  then 
-		GOCACHE=off go test -v ./${d: 0:-1} -coverprofile ${d: 0:-1}.part;
+		go test -v ./${d: 0:-1} -coverprofile ${d: 0:-1}.part;
 		break
 	  fi
   done

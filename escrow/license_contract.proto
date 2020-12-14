@@ -75,15 +75,7 @@ message LicenseCreateRequest {
     repeated string user_addresses = 4;
 }
 
-message LicenseFilterByRequest {
-    CallerAuthentication auth = 1;
-    enum Operation {
-        service = 0;
-        Renew = 1;
-    }
 
-
-}
 message LicenseReadRequest {
     CallerAuthentication auth = 1;
     //the channel exclusively created for this license needs to be passed

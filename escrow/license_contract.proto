@@ -115,6 +115,7 @@ message UsageResponse {
     enum UsageType {
         TRACK_CALLS_MADE = 0;
         TRACK_AMOUNT_USED = 1;
+        TRACK_TIME_USED = 3;
     }
     uint64 planned = 1;
     uint64 used = 2;

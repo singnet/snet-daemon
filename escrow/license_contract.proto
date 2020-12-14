@@ -113,7 +113,7 @@ message DiscountData {
 
 //This will help the users know
 // What type of usage is being tracked on the current license  ( ex Usage in amount/time/calls )
-// What was the Original Planned Usage 
+// What was the Original Planned Usage
 // What has been the consumed Usage so far
 // Please note that on any service call failure, the amount will reflect in the refund attribute.
 // So at any point the balance  usage available Planned + Refund - Used)
@@ -164,6 +164,7 @@ message LicenseTypesSupportedResponse {
 
 message LicenseDataResponse {
     ChannelResponse channel = 1;
+    //tell you the license type for example Subscription / Tier
     string license_type = 2;
     google.protobuf.Timestamp license_expiry_date = 3;
     google.protobuf.Timestamp license_start_date = 4;

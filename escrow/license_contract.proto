@@ -39,12 +39,12 @@ service LicenseContract {
 
     //To Be called By Daemon ONLY, Daemons's address is listed in service metadata, this will be used by the licensing server
     //to check for authorizations on Signature.
-    rpc CheckEligibilityAndIncrementUsage (UpdateLicenseUsageRequest) returns (UsageResponse) {
+    rpc CheckEligibilityAndIncrementUsage (CheckLicenseUsageRequest) returns (UsageResponse) {
     }
 
     //To Be called By Daemon ONLY, Daemons's address is listed in service metadata, this will be used by the licensing server
     //    //to check for authorizations on Signature.
-    rpc DecrementUsage (UpdateLicenseUsageRequest) returns (UsageResponse) {
+    rpc DecrementUsage (CheckLicenseUsageRequest) returns (UsageResponse) {
     }
 
 
@@ -60,7 +60,7 @@ message CallerAuthentication {
     uint64 current_block = 2;
 }
 
-message UpdateLicenseUsageRequest {
+message CheckLicenseUsageRequest {
     CallerAuthentication auth = 1;
     uint64 channel_id = 2;
     string service_id = 3;

@@ -111,6 +111,12 @@ message DiscountData {
     string license_type = 2;
 }
 
+//This will help the users know
+// What type of usage is being tracked on the current license  ( ex Usage in amount/time/calls )
+// What was the Original Planned Usage 
+// What has been the consumed Usage so far
+// Please note that on any service call failure, the amount will reflect in the refund attribute.
+// So at any point the balance  usage available Planned + Refund - Used)
 message UsageResponse {
     enum UsageType {
         TRACK_CALLS_MADE = 0;

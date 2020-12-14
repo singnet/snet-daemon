@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package license;
+package license_server;
 import "google/protobuf/timestamp.proto";
 
 option java_package = "io.singularitynet.daemon.License";
@@ -19,7 +19,7 @@ service LicenseContract {
 
     rpc CancelLicense (LicenseUpdateRequest) returns (LicenseDataResponse) {
     }
-    //All license associated with this user will be sent back
+    //All license_server associated with this user will be sent back
     rpc GetAllLicensesForUser (CallerAuthentication) returns (AllLicensesResponse) {
     }
     //this is to only tell you the types of licenses supported by provider , we will start with subscription
@@ -66,7 +66,7 @@ message CheckLicenseUsageRequest {
 
 message LicenseCreateRequest {
     CallerAuthentication auth = 1;
-    //the channel exclusively created for this license needs to be passed
+    //the channel exclusively created for this license_server needs to be passed
     uint64 channel_id = 2;
     //you can pass the list of Authorized addresses to also be allowed to use the License.
     repeated string user_addresses = 4;
@@ -75,7 +75,7 @@ message LicenseCreateRequest {
 
 message LicenseReadRequest {
     CallerAuthentication auth = 1;
-    //the channel exclusively created for this license needs to be passed
+    //the channel exclusively created for this license_server needs to be passed
     uint64 channel_id = 2;
 }
 
@@ -109,7 +109,7 @@ message DiscountData {
 }
 
 //This will help the users know
-// What type of usage is being tracked on the current license  ( ex Usage in amount/time/calls )
+// What type of usage is being tracked on the current license_server  ( ex Usage in amount/time/calls )
 // What was the Original Planned Usage
 // What has been the consumed Usage so far
 // Please note that on any service call failure, the amount will reflect in the refund attribute.
@@ -161,7 +161,7 @@ message LicenseTypesSupportedResponse {
 
 message LicenseDataResponse {
     ChannelResponse channel = 1;
-    //tell you the license type for example Subscription / Tier
+    //tell you the license_server type for example Subscription / Tier
     string license_type = 2;
     google.protobuf.Timestamp license_expiry_date = 3;
     google.protobuf.Timestamp license_start_date = 4;

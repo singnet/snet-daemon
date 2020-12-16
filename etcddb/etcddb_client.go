@@ -358,7 +358,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, u
 
 	endtime := time.Now()
 
-	log.Debug("etcd Transaction took %v", endtime.Sub(startime))
+	log.Debugf("etcd Transaction took %v", endtime.Sub(startime))
 	if err != nil {
 		return false, err
 	}

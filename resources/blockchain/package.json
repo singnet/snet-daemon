@@ -7,7 +7,6 @@
     "singularitynet-token-contracts": "2.0.1",
     "truffle": "4.1.13",
     "truffle-contract": "3.0.6",
-    "truffle-hdwallet-provider": "0.0.5",
     "command-line-args": "5.0.2"
   },
   "scripts": {

@@ -146,26 +146,26 @@ func (suite *PaymentHandlerTestSuite) TestValidatePaymentIncorrectIncome() {
 }
 
 func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
-	 payment := &paymentTransaction{payment:Payment{Amount:big.NewInt(10),ChannelID:big.NewInt(6),
-		ChannelNonce:big.NewInt(1)},channel:&PaymentChannelData{FullAmount:big.NewInt(10)}}
+	payment := &paymentTransaction{payment: Payment{Amount: big.NewInt(10), ChannelID: big.NewInt(6),
+		ChannelNonce: big.NewInt(0)}, channel: &PaymentChannelData{FullAmount: big.NewInt(10), Nonce: big.NewInt(0)}}
 	tests := []struct {
-		name    string
+		name string
 
-		wantErr *handler.GrpcError
+		wantErr   *handler.GrpcError
 		setupFunc func()
 	}{
-		{name:"",wantErr:handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!"),setupFunc: func() {
-		},},
+		{name: "", wantErr: handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!"), setupFunc: func() {
+		}},
 
-		{name:"",wantErr:nil,setupFunc: func() {
-			config.Vip().Set(config.MeteringEnabled,true)
-			config.Vip().Set(config.PvtKeyForMetering,"063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
-			config.Vip().Set(config.MeteringEndPoint,"http://demo8325345.mockable.io")
-		},},
+		{name: "", wantErr: nil, setupFunc: func() {
+			config.Vip().Set(config.MeteringEnabled, true)
+			config.Vip().Set(config.PvtKeyForMetering, "063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
+			config.Vip().Set(config.MeteringEndPoint, "https://bkq2d3zjl4.execute-api.eu-west-1.amazonaws.com/main")
+		}},
 
-		{name:"",wantErr:handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error"),setupFunc: func() {
-			config.Vip().Set(config.MeteringEndPoint,"badurl")
-		},},
+		{name: "", wantErr: handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error"), setupFunc: func() {
+			config.Vip().Set(config.MeteringEndPoint, "badurl")
+		}},
 	}
 	for _, tt := range tests {
 		tt.setupFunc()

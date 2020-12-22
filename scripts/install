@@ -5,16 +5,15 @@ set -ex
 PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
-dep ensure -v
 
-# install executable dependencies
-pushd vendor/github.com/ethereum/go-ethereum
-go install ./cmd/abigen
-popd
-pushd vendor/github.com/golang/protobuf
-go install ./protoc-gen-go
+go get github.com/golang/protobuf/protoc-gen-go@v1.2.0
+go get github.com/ethereum/go-ethereum/cmd/abigen@v1.8.27
+go get google.golang.org/grpc@v1.16.0
+go get golang.org/x/lint/golint
+
+pushd resources/blockchain
+npm install
 popd
 
-go run resources/installBlockchainDependencies/main.go
 go generate ./...
 popd

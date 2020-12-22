@@ -414,12 +414,12 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 		return false, fmt.Errorf("Empty response received.")
 	}
 	if response.StatusCode != http.StatusOK {
-		log.Error("Service call failed with status code : %d ", response.StatusCode)
+		log.Errorf("Service call failed with status code : %d ", response.StatusCode)
 		return false, fmt.Errorf("Service call failed with status code : %d ", response.StatusCode)
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Infof("Unable to retrieve calls allowed from Body , : %f ", err.Error())
+		log.Infof("Unable to retrieve calls allowed from Body , : %s ", err.Error())
 		return false, err
 	}
 	var responseBody VerifyMeteringResponse

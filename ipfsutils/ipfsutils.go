@@ -21,7 +21,7 @@ func GetIpfsFile(hash string) string {
 
 	blob, err := ioutil.ReadAll(cid)
 	if err != nil {
-		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error: in Reading the meta data file %s", err)
+		log.WithError(err).WithField("hashFromMetaData", hash).Panicf("error: in Reading the meta data file %s", err)
 
 	}
 	log.WithField("hash", hash).WithField("blob", string(blob)).Debug("Blob of IPFS file with hash")
@@ -31,11 +31,11 @@ func GetIpfsFile(hash string) string {
 	//validating the file read from IPFS
 	newHash, err := sh.Add(strings.NewReader(jsondata), shell.OnlyHash(true))
 	if err != nil {
-		log.WithError(err).Panic("error in generating the hash for the meta data read from IPFS : %v", err)
+		log.WithError(err).Panicf("error in generating the hash for the meta data read from IPFS : %v", err)
 	}
 	if newHash != hash {
 		log.WithError(err).WithField("hashFromIPFSContent", newHash).
-			Panic("IPFS hash verification failed. Generated hash doesnt match with expected hash %s", hash)
+			Panicf("IPFS hash verification failed. Generated hash doesnt match with expected hash %s", hash)
 	}
 
 	cid.Close()

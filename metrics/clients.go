@@ -50,7 +50,7 @@ func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResp
 func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	response, err := http.Get(serviceURL)
 	if err != nil {
-		log.WithError(err).Info("the service request failed with an error: %v", err)
+		log.WithError(err).Infof("the service request failed with an error: %v", err)
 		return nil, err
 	}
 	if response.StatusCode != http.StatusOK {
@@ -81,7 +81,7 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		log.WithError(err).Info("unable to reach registration service : %v", err)
+		log.WithError(err).Infof("unable to reach registration service : %v", err)
 		return false
 	}
 	// process the response and set the Authorization token

@@ -103,10 +103,7 @@ message LicenseUpdateRequest {
     string license_id = 5;
 }
 
-message DiscountData {
-    uint64 percentage_discount = 1;
-    string license_type = 2;
-}
+
 
 //This will help the users know
 // What type of usage is being tracked on the current license_server  ( ex Usage in amount/time/calls )

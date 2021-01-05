@@ -1,0 +1,178 @@
+syntax = "proto3";
+
+package license_server;
+import "google/protobuf/timestamp.proto";
+
+option java_package = "io.singularitynet.daemon.License";
+
+
+service LicenseContract {
+
+    rpc CreateLicense (LicenseCreateRequest) returns (LicenseDataResponse) {
+    }
+    //You need to pass the ChannelId
+    rpc GetLicenseForChannel (LicenseReadRequest) returns (LicenseDataResponse) {
+    }
+    //this is to renew the License
+    rpc RenewLicense (LicenseUpdateRequest) returns (LicenseDataResponse) {
+    }
+
+    rpc CancelLicense (LicenseUpdateRequest) returns (LicenseDataResponse) {
+    }
+    //All license_server associated with this user will be sent back
+    rpc GetAllLicensesForUser (CallerAuthentication) returns (AllLicensesResponse) {
+    }
+    //this is to only tell you the types of licenses supported by provider , we will start with subscription
+    //and then scale this up to Tier Pricing
+    rpc GetLicensesSupportedByProvider (LicenseProviderReadRequest) returns (LicenseTypesSupportedResponse) {
+    }
+
+    //filter by licenses created for given service Id
+    rpc GetAllLicenseByServiceIds (LicenseProviderReadRequest) returns (AllLicensesResponse) {
+    }
+
+    rpc GetLicenseUsage (LicenseReadRequest) returns (UsageResponse) {
+    }
+
+    //To Be called By Daemon ONLY, Daemons's address is listed in service metadata, this will be used by the licensing server
+    //to check for authorizations on Signature.
+    rpc CheckEligibilityAndIncrementUsage (CheckLicenseUsageRequest) returns (UsageResponse) {
+    }
+
+    //To Be called By Daemon ONLY, Daemons's address is listed in service metadata, this will be used by the licensing server
+    //    //to check for authorizations on Signature.
+    rpc DecrementUsage (CheckLicenseUsageRequest) returns (UsageResponse) {
+    }
+
+
+}
+
+
+message CallerAuthentication {
+    //Signature will compromise the following data:
+    // (_method name, current block, user address) signed by private key
+    // Example ("_GetLicense", "block_number") OR ("_CreateLicense", "block_number")
+    bytes signature = 1;
+    //current block number (signature will be valid only for short time around this block number)
+    uint64 current_block = 2;
+}
+
+message CheckLicenseUsageRequest {
+    CallerAuthentication auth = 1;
+    uint64 channel_id = 2;
+    string service_id = 3;
+
+}
+
+message LicenseCreateRequest {
+    CallerAuthentication auth = 1;
+    //the channel exclusively created for this license_server needs to be passed
+    uint64 channel_id = 2;
+    //you can pass the list of Authorized addresses to also be allowed to use the License.
+    repeated string user_addresses = 4;
+}
+
+
+message LicenseReadRequest {
+    CallerAuthentication auth = 1;
+    //the channel exclusively created for this license_server needs to be passed
+    uint64 channel_id = 2;
+}
+
+//Based on the given  service Ids passed all licenses associated with the user who has signed will be sent back
+message LicenseProviderReadRequest {
+    CallerAuthentication auth = 1;
+    repeated string service_id = 2;
+
+}
+
+message LicenseUpdateRequest {
+    //Caller authentication data
+    CallerAuthentication auth = 1;
+
+    uint64 channel_id = 2;
+
+    enum Operation {
+        Cancel = 0;
+        Renew = 1;
+    }
+    Operation operation = 3;
+
+    string service_id = 4;
+
+    string license_id = 5;
+}
+
+
+
+//This will help the users know
+// What type of usage is being tracked on the current license_server  ( ex Usage in amount/time/calls )
+// What was the Original Planned Usage
+// What has been the consumed Usage so far
+// Please note that on any service call failure, the amount will reflect in the refund attribute.
+// So at any point the balance  usage available Planned + Refund - Used)
+message UsageResponse {
+    enum UsageType {
+        TRACK_CALLS_MADE = 0;
+        TRACK_AMOUNT_USED = 1;
+        TRACK_TIME_USED = 2;
+    }
+    uint64 planned = 1;
+    uint64 used = 2;
+    uint64 refund = 3;
+    UsageType usage = 4;
+
+}
+
+message ChannelResponse {
+    uint64 channel_id = 1;
+
+    uint64 channel_nonce = 2;
+
+    bytes last_signed_amount = 3;
+
+    //indicative of the Channel Expiry in block number
+    uint64 channel_expiry = 5;
+}
+
+
+message PricingPeriodResponse {
+    uint64 period_in_days = 1;
+    string license_id = 2;
+    uint64 max_calls = 3;
+    uint64 fee_in_cogs = 4;
+    string plan_name = 5;
+    string details_url = 6;
+
+}
+
+
+message SubscriptionTypeResponse {
+    repeated PricingPeriodResponse pricing_period = 1;
+}
+
+
+message LicenseTypesSupportedResponse {
+    repeated SubscriptionTypeResponse subscriptions = 1;
+}
+
+message LicenseDataResponse {
+    ChannelResponse channel = 1;
+    //tell you the license_server type for example Subscription / Tier
+    string license_type = 2;
+    google.protobuf.Timestamp license_expiry_date = 3;
+    google.protobuf.Timestamp license_start_date = 4;
+    UsageResponse usage = 5;
+    string service_id = 6;
+    //When you create a License you can pass the list of Authorized addresses to also be allowed to use the License.
+    repeated string authorized_address = 7;
+    string license_id = 8;
+
+}
+
+message AllLicensesResponse {
+    repeated LicenseDataResponse licenses = 4;
+}
+
+
+

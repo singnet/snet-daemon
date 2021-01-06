@@ -325,7 +325,7 @@ func (service *ProviderControlService) listClaims() (*PaymentsListReply, error) 
 		//To Get the Expiration of the Channel ( always get the latest state)
 		latestChannel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: payment.ChannelID})
 		if !ok || err != nil {
-			log.Errorf("Unable to retrieve the latest Channel State", payment.ChannelID, payment.ChannelNonce)
+			log.Errorf("Unable to retrieve the latest Channel State, ChannelID: %v, ChannelNonde: %v", payment.ChannelID, payment.ChannelNonce)
 			continue
 		}
 		if payment.Signature == nil || payment.Amount.Int64() == 0 {
@@ -375,8 +375,8 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 		if blockChainChannel.Nonce.Cmp(payment.ChannelNonce) > 0 {
 			//if the Nonce on this block chain is higher than that of the Payment,
 			//means that the payment has been completed , hence update the etcd state with this
-			log.Debugf("for channel id:%v the nonce of channel from Block chain = %v is "+
-				"greater than nonce of channel from etcd storage :%v , Nonce:%v",
+			log.Debugf("for channel id: %v the nonce of channel from Block chain (%v) is "+
+				"greater than nonce of channel from etcd storage (%v)",
 				payment.ChannelID, blockChainChannel.Nonce, payment.ChannelNonce)
 			err = claimRetrieved.Finish()
 			if err != nil {

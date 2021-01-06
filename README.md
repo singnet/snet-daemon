@@ -22,28 +22,12 @@ deploying SingularityNET services using SingularityNET Daemon should install the
 
 ### Prerequisites
 
-* [Go 1.10+](https://golang.org/dl/)
-* [Dep 0.4.1+](https://github.com/golang/dep#installation)
+* [Go 1.15+](https://golang.org/dl/)
 * [Node 8+ w/npm](https://nodejs.org/en/download/)
 
 ### Dependencies
 
 * install [Protoc 3.0+](https://askubuntu.com/questions/1072683/how-can-i-install-protoc-on-ubuntu-16-04) 
-
-* install [protoc-gen-go] 
-``` bash
-$ go get -u github.com/golang/protobuf/protoc-gen-go
-```
-
-* install [grpc] `grpc version > 1.25` 
-```bash
-$ go get -u google.golang.org/grpc
-```
-
-* install [golint]
-```bash
-$ sudo apt-get install golint
-```
 
 * If you want to cross-compile you will also need Docker
 

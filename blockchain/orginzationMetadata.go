@@ -28,6 +28,9 @@ Please note that all the services that belong to a given group in an organizatio
     {
       "group_name": "default_group2",
       "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
+      "license_server_endpoints": [
+        "http://licenseendpont:8082"
+      ],
       "payment": {
         "payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
         "payment_expiration_threshold": 40320,
@@ -80,15 +83,16 @@ type Payment struct {
 
 //Structure to hold the individual group details , an Organization can have multiple groups
 type Group struct {
-	GroupName      string  `json:"group_name"`
-	GroupID        string  `json:"group_id"`
-	PaymentDetails Payment `json:"payment"`
+	GroupName        string   `json:"group_name"`
+	GroupID          string   `json:"group_id"`
+	PaymentDetails   Payment  `json:"payment"`
+	LicenseEndpoints []string `json:"license_server_endpoints"`
 }
 
 //Structure to hold the storage details of the payment
 type PaymentChannelStorageClient struct {
-	ConnectionTimeout string `json:"connection_timeout" mapstructure:"connection_timeout"`
-	RequestTimeout    string `json:"request_timeout" mapstructure:"request_timeout"`
+	ConnectionTimeout string   `json:"connection_timeout" mapstructure:"connection_timeout"`
+	RequestTimeout    string   `json:"request_timeout" mapstructure:"request_timeout"`
 	Endpoints         []string `json:"endpoints"`
 }
 
@@ -108,18 +112,18 @@ func InitOrganizationMetaDataFromJson(jsonData string) (metaData *OrganizationMe
 		return nil, err
 	}
 	if err = checkMandatoryFields(metaData); err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	return metaData, nil
 }
 
-func checkMandatoryFields(metaData *OrganizationMetaData) (err error ){
+func checkMandatoryFields(metaData *OrganizationMetaData) (err error) {
 	if metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints == nil {
-		err = fmt.Errorf("Mandatory field : ETCD Client Endpoints are mising for the Group %v ",metaData.daemonGroup.GroupName)
+		err = fmt.Errorf("Mandatory field : ETCD Client Endpoints are mising for the Group %v ", metaData.daemonGroup.GroupName)
 	}
 	if &metaData.recipientPaymentAddress == nil {
-		err = fmt.Errorf("Mandatory field : Recepient Address is missing for the Group %v ",metaData.daemonGroup.GroupName)
+		err = fmt.Errorf("Mandatory field : Recepient Address is missing for the Group %v ", metaData.daemonGroup.GroupName)
 	}
 	return
 }
@@ -160,7 +164,7 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 		ipfsHash := string(getMetaDataURI())
 		metadata, err = GetOrganizationMetaDataFromIPFS(FormatHash(ipfsHash))
 	} else {
-		metadata = &OrganizationMetaData{daemonGroup:&Group{}}
+		metadata = &OrganizationMetaData{daemonGroup: &Group{}}
 	}
 	if err != nil {
 		log.WithError(err).
@@ -173,7 +177,6 @@ func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error)
 	jsondata := ipfsutils.GetIpfsFile(hash)
 	return InitOrganizationMetaDataFromJson(jsondata)
 }
-
 
 func getMetaDataURI() []byte {
 	//Block chain call here to get the hash of the metadata for the given Organization
@@ -198,6 +201,10 @@ func (metaData OrganizationMetaData) GetGroupId() [32]byte {
 	return metaData.daemonGroupID
 }
 
+func (metaData OrganizationMetaData) GetLicenseEndPoints() []string {
+	return metaData.daemonGroup.LicenseEndpoints
+}
+
 //Pass the group Name and retrieve the details of the payment address/ recipient address.
 func (metaData OrganizationMetaData) GetPaymentAddress() common.Address {
 	return metaData.recipientPaymentAddress
@@ -213,11 +220,10 @@ func (metaData OrganizationMetaData) GetPaymentStorageEndPoints() []string {
 	return metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints
 }
 
-
 //Get the connection time out defined
-func (metaData OrganizationMetaData) GetConnectionTimeOut() ( connectionTimeOut time.Duration) {
-	 connectionTimeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.ConnectionTimeout);
-	 if err != nil {
+func (metaData OrganizationMetaData) GetConnectionTimeOut() (connectionTimeOut time.Duration) {
+	connectionTimeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.ConnectionTimeout)
+	if err != nil {
 		log.Errorf(err.Error())
 	}
 	return connectionTimeOut
@@ -225,7 +231,7 @@ func (metaData OrganizationMetaData) GetConnectionTimeOut() ( connectionTimeOut 
 
 //Get the Request time out defined
 func (metaData OrganizationMetaData) GetRequestTimeOut() time.Duration {
-	timeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.RequestTimeout);
+	timeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.RequestTimeout)
 	if err != nil {
 		log.Errorf(err.Error())
 	}

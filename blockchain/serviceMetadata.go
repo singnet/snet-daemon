@@ -88,7 +88,7 @@ import (
           "periodInDays": 30,
           "creditsInAGI": 120,
           "planName": "Monthly For ServiceA/MethodA",
-          "LicenseCost": 90,
+          "licenseCost": 90,
           "grpcServiceName": "ServiceA",
           "grpcMethodName": "MethodA"
         },
@@ -96,18 +96,18 @@ import (
           "periodInDays": 30,
           "creditsInAGI": 123,
           "planName": "Monthly",
-          "LicenseCost": 93
+          "licenseCost": 93
         },
         {
           "periodInDays": 120,
           "creditsInAGI": 160,
-          "LicenseCost": 120,
+          "licenseCost": 120,
           "planName": "Quarterly"
         },
         {
           "periodInDays": 365,
           "creditsInAGI": 430,
-          "LicenseCost": 390,
+          "licenseCost": 390,
           "planName": "Yearly"
         }
       ],
@@ -156,12 +156,12 @@ type ServiceMetadata struct {
 }
 
 type Subscription struct {
-	PeriodInDays    int    `json:"periodInDays"`
-	CreditsInAGI    int    `json:"creditsInAGI"`
-	PlanName        string `json:"planName"`
-	LicenseCost     int    `json:"LicenseCost"`
-	GrpcServiceName string `json:"grpcServiceName,omitempty"`
-	GrpcMethodName  string `json:"grpcMethodName,omitempty"`
+	PeriodInDays    int     `json:"periodInDays"`
+	CreditsInAGI    int     `json:"creditsInAGI"`
+	PlanName        string  `json:"planName"`
+	licenseCost     big.Int `json:"licenseCost"`
+	GrpcServiceName string  `json:"grpcServiceName,omitempty"`
+	GrpcMethodName  string  `json:"grpcMethodName,omitempty"`
 }
 
 type Subscriptions struct {

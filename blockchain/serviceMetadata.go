@@ -154,6 +154,14 @@ type ServiceMetadata struct {
 	isfreeCallAllowed     bool
 	freeCallsAllowed      int
 }
+type Tiers struct {
+	Tiers Tier `json:"tier"`
+}
+
+type TierRange struct {
+	High             int `json:"high"`
+	FixedPriceInCogs int `json:"fixedPriceInCogs"`
+}
 
 type Subscription struct {
 	PeriodInDays    int     `json:"periodInDays"`
@@ -170,8 +178,18 @@ type Subscriptions struct {
 	IsActive     string         `json:"isActive"`
 	Subscription []Subscription `json:"subscription"`
 }
+type Tier struct {
+	Type            string      `json:"type"`
+	PlanName        string      `json:"planName"`
+	GrpcServiceName string      `json:"grpcServiceName,omitempty"`
+	GrpcMethodName  string      `json:"grpcMethodName,omitempty"`
+	Range           []TierRange `json:"range"`
+	DetailsURL      string      `json:"detailsUrl"`
+	IsActive        string      `json:"isActive"`
+}
 type Licenses struct {
 	Subscriptions Subscriptions `json:"subscriptions,omitempty"`
+	Tiers         []Tier        `json:"tiers"`
 }
 
 type OrganizationGroup struct {

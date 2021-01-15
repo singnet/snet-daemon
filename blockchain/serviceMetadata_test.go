@@ -53,7 +53,7 @@ func TestTiers(t *testing.T) {
 	assert.Equal(t, err, nil)
 
 	assert.Equal(t, metaData.GetLicenses().Tiers[0].Type, "Tier")
-	assert.Equal(t, metaData.GetLicenses().Tiers[0].Range[0].High, 200)
+	assert.Equal(t, metaData.GetLicenses().Tiers[0].Range[0].High, 100)
 }
 func TestInitServiceMetaDataFromJson(t *testing.T) {
 	//Parse Bad JSON

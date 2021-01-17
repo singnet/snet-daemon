@@ -36,8 +36,87 @@ import (
             "endpoints": [
                 "https://tz-services-1.snet.sh:8005"
             ],
-            "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ="
+            "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ=",
+{
+  "licenses": {
+    "tiers": [{
+      "type": "Tier",
+      "planName": "Tier AAA",
+      "grpcServiceName": "ServiceA",
+      "grpcMethodName": "MethodA",
+      "range": [
+        {
+          "high": 100,
+          "fixedPriceInCogs": 1
+        },
+        {
+          "high": 200,
+          "fixedPriceInCogs": 0.75
+        },
+        {
+          "high": 300,
+          "fixedPriceInCogs": 0.50
         }
+      ],
+      "detailsUrl": "http://abc.org/licenses/Tier.html",
+      "isActive": "true/false"
+    },
+     {
+      "type": "Tier",
+      "planName": "Tier BBB Applicable for All service.methods",
+      "range": [
+        {
+          "high": 100,
+          "fixedPriceInCogs": 1
+        },
+        {
+          "high": 200,
+          "fixedPriceInCogs": 0.75
+        },
+        {
+          "high": 300,
+          "fixedPriceInCogs": 0.50
+        }
+      ],
+      "detailsUrl": "http://abc.org/licenses/Tier.html",
+      "isActive": "true/false"
+    }],
+    "subscriptions": {
+      "type": "Subscription",
+      "subscription": [
+        {
+          "periodInDays": 30,
+          "creditsInAGI": 120,
+          "planName": "Monthly For ServiceA/MethodA",
+          "licenseCost": 90,
+          "grpcServiceName": "ServiceA",
+          "grpcMethodName": "MethodA"
+        },
+        {
+          "periodInDays": 30,
+          "creditsInAGI": 123,
+          "planName": "Monthly",
+          "licenseCost": 93
+        },
+        {
+          "periodInDays": 120,
+          "creditsInAGI": 160,
+          "licenseCost": 120,
+          "planName": "Quarterly"
+        },
+        {
+          "periodInDays": 365,
+          "creditsInAGI": 430,
+          "licenseCost": 390,
+          "planName": "Yearly"
+        }
+      ],
+      "detailsUrl": "http://abc.org/licenses/Subscription.html",
+      "isActive": "true/false"
+    }
+  }
+}
+
     ],
     "assets": {
         "hero_image": "Qmb1n3LxPXLHTUMu7afrpZdpug4WhhcmVVCEwUxjLQafq1/hero_named-entity-disambiguation.png"
@@ -75,6 +154,43 @@ type ServiceMetadata struct {
 	isfreeCallAllowed     bool
 	freeCallsAllowed      int
 }
+type Tiers struct {
+	Tiers Tier `json:"tier"`
+}
+
+type TierRange struct {
+	High             int `json:"high"`
+	FixedPriceInCogs int `json:"fixedPriceInCogs"`
+}
+
+type Subscription struct {
+	PeriodInDays    int     `json:"periodInDays"`
+	CreditsInAGI    int     `json:"creditsInAGI"`
+	PlanName        string  `json:"planName"`
+	licenseCost     big.Int `json:"licenseCost"`
+	GrpcServiceName string  `json:"grpcServiceName,omitempty"`
+	GrpcMethodName  string  `json:"grpcMethodName,omitempty"`
+}
+
+type Subscriptions struct {
+	Type         string         `json:"type"`
+	DetailsURL   string         `json:"detailsUrl"`
+	IsActive     string         `json:"isActive"`
+	Subscription []Subscription `json:"subscription"`
+}
+type Tier struct {
+	Type            string      `json:"type"`
+	PlanName        string      `json:"planName"`
+	GrpcServiceName string      `json:"grpcServiceName,omitempty"`
+	GrpcMethodName  string      `json:"grpcMethodName,omitempty"`
+	Range           []TierRange `json:"range"`
+	DetailsURL      string      `json:"detailsUrl"`
+	IsActive        string      `json:"isActive"`
+}
+type Licenses struct {
+	Subscriptions Subscriptions `json:"subscriptions,omitempty"`
+	Tiers         []Tier        `json:"tiers"`
+}
 
 type OrganizationGroup struct {
 	Endpoints      []string  `json:"endpoints"`
@@ -83,6 +199,7 @@ type OrganizationGroup struct {
 	Pricing        []Pricing `json:"pricing"`
 	FreeCalls      int       `json:"free_calls"`
 	FreeCallSigner string    `json:"free_call_signer_address"`
+	Licenses       Licenses  `json:"licenses,omitempty"`
 }
 type Pricing struct {
 	PriceModel     string           `json:"price_model"`
@@ -284,4 +401,8 @@ func (metaData *ServiceMetadata) IsFreeCallAllowed() bool {
 
 func (metaData *ServiceMetadata) GetFreeCallsAllowed() int {
 	return metaData.freeCallsAllowed
+}
+
+func (metaData *ServiceMetadata) GetLicenses() Licenses {
+	return metaData.defaultGroup.Licenses
 }

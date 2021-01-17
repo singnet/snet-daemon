@@ -62,7 +62,7 @@ func (suite *FreeCallStateServiceSuite) TestGetFreeCallsAvailable() {
 	suite.request = &FreeCallStateRequest{
 		UserId:               "ar@gmail.test.com",
 		CurrentBlock:         8308168,
-		TokenExpiryDateBlock: 9408168,
+		TokenExpiryDateBlock: 99919408168,
 	}
 	SetAuthToken(suite)
 	SetSignature(suite)

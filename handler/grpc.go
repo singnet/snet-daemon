@@ -174,7 +174,13 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 	go func() {
 		f := &codec.GrpcFrame{}
 		for i := 0; ; i++ {
-			if err := src.RecvMsg(f); err != nil {
+			//Only for the first time do this, once RecvMsg has been called,
+			//future calls will result in io.EOF , we want to retrieve the
+			//the first message sent by the client and pass this on the regualar service call
+			//This is done to be able to make calls to support regualr Service call + Dynamic pricing call
+			if i == 0 {
+				f = (src.(*wrapperServerStream).OriginalRecvMsg()).(*codec.GrpcFrame)
+			} else if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
 				break
 			}
@@ -250,6 +256,61 @@ func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) 
 	}
 
 	return nil
+}
+
+type wrapperServerStream struct {
+	sendHeaderCalled bool
+	stream           grpc.ServerStream
+	recvMessage      interface{}
+	sentMessage      interface{}
+}
+
+func (f *wrapperServerStream) SetTrailer(md metadata.MD) {
+	f.stream.SetTrailer(md)
+}
+
+func WrapperServerStream(stream grpc.ServerStream, m interface{}) (grpc.ServerStream, error) {
+	err := stream.RecvMsg(m)
+	f := &wrapperServerStream{
+		stream:           stream,
+		recvMessage:      m,
+		sendHeaderCalled: false,
+	}
+	if err == nil {
+		f.recvMessage = m
+	}
+	return f, err
+}
+
+func (f *wrapperServerStream) SetHeader(md metadata.MD) error {
+	return f.stream.SetHeader(md)
+}
+func (f *wrapperServerStream) SendHeader(md metadata.MD) error {
+	//this is more of a hack to support dynamic pricing
+	// when the service method returns the price in cogs, the SendHeader, will be called,
+	// we dont want this as the SendHeader can be called just once in the ServerStream
+	if !f.sendHeaderCalled {
+		return nil
+	}
+	f.sendHeaderCalled = true
+	return f.stream.SendHeader(md)
+
+}
+
+func (f *wrapperServerStream) Context() context.Context {
+	return f.stream.Context()
+}
+
+func (f *wrapperServerStream) SendMsg(m interface{}) error {
+	return f.stream.SendMsg(m)
+}
+
+func (f *wrapperServerStream) RecvMsg(m interface{}) error {
+	return f.stream.RecvMsg(m)
+}
+
+func (f *wrapperServerStream) OriginalRecvMsg() interface{} {
+	return f.recvMessage
 }
 
 func (g grpcHandler) grpcToProcess(srv interface{}, inStream grpc.ServerStream) error {

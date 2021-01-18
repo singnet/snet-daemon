@@ -99,3 +99,17 @@ func Test_setGroup(t *testing.T) {
 	err := setGroup(&ServiceMetadata{})
 	assert.Equal(t, err.Error(), "group name default_group in config is invalid, there was no group found with this name in the metadata")
 }
+
+func TestServiceMetadata_parseServiceProto(t *testing.T) {
+	strProto := "syntax = \"proto3\";\nimport \"google/protobuf/descriptor.proto\";\npackage example_service;\n\nmessage Numbers {\n    float a = 1;\n    float b = 2;\n}\nmessage Result" +
+		" {\n    float value = 1;\n}\nextend google.protobuf.MethodOptions {\n    EstimatePrice my_method_option = 50007;\n}\nmessage EstimatePrice {\n    string estimate = 1;\n}\nmessage PriceInCogs {\n    uint64 price = 1;\n}\n\nservice Calculator {\n    rpc add( Numbers) returns (Result) {\n        option (my_method_option).estimate = \"/example_service.Calculator/estimate_add\";\n    }\n    rpc estimate_add( Numbers) returns (PriceInCogs) {\n    }\n    rpc sub(Numbers) returns (Result) {}\n    rpc mul(Numbers) returns (Result) {}\n    rpc div(Numbers) returns (Result) {}\n}"
+	//metaData, err := InitServiceMetaDataFromJson(testJsonData)
+	srvProto, err := parseServiceProto(strProto)
+	assert.Nil(t, err)
+	priceMethodMap, err := buildDynamicPricingMethodsMap(srvProto)
+	assert.Nil(t, err)
+	assert.NotNil(t, priceMethodMap)
+	dynamicPriceMethod, ok := priceMethodMap["/example_service.Calculator/add"]
+	assert.Equal(t, dynamicPriceMethod, "/example_service.Calculator/estimate_add")
+	assert.True(t, ok)
+}

@@ -31,6 +31,7 @@ const (
 	DaemonTypeKey                  = "daemon_type"
 	DaemonEndPoint                 = "daemon_end_point"
 	ExecutablePathKey              = "executable_path"
+	EnableDynamicPricing           = "enable_dynamic_pricing"
 	IpfsEndPoint                   = "ipfs_end_point"
 	IpfsTimeout                    = "ipfs_timeout"
 	LogKey                         = "log"
@@ -70,6 +71,7 @@ const (
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"daemon_type": "grpc",
+    "enable_dynamic_pricing":false,
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
 	"ipfs_end_point": "http://localhost:5002/", 

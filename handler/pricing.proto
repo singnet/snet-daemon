@@ -1,6 +1,6 @@
 syntax = "proto3";
 import "google/protobuf/descriptor.proto";
-package escrow;
+package handler;
 extend google.protobuf.MethodOptions {
     EstimatePrice my_method_option = 9999127;
 }

@@ -179,7 +179,14 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 			//the first message sent by the client and pass this on the regualar service call
 			//This is done to be able to make calls to support regualr Service call + Dynamic pricing call
 			if i == 0 {
-				f = (src.(*wrapperServerStream).OriginalRecvMsg()).(*codec.GrpcFrame)
+				//todo we need to think through to determine price for every call on stream calls
+				//will be handled when we support streaming and pricing across all clients in snet-platform
+				if wrappedStream, ok := src.(*wrapperServerStream); ok {
+					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
+				} else {
+					src.RecvMsg(f)
+				}
+
 			} else if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
 				break
@@ -269,15 +276,13 @@ func (f *wrapperServerStream) SetTrailer(md metadata.MD) {
 	f.stream.SetTrailer(md)
 }
 
-func WrapperServerStream(stream grpc.ServerStream, m interface{}) (grpc.ServerStream, error) {
+func NewWrapperServerStream(stream grpc.ServerStream) (grpc.ServerStream, error) {
+	m := &codec.GrpcFrame{}
 	err := stream.RecvMsg(m)
 	f := &wrapperServerStream{
 		stream:           stream,
 		recvMessage:      m,
 		sendHeaderCalled: false,
-	}
-	if err == nil {
-		f.recvMessage = m
 	}
 	return f, err
 }

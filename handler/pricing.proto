@@ -1,4 +1,3 @@
-//go:generate protoc -I . ./pricing.proto --go_out=plugins=grpc:.
 syntax = "proto3";
 import "google/protobuf/descriptor.proto";
 package handler;

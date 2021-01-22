@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/singnet/snet-daemon/escrow"
+	storage2 "github.com/singnet/snet-daemon/storage"
 	"github.com/spf13/cobra"
 	"math/big"
 )
@@ -20,7 +21,7 @@ var ChannelCmd = &cobra.Command{
 
 //Channel command type
 type channelCommand struct {
-	storage       escrow.PrefixedAtomicStorage
+	storage          storage2.PrefixedAtomicStorage
 	paymentChannelId *big.Int
 }
 
@@ -31,7 +32,7 @@ func newChannelCommand(cmd *cobra.Command, args []string, components *Components
 		return
 	}
 	command = &channelCommand{
-		storage:       *components.LockerStorage(),
+		storage:          *components.LockerStorage(),
 		paymentChannelId: channelId,
 	}
 	return

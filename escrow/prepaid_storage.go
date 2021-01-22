@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"fmt"
+	"github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"reflect"
 )
@@ -85,13 +86,11 @@ func serializePrePaidKey(key interface{}) (serialized string, err error) {
 }
 
 // NewPrepaidStorage returns new instance of TypedAtomicStorage
-func NewPrepaidStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
-	return &TypedAtomicStorageImpl{
-		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage"),
-		keySerializer:     serializePrePaidKey,
-		keyType:           reflect.TypeOf(PrePaidDataKey{}),
-		valueSerializer:   serialize,
-		valueDeserializer: deserialize,
-		valueType:         reflect.TypeOf(PrePaidData{}),
-	}
+func NewPrepaidStorage(atomicStorage storage.AtomicStorage) storage.TypedAtomicStorage {
+	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage")
+	storage := storage.NewTypedAtomicStorageImpl(
+		prefixedStorage, serializePrePaidKey, reflect.TypeOf(PrePaidDataKey{}), serialize, deserialize,
+		reflect.TypeOf(PrePaidData{}),
+	)
+	return storage
 }

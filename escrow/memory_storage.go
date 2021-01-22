@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/storage"
 	"strings"
 	"sync"
 )
@@ -108,16 +109,16 @@ func (storage *memoryStorage) Clear() (err error) {
 	return
 }
 
-func (storage *memoryStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
-	conditionKeyValues := make([]KeyValueData, len(conditionKeys))
+func (memStorage *memoryStorage) StartTransaction(conditionKeys []string) (transaction storage.Transaction, err error) {
+	conditionKeyValues := make([]storage.KeyValueData, len(conditionKeys))
 	for i, key := range conditionKeys {
-		value, ok, err := storage.Get(key)
+		value, ok, err := memStorage.Get(key)
 		if err != nil {
 			return nil, err
 		} else if !ok {
-			conditionKeyValues[i] = KeyValueData{Key: key, Value: "", Present: false}
+			conditionKeyValues[i] = storage.KeyValueData{Key: key, Value: "", Present: false}
 		} else {
-			conditionKeyValues[i] = KeyValueData{Key: key, Value: value, Present: true}
+			conditionKeyValues[i] = storage.KeyValueData{Key: key, Value: value, Present: true}
 		}
 
 	}
@@ -125,7 +126,7 @@ func (storage *memoryStorage) StartTransaction(conditionKeys []string) (transact
 	return transaction, nil
 }
 
-func getValueDataForKey(key string, update []KeyValueData) (data KeyValueData, present bool) {
+func getValueDataForKey(key string, update []storage.KeyValueData) (data storage.KeyValueData, present bool) {
 	for _, data := range update {
 		if strings.Compare(data.Key, key) == 0 {
 			return data, true
@@ -133,7 +134,7 @@ func getValueDataForKey(key string, update []KeyValueData) (data KeyValueData, p
 	}
 	return data, false
 }
-func (storage *memoryStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
+func (storage *memoryStorage) CompleteTransaction(transaction storage.Transaction, update []storage.KeyValueData) (ok bool, err error) {
 	originalValues := transaction.(*memoryStorageTransaction).ConditionValues
 	for _, olddata := range originalValues {
 		if olddata.Present {
@@ -165,7 +166,7 @@ func (storage *memoryStorage) CompleteTransaction(transaction Transaction, updat
 	return true, nil
 }
 
-func (client *memoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
+func (client *memoryStorage) ExecuteTransaction(request storage.CASRequest) (ok bool, err error) {
 
 	transaction, err := client.StartTransaction(request.ConditionKeys)
 	if err != nil {
@@ -195,14 +196,14 @@ func (client *memoryStorage) ExecuteTransaction(request CASRequest) (ok bool, er
 }
 
 type memoryStorageTransaction struct {
-	ConditionValues []KeyValueData
+	ConditionValues []storage.KeyValueData
 	ConditionKeys   []string
 }
 
-func (transaction *memoryStorageTransaction) GetConditionValues() ([]KeyValueData, error) {
-	values := make([]KeyValueData, len(transaction.ConditionValues))
+func (transaction *memoryStorageTransaction) GetConditionValues() ([]storage.KeyValueData, error) {
+	values := make([]storage.KeyValueData, len(transaction.ConditionValues))
 	for i, value := range transaction.ConditionValues {
-		values[i] = KeyValueData{
+		values[i] = storage.KeyValueData{
 			Key:     value.Key,
 			Value:   value.Value,
 			Present: value.Present,

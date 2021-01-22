@@ -2,18 +2,19 @@ package escrow
 
 import (
 	"fmt"
+	storage2 "github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"strings"
 )
 
 type lockingPrepaidService struct {
-	storage        TypedAtomicStorage
+	storage        storage2.TypedAtomicStorage
 	validator      *PrePaidPaymentValidator
 	replicaGroupID func() ([32]byte, error)
 }
 
 func NewPrePaidService(
-	storage TypedAtomicStorage,
+	storage storage2.TypedAtomicStorage,
 	prepaidValidator *PrePaidPaymentValidator, groupIdReader func() ([32]byte, error)) PrePaidService {
 	return &lockingPrepaidService{
 		storage:        storage,
@@ -35,7 +36,7 @@ func (h *lockingPrepaidService) GetUsage(key PrePaidDataKey) (data *PrePaidData,
 //Defines the condition that needs to be met, it generates the respective typed Data when
 //conditions are satisfied, you define your own validations in here
 //It takes in the latest typed values read.
-type ConditionFunc func(conditionValues []TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) ([]TypedKeyValueData, error)
+type ConditionFunc func(conditionValues []storage2.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) ([]storage2.TypedKeyValueData, error)
 
 func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *big.Int, updateUsageType string) (err error) {
 	var conditionFunc ConditionFunc = nil
@@ -54,15 +55,15 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 		return fmt.Errorf("Unknow Update type %v", updateUsageType)
 	}
 
-	typedUpdateFunc := func(conditionValues []TypedKeyValueData) (update []TypedKeyValueData, ok bool, err error) {
-		var newValues []TypedKeyValueData
+	typedUpdateFunc := func(conditionValues []storage2.TypedKeyValueData) (update []storage2.TypedKeyValueData, ok bool, err error) {
+		var newValues []storage2.TypedKeyValueData
 		if newValues, err = conditionFunc(conditionValues, revisedAmount, channelId); err != nil {
 			return nil, false, err
 		}
 		return newValues, true, nil
 	}
 	typedKeys := getAllKeys(channelId)
-	request := TypedCASRequest{
+	request := storage2.TypedCASRequest{
 		Update:                  typedUpdateFunc,
 		RetryTillSuccessOrError: true,
 		ConditionKeys:           typedKeys,
@@ -87,7 +88,7 @@ func getAllKeys(channelId *big.Int) []interface{} {
 
 //this function will be used to read typed data ,convert it in to a business structure
 //on which validations can be easily performed and return back the business structure.
-func convertTypedDataToPrePaidUsage(data []TypedKeyValueData) (new *PrePaidUsageData, err error) {
+func convertTypedDataToPrePaidUsage(data []storage2.TypedKeyValueData) (new *PrePaidUsageData, err error) {
 	usageData := &PrePaidUsageData{PlannedAmount: big.NewInt(0),
 		UsedAmount: big.NewInt(0), RefundAmount: big.NewInt(0)}
 	for _, usageType := range data {
@@ -110,7 +111,7 @@ func convertTypedDataToPrePaidUsage(data []TypedKeyValueData) (new *PrePaidUsage
 	return usageData, nil
 }
 
-func BuildOldAndNewValuesForCAS(data *PrePaidUsageData) (newValues []TypedKeyValueData, err error) {
+func BuildOldAndNewValuesForCAS(data *PrePaidUsageData) (newValues []storage2.TypedKeyValueData, err error) {
 	updateUsageData := &PrePaidData{}
 	updateUsageKey := PrePaidDataKey{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType}
 	if amt, err := data.GetAmountForUsageType(); err != nil {
@@ -118,15 +119,15 @@ func BuildOldAndNewValuesForCAS(data *PrePaidUsageData) (newValues []TypedKeyVal
 	} else {
 		updateUsageData.Amount = amt
 	}
-	newValue := TypedKeyValueData{Key: updateUsageKey, Value: updateUsageData, Present: true}
-	newValues = make([]TypedKeyValueData, 1)
+	newValue := storage2.TypedKeyValueData{Key: updateUsageKey, Value: updateUsageData, Present: true}
+	newValues = make([]storage2.TypedKeyValueData, 1)
 	newValues[0] = newValue
 
 	return newValues, nil
 }
 
 var (
-	IncrementUsedAmount ConditionFunc = func(conditionValues []TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []TypedKeyValueData, err error) {
+	IncrementUsedAmount ConditionFunc = func(conditionValues []storage2.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []storage2.TypedKeyValueData, err error) {
 		oldState, err := convertTypedDataToPrePaidUsage(conditionValues)
 		if err != nil {
 			return nil, err
@@ -142,7 +143,7 @@ var (
 
 	}
 	//Make sure you update the planned amount ONLY when the new value is greater than what was last persisted
-	IncrementPlannedAmount ConditionFunc = func(conditionValues []TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []TypedKeyValueData, err error) {
+	IncrementPlannedAmount ConditionFunc = func(conditionValues []storage2.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []storage2.TypedKeyValueData, err error) {
 		oldState, err := convertTypedDataToPrePaidUsage(conditionValues)
 		if err != nil {
 			return nil, err
@@ -157,7 +158,7 @@ var (
 
 	}
 	//If there is no refund amount yet, put it , else add latest value in DB with the additional refund to be done
-	IncrementRefundAmount ConditionFunc = func(conditionValues []TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []TypedKeyValueData, err error) {
+	IncrementRefundAmount ConditionFunc = func(conditionValues []storage2.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []storage2.TypedKeyValueData, err error) {
 		newState, err := convertTypedDataToPrePaidUsage(conditionValues)
 		if err != nil {
 			return nil, err

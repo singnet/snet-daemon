@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"errors"
+	"github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"testing"
 
@@ -173,12 +174,12 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeint
 }
 
 func (suite *PaymentChannelStorageSuite) TestNewPaymentChannelStorage() {
-	mpeStorage := NewPrefixedAtomicStorage( NewPrefixedAtomicStorage(suite.memoryStorage,"path1"),"path2")
-	mpeStorage.Put("key1","value1")
-	value,_,_ := mpeStorage.Get("key1")
-	assert.Equal(suite.T(),value,"value1")
-	values,err := suite.memoryStorage.GetByKeyPrefix("path1")
-	assert.Equal(suite.T(), len(values),1)
-	assert.Equal(suite.T(),values[0],"value1")
+	mpeStorage := storage.NewPrefixedAtomicStorage(storage.NewPrefixedAtomicStorage(suite.memoryStorage, "path1"), "path2")
+	mpeStorage.Put("key1", "value1")
+	value, _, _ := mpeStorage.Get("key1")
+	assert.Equal(suite.T(), value, "value1")
+	values, err := suite.memoryStorage.GetByKeyPrefix("path1")
+	assert.Equal(suite.T(), len(values), 1)
+	assert.Equal(suite.T(), values[0], "value1")
 	assert.Nil(suite.T(), err)
 }

@@ -28,7 +28,7 @@ type PaymentChannelStorageSuite struct {
 	senderAddress    common.Address
 	signerAddress    common.Address
 	recipientAddress common.Address
-	memoryStorage    *memoryStorage
+	memoryStorage    *storage.MemoryStorage
 
 	storage *PaymentChannelStorage
 }
@@ -37,7 +37,7 @@ func (suite *PaymentChannelStorageSuite) SetupSuite() {
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
-	suite.memoryStorage = NewMemStorage()
+	suite.memoryStorage = storage.NewMemStorage()
 
 	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
 }

@@ -208,7 +208,7 @@ func (components *Components) AtomicStorage() storage.AtomicStorage {
 	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
 		store = components.EtcdClient()
 	} else {
-		store = escrow.NewMemStorage()
+		store = storage.NewMemStorage()
 	}
 	//by default set the network selected in the storage path
 	components.atomicStorage = storage.NewPrefixedAtomicStorage(store, config.GetString(config.BlockChainNetworkSelected)+"/"+config.GetString(config.OrganizationId)+"/"+components.OrganizationMetaData().GetGroupIdString())

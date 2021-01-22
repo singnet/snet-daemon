@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/singnet/snet-daemon/config"
+	storage2 "github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"testing"
 
@@ -85,7 +86,7 @@ type PaymentChannelServiceSuite struct {
 	signerAddress      common.Address
 	recipientAddress   common.Address
 	mpeContractAddress common.Address
-	memoryStorage      *memoryStorage
+	memoryStorage      *storage2.MemoryStorage
 	storage            *PaymentChannelStorage
 	paymentStorage     *PaymentStorage
 
@@ -99,7 +100,7 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
-	suite.memoryStorage = NewMemStorage()
+	suite.memoryStorage = storage2.NewMemStorage()
 	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
 	suite.paymentStorage = NewPaymentStorage(suite.memoryStorage)
 

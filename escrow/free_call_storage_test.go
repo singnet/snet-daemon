@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	storage2 "github.com/singnet/snet-daemon/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"testing"
@@ -8,13 +9,13 @@ import (
 
 type FreeCallUserStorageSuite struct {
 	suite.Suite
-	memoryStorage *memoryStorage
+	memoryStorage *storage2.MemoryStorage
 	storage       *FreeCallUserStorage
 }
 
 func (suite *FreeCallUserStorageSuite) SetupSuite() {
 
-	suite.memoryStorage = NewMemStorage()
+	suite.memoryStorage = storage2.NewMemStorage()
 
 	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
 }

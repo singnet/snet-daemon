@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"os"
 	"strconv"
@@ -306,8 +307,8 @@ func (suite *EtcdTestSuite) TestPutIfAbsentTransactionFailsAfterConcurrentPut() 
 	assert.Nil(t, err)
 
 	// then
-	ok, err = client.CompleteTransaction(transaction, []escrow.KeyValueData{
-		escrow.KeyValueData{
+	ok, err = client.CompleteTransaction(transaction, []storage.KeyValueData{
+		storage.KeyValueData{
 			Key:     key,
 			Value:   "transaction-value",
 			Present: true,

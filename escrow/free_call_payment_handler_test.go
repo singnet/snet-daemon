@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
-	storage2 "github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"strconv"
 	"testing"
@@ -28,7 +28,7 @@ type FreeCallPaymentHandlerTestSuite struct {
 	privateKey     *ecdsa.PrivateKey
 	key            *FreeCallUserKey
 	data           *FreeCallUserData
-	memoryStorage  *storage2.MemoryStorage
+	memoryStorage  *storage.MemoryStorage
 	storage        *FreeCallUserStorage
 	metadata       *blockchain.ServiceMetadata
 }
@@ -41,7 +41,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) getKey(userId string) *FreeCallUse
 func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
 
 	suite.privateKey = GenerateTestPrivateKey()
-	suite.memoryStorage = storage2.NewMemStorage()
+	suite.memoryStorage = storage.NewMemStorage()
 	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
 	orgMetadata, _ := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
 	suite.metadata, _ = blockchain.InitServiceMetaDataFromJson(testJsonData)

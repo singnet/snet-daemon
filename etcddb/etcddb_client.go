@@ -211,6 +211,10 @@ type EtcdKeyValue struct {
 	value string
 }
 
+func NewEtcdKeyValue(key string, value string) EtcdKeyValue {
+	return EtcdKeyValue{key: key, value: value}
+}
+
 // CompareAndSwap uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
 	return client.ExecuteTransaction(storage.CASRequest{

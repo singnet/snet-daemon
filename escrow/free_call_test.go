@@ -1,7 +1,7 @@
 package escrow
 
 import (
-	storage2 "github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/storage"
 	"testing"
 
 	"github.com/singnet/snet-daemon/blockchain"
@@ -12,7 +12,7 @@ import (
 
 type FreeCallServiceSuite struct {
 	suite.Suite
-	memoryStorage *storage2.MemoryStorage
+	memoryStorage *storage.MemoryStorage
 	storage       *FreeCallUserStorage
 	service       FreeCallUserService
 	metadata      *blockchain.ServiceMetadata
@@ -32,7 +32,7 @@ func (suite *FreeCallServiceSuite) SetupSuite() {
 	metadata, err := blockchain.InitServiceMetaDataFromJson(testJsonData)
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 	suite.metadata = metadata
-	suite.memoryStorage = storage2.NewMemStorage()
+	suite.memoryStorage = storage.NewMemStorage()
 	suite.groupId = [32]byte{123}
 	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
 	suite.service = NewFreeCallUserService(suite.storage,

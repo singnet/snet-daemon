@@ -1,15 +1,10 @@
-package escrow
+package etcddb
 
 import (
 	"context"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/storage"
-	"github.com/spf13/viper"
-	"math/big"
-	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -23,8 +18,8 @@ import (
 
 type EtcdTestSuite struct {
 	suite.Suite
-	client   *etcddb.EtcdClient
-	server   *etcddb.EtcdServer
+	client   *EtcdClient
+	server   *EtcdServer
 	metaData *blockchain.OrganizationMetaData
 }
 
@@ -58,7 +53,7 @@ func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 
 	t := suite.T()
 	vip := readConfig(t, confJSON)
-	server, err := etcddb.GetEtcdServerFromVip(vip)
+	server, err := GetEtcdServerFromVip(vip)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, server)
@@ -67,29 +62,12 @@ func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 	err = server.Start()
 	assert.Nil(t, err)
 
-	client, err := etcddb.NewEtcdClientFromVip(vip, suite.metaData)
+	client, err := NewEtcdClientFromVip(vip, suite.metaData)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, client)
 	suite.client = client
 
-}
-func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {
-	vip = viper.New()
-	config.SetDefaultFromConfig(vip, config.Vip())
-
-	err := config.ReadConfigFromJsonString(vip, configJSON)
-	assert.Nil(t, err)
-	return
-}
-
-func removeWorkDir(t *testing.T, workDir string) {
-
-	dir, err := os.Getwd()
-	assert.Nil(t, err)
-
-	err = os.RemoveAll(dir + "/" + workDir)
-	assert.Nil(t, err)
 }
 
 func (suite *EtcdTestSuite) AfterTest(suiteName string, testName string) {
@@ -218,13 +196,13 @@ func (suite *EtcdTestSuite) TestEtcdTransaction() {
 	assertGet(suite, key2, expect2)
 
 	ok, err := client.Transaction(
-		[]etcddb.EtcdKeyValue{
-			etcddb.NewEtcdKeyValue(key1, expect1),
-			etcddb.NewEtcdKeyValue(key2, expect2),
+		[]EtcdKeyValue{
+			NewEtcdKeyValue(key1, expect1),
+			NewEtcdKeyValue(key2, expect2),
 		},
-		[]etcddb.EtcdKeyValue{
-			etcddb.NewEtcdKeyValue(key2, update2),
-			etcddb.NewEtcdKeyValue(key3, update3),
+		[]EtcdKeyValue{
+			NewEtcdKeyValue(key2, update2),
+			NewEtcdKeyValue(key3, update3),
 		},
 	)
 	assert.Nil(t, err)
@@ -235,13 +213,13 @@ func (suite *EtcdTestSuite) TestEtcdTransaction() {
 	assertGet(suite, key3, update3)
 
 	ok, err = client.Transaction(
-		[]etcddb.EtcdKeyValue{
-			etcddb.NewEtcdKeyValue(key1, expect1),
-			etcddb.NewEtcdKeyValue(key2, expect2),
+		[]EtcdKeyValue{
+			NewEtcdKeyValue(key1, expect1),
+			NewEtcdKeyValue(key2, expect2),
 		},
-		[]etcddb.EtcdKeyValue{
-			etcddb.NewEtcdKeyValue(key2, update2),
-			etcddb.NewEtcdKeyValue(key3, update3),
+		[]EtcdKeyValue{
+			NewEtcdKeyValue(key2, update2),
+			NewEtcdKeyValue(key3, update3),
 		},
 	)
 	assert.Nil(t, err)
@@ -252,13 +230,13 @@ func (suite *EtcdTestSuite) TestEtcdTransaction() {
 	assertGet(suite, key3, update3)
 
 	ok, err = client.Transaction(
-		[]etcddb.EtcdKeyValue{
-			etcddb.NewEtcdKeyValue(key1, expect1),
-			etcddb.NewEtcdKeyValue(key2, update2),
-			etcddb.NewEtcdKeyValue(key3, update3),
+		[]EtcdKeyValue{
+			NewEtcdKeyValue(key1, expect1),
+			NewEtcdKeyValue(key2, update2),
+			NewEtcdKeyValue(key3, update3),
 		},
-		[]etcddb.EtcdKeyValue{
-			etcddb.NewEtcdKeyValue(key2, expect2),
+		[]EtcdKeyValue{
+			NewEtcdKeyValue(key2, expect2),
 		},
 	)
 	assert.Nil(t, err)
@@ -352,7 +330,7 @@ func (suite *EtcdTestSuite) TestEtcdMutex() {
 
 	runWithLock := func(i int) {
 
-		client, err := etcddb.NewEtcdClient(suite.metaData)
+		client, err := NewEtcdClient(suite.metaData)
 		assert.Nil(t, err)
 		defer client.Close()
 
@@ -414,37 +392,4 @@ func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (ke
 		keyValues = append(keyValues, keyValue)
 	}
 	return
-}
-
-func (suite *EtcdTestSuite) TestExecuteTransaction() {
-	t := suite.T()
-
-	channelId := big.NewInt(1)
-	price := big.NewInt(2)
-	storage := NewPrepaidStorage(suite.client)
-	service := NewPrePaidService(storage, nil, func() (bytes [32]byte, e error) {
-		return [32]byte{123}, nil
-	})
-
-	err := service.UpdateUsage(channelId, big.NewInt(10), PLANNED_AMOUNT)
-	assert.Nil(t, err)
-	value, ok, err := service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT})
-	assert.Nil(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, value.Amount, big.NewInt(10))
-
-	err = service.UpdateUsage(channelId, price, USED_AMOUNT)
-	assert.Nil(t, err)
-	value, ok, err = service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: USED_AMOUNT})
-	assert.Nil(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, value.Amount, price)
-
-	err = service.UpdateUsage(channelId, price, REFUND_AMOUNT)
-	assert.Nil(t, err)
-	value, ok, err = service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: REFUND_AMOUNT})
-	assert.Nil(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, value.Amount, price)
-
 }

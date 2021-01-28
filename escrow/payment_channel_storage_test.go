@@ -183,3 +183,36 @@ func (suite *PaymentChannelStorageSuite) TestNewPaymentChannelStorage() {
 	assert.Equal(suite.T(), values[0], "value1")
 	assert.Nil(suite.T(), err)
 }
+
+func (suite *PaymentChannelStorageSuite) TestExecuteTransaction() {
+	t := suite.T()
+
+	channelId := big.NewInt(1)
+	price := big.NewInt(2)
+	storage := NewPrepaidStorage(storage.NewPrefixedAtomicStorage(suite.memoryStorage, "path1"))
+	service := NewPrePaidService(storage, nil, func() (bytes [32]byte, e error) {
+		return [32]byte{123}, nil
+	})
+
+	err := service.UpdateUsage(channelId, big.NewInt(10), PLANNED_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err := service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, big.NewInt(10))
+
+	err = service.UpdateUsage(channelId, price, USED_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err = service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: USED_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, price)
+
+	err = service.UpdateUsage(channelId, price, REFUND_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err = service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: REFUND_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, price)
+
+}

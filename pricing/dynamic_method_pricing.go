@@ -1,3 +1,4 @@
+//go:generate protoc -I . ./pricing.proto --go_out=plugins=grpc:.
 package pricing
 
 import (

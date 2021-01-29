@@ -3,6 +3,7 @@ package pricing
 import (
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 	log "github.com/sirupsen/logrus"
 	"math/big"
@@ -11,19 +12,32 @@ import (
 
 type PricingStrategy struct {
 	//Holds all the pricing types possible
-	pricingTypes []PriceType
+	pricingTypes    map[string]PriceType
+	serviceMetaData *blockchain.ServiceMetadata
 }
 
 //Figure out which price type is to be used
-func (pricing PricingStrategy) determinePricingApplicable(GrpcContext *handler.GrpcStreamContext) (priceType PriceType, err error) {
+func (pricing PricingStrategy) determinePricingApplicable(context *handler.GrpcStreamContext) (priceType PriceType, err error) {
 	//For future , there could be multiple pricingTypes to select from and this method will help decide which pricing to pick
 	//but for now , we just have one pricing Type ( either Fixed Price or Fixed price per Method)
-	return pricing.pricingTypes[0], nil
+
+	if config.GetBool(config.EnableDynamicPricing) {
+		//Use Dynamic pricing ONLY when you find the mapped price method to be called.
+		if _, ok := pricing.serviceMetaData.GetDynamicPricingMethodAssociated(context.Info.FullMethod); ok {
+			return pricing.pricingTypes[DYNAMIC_PRICING], nil
+		} else {
+			log.Info("No Dynamic Price method defined in service proto for the method %v",
+				context.Info.FullMethod)
+		}
+
+	}
+	//Default pricing is Fixed Pricing
+	return pricing.pricingTypes[pricing.serviceMetaData.GetDefaultPricing().PriceModel], nil
 }
 
 //Initialize all the pricing types
 func InitPricingStrategy(metadata *blockchain.ServiceMetadata) (*PricingStrategy, error) {
-	pricing := &PricingStrategy{}
+	pricing := &PricingStrategy{serviceMetaData: metadata}
 
 	if err := pricing.initFromMetaData(metadata); err != nil {
 		log.WithError(err)
@@ -32,11 +46,11 @@ func InitPricingStrategy(metadata *blockchain.ServiceMetadata) (*PricingStrategy
 	return pricing, nil
 }
 
-func (pricing *PricingStrategy) AddPricingTypes(priceType PriceType)  {
+func (pricing *PricingStrategy) AddPricingTypes(priceType PriceType) {
 	if pricing.pricingTypes == nil {
-		pricing.pricingTypes = make([]PriceType, 0)
+		pricing.pricingTypes = make(map[string]PriceType)
 	}
-	pricing.pricingTypes = append(pricing.pricingTypes, priceType)
+	pricing.pricingTypes[priceType.GetPriceType()] = priceType
 }
 
 func (pricing PricingStrategy) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int, err error) {
@@ -61,8 +75,12 @@ func (pricing *PricingStrategy) initFromMetaData(metadata *blockchain.ServiceMet
 		priceType = methodPricing
 	}
 	pricing.AddPricingTypes(priceType)
-
-	if priceType == nil  {
+	if config.GetBool(config.EnableDynamicPricing) {
+		pricing.AddPricingTypes(&DynamicMethodPrice{
+			serviceMetaData: metadata,
+		})
+	}
+	if priceType == nil {
 		err = fmt.Errorf("No PricingStrategy strategy defined in Metadata ")
 		log.WithError(err)
 	}

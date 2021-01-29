@@ -3,22 +3,18 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang/protobuf/proto"
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/codec"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/ratelimit"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"math/big"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -78,8 +74,9 @@ const (
 // GrpcStreamContext contains information about gRPC call which is used to
 // validate payment and pricing.
 type GrpcStreamContext struct {
-	MD   metadata.MD
-	Info *grpc.StreamServerInfo
+	MD       metadata.MD
+	Info     *grpc.StreamServerInfo
+	InStream grpc.ServerStream
 }
 
 func (context *GrpcStreamContext) String() string {
@@ -249,71 +246,18 @@ type paymentValidationInterceptor struct {
 	paymentHandlers       map[string]PaymentHandler
 }
 
-func (interceptor *paymentValidationInterceptor) checkForDynamicPricing(srv interface{}, ss grpc.ServerStream,
-	info *grpc.StreamServerInfo, handler grpc.StreamHandler, derivedContext *GrpcStreamContext) (e error) {
-
-	method, ok := grpc.MethodFromServerStream(ss)
-	log.WithField("methodNameRetrieved", method)
-	if !ok {
-		return fmt.Errorf("Unable to get the method Name from the incoming request")
-	}
-	//todo, get grpc options standardized rather than doing then everytime
-	passThroughURL, err := url.Parse(config.GetString(config.PassthroughEndpointKey))
-	if err != nil {
-		log.WithError(err)
-		return err
-	}
-	options := grpc.WithDefaultCallOptions(
-		grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
-		grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024))
-
-	conn, _ := grpc.Dial(passThroughURL.Host, grpc.WithInsecure(), options)
-	md, ok := metadata.FromIncomingContext(ss.Context())
-
-	if !ok {
-		return status.Errorf(codes.Internal, "could not get metadata from incoming context")
-	}
-	outCtx, outCancel := context.WithCancel(ss.Context())
-	defer func() { outCancel() }()
-	outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
-	pricingMethod, ok := interceptor.serviceMetadata.GetDynamicPricingMethodAssociated(method)
-	if !ok {
-		return fmt.Errorf("Umable to determine the pricing method")
-	}
-	clientStream, err := conn.NewStream(outCtx,
-		&grpc.StreamDesc{ServerStreams: true, ClientStreams: true}, pricingMethod,
-		grpc.CallContentSubtype("proto"))
-	derivedPrice, err := interceptor.getPriceFromPricingMethod(ss, clientStream)
-	//Price set here will be used in the Pricing strategy to get the price
-	derivedContext.MD.Append(DynamicPriceDerived, fmt.Sprintf("%v", derivedPrice))
-	return nil
-}
-
-func (interceptor *paymentValidationInterceptor) getPriceFromPricingMethod(ss grpc.ServerStream, clientStream grpc.ClientStream) (price *big.Int, err error) {
-	reqMessage := ss.(*wrapperServerStream).OriginalRecvMsg()
-
-	err = clientStream.SendMsg(reqMessage)
-	if err != nil {
-		return nil, err
-	}
-	responseMessage := &codec.GrpcFrame{}
-	err = clientStream.RecvMsg(responseMessage)
-	if err != nil {
-		return nil, err
-	}
-	pp := &PriceInCogs{}
-
-	if err := proto.Unmarshal(responseMessage.Data, pp); err != nil {
-		return nil, err
-	}
-	log.WithField("dynamic price received", pp.Price)
-	return big.NewInt(0).SetUint64(pp.Price), nil
-}
-
 func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
-
-	context, err := getGrpcContext(ss, info)
+	wrapperStream := ss
+	// check we need to have dynamic pricing here
+	// if yes, then use the wrapper Stream
+	if config.GetBool(config.EnableDynamicPricing) {
+		var streamError error
+		if wrapperStream, streamError = NewWrapperServerStream(ss); streamError != nil {
+			return streamError
+		}
+	}
+	context, err := getGrpcContext(wrapperStream, info)
 	if err != nil {
 		return err.Err()
 	}
@@ -324,19 +268,6 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 		return err.Err()
 	}
 
-	wrapperStream := ss
-	// check we need to have dynamic pricing here
-	// if yes, then get the price of the Service and pass it in the context
-	if config.GetBool(config.EnableDynamicPricing) {
-		var streamError error
-		if wrapperStream, streamError = NewWrapperServerStream(ss); streamError == nil {
-			if pricingError := interceptor.checkForDynamicPricing(srv, wrapperStream, info, handler, context); pricingError != nil {
-				return err.Err()
-			}
-		} else {
-			return streamError
-		}
-	}
 	payment, err := paymentHandler.Payment(context)
 	if err != nil {
 		return err.Err()
@@ -381,8 +312,9 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 	}
 
 	return &GrpcStreamContext{
-		MD:   md,
-		Info: info,
+		MD:       md,
+		Info:     info,
+		InStream: serverStream,
 	}, nil
 }
 

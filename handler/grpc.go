@@ -182,7 +182,7 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 			if i == 0 {
 				//todo we need to think through to determine price for every call on stream calls
 				//will be handled when we support streaming and pricing across all clients in snet-platform
-				if wrappedStream, ok := src.(*wrapperServerStream); ok {
+				if wrappedStream, ok := src.(*WrapperServerStream); ok {
 					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
 				} else {
 					src.RecvMsg(f)
@@ -266,21 +266,21 @@ func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) 
 	return nil
 }
 
-type wrapperServerStream struct {
+type WrapperServerStream struct {
 	sendHeaderCalled bool
 	stream           grpc.ServerStream
 	recvMessage      interface{}
 	sentMessage      interface{}
 }
 
-func (f *wrapperServerStream) SetTrailer(md metadata.MD) {
+func (f *WrapperServerStream) SetTrailer(md metadata.MD) {
 	f.stream.SetTrailer(md)
 }
 
 func NewWrapperServerStream(stream grpc.ServerStream) (grpc.ServerStream, error) {
 	m := &codec.GrpcFrame{}
 	err := stream.RecvMsg(m)
-	f := &wrapperServerStream{
+	f := &WrapperServerStream{
 		stream:           stream,
 		recvMessage:      m,
 		sendHeaderCalled: false,
@@ -288,10 +288,10 @@ func NewWrapperServerStream(stream grpc.ServerStream) (grpc.ServerStream, error)
 	return f, err
 }
 
-func (f *wrapperServerStream) SetHeader(md metadata.MD) error {
+func (f *WrapperServerStream) SetHeader(md metadata.MD) error {
 	return f.stream.SetHeader(md)
 }
-func (f *wrapperServerStream) SendHeader(md metadata.MD) error {
+func (f *WrapperServerStream) SendHeader(md metadata.MD) error {
 	//this is more of a hack to support dynamic pricing
 	// when the service method returns the price in cogs, the SendHeader, will be called,
 	// we dont want this as the SendHeader can be called just once in the ServerStream
@@ -303,19 +303,19 @@ func (f *wrapperServerStream) SendHeader(md metadata.MD) error {
 
 }
 
-func (f *wrapperServerStream) Context() context.Context {
+func (f *WrapperServerStream) Context() context.Context {
 	return f.stream.Context()
 }
 
-func (f *wrapperServerStream) SendMsg(m interface{}) error {
+func (f *WrapperServerStream) SendMsg(m interface{}) error {
 	return f.stream.SendMsg(m)
 }
 
-func (f *wrapperServerStream) RecvMsg(m interface{}) error {
+func (f *WrapperServerStream) RecvMsg(m interface{}) error {
 	return f.stream.RecvMsg(m)
 }
 
-func (f *wrapperServerStream) OriginalRecvMsg() interface{} {
+func (f *WrapperServerStream) OriginalRecvMsg() interface{} {
 	return f.recvMessage
 }
 

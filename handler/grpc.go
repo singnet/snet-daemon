@@ -183,8 +183,9 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 				//will be handled when we support streaming and pricing across all clients in snet-platform
 				if wrappedStream, ok := src.(*WrapperServerStream); ok {
 					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
-				} else {
-					src.RecvMsg(f)
+				} else if err := src.RecvMsg(f); err != nil {
+					ret <- err
+					break
 				}
 
 			} else if err := src.RecvMsg(f); err != nil {

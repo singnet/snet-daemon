@@ -26,7 +26,7 @@ func (pricing PricingStrategy) determinePricingApplicable(context *handler.GrpcS
 		if _, ok := pricing.serviceMetaData.GetDynamicPricingMethodAssociated(context.Info.FullMethod); ok {
 			return pricing.pricingTypes[DYNAMIC_PRICING], nil
 		} else {
-			log.Info("No Dynamic Price method defined in service proto for the method %v",
+			log.Infof("No Dynamic Price method defined in service proto for the method %v",
 				context.Info.FullMethod)
 		}
 

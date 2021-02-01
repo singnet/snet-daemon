@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/big"
@@ -24,7 +25,7 @@ type FreeCallStateServiceSuite struct {
 	serviceMetaData          *blockchain.ServiceMetadata
 	orgMetaData              *blockchain.OrganizationMetaData
 	stateService             *FreeCallStateService
-	memoryStorage            *memoryStorage
+	memoryStorage            *storage.MemoryStorage
 	storage                  *FreeCallUserStorage
 	service                  FreeCallUserService
 	request                  *FreeCallStateRequest
@@ -49,7 +50,7 @@ func (suite *FreeCallStateServiceSuite) SetupSuite() {
 
 	suite.orgMetaData, _ = blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
 	suite.serviceMetaData, _ = blockchain.InitServiceMetaDataFromJson(testJsonData)
-	suite.memoryStorage = NewMemStorage()
+	suite.memoryStorage = storage.NewMemStorage()
 	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
 	suite.service = NewFreeCallUserService(suite.storage,
 		NewEtcdLocker(suite.memoryStorage), func() ([32]byte, error) { return suite.orgMetaData.GetGroupId(), nil },

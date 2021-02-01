@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/storage"
 	"github.com/singnet/snet-daemon/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -81,7 +82,7 @@ func (suite *TokenServiceTestSuite) SetupSuite() {
 	println("suite.orgMetaData.GetPaymentAddress().Hex() " + suite.orgMetaData.GetPaymentAddress().Hex())
 	println("suite.receiverAddress.Hex()" + suite.receiverAddress.Hex())
 
-	memoryStorage := NewMemStorage()
+	memoryStorage := storage.NewMemStorage()
 	suite.storage = NewPaymentChannelStorage(memoryStorage)
 	suite.paymentStorage = NewPaymentStorage(memoryStorage)
 	suite.channelService = NewPaymentChannelService(
@@ -104,7 +105,7 @@ func (suite *TokenServiceTestSuite) SetupSuite() {
 		})
 
 	tokenManager := token.NewJWTTokenService(*suite.orgMetaData)
-	suite.service = NewTokenService(suite.channelService, NewPrePaidService(NewPrepaidStorage(NewMemStorage()), nil, nil), tokenManager,
+	suite.service = NewTokenService(suite.channelService, NewPrePaidService(NewPrepaidStorage(storage.NewMemStorage()), nil, nil), tokenManager,
 		&ChannelPaymentValidator{currentBlock: func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) }}, suite.serviceMetaData)
 	suite.putChannel(big.NewInt(1))

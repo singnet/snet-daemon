@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/escrow"
-	"math/big"
-	"os"
+	"github.com/singnet/snet-daemon/storage"
 	"strconv"
 	"sync"
 	"testing"
@@ -74,7 +72,7 @@ func (suite *EtcdTestSuite) BeforeTest(suiteName string, testName string) {
 
 func (suite *EtcdTestSuite) AfterTest(suiteName string, testName string) {
 
-	workDir := suite.server.conf.DataDir
+	workDir := suite.server.GetConf().DataDir
 	defer removeWorkDir(suite.T(), workDir)
 
 	if suite.client != nil {
@@ -199,12 +197,12 @@ func (suite *EtcdTestSuite) TestEtcdTransaction() {
 
 	ok, err := client.Transaction(
 		[]EtcdKeyValue{
-			EtcdKeyValue{key: key1, value: expect1},
-			EtcdKeyValue{key: key2, value: expect2},
+			NewEtcdKeyValue(key1, expect1),
+			NewEtcdKeyValue(key2, expect2),
 		},
 		[]EtcdKeyValue{
-			EtcdKeyValue{key: key2, value: update2},
-			EtcdKeyValue{key: key3, value: update3},
+			NewEtcdKeyValue(key2, update2),
+			NewEtcdKeyValue(key3, update3),
 		},
 	)
 	assert.Nil(t, err)
@@ -216,12 +214,12 @@ func (suite *EtcdTestSuite) TestEtcdTransaction() {
 
 	ok, err = client.Transaction(
 		[]EtcdKeyValue{
-			EtcdKeyValue{key: key1, value: expect1},
-			EtcdKeyValue{key: key2, value: expect2},
+			NewEtcdKeyValue(key1, expect1),
+			NewEtcdKeyValue(key2, expect2),
 		},
 		[]EtcdKeyValue{
-			EtcdKeyValue{key: key2, value: update2},
-			EtcdKeyValue{key: key3, value: update3},
+			NewEtcdKeyValue(key2, update2),
+			NewEtcdKeyValue(key3, update3),
 		},
 	)
 	assert.Nil(t, err)
@@ -233,12 +231,12 @@ func (suite *EtcdTestSuite) TestEtcdTransaction() {
 
 	ok, err = client.Transaction(
 		[]EtcdKeyValue{
-			EtcdKeyValue{key: key1, value: expect1},
-			EtcdKeyValue{key: key2, value: update2},
-			EtcdKeyValue{key: key3, value: update3},
+			NewEtcdKeyValue(key1, expect1),
+			NewEtcdKeyValue(key2, update2),
+			NewEtcdKeyValue(key3, update3),
 		},
 		[]EtcdKeyValue{
-			EtcdKeyValue{key: key2, value: expect2},
+			NewEtcdKeyValue(key2, expect2),
 		},
 	)
 	assert.Nil(t, err)
@@ -306,8 +304,8 @@ func (suite *EtcdTestSuite) TestPutIfAbsentTransactionFailsAfterConcurrentPut() 
 	assert.Nil(t, err)
 
 	// then
-	ok, err = client.CompleteTransaction(transaction, []escrow.KeyValueData{
-		escrow.KeyValueData{
+	ok, err = client.CompleteTransaction(transaction, []storage.KeyValueData{
+		storage.KeyValueData{
 			Key:     key,
 			Value:   "transaction-value",
 			Present: true,
@@ -394,46 +392,4 @@ func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (ke
 		keyValues = append(keyValues, keyValue)
 	}
 	return
-}
-
-func removeWorkDir(t *testing.T, workDir string) {
-
-	dir, err := os.Getwd()
-	assert.Nil(t, err)
-
-	err = os.RemoveAll(dir + "/" + workDir)
-	assert.Nil(t, err)
-}
-
-func (suite *EtcdTestSuite) TestExecuteTransaction() {
-	t := suite.T()
-
-	channelId := big.NewInt(1)
-	price := big.NewInt(2)
-	storage := escrow.NewPrepaidStorage(suite.client)
-	service := escrow.NewPrePaidService(storage, nil, func() (bytes [32]byte, e error) {
-		return [32]byte{123}, nil
-	})
-
-	err := service.UpdateUsage(channelId, big.NewInt(10), escrow.PLANNED_AMOUNT)
-	assert.Nil(t, err)
-	value, ok, err := service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.PLANNED_AMOUNT})
-	assert.Nil(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, value.Amount, big.NewInt(10))
-
-	err = service.UpdateUsage(channelId, price, escrow.USED_AMOUNT)
-	assert.Nil(t, err)
-	value, ok, err = service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.USED_AMOUNT})
-	assert.Nil(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, value.Amount, price)
-
-	err = service.UpdateUsage(channelId, price, escrow.REFUND_AMOUNT)
-	assert.Nil(t, err)
-	value, ok, err = service.GetUsage(escrow.PrePaidDataKey{ChannelID: channelId, UsageType: escrow.REFUND_AMOUNT})
-	assert.Nil(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, value.Amount, price)
-
 }

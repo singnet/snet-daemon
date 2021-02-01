@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/storage"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -29,19 +30,19 @@ func Test_getAllKeys(t *testing.T) {
 }
 
 func Test_convertTypedDataToPrePaidUsage(t *testing.T) {
-	typedArray := make([]TypedKeyValueData, 3)
-	typedArray[0] = TypedKeyValueData{
+	typedArray := make([]storage.TypedKeyValueData, 3)
+	typedArray[0] = storage.TypedKeyValueData{
 		Key:     PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: USED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
 	}
-	typedArray[1] = TypedKeyValueData{
+	typedArray[1] = storage.TypedKeyValueData{
 		Key:     PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: PLANNED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(10)},
 		Present: true,
 	}
 
-	typedArray[2] = TypedKeyValueData{
+	typedArray[2] = storage.TypedKeyValueData{
 		Key:     PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: REFUND_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(4)},
 		Present: true,
@@ -52,7 +53,7 @@ func Test_convertTypedDataToPrePaidUsage(t *testing.T) {
 	assert.Equal(t, newState.UsedAmount, big.NewInt(3))
 	assert.Equal(t, newState.RefundAmount, big.NewInt(4))
 
-	typedArray[0] = TypedKeyValueData{
+	typedArray[0] = storage.TypedKeyValueData{
 		Key:     PrePaidDataKey{ChannelID: big.NewInt(10), UsageType: "BAD"},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
@@ -93,13 +94,13 @@ func Test_KeySerializeAndDeserialize(t *testing.T) {
 
 func TestFuncUsedAmount(t *testing.T) {
 	channelId := big.NewInt(10)
-	typedArray := make([]TypedKeyValueData, 2)
-	typedArray[0] = TypedKeyValueData{
+	typedArray := make([]storage.TypedKeyValueData, 2)
+	typedArray[0] = storage.TypedKeyValueData{
 		Key:     PrePaidDataKey{ChannelID: channelId, UsageType: USED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
 	}
-	typedArray[1] = TypedKeyValueData{
+	typedArray[1] = storage.TypedKeyValueData{
 		Key:     PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(30)},
 		Present: true,
@@ -114,8 +115,8 @@ func TestFuncUsedAmount(t *testing.T) {
 
 func TestFuncPlannedAmount(t *testing.T) {
 	channelId := big.NewInt(10)
-	typedArray := make([]TypedKeyValueData, 1)
-	typedArray[0] = TypedKeyValueData{
+	typedArray := make([]storage.TypedKeyValueData, 1)
+	typedArray[0] = storage.TypedKeyValueData{
 		Key:     PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,
@@ -128,8 +129,8 @@ func TestFuncPlannedAmount(t *testing.T) {
 
 func TestFuncRefundAmount(t *testing.T) {
 	channelId := big.NewInt(10)
-	typedArray := make([]TypedKeyValueData, 1)
-	typedArray[0] = TypedKeyValueData{
+	typedArray := make([]storage.TypedKeyValueData, 1)
+	typedArray[0] = storage.TypedKeyValueData{
 		Key:     PrePaidDataKey{ChannelID: channelId, UsageType: REFUND_AMOUNT},
 		Value:   &PrePaidData{Amount: big.NewInt(3)},
 		Present: true,

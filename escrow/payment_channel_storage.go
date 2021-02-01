@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"math/big"
@@ -16,22 +17,19 @@ import (
 // PaymentChannelStorage is a storage for PaymentChannelData by
 // PaymentChannelKey based on TypedAtomicStorage implementation
 type PaymentChannelStorage struct {
-	delegate TypedAtomicStorage
+	delegate storage.TypedAtomicStorage
 }
 
 // NewPaymentChannelStorage returns new instance of PaymentChannelStorage
 // implementation
-func NewPaymentChannelStorage(atomicStorage AtomicStorage) *PaymentChannelStorage {
-	return &PaymentChannelStorage{
-		delegate: &TypedAtomicStorageImpl{
-			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment-channel/storage"),
-			keySerializer:     serializeKey,
-			keyType:           reflect.TypeOf(PaymentChannelKey{}),
-			valueSerializer:   serialize,
-			valueDeserializer: deserialize,
-			valueType:         reflect.TypeOf(PaymentChannelData{}),
-		},
-	}
+func NewPaymentChannelStorage(atomicStorage storage.AtomicStorage) *PaymentChannelStorage {
+	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/payment-channel/storage")
+	storage := storage.NewTypedAtomicStorageImpl(
+		prefixedStorage, serializeKey, reflect.TypeOf(PaymentChannelKey{}), serialize, deserialize,
+		reflect.TypeOf(PaymentChannelData{}),
+	)
+	return &PaymentChannelStorage{delegate: storage}
+
 }
 
 func serializeKey(key interface{}) (slice string, err error) {

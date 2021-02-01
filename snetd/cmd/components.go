@@ -9,6 +9,7 @@ import (
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/pricing"
+	"github.com/singnet/snet-daemon/storage"
 	"github.com/singnet/snet-daemon/token"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -32,13 +33,13 @@ type Components struct {
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
-	atomicStorage              escrow.AtomicStorage
+	atomicStorage              storage.AtomicStorage
 	paymentChannelService      escrow.PaymentChannelService
 	escrowPaymentHandler       handler.PaymentHandler
 	grpcInterceptor            grpc.StreamServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
-	etcdLockerStorage          *escrow.PrefixedAtomicStorage
-	mpeSpecificStorage         *escrow.PrefixedAtomicStorage
+	etcdLockerStorage          *storage.PrefixedAtomicStorage
+	mpeSpecificStorage         *storage.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
 	freeCallStateService       *escrow.FreeCallStateService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
@@ -48,12 +49,12 @@ type Components struct {
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
 	organizationMetaData       *blockchain.OrganizationMetaData
 	prepaidPaymentHandler      handler.PaymentHandler
-	prepaidUserStorage         escrow.TypedAtomicStorage
+	prepaidUserStorage         storage.TypedAtomicStorage
 	prepaidUserService         escrow.PrePaidService
 	freeCallPaymentHandler     handler.PaymentHandler
 	freeCallUserService        escrow.FreeCallUserService
 	freeCallUserStorage        *escrow.FreeCallUserStorage
-	freeCallLockerStorage      *escrow.PrefixedAtomicStorage
+	freeCallLockerStorage      *storage.PrefixedAtomicStorage
 	tokenManager               token.Manager
 	tokenService               *escrow.TokenService
 }
@@ -177,19 +178,19 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	return components.etcdClient
 }
 
-func (components *Components) FreeCallLockerStorage() *escrow.PrefixedAtomicStorage {
+func (components *Components) FreeCallLockerStorage() *storage.PrefixedAtomicStorage {
 	if components.freeCallLockerStorage != nil {
 		return components.freeCallLockerStorage
 	}
-	components.freeCallLockerStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), "/freecall/lock")
+	components.freeCallLockerStorage = storage.NewPrefixedAtomicStorage(components.AtomicStorage(), "/freecall/lock")
 	return components.freeCallLockerStorage
 }
 
-func (components *Components) LockerStorage() *escrow.PrefixedAtomicStorage {
+func (components *Components) LockerStorage() *storage.PrefixedAtomicStorage {
 	if components.etcdLockerStorage != nil {
 		return components.etcdLockerStorage
 	}
-	components.etcdLockerStorage = escrow.NewPrefixedAtomicStorage(components.MPESpecificStorage(), "/payment-channel/lock")
+	components.etcdLockerStorage = storage.NewPrefixedAtomicStorage(components.MPESpecificStorage(), "/payment-channel/lock")
 	return components.etcdLockerStorage
 }
 
@@ -198,19 +199,19 @@ create new PrefixedStorage using /<network_name> as a prefix, use this storage a
 (i.e. return it from GetAtomicStorage of components.go);
 this guarantees that storages for different networks never intersect
 */
-func (components *Components) AtomicStorage() escrow.AtomicStorage {
-	var storage escrow.AtomicStorage
+func (components *Components) AtomicStorage() storage.AtomicStorage {
+	var store storage.AtomicStorage
 	if components.atomicStorage != nil {
 		return components.atomicStorage
 	}
 
 	if config.GetString(config.PaymentChannelStorageTypeKey) == "etcd" {
-		storage = components.EtcdClient()
+		store = components.EtcdClient()
 	} else {
-		storage = escrow.NewMemStorage()
+		store = storage.NewMemStorage()
 	}
 	//by default set the network selected in the storage path
-	components.atomicStorage = escrow.NewPrefixedAtomicStorage(storage, config.GetString(config.BlockChainNetworkSelected)+"/"+config.GetString(config.OrganizationId)+"/"+components.OrganizationMetaData().GetGroupIdString())
+	components.atomicStorage = storage.NewPrefixedAtomicStorage(store, config.GetString(config.BlockChainNetworkSelected)+"/"+config.GetString(config.OrganizationId)+"/"+components.OrganizationMetaData().GetGroupIdString())
 
 	return components.atomicStorage
 }
@@ -219,11 +220,11 @@ func (components *Components) AtomicStorage() escrow.AtomicStorage {
 add new component MPESpecificStorage; it is also instance of PrefixedStorage using /<mpe_contract_address> as a prefix; as it is also based on storage from previous item the effective prefix is /<network_id>/<mpe_contract_address>; this guarantees that storages which are specific for MPE contract version don't intersect;
 use MPESpecificStorage as base for PaymentChannelStorage, PaymentStorage, LockStorage for channels;
 */
-func (components *Components) MPESpecificStorage() *escrow.PrefixedAtomicStorage {
+func (components *Components) MPESpecificStorage() *storage.PrefixedAtomicStorage {
 	if components.mpeSpecificStorage != nil {
 		return components.mpeSpecificStorage
 	}
-	components.mpeSpecificStorage = escrow.NewPrefixedAtomicStorage(components.AtomicStorage(), components.ServiceMetaData().MpeAddress)
+	components.mpeSpecificStorage = storage.NewPrefixedAtomicStorage(components.AtomicStorage(), components.ServiceMetaData().MpeAddress)
 	return components.mpeSpecificStorage
 }
 
@@ -247,7 +248,7 @@ func (components *Components) FreeCallUserStorage() *escrow.FreeCallUserStorage 
 	return components.freeCallUserStorage
 }
 
-func (components *Components) PrepaidUserStorage() escrow.TypedAtomicStorage {
+func (components *Components) PrepaidUserStorage() storage.TypedAtomicStorage {
 	if components.prepaidUserStorage != nil {
 		return components.prepaidUserStorage
 	}

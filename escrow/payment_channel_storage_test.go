@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"errors"
+	"github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"testing"
 
@@ -27,7 +28,7 @@ type PaymentChannelStorageSuite struct {
 	senderAddress    common.Address
 	signerAddress    common.Address
 	recipientAddress common.Address
-	memoryStorage    *memoryStorage
+	memoryStorage    *storage.MemoryStorage
 
 	storage *PaymentChannelStorage
 }
@@ -36,7 +37,7 @@ func (suite *PaymentChannelStorageSuite) SetupSuite() {
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
-	suite.memoryStorage = NewMemStorage()
+	suite.memoryStorage = storage.NewMemStorage()
 
 	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
 }
@@ -173,12 +174,45 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeint
 }
 
 func (suite *PaymentChannelStorageSuite) TestNewPaymentChannelStorage() {
-	mpeStorage := NewPrefixedAtomicStorage( NewPrefixedAtomicStorage(suite.memoryStorage,"path1"),"path2")
-	mpeStorage.Put("key1","value1")
-	value,_,_ := mpeStorage.Get("key1")
-	assert.Equal(suite.T(),value,"value1")
-	values,err := suite.memoryStorage.GetByKeyPrefix("path1")
-	assert.Equal(suite.T(), len(values),1)
-	assert.Equal(suite.T(),values[0],"value1")
+	mpeStorage := storage.NewPrefixedAtomicStorage(storage.NewPrefixedAtomicStorage(suite.memoryStorage, "path1"), "path2")
+	mpeStorage.Put("key1", "value1")
+	value, _, _ := mpeStorage.Get("key1")
+	assert.Equal(suite.T(), value, "value1")
+	values, err := suite.memoryStorage.GetByKeyPrefix("path1")
+	assert.Equal(suite.T(), len(values), 1)
+	assert.Equal(suite.T(), values[0], "value1")
 	assert.Nil(suite.T(), err)
+}
+
+func (suite *PaymentChannelStorageSuite) TestExecuteTransaction() {
+	t := suite.T()
+
+	channelId := big.NewInt(1)
+	price := big.NewInt(2)
+	storage := NewPrepaidStorage(storage.NewPrefixedAtomicStorage(suite.memoryStorage, "path1"))
+	service := NewPrePaidService(storage, nil, func() (bytes [32]byte, e error) {
+		return [32]byte{123}, nil
+	})
+
+	err := service.UpdateUsage(channelId, big.NewInt(10), PLANNED_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err := service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: PLANNED_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, big.NewInt(10))
+
+	err = service.UpdateUsage(channelId, price, USED_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err = service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: USED_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, price)
+
+	err = service.UpdateUsage(channelId, price, REFUND_AMOUNT)
+	assert.Nil(t, err)
+	value, ok, err = service.GetUsage(PrePaidDataKey{ChannelID: channelId, UsageType: REFUND_AMOUNT})
+	assert.Nil(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, value.Amount, price)
+
 }

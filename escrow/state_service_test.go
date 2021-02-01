@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/storage"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -60,7 +61,7 @@ var stateServiceTest = func() stateServiceTestType {
 		panic("Could not make defaultSignature")
 	}
 
-	paymentStorage := NewPaymentStorage(NewMemStorage())
+	paymentStorage := NewPaymentStorage(storage.NewMemStorage())
 	mpeAddress := common.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	return stateServiceTestType{
@@ -124,7 +125,7 @@ func cleanup() {
 		}
 		return mpeChannel, true, nil
 	}
-	paymentStorage := NewPaymentStorage(NewMemStorage())
+	paymentStorage := NewPaymentStorage(storage.NewMemStorage())
 	stateServiceTest.service.paymentStorage = paymentStorage
 	stateServiceTest.channelServiceMock.Clear()
 }

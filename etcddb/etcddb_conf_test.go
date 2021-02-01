@@ -2,6 +2,7 @@ package etcddb
 
 import (
 	"github.com/singnet/snet-daemon/blockchain"
+	"os"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ func TestDefaultEtcdClientConf(t *testing.T) {
 
 	var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"org_id1\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
 	metadata, err := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
-	conf, err := GetEtcdClientConf(config.Vip(),metadata)
+	conf, err := GetEtcdClientConf(config.Vip(), metadata)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -28,9 +29,7 @@ func TestCustomEtcdClientConf(t *testing.T) {
 	var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"org_id1\",   \"groups\": [     {       \"group_name\": \"default_group\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"5s\",           \"endpoints\": [             \"http://127.0.0.1:2479\"           ]         }       }     },      {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
 	metadata, err := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
 
-
-
-	conf, err := GetEtcdClientConf(nil,metadata)
+	conf, err := GetEtcdClientConf(nil, metadata)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, conf)
@@ -41,16 +40,14 @@ func TestCustomEtcdClientConf(t *testing.T) {
 func TestCustomEtcdClientConfWithDefault(t *testing.T) {
 	var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"org_id1\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",                    \"endpoints\": [             \"http://127.0.0.1:2479\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\"                 }       }     }   ] }"
 	metadata, err := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
-    assert.Nil(t,metadata)
+	assert.Nil(t, metadata)
 	assert.NotNil(t, err)
 
-	if (metadata != nil) {
+	if metadata != nil {
 		conf, err := GetEtcdClientConf(nil, metadata)
 		assert.NotNil(t, err)
 		assert.Nil(t, conf)
 	}
-
-
 
 }
 
@@ -160,4 +157,13 @@ func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {
 	err := config.ReadConfigFromJsonString(vip, configJSON)
 	assert.Nil(t, err)
 	return
+}
+
+func removeWorkDir(t *testing.T, workDir string) {
+
+	dir, err := os.Getwd()
+	assert.Nil(t, err)
+
+	err = os.RemoveAll(dir + "/" + workDir)
+	assert.Nil(t, err)
 }

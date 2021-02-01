@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/storage"
 	"github.com/stretchr/testify/suite"
 	"math/big"
 	"strings"
@@ -82,7 +83,7 @@ func (suite *ControlServiceTestSuite) SetupSuite() {
 	println("suite.orgMetaData.GetPaymentAddress().Hex() " + suite.orgMetaData.GetPaymentAddress().Hex())
 	println("suite.receiverAddress.Hex()" + suite.receiverAddress.Hex())
 
-	memoryStorage := NewMemStorage()
+	memoryStorage := storage.NewMemStorage()
 	suite.storage = NewPaymentChannelStorage(memoryStorage)
 	suite.paymentStorage = NewPaymentStorage(memoryStorage)
 	suite.channelService = NewPaymentChannelService(

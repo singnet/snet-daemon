@@ -1,14 +1,59 @@
 package ipfsutils
 
 import (
+	"archive/tar"
+	"fmt"
 	"github.com/ipfs/go-ipfs-api"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"io/ioutil"
 	"strings"
 	"time"
 )
 
+//to read all files which have been compressed, PS there can be more than one file
+//We need to start reading the proto files associated with the service.
+//proto files are compressed and stored as modelipfsHash
+func ReadFilesCompressed(compressedFile string) (protofiles []string, err error) {
+	f := strings.NewReader(compressedFile)
+	tarReader := tar.NewReader(f)
+	protofiles = make([]string, 0)
+	for true {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.WithError(err)
+			return nil, err
+		}
+		name := header.Name
+		switch header.Typeflag {
+		case tar.TypeDir:
+			log.WithField("Directory Name", name).Debug("Directory name ")
+		case tar.TypeReg:
+			log.WithField("file Name:", name).Debug("File name ")
+			data := make([]byte, header.Size)
+			_, err := tarReader.Read(data)
+			if err != nil && err != io.EOF {
+				log.WithError(err)
+				return nil, err
+			}
+			protofiles = append(protofiles, string(data))
+		default:
+			err = fmt.Errorf(fmt.Sprintf("%s : %c %s %s\n",
+				"Unknown file Type ",
+				header.Typeflag,
+				"in file",
+				name,
+			))
+			log.WithError(err)
+			return nil, err
+		}
+	}
+	return protofiles, nil
+}
 func GetIpfsFile(hash string) string {
 
 	log.WithField("hash", hash).Debug("Hash Used to retrieve from IPFS")

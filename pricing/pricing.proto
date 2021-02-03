@@ -1,0 +1,27 @@
+syntax = "proto3";
+import "google/protobuf/descriptor.proto";
+package pricing;
+extend google.protobuf.MethodOptions {
+    EstimatePrice my_method_option = 9999127;
+}
+//In Order to Support Dynamic Pricing , we need a way to indicate which of the methods will need dynamic pricing Support
+//By Dynamic Pricing , the pricing of the service call will be a variable of the inputs passed.
+//The Service Provider is best positioned to determine this
+//The below standards are to be followed
+// 1) The Input Message for the Pricing RPC call will be exactly same as the Input Message of the Service Call
+// 2) The Output Message for the Pricing RPC MUST return PriceInCogs.
+// 3) Define the name of the RPC method to be called using Method Option EstimatePrice
+
+
+//helps determine which method to call for dynamic pricing,
+//format is of type "packageName/serviceName/MethodName", Example :"/example_service.Calculator/estimate_add"
+//Daemon will invoke the actual RPC method , but will invoke the method defined in the method options before
+//to determine the price that needs to be charged for this call
+message EstimatePrice {
+    string estimatePriceMethod = 1;
+}
+//The Value returned by  the Pricing call
+message PriceInCogs {
+    uint64 price = 1;
+}
+

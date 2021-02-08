@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/singnet/snet-daemon/blockchain"
+	"google.golang.org/grpc/credentials"
 	"io"
 	"net/http"
 	"net/url"
@@ -53,10 +54,19 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		if err != nil {
 			log.WithError(err).Panic("error parsing passthrough endpoint")
 		}
+		var conn *grpc.ClientConn
+		if strings.Compare(passthroughURL.Scheme, "https") == 0 {
+			conn, err = grpc.Dial(passthroughURL.Host,
+				grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), h.options)
+			if err != nil {
+				log.WithError(err).Panic("error dialing service")
+			}
+		} else {
+			conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
 
-		conn, err := grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
-		if err != nil {
-			log.WithError(err).Panic("error dialing service")
+			if err != nil {
+				log.WithError(err).Panic("error dialing service")
+			}
 		}
 		h.grpcConn = conn
 		return h.grpcToGRPC

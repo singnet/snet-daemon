@@ -1,29 +1,25 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/storage"
 	"reflect"
 )
 
 // PaymentStorage is a storage for PaymentChannelData by
 // PaymentChannelKey based on TypedAtomicStorage implementation
 type PaymentStorage struct {
-	delegate TypedAtomicStorage
+	delegate storage.TypedAtomicStorage
 }
 
 // NewPaymentStorage returns new instance of PaymentStorage
 // implementation
-func NewPaymentStorage(atomicStorage AtomicStorage) *PaymentStorage {
-	return &PaymentStorage{
-		delegate: &TypedAtomicStorageImpl{
-
-			atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "/payment/storage"),
-			keySerializer:     serializeKey,
-			keyType:           reflect.TypeOf(""),
-			valueSerializer:   serialize,
-			valueDeserializer: deserialize,
-			valueType:         reflect.TypeOf(Payment{}),
-		},
-	}
+func NewPaymentStorage(atomicStorage storage.AtomicStorage) *PaymentStorage {
+	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/payment/storage")
+	storage := storage.NewTypedAtomicStorageImpl(
+		prefixedStorage, serializeKey, reflect.TypeOf(""), serialize, deserialize,
+		reflect.TypeOf(Payment{}),
+	)
+	return &PaymentStorage{delegate: storage}
 }
 
 func (storage *PaymentStorage) GetAll() (states []*Payment, err error) {

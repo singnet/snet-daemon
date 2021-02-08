@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/golang-collections/collections/set"
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/storage"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -211,14 +211,18 @@ type EtcdKeyValue struct {
 	value string
 }
 
+func NewEtcdKeyValue(key string, value string) EtcdKeyValue {
+	return EtcdKeyValue{key: key, value: value}
+}
+
 // CompareAndSwap uses CAS operation to set a value
 func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
-	return client.ExecuteTransaction(escrow.CASRequest{
+	return client.ExecuteTransaction(storage.CASRequest{
 		RetryTillSuccessOrError: false,
 		ConditionKeys:           []string{key},
-		Update: func(oldValues []escrow.KeyValueData) (update []escrow.KeyValueData, ok bool, err error) {
+		Update: func(oldValues []storage.KeyValueData) (update []storage.KeyValueData, ok bool, err error) {
 			if oldValues[0].Present && strings.Compare(oldValues[0].Value, prevValue) == 0 {
-				return []escrow.KeyValueData{escrow.KeyValueData{
+				return []storage.KeyValueData{storage.KeyValueData{
 					Key:   key,
 					Value: newValue,
 				}}, true, nil
@@ -266,14 +270,14 @@ func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValu
 
 // PutIfAbsent puts value if absent
 func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err error) {
-	return client.ExecuteTransaction(escrow.CASRequest{
+	return client.ExecuteTransaction(storage.CASRequest{
 		RetryTillSuccessOrError: false,
 		ConditionKeys:           []string{key},
-		Update: func(oldValues []escrow.KeyValueData) (update []escrow.KeyValueData, ok bool, err error) {
+		Update: func(oldValues []storage.KeyValueData) (update []storage.KeyValueData, ok bool, err error) {
 			if oldValues[0].Present {
 				return nil, false, nil
 			}
-			return []escrow.KeyValueData{escrow.KeyValueData{
+			return []storage.KeyValueData{storage.KeyValueData{
 				Key:   key,
 				Value: value,
 			}}, true, nil
@@ -289,7 +293,7 @@ func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err erro
 	return
 }
 
-func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool, err error) {
+func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok bool, err error) {
 
 	transaction, err := client.StartTransaction(request.ConditionKeys)
 	if err != nil {
@@ -322,7 +326,7 @@ func (client *EtcdClient) ExecuteTransaction(request escrow.CASRequest) (ok bool
 
 //If there are no Old values in the transaction, to compare, then this method
 //can be used to write in the new values , if the key does not exist then put it in a transaction
-func (client *EtcdClient) CompleteTransaction(_transaction escrow.Transaction, update []escrow.KeyValueData) (
+func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, update []storage.KeyValueData) (
 	ok bool, err error) {
 
 	var transaction *etcdTransaction = _transaction.(*etcdTransaction)
@@ -426,7 +430,7 @@ func (client *EtcdClient) Close() {
 	defer client.etcdv3.Close()
 }
 
-func (client *EtcdClient) StartTransaction(keys []string) (_transaction escrow.Transaction, err error) {
+func (client *EtcdClient) StartTransaction(keys []string) (_transaction storage.Transaction, err error) {
 	transaction := &etcdTransaction{
 		ConditionKeys: keys,
 	}
@@ -469,10 +473,10 @@ type etcdTransaction struct {
 	ConditionKeys   []string
 }
 
-func (transaction *etcdTransaction) GetConditionValues() ([]escrow.KeyValueData, error) {
-	values := make([]escrow.KeyValueData, len(transaction.ConditionValues))
+func (transaction *etcdTransaction) GetConditionValues() ([]storage.KeyValueData, error) {
+	values := make([]storage.KeyValueData, len(transaction.ConditionValues))
 	for i, value := range transaction.ConditionValues {
-		values[i] = escrow.KeyValueData{
+		values[i] = storage.KeyValueData{
 			Key:     value.Key,
 			Value:   value.Value,
 			Present: value.Present,

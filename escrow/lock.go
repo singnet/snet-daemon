@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/storage"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -17,15 +18,14 @@ type Locker interface {
 }
 
 // NewEtcdLocker returns new lock which is based on etcd storage.
-func NewEtcdLocker(storage AtomicStorage) Locker {
+func NewEtcdLocker(storage storage.AtomicStorage) Locker {
 	return &etcdLocker{
 		storage: storage,
 	}
 }
 
-
 type etcdLocker struct {
-	storage AtomicStorage
+	storage storage.AtomicStorage
 }
 
 const (

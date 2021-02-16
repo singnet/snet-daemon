@@ -5,6 +5,7 @@ package handler
 import (
 	"context"
 	"net"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -72,4 +73,18 @@ func (suite *GrpcTestSuite) TestReturnCustomErrorCodeViaGrpc() {
 	_, err := client.Ping(context.Background(), &Input{Message: "ping"})
 
 	assert.Equal(suite.T(), err, expectedErr)
+}
+
+func (suite *GrpcTestSuite) TestPassThroughEndPoint() {
+	passthroughURL, err := url.Parse("http://localhost:8080")
+	assert.Equal(suite.T(), passthroughURL.Scheme, "http")
+	assert.Nil(suite.T(), err)
+	passthroughURL, err = url.Parse("https://localhost:8080")
+	assert.Equal(suite.T(), passthroughURL.Scheme, "https")
+	passthroughURL, err = url.Parse("localhost:8080")
+	assert.NotEqual(suite.T(), passthroughURL.Scheme, "https")
+	passthroughURL, err = url.Parse("0.0.0.0:7000")
+	assert.NotNil(suite.T(), err)
+	passthroughURL, err = url.Parse("http://somedomain")
+	assert.Equal(suite.T(), passthroughURL.Scheme, "http")
 }

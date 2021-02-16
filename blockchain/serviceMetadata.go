@@ -3,6 +3,7 @@ package blockchain
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
@@ -150,9 +151,10 @@ type ServiceMetadata struct {
 
 	defaultGroup OrganizationGroup
 
-	freeCallSignerAddress common.Address
-	isfreeCallAllowed     bool
-	freeCallsAllowed      int
+	freeCallSignerAddress     common.Address
+	isfreeCallAllowed         bool
+	freeCallsAllowed          int
+	dynamicPriceMethodMapping map[string]string
 }
 type Tiers struct {
 	Tiers Tier `json:"tier"`
@@ -310,6 +312,14 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 	if err := setFreeCallData(metaData); err != nil {
 		return nil, err
 	}
+	//If Dynamic pricing is enabled ,there will be mandatory checks on the service proto
+	//this is to ensure that the standards on how one defines the methods to invoke is followed
+	if config.GetBool(config.EnableDynamicPricing) {
+		if err := setServiceProto(metaData); err != nil {
+			return nil, err
+		}
+	}
+
 	return metaData, err
 }
 
@@ -405,4 +415,79 @@ func (metaData *ServiceMetadata) GetFreeCallsAllowed() int {
 
 func (metaData *ServiceMetadata) GetLicenses() Licenses {
 	return metaData.defaultGroup.Licenses
+}
+
+//methodFullName , ex "/example_service.Calculator/add"
+func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullName string) (pricingMethod string, isDynamicPricingEligible bool) {
+	//Check if Method Level Options are defined , for the given Service and method,
+	//If Defined check if its in the format supported , then return the full method Name
+	// i.e /package.service/method format , this will be directly fed in to the grpc called to made to
+	//determine dynamic pricing
+	if !config.GetBool(config.EnableDynamicPricing) {
+		return
+	}
+	pricingMethod = metaData.dynamicPriceMethodMapping[methodFullName]
+	if strings.Compare("", pricingMethod) == 0 {
+		isDynamicPricingEligible = false
+	} else {
+		isDynamicPricingEligible = true
+	}
+	return
+}
+func setServiceProto(metaData *ServiceMetadata) (err error) {
+	metaData.dynamicPriceMethodMapping = make(map[string]string, 0)
+	//This is to handler the scenario where there could be mutiple protos associated with the service proto
+	protoFiles, err := ipfsutils.ReadFilesCompressed(ipfsutils.GetIpfsFile(metaData.ModelIpfsHash))
+	for _, file := range protoFiles {
+		if srvProto, err := parseServiceProto(file); err != nil {
+			return err
+		} else {
+			dynamicMethodMap, err := buildDynamicPricingMethodsMap(srvProto)
+			if err != nil {
+				return err
+			}
+			metaData.dynamicPriceMethodMapping = dynamicMethodMap
+		}
+	}
+
+	return nil
+}
+
+func parseServiceProto(serviceProtoFile string) (*proto.Proto, error) {
+	reader := strings.NewReader(serviceProtoFile)
+	parser := proto.NewParser(reader)
+	parsedProto, err := parser.Parse()
+	if err != nil {
+		return nil, err
+	}
+	return parsedProto, nil
+}
+
+func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMethodMapping map[string]string, err error) {
+	dynamicPricingMethodMapping = make(map[string]string, 0)
+	var pkgName, serviceName, methodName string
+	for _, elem := range serviceProto.Elements {
+		//package is parsed earlier than service ( per documentation)
+		if pkg, ok := elem.(*proto.Package); ok {
+			pkgName = pkg.Name
+		}
+
+		if service, ok := elem.(*proto.Service); ok {
+			serviceName = service.Name
+			for _, serviceElements := range service.Elements {
+				if rpcMethod, ok := serviceElements.(*proto.RPC); ok {
+					methodName = rpcMethod.Name
+					for _, methodOption := range rpcMethod.Options {
+						if strings.Compare(methodOption.Name, "(my_method_option).estimate") == 0 {
+							pricingMethod := fmt.Sprintf("%v", methodOption.Constant.Source)
+							dynamicPricingMethodMapping["/"+pkgName+"."+serviceName+"/"+methodName+""] =
+								pricingMethod
+						}
+					}
+				}
+			}
+		}
+	}
+	//add in validations on the map TODO
+	return dynamicPricingMethodMapping, nil
 }

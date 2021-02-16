@@ -21,12 +21,15 @@ func (priceType FixedMethodPrice) GetPrice(GrpcContext *handler.GrpcStreamContex
 		return price, nil
 	}
 }
+func (priceType FixedMethodPrice) GetPriceType() string {
+	return FIXED_METHOD_PRICING
+}
 
 func (priceType *FixedMethodPrice) initPricingData(metadata *blockchain.ServiceMetadata) (err error) {
 	priceType.methodToPriceMap = make(map[string]*big.Int)
-	prefix:= metadata.GetDefaultPricing().PackageName
-	if len(prefix)>0 {
-		prefix=prefix+"."
+	prefix := metadata.GetDefaultPricing().PackageName
+	if len(prefix) > 0 {
+		prefix = prefix + "."
 	}
 	for _, detail := range metadata.GetDefaultPricing().PricingDetails {
 		for _, methodDetails := range detail.MethodPricing {
@@ -39,4 +42,3 @@ func (priceType *FixedMethodPrice) initPricingData(metadata *blockchain.ServiceM
 
 	return nil
 }
-

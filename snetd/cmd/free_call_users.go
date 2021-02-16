@@ -5,6 +5,7 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -29,14 +30,14 @@ var FreeCallUserResetCmd = &cobra.Command{
 
 //Free call user unlock command
 type freeCallUserUnLockCommand struct {
-	lockStorage *escrow.PrefixedAtomicStorage
+	lockStorage *storage.PrefixedAtomicStorage
 	userId      string
 	orgMetadata *blockchain.OrganizationMetaData
 }
 
 //Free call user unlock command
 type freeCallUserResetCountCommand struct {
-	lockStorage *escrow.PrefixedAtomicStorage
+	lockStorage *storage.PrefixedAtomicStorage
 	userStorage *escrow.FreeCallUserStorage
 	userId      string
 	orgMetadata *blockchain.OrganizationMetaData

@@ -14,9 +14,9 @@ var testJsonDataFixedPrice = "{   \"version\": 1,   \"display_name\": \"Example1
 func TestFixedPrice_GetPrice(t *testing.T) {
 	metadata, _ := blockchain.InitServiceMetaDataFromJson(testJsonDataFixedPrice)
 	grpcCtx := &handler.GrpcStreamContext{}
-	pricing,_ := InitPricingStrategy(metadata)
+	pricing, _ := InitPricingStrategy(metadata)
 
-	price,err := pricing.pricingTypes[0].GetPrice(grpcCtx)
-	assert.Equal(t,price,big.NewInt(2))
-	assert.Nil(t,err)
+	price, err := pricing.pricingTypes[FIXED_PRICING].GetPrice(grpcCtx)
+	assert.Equal(t, price, big.NewInt(2))
+	assert.Nil(t, err)
 }

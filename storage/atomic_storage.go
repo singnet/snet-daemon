@@ -1,4 +1,4 @@
-package escrow
+package storage
 
 import (
 	"reflect"
@@ -211,6 +211,22 @@ type TypedAtomicStorageImpl struct {
 	valueSerializer   func(value interface{}) (serialized string, err error)
 	valueDeserializer func(serialized string, value interface{}) (err error)
 	valueType         reflect.Type
+}
+
+func NewTypedAtomicStorageImpl(storage AtomicStorage, keySerializer func(key interface{}) (serialized string, err error),
+	keyType reflect.Type, valueSerializer func(value interface{}) (serialized string, err error),
+	valueDeserializer func(serialized string, value interface{}) (err error),
+	valueType reflect.Type) TypedAtomicStorage {
+
+	return &TypedAtomicStorageImpl{
+		atomicStorage:     storage,
+		keySerializer:     keySerializer,
+		keyType:           keyType,
+		valueSerializer:   valueSerializer,
+		valueDeserializer: valueDeserializer,
+		valueType:         valueType,
+	}
+
 }
 
 // Get implements TypedAtomicStorage.Get

@@ -117,6 +117,17 @@ func TestValidateEndpoints(t *testing.T) {
 	assert.Equal(t, nil, err)
 	err = ValidateEndpoints("1.2.3.4:8080", "")
 	assert.Equal(t, "passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.", err.Error())
+	err = ValidateEndpoints("0.0.0.0:7000", "http://localhost:8080")
+	assert.Equal(t, nil, err)
+	err = ValidateEndpoints("0.0.0.0:7000", "http://localhost:8080")
+	assert.Equal(t, nil, err)
+	err = ValidateEndpoints("0.0.0.0:7000", "localhost:8080")
+	assert.Equal(t, "passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.", err.Error())
+	err = ValidateEndpoints("0.0.0.0:7000", "http://somedomain")
+	assert.Equal(t, nil, err)
+	err = ValidateEndpoints("0.0.0.0:7000", "https://somedomain:8093")
+	assert.Nil(t, err)
+
 }
 
 func TestAllowedUserChecks(t *testing.T) {

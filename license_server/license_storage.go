@@ -1,9 +1,10 @@
-package escrow
+package license_server
 
 import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"reflect"
 	"strings"
@@ -309,16 +310,16 @@ func (s Tier) GetAddress() []string {
 	return s.AuthorizedAddresses
 }
 
-func NewLicenseDetailsStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
-	return &TypedAtomicStorageImpl{
-		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "LicenseDetails/storage"),
-		keySerializer:     serializeLicenseDetailsKey,
-		keyType:           reflect.TypeOf(LicenseDetailsKey{}),
-		valueSerializer:   serializeLicenseDetailsData,
-		valueDeserializer: deserializeLicenseDetailsData,
-		valueType:         reflect.TypeOf(LicenseDetailsData{}),
-	}
+func NewLicenseDetailsStorage(atomicStorage storage.AtomicStorage) storage.TypedAtomicStorage {
+	return storage.NewTypedAtomicStorageImpl(
+		storage.NewPrefixedAtomicStorage(atomicStorage, "LicenseDetails/storage"),
+		serializeLicenseDetailsKey,
+		reflect.TypeOf(LicenseDetailsKey{}),
+		serializeLicenseDetailsData,
+		deserializeLicenseDetailsData,
+		reflect.TypeOf(LicenseDetailsData{}))
 }
+
 func serializeLicenseDetailsData(value interface{}) (slice string, err error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
@@ -375,13 +376,13 @@ func deserializeLicenseTrackerData(slice string, value interface{}) (err error) 
 	return
 }
 
-func NewLicenseUsageTrackerStorage(atomicStorage AtomicStorage) TypedAtomicStorage {
-	return &TypedAtomicStorageImpl{
-		atomicStorage:     NewPrefixedAtomicStorage(atomicStorage, "LicenseUsageTracker/storage"),
-		keySerializer:     serializeLicenseUsageTrackerKey,
-		keyType:           reflect.TypeOf(LicenseUsageTrackerKey{}),
-		valueSerializer:   serializeLicenseTrackerData,
-		valueDeserializer: deserializeLicenseTrackerData,
-		valueType:         reflect.TypeOf(LicenseUsageTrackerData{}),
-	}
+func NewLicenseUsageTrackerStorage(atomicStorage storage.AtomicStorage) storage.TypedAtomicStorage {
+	return storage.NewTypedAtomicStorageImpl(
+		storage.NewPrefixedAtomicStorage(atomicStorage, "LicenseUsageTracker/storage"),
+		serializeLicenseUsageTrackerKey,
+		reflect.TypeOf(LicenseUsageTrackerKey{}),
+		serializeLicenseTrackerData,
+		deserializeLicenseTrackerData,
+		reflect.TypeOf(LicenseUsageTrackerData{}),
+	)
 }

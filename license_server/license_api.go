@@ -1,13 +1,14 @@
-package escrow
+package license_server
 
-import "math/big"
+import (
+	"math/big"
+)
 
 type LicenseService interface {
 	GetLicenseUsage(key LicenseUsageTrackerKey) (*LicenseUsageTrackerData, bool, error)
 	UpdateLicenseUsage(channelId *big.Int, serviceId string, revisedUsage *big.Int, updateUsageType string, licenseType string) error
 	GetLicenseForChannel(key LicenseDetailsKey) (*LicenseDetailsData, bool, error)
 	UpdateLicenseForChannel(channelId *big.Int, serviceId string, license License) error
-	//GetLicenseTypesSupported(filter LicenseFilterCriteria) (*LicenseDetailsData, bool, error)
 }
 
 type LicenseFilterCriteria struct {

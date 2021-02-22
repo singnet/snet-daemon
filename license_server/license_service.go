@@ -1,23 +1,24 @@
-package escrow
+package license_server
 
 import (
 	"fmt"
 	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/storage"
 	"math/big"
 	"strings"
 )
 
 type LockingLicenseService struct {
-	LicenseDetailsStorage TypedAtomicStorage
-	LicenseUsageStorage   TypedAtomicStorage
+	LicenseDetailsStorage storage.TypedAtomicStorage
+	LicenseUsageStorage   storage.TypedAtomicStorage
 	Org                   *blockchain.OrganizationMetaData
 	Serv                  *blockchain.ServiceMetadata
 	replicaGroupID        func() ([32]byte, error)
 }
 
 func NewLicenseService(
-	detailsStorage TypedAtomicStorage,
-	licenseStorage TypedAtomicStorage, orgData *blockchain.OrganizationMetaData,
+	detailsStorage storage.TypedAtomicStorage,
+	licenseStorage storage.TypedAtomicStorage, orgData *blockchain.OrganizationMetaData,
 	servData *blockchain.ServiceMetadata,
 	//prepaidValidator *PrePaidPaymentValidator
 	groupIdReader func() ([32]byte, error)) *LockingLicenseService {
@@ -41,7 +42,7 @@ func (h *LockingLicenseService) GetLicenseUsage(key LicenseUsageTrackerKey) (*Li
 		return nil, ok, err
 	}
 	return value.(*LicenseUsageTrackerData), ok, err
-	return nil, true, nil
+
 }
 
 func (h *LockingLicenseService) GetLicenseForChannel(key LicenseDetailsKey) (*LicenseDetailsData, bool, error) {
@@ -59,8 +60,8 @@ func (h *LockingLicenseService) UpdateLicenseForChannel(channelId *big.Int, serv
 //Defines the condition that needs to be met, it generates the respective typed Data when
 //conditions are satisfied, you define your own validations in here
 //It takes in the latest typed values read.
-type ConditionFuncForLicense func(conditionValues []TypedKeyValueData,
-	incrementUsage *big.Int, channelId *big.Int, serviceId string) ([]TypedKeyValueData, error)
+type ConditionFuncForLicense func(conditionValues []storage.TypedKeyValueData,
+	incrementUsage *big.Int, channelId *big.Int, serviceId string) ([]storage.TypedKeyValueData, error)
 
 func (h *LockingLicenseService) UpdateLicenseUsage(channelId *big.Int, serviceId string, incrementUsage *big.Int, updateUsageType string, licenseType string) error {
 	var conditionFunc ConditionFuncForLicense = nil
@@ -76,18 +77,18 @@ func (h *LockingLicenseService) UpdateLicenseUsage(channelId *big.Int, serviceId
 		conditionFunc = IncrementRefundUsage
 
 	default:
-		return fmt.Errorf("Unknow Update type %v", updateUsageType)
+		return fmt.Errorf("unknown update type %v", updateUsageType)
 	}
 
-	typedUpdateFunc := func(conditionValues []TypedKeyValueData) (update []TypedKeyValueData, ok bool, err error) {
-		var newValues []TypedKeyValueData
+	typedUpdateFunc := func(conditionValues []storage.TypedKeyValueData) (update []storage.TypedKeyValueData, ok bool, err error) {
+		var newValues []storage.TypedKeyValueData
 		if newValues, err = conditionFunc(conditionValues, incrementUsage, channelId, serviceId); err != nil {
 			return nil, false, err
 		}
 		return newValues, true, nil
 	}
 	typedKeys := getAllLicenseKeys(channelId, serviceId)
-	request := TypedCASRequest{
+	request := storage.TypedCASRequest{
 		Update:                  typedUpdateFunc,
 		RetryTillSuccessOrError: true,
 		ConditionKeys:           typedKeys,
@@ -112,7 +113,7 @@ func getAllLicenseKeys(channelId *big.Int, serviceId string) []interface{} {
 
 //this function will be used to read typed data ,convert it in to a business structure
 //on which validations can be easily performed and return back the business structure.
-func convertTypedDataToLicenseDataUsage(data []TypedKeyValueData) (new *LicenseUsageData, err error) {
+func convertTypedDataToLicenseDataUsage(data []storage.TypedKeyValueData) (new *LicenseUsageData, err error) {
 	usageData := &LicenseUsageData{
 		Planned: &UsageInAmount{Amount: big.NewInt(0), UsageType: PLANNED},
 		Used:    &UsageInAmount{Amount: big.NewInt(0), UsageType: USED},
@@ -133,13 +134,13 @@ func convertTypedDataToLicenseDataUsage(data []TypedKeyValueData) (new *LicenseU
 		} else if strings.Compare(key.UsageType, REFUND) == 0 {
 			usageData.Refund = data.Usage
 		} else {
-			return nil, fmt.Errorf("Unknown Usage Type %v", key.UsageType)
+			return nil, fmt.Errorf("unknown usage type %v", key.UsageType)
 		}
 	}
 	return usageData, nil
 }
 
-func BuildOldAndNewLicenseUsageValuesForCAS(data *LicenseUsageData) (newValues []TypedKeyValueData, err error) {
+func BuildOldAndNewLicenseUsageValuesForCAS(data *LicenseUsageData) (newValues []storage.TypedKeyValueData, err error) {
 	updateUsageData := &LicenseUsageTrackerData{ChannelID: data.ChannelID, ServiceID: data.ServiceID}
 	updateUsageKey := LicenseUsageTrackerKey{ChannelID: data.ChannelID, ServiceID: data.ServiceID,
 		UsageType: data.UpdateUsageType}
@@ -148,16 +149,16 @@ func BuildOldAndNewLicenseUsageValuesForCAS(data *LicenseUsageData) (newValues [
 	} else {
 		updateUsageData.Usage = usage
 	}
-	newValue := TypedKeyValueData{Key: updateUsageKey, Value: updateUsageData, Present: true}
-	newValues = make([]TypedKeyValueData, 1)
+	newValue := storage.TypedKeyValueData{Key: updateUsageKey, Value: updateUsageData, Present: true}
+	newValues = make([]storage.TypedKeyValueData, 1)
 	newValues[0] = newValue
 
 	return newValues, nil
 }
 
 var (
-	IncrementUsedUsage ConditionFuncForLicense = func(conditionValues []TypedKeyValueData, incrementUsage *big.Int,
-		channelId *big.Int, serviceId string) (newValues []TypedKeyValueData, err error) {
+	IncrementUsedUsage ConditionFuncForLicense = func(conditionValues []storage.TypedKeyValueData, incrementUsage *big.Int,
+		channelId *big.Int, serviceId string) (newValues []storage.TypedKeyValueData, err error) {
 		oldState, err := convertTypedDataToLicenseDataUsage(conditionValues)
 		if err != nil {
 			return nil, err
@@ -169,7 +170,7 @@ var (
 		if incrementUsage.Cmp(big.NewInt(0)) > 0 {
 			updateLicenseUsageData(newState, usageKey, incrementUsage)
 			if newState.Used.GetUsage().Cmp(oldState.Planned.GetUsage().Add(oldState.Planned.GetUsage(), oldState.Refund.GetUsage())) > 0 {
-				return nil, fmt.Errorf("Usage Exceeded on channel Id %v", oldState.ChannelID)
+				return nil, fmt.Errorf("usage exceeded on channel Id %v", oldState.ChannelID)
 			}
 		} else {
 			newState.UpdateUsageType = USED
@@ -179,8 +180,8 @@ var (
 
 	}
 	//Make sure you update the planned amount ONLY when the new value is greater than what was last persisted
-	UpdatePlannedUsage ConditionFuncForLicense = func(conditionValues []TypedKeyValueData, incrementUsage *big.Int,
-		channelId *big.Int, serviceId string) (newValues []TypedKeyValueData, err error) {
+	UpdatePlannedUsage ConditionFuncForLicense = func(conditionValues []storage.TypedKeyValueData, incrementUsage *big.Int,
+		channelId *big.Int, serviceId string) (newValues []storage.TypedKeyValueData, err error) {
 		oldState, err := convertTypedDataToLicenseDataUsage(conditionValues)
 		if err != nil {
 			return nil, err
@@ -196,8 +197,8 @@ var (
 
 	}
 	//If there is no refund amount yet, put it , else add latest value in DB with the additional refund to be done
-	IncrementRefundUsage ConditionFuncForLicense = func(conditionValues []TypedKeyValueData, incrementUsage *big.Int,
-		channelId *big.Int, serviceId string) (newValues []TypedKeyValueData, err error) {
+	IncrementRefundUsage ConditionFuncForLicense = func(conditionValues []storage.TypedKeyValueData, incrementUsage *big.Int,
+		channelId *big.Int, serviceId string) (newValues []storage.TypedKeyValueData, err error) {
 		newState, err := convertTypedDataToLicenseDataUsage(conditionValues)
 		if err != nil {
 			return nil, err

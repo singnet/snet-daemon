@@ -1,4 +1,4 @@
-package escrow
+package license_server
 
 import (
 	"fmt"

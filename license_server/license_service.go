@@ -20,7 +20,6 @@ func NewLicenseService(
 	detailsStorage storage.TypedAtomicStorage,
 	licenseStorage storage.TypedAtomicStorage, orgData *blockchain.OrganizationMetaData,
 	servData *blockchain.ServiceMetadata,
-	//prepaidValidator *PrePaidPaymentValidator
 	groupIdReader func() ([32]byte, error)) *LockingLicenseService {
 	return &LockingLicenseService{
 		LicenseDetailsStorage: detailsStorage,
@@ -32,7 +31,6 @@ func NewLicenseService(
 }
 
 func (h *LockingLicenseService) CreateOrUpdateLicense(channelId *big.Int, serviceId string) (err error) {
-	//todo
 	return h.UpdateLicenseUsage(channelId, serviceId, nil, PLANNED, SUBSCRIPTION)
 }
 

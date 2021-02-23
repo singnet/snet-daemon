@@ -27,21 +27,6 @@ type SubscriptionPricingDetails1 struct {
 	ServiceMethodDetails *ServiceMethodDetails1 //If this is null , implies it applies to all methods of the Service or just the one defined here
 }
 
-type DiscountPercentage1 struct {
-	DiscountCode    string
-	DiscountPercent *big.Float //check if this need to be big.float
-	DiscountName    string
-	ValidityPeriod  *ValidityPeriod
-}
-type Subscription1 struct {
-	ChannelId *big.Int
-	ServiceId string
-	Validity  *ValidityPeriod1
-	//Details *SubscriptionPricingDetails1
-	//Discount Discount
-
-}
-
 func Test_serializeLicenseDetailsData(t *testing.T) {
 
 	validityPeriod := &ValidityPeriod{

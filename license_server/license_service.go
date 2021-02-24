@@ -12,21 +12,17 @@ type LockingLicenseService struct {
 	LicenseDetailsStorage storage.TypedAtomicStorage
 	LicenseUsageStorage   storage.TypedAtomicStorage
 	Org                   *blockchain.OrganizationMetaData
-	Serv                  *blockchain.ServiceMetadata
-	replicaGroupID        func() ([32]byte, error)
 }
 
+//Will be used in the components to create a new instance of LicenseService
 func NewLicenseService(
 	detailsStorage storage.TypedAtomicStorage,
 	licenseStorage storage.TypedAtomicStorage, orgData *blockchain.OrganizationMetaData,
-	servData *blockchain.ServiceMetadata,
-	groupIdReader func() ([32]byte, error)) *LockingLicenseService {
+) *LockingLicenseService {
 	return &LockingLicenseService{
 		LicenseDetailsStorage: detailsStorage,
 		LicenseUsageStorage:   licenseStorage,
-		replicaGroupID:        groupIdReader,
 		Org:                   orgData,
-		Serv:                  servData,
 	}
 }
 

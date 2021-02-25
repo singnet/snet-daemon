@@ -61,6 +61,7 @@ message CheckLicenseUsageRequest {
     CallerAuthentication auth = 1;
     uint64 channel_id = 2;
     string service_id = 3;
+    uint64 price_in_cogs = 4;
 
 }
 

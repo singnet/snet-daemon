@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/singnet/snet-daemon/blockchain"
+	"google.golang.org/grpc/credentials"
 	"io"
 	"net/http"
 	"net/url"
@@ -53,10 +54,19 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		if err != nil {
 			log.WithError(err).Panic("error parsing passthrough endpoint")
 		}
+		var conn *grpc.ClientConn
+		if strings.Compare(passthroughURL.Scheme, "https") == 0 {
+			conn, err = grpc.Dial(passthroughURL.Host,
+				grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), h.options)
+			if err != nil {
+				log.WithError(err).Panic("error dialing service")
+			}
+		} else {
+			conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
 
-		conn, err := grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
-		if err != nil {
-			log.WithError(err).Panic("error dialing service")
+			if err != nil {
+				log.WithError(err).Panic("error dialing service")
+			}
 		}
 		h.grpcConn = conn
 		return h.grpcToGRPC
@@ -174,7 +184,21 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 	go func() {
 		f := &codec.GrpcFrame{}
 		for i := 0; ; i++ {
-			if err := src.RecvMsg(f); err != nil {
+			//Only for the first time do this, once RecvMsg has been called,
+			//future calls will result in io.EOF , we want to retrieve the
+			//the first message sent by the client and pass this on the regualar service call
+			//This is done to be able to make calls to support regualr Service call + Dynamic pricing call
+			if i == 0 {
+				//todo we need to think through to determine price for every call on stream calls
+				//will be handled when we support streaming and pricing across all clients in snet-platform
+				if wrappedStream, ok := src.(*WrapperServerStream); ok {
+					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
+				} else if err := src.RecvMsg(f); err != nil {
+					ret <- err
+					break
+				}
+
+			} else if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
 				break
 			}
@@ -250,6 +274,59 @@ func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) 
 	}
 
 	return nil
+}
+
+type WrapperServerStream struct {
+	sendHeaderCalled bool
+	stream           grpc.ServerStream
+	recvMessage      interface{}
+	sentMessage      interface{}
+}
+
+func (f *WrapperServerStream) SetTrailer(md metadata.MD) {
+	f.stream.SetTrailer(md)
+}
+
+func NewWrapperServerStream(stream grpc.ServerStream) (grpc.ServerStream, error) {
+	m := &codec.GrpcFrame{}
+	err := stream.RecvMsg(m)
+	f := &WrapperServerStream{
+		stream:           stream,
+		recvMessage:      m,
+		sendHeaderCalled: false,
+	}
+	return f, err
+}
+
+func (f *WrapperServerStream) SetHeader(md metadata.MD) error {
+	return f.stream.SetHeader(md)
+}
+func (f *WrapperServerStream) SendHeader(md metadata.MD) error {
+	//this is more of a hack to support dynamic pricing
+	// when the service method returns the price in cogs, the SendHeader, will be called,
+	// we dont want this as the SendHeader can be called just once in the ServerStream
+	if !f.sendHeaderCalled {
+		return nil
+	}
+	f.sendHeaderCalled = true
+	return f.stream.SendHeader(md)
+
+}
+
+func (f *WrapperServerStream) Context() context.Context {
+	return f.stream.Context()
+}
+
+func (f *WrapperServerStream) SendMsg(m interface{}) error {
+	return f.stream.SendMsg(m)
+}
+
+func (f *WrapperServerStream) RecvMsg(m interface{}) error {
+	return f.stream.RecvMsg(m)
+}
+
+func (f *WrapperServerStream) OriginalRecvMsg() interface{} {
+	return f.recvMessage
 }
 
 func (g grpcHandler) grpcToProcess(srv interface{}, inStream grpc.ServerStream) error {

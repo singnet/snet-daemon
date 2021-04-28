@@ -18,6 +18,11 @@ type EtcdServer struct {
 	etcd *embed.Etcd
 }
 
+func (server EtcdServer) GetConf() *EtcdServerConf {
+	return server.conf
+
+}
+
 // IsEtcdServerEnabled checls that etcd server is enabled using conf file
 func IsEtcdServerEnabled() (enabled bool, err error) {
 	return IsEtcdServerEnabledInVip(config.Vip())

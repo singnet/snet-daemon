@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"github.com/singnet/snet-daemon/blockchain"
 	"math/big"
 	"testing"
 
@@ -96,7 +97,6 @@ func (handler *paymentHandlerMock) CompleteAfterError(payment Payment, result er
 	return handler.completeAfterErrorResult
 }
 
-
 type InterceptorsSuite struct {
 	suite.Suite
 
@@ -121,7 +121,7 @@ func (suite *InterceptorsSuite) SetupSuite() {
 	}
 	suite.defaultPaymentHandler = &paymentHandlerMock{typ: defaultPaymentHandlerType}
 	suite.paymentHandler = &paymentHandlerMock{typ: testPaymentHandlerType}
-	suite.interceptor = GrpcPaymentValidationInterceptor(suite.defaultPaymentHandler, suite.paymentHandler)
+	suite.interceptor = GrpcPaymentValidationInterceptor(&blockchain.ServiceMetadata{}, suite.defaultPaymentHandler, suite.paymentHandler)
 	suite.serverStream = &serverStreamMock{context: metadata.NewIncomingContext(context.Background(), metadata.Pairs(PaymentTypeHeader, testPaymentHandlerType))}
 }
 

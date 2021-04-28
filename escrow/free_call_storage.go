@@ -1,17 +1,24 @@
 package escrow
 
 import (
+	"github.com/singnet/snet-daemon/storage"
 	"reflect"
 )
 
 type FreeCallUserStorage struct {
-	delegate TypedAtomicStorage
+	delegate storage.TypedAtomicStorage
 }
 
-func NewFreeCallUserStorage(atomicStorage AtomicStorage) *FreeCallUserStorage {
-	return &FreeCallUserStorage{
-		delegate: &TypedAtomicStorageImpl{
-			atomicStorage: &PrefixedAtomicStorage{
+func NewFreeCallUserStorage(atomicStorage storage.AtomicStorage) *FreeCallUserStorage {
+	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/free-call-user/storage")
+	storage := storage.NewTypedAtomicStorageImpl(
+		prefixedStorage, serializeFreeCallKey, reflect.TypeOf(FreeCallUserKey{}), serialize, deserialize,
+		reflect.TypeOf(FreeCallUserData{}),
+	)
+	return &FreeCallUserStorage{delegate: storage}
+	/*	return &FreeCallUserStorage{
+		delegate: &storage.TypedAtomicStorageImpl{
+			atomicStorage: &storage.PrefixedAtomicStorage{
 				delegate:  atomicStorage,
 				keyPrefix: "/free-call-user/storage",
 			},
@@ -21,7 +28,7 @@ func NewFreeCallUserStorage(atomicStorage AtomicStorage) *FreeCallUserStorage {
 			valueDeserializer: deserialize,
 			valueType:         reflect.TypeOf(FreeCallUserData{}),
 		},
-	}
+	}*/
 }
 
 func serializeFreeCallKey(key interface{}) (serialized string, err error) {

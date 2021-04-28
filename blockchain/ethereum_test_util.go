@@ -28,7 +28,7 @@ type SimulatedEthereumEnvironment struct {
 }
 
 func (env *SimulatedEthereumEnvironment) SnetTransferTokens(to *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
-	_, err := env.SingularityNetToken.TransferTokens(EstimateGas(env.SingnetWallet), to.From, big.NewInt(amount))
+	_, err := env.SingularityNetToken.Transfer(EstimateGas(env.SingnetWallet), to.From, big.NewInt(amount))
 	if err != nil {
 		panic(fmt.Sprintf("Unable to transfer tokens: %v", err))
 	}
@@ -91,7 +91,7 @@ func getTestWallet() (privateKey *ecdsa.PrivateKey, wallet *bind.TransactOpts) {
 }
 
 func deployContracts(env *SimulatedEthereumEnvironment) {
-	tokenAddress, _, token, err := DeploySingularityNetToken(EstimateGas(env.SingnetWallet), env.Backend)
+	tokenAddress, _, token, err := DeploySingularityNetToken(EstimateGas(env.SingnetWallet), env.Backend, "SingularityNet Token", "AGI")
 	if err != nil {
 		panic(fmt.Sprintf("Unable to deploy SingularityNetToken contract, error: %v", err))
 	}

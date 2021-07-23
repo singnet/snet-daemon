@@ -48,15 +48,15 @@ import (
       "range": [
         {
           "high": 100,
-          "fixedPriceInCogs": 1
+          "DiscountInPercentage": 3
         },
         {
           "high": 200,
-          "fixedPriceInCogs": 0.75
+          "DiscountInPercentage": 4
         },
         {
           "high": 300,
-          "fixedPriceInCogs": 0.50
+          "DiscountInPercentage": 6
         }
       ],
       "detailsUrl": "http://abc.org/licenses/Tier.html",
@@ -68,15 +68,15 @@ import (
       "range": [
         {
           "high": 100,
-          "fixedPriceInCogs": 1
+          "DiscountInPercentage": 1
         },
         {
           "high": 200,
-          "fixedPriceInCogs": 0.75
+          "DiscountInPercentage": 1.75
         },
         {
           "high": 300,
-          "fixedPriceInCogs": 0.50
+          "DiscountInPercentage": 2.50
         }
       ],
       "detailsUrl": "http://abc.org/licenses/Tier.html",
@@ -87,28 +87,28 @@ import (
       "subscription": [
         {
           "periodInDays": 30,
-          "creditsInAGI": 120,
+          "DiscountInPercentage": 10,
           "planName": "Monthly For ServiceA/MethodA",
-          "licenseCost": 90,
+          "LicenseCost": 90,
           "grpcServiceName": "ServiceA",
           "grpcMethodName": "MethodA"
         },
         {
           "periodInDays": 30,
-          "creditsInAGI": 123,
+          "DiscountInPercentage": 12,
           "planName": "Monthly",
-          "licenseCost": 93
+          "LicenseCost": 93
         },
         {
           "periodInDays": 120,
-          "creditsInAGI": 160,
-          "licenseCost": 120,
+          "DiscountInPercentage": 16,
+          "LicenseCost": 120,
           "planName": "Quarterly"
         },
         {
           "periodInDays": 365,
-          "creditsInAGI": 430,
-          "licenseCost": 390,
+          "DiscountInPercentage": 23,
+          "LicenseCost": 390,
           "planName": "Yearly"
         }
       ],
@@ -161,17 +161,17 @@ type Tiers struct {
 }
 
 type TierRange struct {
-	High             int `json:"high"`
-	FixedPriceInCogs int `json:"fixedPriceInCogs"`
+	High                 int `json:"high"`
+	DiscountInPercentage int `json:"DiscountInPercentage"`
 }
 
 type Subscription struct {
-	PeriodInDays    int     `json:"periodInDays"`
-	CreditsInAGI    int     `json:"creditsInAGI"`
-	PlanName        string  `json:"planName"`
-	licenseCost     big.Int `json:"licenseCost"`
-	GrpcServiceName string  `json:"grpcServiceName,omitempty"`
-	GrpcMethodName  string  `json:"grpcMethodName,omitempty"`
+	PeriodInDays         int     `json:"periodInDays"`
+	DiscountInPercentage int     `json:"discountInPercentage"`
+	PlanName             string  `json:"planName"`
+	LicenseCost          big.Int `json:"licenseCost"`
+	GrpcServiceName      string  `json:"grpcServiceName,omitempty"`
+	GrpcMethodName       string  `json:"grpcMethodName,omitempty"`
 }
 
 type Subscriptions struct {

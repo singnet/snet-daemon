@@ -40,6 +40,13 @@ import (
             "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ=",
 {
   "licenses": {
+    "addOns":[
+       { "discountInPercentage": 4,
+         "addOnCostInAGIX":70,
+         "creditsInAGIX":100
+         "name": "Get Additional Calls worth 100 AGIX for 70 AGIX"
+       }
+    ],
     "tiers": [{
       "type": "Tier",
       "planName": "Tier AAA",

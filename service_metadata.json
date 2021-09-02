@@ -1,126 +1,130 @@
 {
   "version": 1,
-  "display_name": "PRICING MODEL",
+  "display_name": "Entity Disambiguation",
   "encoding": "proto",
   "service_type": "grpc",
-
-  "model_ipfs_hash": "Qmdiq8Hu6dYiwp712GtnbBxagyfYyvUY1HYqkH7iN76UCc",
-  "mpe_address": "0x7E6366Fbe3bdfCE3C906667911FC5237Cc96BD08",
+  "model_ipfs_hash": "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv",
+  "mpe_address": "0x34E2EeE197EfAAbEcC495FdF3B1781a3b894eB5f",
   "groups": [
     {
-      "endpoints": ["http://127.0.0.1:2379","http://127.0.0.1:2389"],
-      "group_id": "88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
       "group_name": "default_group",
+      "free_calls": 12,
+      "free_call_signer_address": "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F",
       "pricing": [
         {
           "price_model": "fixed_price",
-          "price_in_cogs": 2,
-          "default":true
+          "price_in_cogs": 1,
+          "default": true
+        }
+      ],
+      "endpoints": [
+        "https://tz-services-1.snet.sh:8005"
+      ],
+      "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ=",
+      "addOns":[
+        { "discountInPercentage": 4,
+          "addOnCostInAGIX":70,
+          "name": "Get Additional Calls worth 100 AGIX for 70 AGIX"
         },
+        { "discountInPercentage": 5,
+          "addOnCostInAGIX":80,
+          "name": "Get Additional Calls worth 120 AGIX for 80 AGIX"
+        }
+      ],
+      "licenses": {
+        "tiers": [
+          {
+            "type": "Tier",
+            "planName": "Tier AAA",
+            "grpcServiceName": "ServiceA",
+            "grpcMethodName": "MethodA",
+            "range": [
+              {
+                "high": 100,
+                "discountInPercentage": 3
+              },
+              {
+                "high": 200,
+                "discountInPercentage": 4
+              },
+              {
+                "high": 300,
+                "discountInPercentage": 6
+              }
+            ],
+            "detailsUrl": "http://abc.org/licenses/Tier.html",
+            "isActive": "true/false"
+          },
+          {
+            "type": "Tier",
+            "planName": "Tier BBB Applicable for All service.methods",
+            "range": [
+              {
+                "high": 100,
+                "discountInPercentage": 2
+              },
+              {
+                "high": 200,
+                "discountInPercentage": 1.75
+              },
+              {
+                "high": 300,
+                "discountInPercentage": 2.50
+              }
+            ],
+            "detailsUrl": "http://abc.org/licenses/Tier.html",
+            "isActive": "true/false"
+          }
+        ],
+        "subscriptions": {
+          "type": "Subscription",
+          "subscription": [
+            {
+              "periodInDays": 30,
+              "discountInPercentage": 10,
+              "planName": "Monthly For ServiceA/MethodA",
+              "LicenseCost": 90,
+              "grpcServiceName": "ServiceA",
+              "grpcMethodName": "MethodA"
+            },
+            {
+              "periodInDays": 30,
+              "discountInPercentage": 12,
+              "planName": "Monthly",
+              "LicenseCost": 93
+            },
+            {
+              "periodInDays": 120,
+              "discountInPercentage": 16,
+              "LicenseCost": 120,
+              "planName": "Quarterly"
+            },
+            {
+              "periodInDays": 365,
+              "discountInPercentage": 23,
+              "LicenseCost": 390,
+              "planName": "Yearly"
+            }
+          ],
+          "detailsUrl": "http://abc.org/licenses/Subscription.html",
+          "isActive": "true/false"
+        }
+      }
 
-        {
-          "package_name": "example_service",
-          "price_model": "fixed_price_per_method",
-          "details": [
-            {
-              "service_name": "Calculator",
-              "method_pricing": [
-                {
-                  "method_name": "add",
-                  "price_in_cogs": 2
-                },
-                {
-                  "method_name": "sub",
-                  "price_in_cogs": 1
-                },
-                {
-                  "method_name": "div",
-                  "price_in_cogs": 2
-                },
-                {
-                  "method_name": "mul",
-                  "price_in_cogs": 3
-                }
-              ]
-            },
-            {
-              "service_name": "Calculator2",
-              "method_pricing": [
-                {
-                  "method_name": "add",
-                  "price_in_cogs": 2
-                },
-                {
-                  "method_name": "sub",
-                  "price_in_cogs": 1
-                },
-                {
-                  "method_name": "div",
-                  "price_in_cogs": 3
-                },
-                {
-                  "method_name": "mul",
-                  "price_in_cogs": 2
-                }
-              ]
-            }
-          ]
-        }]
-    },
+    }
+  ],
+  "assets": {
+    "hero_image": "Qmb1n3LxPXLHTUMu7afrpZdpug4WhhcmVVCEwUxjLQafq1/hero_named-entity-disambiguation.png"
+  },
+  "service_description": {
+    "url": "https://singnet.github.io/nlp-services-misc/users_guide/named-entity-disambiguation-service.html",
+    "description": "Provide further clearity regaridng entities named within a piece of text. For example, \"Paris is the capital of France\", we would want to link \"Paris\" to Paris the city not Paris Hilton in this case.",
+    "short_description": "text of 180 chars"
+  },
+  "contributors": [
     {
-      "endpoints": ["http://127.0.0.1:2379","http://127.0.0.1:2389"],
-      "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
-      "group_name": "default_group2",
-      "pricing": [
-        {
-          "package_name": "example_service",
-          "price_model": "fixed_price_per_method",
-          "default":true,
-          "details": [
-            {
-              "service_name": "Calculator",
-              "method_pricing": [
-                {
-                  "method_name": "add",
-                  "price_in_cogs": 2
-                },
-                {
-                  "method_name": "sub",
-                  "price_in_cogs": 1
-                },
-                {
-                  "method_name": "div",
-                  "price_in_cogs": 2
-                },
-                {
-                  "method_name": "mul",
-                  "price_in_cogs": 3
-                }
-              ]
-            },
-            {
-              "service_name": "Calculator2",
-              "method_pricing": [
-                {
-                  "method_name": "add",
-                  "price_in_cogs": 2
-                },
-                {
-                  "method_name": "sub",
-                  "price_in_cogs": 1
-                },
-                {
-                  "method_name": "div",
-                  "price_in_cogs": 3
-                },
-                {
-                  "method_name": "mul",
-                  "price_in_cogs": 2
-                }
-              ]
-            }
-          ]
-        }]
+      "name": "dummy dummy",
+      "email_id": "dummy@dummy.io"
     }
   ]
 }

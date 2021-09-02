@@ -242,8 +242,9 @@ type TierPricingDetails struct {
 }
 
 type PricingDetails struct {
-	CreditsInCogs        *big.Int // 100
-	FeeInCogs            *big.Int //20AGI ,
+	CreditsInCogs        *big.Int
+	FeeInCogs            *big.Int
+	LockedPrice          *big.Int //Fixed Price that was defined at the time of creating a license contract
 	PlanName             string
 	ValidityInDays       uint8
 	ActualAmountSigned   *big.Int

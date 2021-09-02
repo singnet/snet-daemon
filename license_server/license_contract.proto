@@ -62,6 +62,7 @@ message CheckLicenseUsageRequest {
     uint64 channel_id = 2;
     string service_id = 3;
     uint64 price_in_cogs = 4;
+    bool  isDynamicPrice = 5;
 
 }
 

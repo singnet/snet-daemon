@@ -15,6 +15,54 @@
           "price_model": "fixed_price",
           "price_in_cogs": 1,
           "default": true
+        },
+        {
+          "package_name": "example_service",
+          "price_model": "fixed_price_per_method",
+          "details": [
+            {
+              "service_name": "Calculator",
+              "method_pricing": [
+                {
+                  "method_name": "add",
+                  "price_in_cogs": 2
+                },
+                {
+                  "method_name": "sub",
+                  "price_in_cogs": 1
+                },
+                {
+                  "method_name": "div",
+                  "price_in_cogs": 2
+                },
+                {
+                  "method_name": "mul",
+                  "price_in_cogs": 3
+                }
+              ]
+            },
+            {
+              "service_name": "Calculator2",
+              "method_pricing": [
+                {
+                  "method_name": "add",
+                  "price_in_cogs": 2
+                },
+                {
+                  "method_name": "sub",
+                  "price_in_cogs": 1
+                },
+                {
+                  "method_name": "div",
+                  "price_in_cogs": 3
+                },
+                {
+                  "method_name": "mul",
+                  "price_in_cogs": 2
+                }
+              ]
+            }
+          ]
         }
       ],
       "endpoints": [

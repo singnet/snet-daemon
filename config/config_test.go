@@ -7,34 +7,42 @@ import (
 	"testing"
 )
 
+const (
+	INNER         = "inner"
+	OUTER         = "outer"
+	INNER_VALUE   = "inner-value"
+	OUTER_INNER   = "outer.inner"
+	INNER_DEFAULT = "inner-default"
+)
+
 func TestCustomSubMap(t *testing.T) {
 	var config = viper.New()
-	config.Set("outer.inner", "inner-value")
+	config.Set(OUTER_INNER, INNER_VALUE)
 	config.SetDefault("outer.inner-default", "inner-default-value")
 
-	var sub = SubWithDefault(config, "outer")
+	var sub = SubWithDefault(config, OUTER)
 
-	assert.Equal(t, "inner-value", sub.Get("inner"))
-	assert.Equal(t, "inner-default-value", sub.Get("inner-default"))
+	assert.Equal(t, INNER_VALUE, sub.Get(INNER))
+	assert.Equal(t, "inner-default-value", sub.Get(INNER_DEFAULT))
 }
 
 func TestCustomSubSingleValue(t *testing.T) {
 	var config = viper.New()
 	config.SetDefault("outer.inner-default", "inner-default-value")
 
-	var sub = SubWithDefault(config, "outer")
+	var sub = SubWithDefault(config, OUTER)
 
-	assert.Equal(t, "inner-default-value", sub.Get("inner-default"))
+	assert.Equal(t, "inner-default-value", sub.Get(INNER_DEFAULT))
 }
 
 func TestCustomSubNoValue(t *testing.T) {
 	var config = viper.New()
-	config.SetDefault("outer", "inner-default")
+	config.SetDefault(OUTER, INNER_DEFAULT)
 
-	var sub = SubWithDefault(config, "outer")
+	var sub = SubWithDefault(config, OUTER)
 
 	assert.NotNil(t, sub)
-	assert.Equal(t, nil, sub.Get("inner-default"))
+	assert.Equal(t, nil, sub.Get(INNER_DEFAULT))
 }
 
 func TestCustomSubNoKey(t *testing.T) {
@@ -47,12 +55,12 @@ func TestCustomSubNoKey(t *testing.T) {
 
 func TestCustomSubMapWithKeyInOtherCase(t *testing.T) {
 	var config = viper.New()
-	config.Set("outer.INNER", "inner-value")
+	config.Set(OUTER_INNER, INNER_VALUE)
 	config.SetDefault("OUTER.inner-DEFAULT", "inner-default-value")
 
 	var sub = SubWithDefault(config, "OuTeR")
 
-	assert.Equal(t, "inner-value", sub.Get("iNnEr"))
+	assert.Equal(t, INNER_VALUE, sub.Get("iNnEr"))
 	assert.Equal(t, "inner-default-value", sub.Get("iNnEr-DeFaUlT"))
 }
 

@@ -40,6 +40,7 @@ import (
             "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ=",
 {
   "licenses": {
+
     "tiers": [{
       "type": "Tier",
       "planName": "Tier AAA",
@@ -159,15 +160,19 @@ type ServiceMetadata struct {
 type Tiers struct {
 	Tiers Tier `json:"tier"`
 }
-
+type AddOns struct {
+	DiscountInPercentage float64 `json:"discountInPercentage"`
+	AddOnCostInAGIX      int     `json:"addOnCostInAGIX"`
+	Name                 string  `json:"name"`
+}
 type TierRange struct {
-	High                 int `json:"high"`
-	DiscountInPercentage int `json:"DiscountInPercentage"`
+	High                 int     `json:"high"`
+	DiscountInPercentage float64 `json:"DiscountInPercentage"`
 }
 
 type Subscription struct {
 	PeriodInDays         int     `json:"periodInDays"`
-	DiscountInPercentage int     `json:"discountInPercentage"`
+	DiscountInPercentage float64 `json:"discountInPercentage"`
 	PlanName             string  `json:"planName"`
 	LicenseCost          big.Int `json:"licenseCost"`
 	GrpcServiceName      string  `json:"grpcServiceName,omitempty"`
@@ -202,6 +207,7 @@ type OrganizationGroup struct {
 	FreeCalls      int       `json:"free_calls"`
 	FreeCallSigner string    `json:"free_call_signer_address"`
 	Licenses       Licenses  `json:"licenses,omitempty"`
+	AddOns         []AddOns  `json:"addOns,omitempty"`
 }
 type Pricing struct {
 	PriceModel     string           `json:"price_model"`

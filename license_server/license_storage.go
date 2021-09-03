@@ -121,6 +121,7 @@ const (
 const (
 	SUBSCRIPTION = "SUBSCRIPTION"
 	TIER         = "TIER"
+	ADD_ON       = "ADD_ON"
 	AMOUNT       = "AMOUNT"
 	CALLS        = "CALLS"
 )
@@ -183,11 +184,19 @@ func (u ValidityPeriod) String() string {
 		u.StartTimeUTC, u.EndTimeUTC, u.UpdateTimeUTC)
 }
 
+type AddOn struct {
+	ChannelId *big.Int
+	Discount  Discount
+	//Expiry of AddOn will be tied to the license Type associated with it .
+	AssociatedLicense License
+	Details           *PricingDetails
+}
+
 type Subscription struct {
 	ChannelId           *big.Int
 	ServiceId           string
 	Validity            *ValidityPeriod
-	Details             *SubscriptionPricingDetails
+	Details             *PricingDetails
 	Discount            Discount
 	AuthorizedAddresses []string
 }
@@ -232,16 +241,17 @@ type TierPricingDetails struct {
 	ActualAmountSigned *big.Int
 }
 
-type SubscriptionPricingDetails struct {
-	CreditsInCogs        *big.Int // 100
-	FeeInCogs            *big.Int //20AGI ,
+type PricingDetails struct {
+	CreditsInCogs        *big.Int
+	FeeInCogs            *big.Int
+	LockedPrice          *big.Int //Fixed Price that was defined at the time of creating a license contract
 	PlanName             string
 	ValidityInDays       uint8
 	ActualAmountSigned   *big.Int
 	ServiceMethodDetails *ServiceMethodDetails //If this is null , implies it applies to all methods of the Service or just the one defined here
 }
 
-func (s SubscriptionPricingDetails) String() string {
+func (s PricingDetails) String() string {
 	return fmt.Sprintf("{CreditsInCogs:%v,FeeInCogs:%v,PlanName:%v"+
 		",ValidityInDays:%v,ActualAmountSigned:%v,ServiceMethodDetails:%v}",
 		s.CreditsInCogs, s.FeeInCogs, s.PlanName, s.ValidityInDays, s.ActualAmountSigned,
@@ -325,7 +335,7 @@ func serializeLicenseDetailsData(value interface{}) (slice string, err error) {
 	e := gob.NewEncoder(&b)
 	gob.Register(&Subscription{})
 	gob.Register(&ValidityPeriod{})
-	gob.Register(&SubscriptionPricingDetails{})
+	gob.Register(&PricingDetails{})
 	gob.Register(&TierPricingDetails{})
 	gob.Register(&DiscountPercentage{})
 	gob.Register(&ServiceMethodDetails{})
@@ -343,7 +353,7 @@ func deserializeLicenseDetailsData(slice string, value interface{}) (err error) 
 	b := bytes.NewBuffer([]byte(slice))
 	gob.Register(&Subscription{})
 	gob.Register(&ValidityPeriod{})
-	gob.Register(&SubscriptionPricingDetails{})
+	gob.Register(&PricingDetails{})
 	gob.Register(&TierPricingDetails{})
 	gob.Register(&DiscountPercentage{})
 	gob.Register(&ServiceMethodDetails{})

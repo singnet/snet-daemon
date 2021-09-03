@@ -43,7 +43,7 @@ func Test_serializeLicenseDetailsData(t *testing.T) {
 			ValidityPeriod: validityPeriod,
 		},
 
-		Details: &SubscriptionPricingDetails{
+		Details: &PricingDetails{
 			PlanName:             "MyTestPlan",
 			ActualAmountSigned:   big.NewInt(340),
 			ValidityInDays:       120,

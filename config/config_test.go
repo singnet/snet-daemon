@@ -7,34 +7,45 @@ import (
 	"testing"
 )
 
+const (
+	INNER                  = "inner"
+	OUTER                  = "outer"
+	INNER_VALUE            = "inner-value"
+	OUTER_INNER            = "outer.inner"
+	INNER_DEFAULT          = "inner-default"
+	INNER_DEFAULT_VALUE    = "inner-default-value"
+	PASS_THROUGH_END_POINT = "http://127.0.0.1:8080"
+	DAEMON_END_POINT       = "0.0.0.0:7000"
+)
+
 func TestCustomSubMap(t *testing.T) {
 	var config = viper.New()
-	config.Set("outer.inner", "inner-value")
-	config.SetDefault("outer.inner-default", "inner-default-value")
+	config.Set(OUTER_INNER, INNER_VALUE)
+	config.SetDefault("outer.inner-default", INNER_DEFAULT_VALUE)
 
-	var sub = SubWithDefault(config, "outer")
+	var sub = SubWithDefault(config, OUTER)
 
-	assert.Equal(t, "inner-value", sub.Get("inner"))
-	assert.Equal(t, "inner-default-value", sub.Get("inner-default"))
+	assert.Equal(t, INNER_VALUE, sub.Get(INNER))
+	assert.Equal(t, INNER_DEFAULT_VALUE, sub.Get(INNER_DEFAULT))
 }
 
 func TestCustomSubSingleValue(t *testing.T) {
 	var config = viper.New()
-	config.SetDefault("outer.inner-default", "inner-default-value")
+	config.SetDefault("outer.inner-default", INNER_DEFAULT_VALUE)
 
-	var sub = SubWithDefault(config, "outer")
+	var sub = SubWithDefault(config, OUTER)
 
-	assert.Equal(t, "inner-default-value", sub.Get("inner-default"))
+	assert.Equal(t, INNER_DEFAULT_VALUE, sub.Get(INNER_DEFAULT))
 }
 
 func TestCustomSubNoValue(t *testing.T) {
 	var config = viper.New()
-	config.SetDefault("outer", "inner-default")
+	config.SetDefault(OUTER, INNER_DEFAULT)
 
-	var sub = SubWithDefault(config, "outer")
+	var sub = SubWithDefault(config, OUTER)
 
 	assert.NotNil(t, sub)
-	assert.Equal(t, nil, sub.Get("inner-default"))
+	assert.Equal(t, nil, sub.Get(INNER_DEFAULT))
 }
 
 func TestCustomSubNoKey(t *testing.T) {
@@ -47,13 +58,13 @@ func TestCustomSubNoKey(t *testing.T) {
 
 func TestCustomSubMapWithKeyInOtherCase(t *testing.T) {
 	var config = viper.New()
-	config.Set("outer.INNER", "inner-value")
-	config.SetDefault("OUTER.inner-DEFAULT", "inner-default-value")
+	config.Set(OUTER_INNER, INNER_VALUE)
+	config.SetDefault("OUTER.inner-DEFAULT", INNER_DEFAULT_VALUE)
 
 	var sub = SubWithDefault(config, "OuTeR")
 
-	assert.Equal(t, "inner-value", sub.Get("iNnEr"))
-	assert.Equal(t, "inner-default-value", sub.Get("iNnEr-DeFaUlT"))
+	assert.Equal(t, INNER_VALUE, sub.Get("iNnEr"))
+	assert.Equal(t, INNER_DEFAULT_VALUE, sub.Get("iNnEr-DeFaUlT"))
 }
 
 const jsonConfigString = `
@@ -107,25 +118,25 @@ func TestValidateEmail(t *testing.T) {
 }
 
 func TestValidateEndpoints(t *testing.T) {
-	err := ValidateEndpoints("0.0.0.0:8080", "http://127.0.0.1:8080")
+	err := ValidateEndpoints("0.0.0.0:8080", PASS_THROUGH_END_POINT)
 	assert.NotEqual(t, nil, err)
-	err = ValidateEndpoints("127.0.0.1:8080", "http://127.0.0.1:8080")
+	err = ValidateEndpoints("127.0.0.1:8080", PASS_THROUGH_END_POINT)
 	assert.NotEqual(t, nil, err)
 	err = ValidateEndpoints("0.0.0.0:8080", "http://127.0.0.1:5000")
 	assert.Equal(t, nil, err)
-	err = ValidateEndpoints("1.2.3.4:8080", "http://127.0.0.1:8080")
+	err = ValidateEndpoints("1.2.3.4:8080", PASS_THROUGH_END_POINT)
 	assert.Equal(t, nil, err)
 	err = ValidateEndpoints("1.2.3.4:8080", "")
 	assert.Equal(t, "passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.", err.Error())
-	err = ValidateEndpoints("0.0.0.0:7000", "http://localhost:8080")
+	err = ValidateEndpoints(DAEMON_END_POINT, "http://localhost:8080")
 	assert.Equal(t, nil, err)
-	err = ValidateEndpoints("0.0.0.0:7000", "http://localhost:8080")
+	err = ValidateEndpoints(DAEMON_END_POINT, "http://localhost:8080")
 	assert.Equal(t, nil, err)
-	err = ValidateEndpoints("0.0.0.0:7000", "localhost:8080")
+	err = ValidateEndpoints(DAEMON_END_POINT, "localhost:8080")
 	assert.Equal(t, "passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.", err.Error())
-	err = ValidateEndpoints("0.0.0.0:7000", "http://somedomain")
+	err = ValidateEndpoints(DAEMON_END_POINT, "http://somedomain")
 	assert.Equal(t, nil, err)
-	err = ValidateEndpoints("0.0.0.0:7000", "https://somedomain:8093")
+	err = ValidateEndpoints(DAEMON_END_POINT, "https://somedomain:8093")
 	assert.Nil(t, err)
 
 }

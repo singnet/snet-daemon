@@ -62,6 +62,11 @@ func serializeLicenseDetailsKey(key interface{}) (serialized string, err error) 
 
 type LicenseDetailsData struct {
 	License License
+	//This is to capture the fixed price at the time of purchasing the license
+	//If there is no Dynamic Pricing involved  , we will need to fall back on the fixed price
+	//that is available
+	// Keep this flexible to ensure we also support method level pricing in to the future
+	FixedPricing ServiceMethodCostDetails
 }
 type LicenseUsageTrackerKey struct {
 	ChannelID *big.Int
@@ -102,6 +107,7 @@ type Usage interface {
 }
 
 type License interface {
+	GetName() string
 	GetType() string
 	IsActive() bool
 	IsCallEligible() (bool, error)
@@ -206,14 +212,14 @@ type Tier struct {
 	AuthorizedAddresses []string
 }
 
-type ServiceMethodDetails struct {
+type ServiceMethodCostDetails struct {
 	PlanName    string
 	ServiceName string
 	MethodName  string
 	Price       *big.Int
 }
 
-func (s ServiceMethodDetails) String() string {
+func (s ServiceMethodCostDetails) String() string {
 	return fmt.Sprintf("{Valididty:%v,Details:%v,Discount:%v}",
 		s.PlanName, s.ServiceName, s.MethodName)
 }
@@ -248,14 +254,18 @@ type PricingDetails struct {
 	PlanName             string
 	ValidityInDays       uint8
 	ActualAmountSigned   *big.Int
-	ServiceMethodDetails *ServiceMethodDetails //If this is null , implies it applies to all methods of the Service or just the one defined here
+	ServiceMethodDetails *ServiceMethodCostDetails //If this is null , implies it applies to all methods of the Service or just the one defined here
 }
 
 func (s PricingDetails) String() string {
 	return fmt.Sprintf("{CreditsInCogs:%v,FeeInCogs:%v,PlanName:%v"+
-		",ValidityInDays:%v,ActualAmountSigned:%v,ServiceMethodDetails:%v}",
+		",ValidityInDays:%v,ActualAmountSigned:%v,ServiceMethodCostDetails:%v}",
 		s.CreditsInCogs, s.FeeInCogs, s.PlanName, s.ValidityInDays, s.ActualAmountSigned,
 		s.ServiceMethodDetails)
+}
+
+func (s Subscription) GetName() string {
+	return s.GetName()
 }
 
 func (s Subscription) ValidFrom() time.Time {
@@ -294,6 +304,9 @@ func (s Subscription) String() string {
 		s.Validity.String(), s.Details.String(), s.Discount.String())
 }
 
+func (s Tier) GetName() string {
+	return s.GetName()
+}
 func (s Tier) GetType() string {
 	return TIER
 }
@@ -338,7 +351,7 @@ func serializeLicenseDetailsData(value interface{}) (slice string, err error) {
 	gob.Register(&PricingDetails{})
 	gob.Register(&TierPricingDetails{})
 	gob.Register(&DiscountPercentage{})
-	gob.Register(&ServiceMethodDetails{})
+	gob.Register(&ServiceMethodCostDetails{})
 
 	err = e.Encode(value)
 
@@ -356,7 +369,7 @@ func deserializeLicenseDetailsData(slice string, value interface{}) (err error) 
 	gob.Register(&PricingDetails{})
 	gob.Register(&TierPricingDetails{})
 	gob.Register(&DiscountPercentage{})
-	gob.Register(&ServiceMethodDetails{})
+	gob.Register(&ServiceMethodCostDetails{})
 
 	d := gob.NewDecoder(b)
 	err = d.Decode(value)

@@ -49,7 +49,7 @@ func Test_serializeLicenseDetailsData(t *testing.T) {
 			ValidityInDays:       120,
 			FeeInCogs:            big.NewInt(120),
 			CreditsInCogs:        big.NewInt(130),
-			ServiceMethodDetails: &ServiceMethodDetails{MethodName: "M1", ServiceName: "S1"},
+			ServiceMethodDetails: &ServiceMethodCostDetails{MethodName: "M1", ServiceName: "S1"},
 		},
 	}
 	fmt.Println(license)

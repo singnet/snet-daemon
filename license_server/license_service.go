@@ -12,18 +12,40 @@ type LockingLicenseService struct {
 	LicenseDetailsStorage storage.TypedAtomicStorage
 	LicenseUsageStorage   storage.TypedAtomicStorage
 	Org                   *blockchain.OrganizationMetaData
+	ServiceMetaData       *blockchain.ServiceMetadata
 }
 
 //Will be used in the components to create a new instance of LicenseService
 func NewLicenseService(
 	detailsStorage storage.TypedAtomicStorage,
 	licenseStorage storage.TypedAtomicStorage, orgData *blockchain.OrganizationMetaData,
-) *LockingLicenseService {
+	serviceMetaData *blockchain.ServiceMetadata) *LockingLicenseService {
 	return &LockingLicenseService{
 		LicenseDetailsStorage: detailsStorage,
 		LicenseUsageStorage:   licenseStorage,
 		Org:                   orgData,
+		ServiceMetaData:       serviceMetaData,
 	}
+}
+
+func (h *LockingLicenseService) CreateLicenseDetails(channelId *big.Int, serviceId string,
+	license License) (err error) {
+	key := LicenseDetailsKey{ServiceID: serviceId, ChannelID: channelId}
+	//Get the associated fixed Pricing details
+	fixedPricingDetails, err := h.getFixedPriceFromServiceMetadata(license)
+	if err != nil {
+		return err
+	}
+	data := LicenseDetailsData{License: license, FixedPricing: fixedPricingDetails}
+	return h.LicenseDetailsStorage.Put(key, data)
+}
+
+func (h *LockingLicenseService) getFixedPriceFromServiceMetadata(license License) (fixedPricingDetails ServiceMethodCostDetails, err error) {
+	fixedPricingDetails = ServiceMethodCostDetails{}
+	serviceMetadata := h.ServiceMetaData
+	fixedPricingDetails.Price = serviceMetadata.GetDefaultPricing().PriceInCogs
+	fixedPricingDetails.PlanName = serviceMetadata.GetDefaultPricing().PriceModel
+	return
 }
 
 func (h *LockingLicenseService) CreateOrUpdateLicense(channelId *big.Int, serviceId string) (err error) {

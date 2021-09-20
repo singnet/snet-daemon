@@ -17,15 +17,18 @@ type LicenseServiceTestSuite struct {
 	licenseDetailsStorage storage.TypedAtomicStorage
 	licenseUsageStorage   storage.TypedAtomicStorage
 	orgMetaData           *blockchain.OrganizationMetaData
+	servMetaData          *blockchain.ServiceMetadata
 	channelID             *big.Int
 }
 
 func (suite *LicenseServiceTestSuite) SetupSuite() {
 	suite.channelID = big.NewInt(1)
 	suite.orgMetaData, _ = blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
+	suite.servMetaData, _ = blockchain.ReadServiceMetaDataFromLocalFile("../service_metadata.json")
 	suite.licenseDetailsStorage = NewLicenseDetailsStorage(storage.NewMemStorage())
 	suite.licenseUsageStorage = NewLicenseUsageTrackerStorage(storage.NewMemStorage())
-	suite.service = NewLicenseService(suite.licenseDetailsStorage, suite.licenseUsageStorage, suite.orgMetaData)
+	suite.service = NewLicenseService(suite.licenseDetailsStorage, suite.licenseUsageStorage, suite.orgMetaData,
+		suite.servMetaData)
 }
 func TestTokenServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(LicenseServiceTestSuite))

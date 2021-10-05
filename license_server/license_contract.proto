@@ -82,11 +82,11 @@ message LicenseCreateRequest {
 
     //Pick the license name , this is unique for a given type of license, please note that this has to match
     //the license name defined in the service metadata.
-    string license_name = 6;
+    string license_name = 5;
 
     //channel is associated with an org id and group id uniquely, however licenses are tied to
     //specific services ONLY, hence we will need to pass this when creating a license
-    string service_id = 7;
+    string service_id = 6;
 
 
 }

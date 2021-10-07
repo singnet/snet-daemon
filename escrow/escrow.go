@@ -189,6 +189,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	lock, ok, err := h.locker.Lock(channelKey.String())
 	if err != nil {
+		log.WithError(err)
 		return nil, NewPaymentError(Internal, "cannot get mutex for channel: %v", channelKey)
 	}
 	if !ok {
@@ -205,6 +206,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
+		log.WithError(err)
 		return nil, NewPaymentError(Internal, "payment channel error:"+err.Error())
 	}
 	if !ok {

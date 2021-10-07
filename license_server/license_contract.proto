@@ -10,6 +10,9 @@ service LicenseContract {
 
     rpc CreateLicense (LicenseCreateRequest) returns (LicenseDataResponse) {
     }
+
+    rpc CreateAddOns (AddOnCreateRequest) returns (AddOnDataResponse) {
+    }
     //You need to pass the ChannelId
     rpc GetLicenseForChannel (LicenseReadRequest) returns (LicenseDataResponse) {
     }
@@ -47,7 +50,6 @@ service LicenseContract {
 
 }
 
-
 message CallerAuthentication {
     //Signature will compromise the following data:
     // (_method name, current block, user address) signed by private key
@@ -62,18 +64,60 @@ message CheckLicenseUsageRequest {
     uint64 channel_id = 2;
     string service_id = 3;
     uint64 price_in_cogs = 4;
-    bool  isDynamicPrice = 5;
+    bool isDynamicPrice = 5;
 
 }
 
 message LicenseCreateRequest {
     CallerAuthentication auth = 1;
-    //the channel exclusively created for this license_server needs to be passed
+    //The channel exclusively created for this license_server needs to be passed
+    //Channel Id , will automatically tell you the org id and the group id
     uint64 channel_id = 2;
+
     //you can pass the list of Authorized addresses to also be allowed to use the License.
-    repeated string user_addresses = 4;
+    repeated string user_addresses = 3;
+
+    //define the type of license to be created, this has to match what has been defined on the service metadata
+    string license_type = 4;
+
+    //Pick the license name , this is unique for a given type of license, please note that this has to match
+    //the license name defined in the service metadata.
+    string license_name = 5;
+
+    //channel is associated with an org id and group id uniquely, however licenses are tied to
+    //specific services ONLY, hence we will need to pass this when creating a license
+    string service_id = 6;
+
+
 }
 
+message AddOnCreateRequest {
+    CallerAuthentication auth = 1;
+    //Specify all the add ons to be created.
+    repeated AddOn add_ons = 2;
+    //Channel Id , that this add is to be associated with
+    uint64 channel_id = 3;
+}
+
+
+// Add on can only be associated with a license , they will be effective only when the license usage is exhausted.
+// Addons expire when the license expires and will not carry forward.
+message AddOn {
+    //Please note all the values in here should match the details on the service metadata
+    float discount_in_percentage = 1;
+    float cost_in_agix = 2;
+}
+
+
+message AddOnDataResponse {
+    ChannelResponse channel = 1;
+    //tell you the license_server type for example Subscription / Tier
+    string license_type = 2;
+    google.protobuf.Timestamp add_on_expiry_date = 3;
+    google.protobuf.Timestamp add_on_start_date = 4;
+    UsageResponse usage = 5;
+    string service_id = 6;
+}
 
 message LicenseReadRequest {
     CallerAuthentication auth = 1;
@@ -104,8 +148,6 @@ message LicenseUpdateRequest {
 
     string license_id = 5;
 }
-
-
 
 //This will help the users know
 // What type of usage is being tracked on the current license_server  ( ex Usage in amount/time/calls )

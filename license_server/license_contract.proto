@@ -94,7 +94,7 @@ message LicenseCreateRequest {
 message AddOnCreateRequest {
     CallerAuthentication auth = 1;
     //Specify all the add ons to be created.
-    repeated AddOn add_ons = 2;
+    repeated AddOnRequest add_ons = 2;
     //Channel Id , that this add is to be associated with
     uint64 channel_id = 3;
 }
@@ -102,7 +102,7 @@ message AddOnCreateRequest {
 
 // Add on can only be associated with a license , they will be effective only when the license usage is exhausted.
 // Addons expire when the license expires and will not carry forward.
-message AddOn {
+message AddOnRequest {
     //Please note all the values in here should match the details on the service metadata
     float discount_in_percentage = 1;
     float cost_in_agix = 2;

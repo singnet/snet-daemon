@@ -95,7 +95,8 @@ func (claim *claimImpl) Finish() (err error) {
 func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
 	lock, ok, err := h.locker.Lock(key.String())
 	if err != nil {
-		return nil, fmt.Errorf("cannot get mutex for channel: %v", key)
+		log.WithError(err)
+		return nil, fmt.Errorf("cannot get mutex for channel: %v because of %v", key, err)
 	}
 	if !ok {
 		return nil, fmt.Errorf("another transaction on channel: %v is in progress", key)
@@ -109,6 +110,7 @@ func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update
 
 	channel, ok, err := h.storage.Get(key)
 	if err != nil {
+		log.WithError(err)
 		return
 	}
 	if !ok {
@@ -127,6 +129,7 @@ func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update
 
 	err = h.paymentStorage.Put(payment)
 	if err != nil {
+		log.WithError(err)
 		log.WithField("payment", payment).Error("Cannot write payment into payment storage. Channel storage is already updated. Payment should be handled manually.")
 		return
 	}
@@ -186,6 +189,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	lock, ok, err := h.locker.Lock(channelKey.String())
 	if err != nil {
+		log.WithError(err)
 		return nil, NewPaymentError(Internal, "cannot get mutex for channel: %v", channelKey)
 	}
 	if !ok {
@@ -202,6 +206,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
+		log.WithError(err)
 		return nil, NewPaymentError(Internal, "payment channel error:"+err.Error())
 	}
 	if !ok {

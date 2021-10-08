@@ -95,7 +95,7 @@ func (claim *claimImpl) Finish() (err error) {
 func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
 	lock, ok, err := h.locker.Lock(key.String())
 	if err != nil {
-		log.WithError(err)
+		log.WithError(err).WithField("PaymentChannelKey", key).Error("StartClaim, unable to get lock!")
 		return nil, fmt.Errorf("cannot get mutex for channel: %v because of %v", key, err)
 	}
 	if !ok {
@@ -110,7 +110,8 @@ func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update
 
 	channel, ok, err := h.storage.Get(key)
 	if err != nil {
-		log.WithError(err)
+		log.WithError(err).WithField("channelKey", key).Error("StartClaim, unable to get channel from Storage!")
+
 		return
 	}
 	if !ok {
@@ -189,7 +190,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	lock, ok, err := h.locker.Lock(channelKey.String())
 	if err != nil {
-		log.WithError(err)
+		log.WithError(err).WithField("channelKey", channelKey).Error("StartPaymentTransaction, unable to get lock!")
 		return nil, NewPaymentError(Internal, "cannot get mutex for channel: %v", channelKey)
 	}
 	if !ok {
@@ -206,7 +207,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
-		log.WithError(err)
+		log.WithError(err).WithField("channelKey", channelKey).Error("StartPaymentTransaction, unable to get channel!")
 		return nil, NewPaymentError(Internal, "payment channel error:"+err.Error())
 	}
 	if !ok {

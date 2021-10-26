@@ -24,9 +24,8 @@ jobs:
           command: ./scripts/test
       - run:
           name: Perform Sonar analysis and publish the results
-          command:
-            export SONAR_SCANNER_OPTS="-Xmx2048m"
-            sonar-scanner-4.6.2.2472-linux/bin/sonar-scanner -Dsonar.host.url=https://sonarqube.singularitynet.io -Dsonar.login=${SONAR_TOKEN} $SONAR_SCANNER_OPTS_CUSTOM
+          command: ./scripts/sonar
+
 
 
       - run:

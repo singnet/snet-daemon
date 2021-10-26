@@ -5,9 +5,7 @@ set -ex
 PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
-sudo apt install unzip -y
-wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.6.2.2472-linux.zip
-unzip sonar-scanner-cli-4.6.2.2472-linux.zip
+
 go get github.com/golang/protobuf/protoc-gen-go@v1.2.0
 go get github.com/ethereum/go-ethereum/cmd/abigen@v1.8.27
 go get google.golang.org/grpc@v1.16.0

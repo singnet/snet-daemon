@@ -30,4 +30,6 @@ do
   sed -i "/$i/d" coverage.out;
 done
  /go/bin/goveralls -coverprofile=coverage.out -service=circleci -repotoken ${COVERALLS_REPO_TOKEN}
+
+ go test "./..." -coverprofile="coverage.out" -covermode=count -json > report.json;
 popd

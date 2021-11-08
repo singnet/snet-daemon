@@ -23,6 +23,12 @@ jobs:
           name: Run test script
           command: ./scripts/test
       - run:
+          name: Perform Sonar analysis and publish the results
+          command: ./scripts/sonar
+
+
+
+      - run:
           name: Trigger platform-pipeline build
           command: |
             if [ "$CIRCLE_BRANCH" == "$TRIGGER_BUILD_BRANCH" ]

@@ -7,7 +7,7 @@ PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 pushd $PARENT_PATH
 
 go get github.com/golang/protobuf/protoc-gen-go@v1.3.0
-go get github.com/ethereum/go-ethereum/cmd/abigen@v1.9.0
+go get github.com/ethereum/go-ethereum/cmd/abigen@v1.8.27
 go get google.golang.org/grpc@v1.16.0
 go get golang.org/x/lint/golint
 

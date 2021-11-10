@@ -20,7 +20,7 @@ require (
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/elastic/gosigar v0.14.1 // indirect
 	github.com/emicklei/proto v1.9.1
-	github.com/ethereum/go-ethereum v1.9.0
+	github.com/ethereum/go-ethereum v1.8.27
 	github.com/fastly/go-utils v0.0.0-20180712184237-d95a45783239 // indirect
 	github.com/fjl/memsize v0.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
@@ -57,6 +57,7 @@ require (
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jonboulle/clockwork v0.1.0
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
+	github.com/karalabe/hid v1.0.0 // indirect
 	github.com/karalabe/usb v0.0.0-20211005121534-4c5740d64559 // indirect
 	github.com/karalabe/xgo v0.0.0-20191115072854-c5ccff8648a7 // indirect
 	github.com/kr/text v0.2.0 // indirect

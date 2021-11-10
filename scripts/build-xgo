@@ -29,7 +29,6 @@ now=$(date +'%Y-%m-%d_%T')
 #latest version tag is passed as a param to this script.
 
 
-go mod tidy [-v]
 
 GO111MODULE=off
 

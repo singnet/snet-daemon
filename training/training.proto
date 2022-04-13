@@ -1,0 +1,60 @@
+syntax = "proto3";
+package training;
+
+message ModelId {
+  string model_id = 1;
+  string method_name = 2;
+}
+
+enum Status {
+  CREATED = 0;
+  IN_PROGRESS = 1;
+  UN_KNOW_ERROR =2;
+  COMPLETED = 3;
+}
+
+message CreateModelRequest {
+  repeated string address = 1;
+  //Should we still have this here ?
+  string training_data_link = 2;
+  //This is to uniquely identify the method name against which the training request
+  string method_name = 3;
+}
+
+
+message UpdateModelRequest {
+  AuthorizedAddressList addressList = 1;
+  string model_id = 2;
+  Status status = 3;
+  string message = 4;
+  bytes signature = 5;
+  //This should be in the list of address maintained against the model id
+  string signed_address = 6;
+}
+
+
+message AuthorizedAddressList {
+  repeated string address = 1;
+}
+
+message ModelDetailsResponse {
+  Status status = 1;
+  string model_id =2;
+  string message = 3;
+  AuthorizedAddressList address_list = 4;
+  string method_name =5;
+  //Added the below two as good to have data
+  string service_id = 6;
+  string organization_id = 7;
+}
+
+service Model {
+
+  // The AI developer needs to Implement this service and Daemon will call these
+  rpc create_model(CreateModelRequest) returns (ModelDetailsResponse) {}
+  rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
+  rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}
+  rpc get_model_details(ModelId) returns (ModelDetailsResponse) {}
+  rpc training_status (ModelId) returns (ModelDetailsResponse) {}
+
+}

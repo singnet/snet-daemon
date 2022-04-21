@@ -9,7 +9,7 @@ message ModelId {
 enum Status {
   CREATED = 0;
   IN_PROGRESS = 1;
-  UN_KNOW_ERROR =2;
+  ERROR =2;
   COMPLETED = 3;
 }
 
@@ -19,6 +19,8 @@ message CreateModelRequest {
   string training_data_link = 2;
   //This is to uniquely identify the method name against which the training request
   string method_name = 3;
+  //Incase the AI consumer wishes to make this madel public
+  bool is_publicly_accessible = 4;
 }
 
 
@@ -55,6 +57,6 @@ service Model {
   rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc get_model_details(ModelId) returns (ModelDetailsResponse) {}
-  rpc training_status (ModelId) returns (ModelDetailsResponse) {}
+  rpc get_training_status (ModelId) returns (ModelDetailsResponse) {}
 
 }

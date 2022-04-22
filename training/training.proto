@@ -4,6 +4,15 @@ package training;
 message ModelId {
   string model_id = 1;
   string method_name = 2;
+  AuthorizationDetails authorization = 5;
+}
+
+message AuthorizationDetails {
+  uint64 current_block = 1;
+  //signature of the following message:
+  //("__methodName", user_address, current_block_number)
+  bytes signature = 2;
+  string user_address = 3;
 }
 
 enum Status {
@@ -21,6 +30,8 @@ message CreateModelRequest {
   string method_name = 3;
   //Incase the AI consumer wishes to make this madel public
   bool is_publicly_accessible = 4;
+
+  AuthorizationDetails authorization = 5;
 }
 
 
@@ -32,6 +43,8 @@ message UpdateModelRequest {
   bytes signature = 5;
   //This should be in the list of address maintained against the model id
   string signed_address = 6;
+
+  AuthorizationDetails authorization = 7;
 }
 
 
@@ -48,6 +61,7 @@ message ModelDetailsResponse {
   //Added the below two as good to have data
   string service_id = 6;
   string organization_id = 7;
+
 }
 
 service Model {

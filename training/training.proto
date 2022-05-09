@@ -13,6 +13,7 @@ message AuthorizationDetails {
   //("__methodName", user_address, current_block_number)
   bytes signature = 2;
   string user_address = 3;
+  int32 channel_id = 4;
 }
 
 enum Status {
@@ -20,6 +21,7 @@ enum Status {
   IN_PROGRESS = 1;
   ERROR =2;
   COMPLETED = 3;
+  DELETED = 4;
 }
 
 message CreateModelRequest {
@@ -43,10 +45,8 @@ message UpdateModelRequest {
   bytes signature = 5;
   //This should be in the list of address maintained against the model id
   string signed_address = 6;
-
   AuthorizationDetails authorization = 7;
 }
-
 
 message AuthorizedAddressList {
   repeated string address = 1;
@@ -58,7 +58,7 @@ message ModelDetailsResponse {
   string message = 3;
   AuthorizedAddressList address_list = 4;
   string method_name =5;
-  //Added the below two as good to have data
+  //Added the below two for more details
   string service_id = 6;
   string organization_id = 7;
 
@@ -67,6 +67,8 @@ message ModelDetailsResponse {
 service Model {
 
   // The AI developer needs to Implement this service and Daemon will call these
+  // There will be no cost borne by the consumer in calling these methods,
+  // Pricing will apply when you actually call the training methods defined.
   rpc create_model(CreateModelRequest) returns (ModelDetailsResponse) {}
   rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}

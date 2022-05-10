@@ -90,32 +90,25 @@ func (suite *ClientTestSuite) Test_callgRPCServiceHeartbeat() {
 }
 
 func (suite *ClientTestSuite) Test_callHTTPServiceHeartbeat() {
-	serviceURL := "http://localhost:1111/heartbeat"
+	serviceURL := suite.serviceURL + "/heartbeat"
 	heartbeat, err := callHTTPServiceHeartbeat(serviceURL)
 	assert.False(suite.T(), err != nil)
 	assert.NotEqual(suite.T(), string(heartbeat), `{}`, "Service Heartbeat must not be empty.")
 	assert.Equal(suite.T(), string(heartbeat), `{"serviceID":"SERVICE001","status":"SERVING"}`,
 		"Unexpected service heartbeat")
 
-	/*	var sHeartbeat pb.HeartbeatMsg
-		err = json.Unmarshal(heartbeat, &sHeartbeat)
-		assert.True(t, err != nil)
-		assert.Equal(t, sHeartbeat.ServiceID, "SERVICE001", "Unexpected service ID")
-
-	*/serviceURL = "http://localhost:1111"
-	heartbeat, err = callHTTPServiceHeartbeat(serviceURL)
+	heartbeat, err = callHTTPServiceHeartbeat(suite.serviceURL)
 	assert.True(suite.T(), err != nil)
 }
 
 func (suite *ClientTestSuite) Test_callRegisterService() {
-	serviceURL := "http://localhost:1111/register"
+
 	daemonID := GetDaemonID()
 
-	result := callRegisterService(daemonID, serviceURL)
+	result := callRegisterService(daemonID, suite.serviceURL+"/register")
 	assert.Equal(suite.T(), true, result)
 
-	serviceURL = "http://localhost:1111/registererror"
-	result = callRegisterService(daemonID, serviceURL)
+	result = callRegisterService(daemonID, suite.serviceURL+"/registererror")
 	assert.Equal(suite.T(), false, result)
 
 }

@@ -41,13 +41,12 @@ func TestGetDaemonID(t *testing.T) {
 }
 
 func (suite *RegisterTestSuite) TestRegisterDaemon() {
-	serviceURL := "http://localhost:1111/register"
 
-	result := RegisterDaemon(serviceURL)
+	result := RegisterDaemon(suite.serviceURL + "/register")
 	assert.Equal(suite.T(), true, result)
 
-	serviceURL = "https://localhost:9999/registererror"
-	result = RegisterDaemon(serviceURL)
+	wrongserviceURL := "https://localhost:9999/registererror"
+	result = RegisterDaemon(wrongserviceURL)
 	assert.Equal(suite.T(), false, result)
 }
 

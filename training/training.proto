@@ -1,6 +1,6 @@
 syntax = "proto3";
 package training;
-
+//Please note that the AI developers need to provide a server implementation of the gprc server of this proto.
 message ModelId {
   string model_id = 1;
   string method_name = 2;
@@ -15,7 +15,7 @@ enum Status {
 
 message CreateModelRequest {
   repeated string address = 1;
-  //Should we still have this here ?
+
   string training_data_link = 2;
   //This is to uniquely identify the method name against which the training request
   string method_name = 3;

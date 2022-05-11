@@ -26,16 +26,19 @@ type ModelUserKey struct {
 	ServiceId      string
 	GroupID        string
 	ChannelId      *big.Int
+	ModelId        string
 }
 
 func (key *ModelUserKey) String() string {
-	return fmt.Sprintf("{ID:%v/%v/%v/%v}", key.OrganizationId,
-		key.ServiceId, key.GroupID, key.ChannelId)
+	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.OrganizationId,
+		key.ServiceId, key.GroupID, key.ChannelId, key.ModelId)
 }
 
 type ModelUserData struct {
 	isPublic            bool
 	AuthorizedAddresses []string
+	Status              string
+	CreatedByAddress    string
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {

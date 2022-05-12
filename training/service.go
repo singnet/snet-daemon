@@ -159,7 +159,7 @@ func (m ModelService) CreateModel(c context.Context, request *CreateModelRequest
 		response, err = client.CreateModel(ctx, request)
 		if err == nil {
 			//store the details in etcd
-			log.Debugf("Adding addresses to etcd ...")
+			log.Infof("Creating model based on response from CreateModel")
 			if err = m.storeModelDetails(request, response); err != nil {
 				return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 			}
@@ -179,9 +179,10 @@ func (m ModelService) UpdateModelAccess(c context.Context, request *UpdateModelR
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	fmt.Println("Updating model access addresses to etcd ")
+
 	if client, err := m.getServiceClient(); err != nil {
 		response, err = client.UpdateModelAccess(ctx, request)
+		log.Infof("Updating model based on response from UpdateModel")
 		if err = m.updateModelDetails(request, response); err != nil {
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}
@@ -201,6 +202,7 @@ func (m ModelService) DeleteModel(c context.Context, request *UpdateModelRequest
 	defer cancel()
 	if client, err := m.getServiceClient(); err != nil {
 		response, err = client.DeleteModel(ctx, request)
+		log.Infof("Deleting model based on response from DeleteModel")
 		if err = m.deleteModelDetails(request, response); err != nil {
 			return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)
 		}
@@ -219,9 +221,10 @@ func (m ModelService) GetModelDetails(c context.Context, request *ModelDetailsRe
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	fmt.Println("Updating model access addresses to etcd ")
+
 	if client, err := m.getServiceClient(); err != nil {
 		response, err = client.GetModelDetails(ctx, request)
+		log.Infof("Updating model based on response from GetModelDetails")
 		//todo update data from client and return data stored in etcd
 
 	} else {
@@ -238,9 +241,10 @@ func (m ModelService) GetTrainingStatus(c context.Context, request *ModelDetails
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	fmt.Println("Updating model access addresses to etcd ")
+
 	if client, err := m.getServiceClient(); err != nil {
 		response, err = client.GetTrainingStatus(ctx, request)
+		log.Infof("Updating model based on response from GetTrainingStatus")
 		//todo update data from client and return data stored in etcd
 
 	} else {

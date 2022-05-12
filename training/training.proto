@@ -26,7 +26,7 @@ enum Status {
 }
 
 message CreateModelRequest {
-  repeated string address = 1;
+  repeated string address_list = 1;
 
   string training_data_link = 2;
   //This is to uniquely identify the method name against which the training request
@@ -46,7 +46,7 @@ message ModelDetailsRequest {
 
 
 message UpdateModelRequest {
-  AuthorizedAddressList addressList = 1;
+  repeated string addressList = 1;
   ModelDetails model_details = 2;
   Status status = 3;
   string message = 4;
@@ -54,17 +54,15 @@ message UpdateModelRequest {
   //This should be in the list of address maintained against the model id
   string signed_address = 6;
   AuthorizationDetails authorization = 7;
+  bool is_publicly_accessible = 8;
 }
 
-message AuthorizedAddressList {
-  repeated string address = 1;
-}
 
 message ModelDetailsResponse {
   Status status = 1;
   ModelDetails model_details =2;
   string message = 3;
-  AuthorizedAddressList address_list = 4;
+  repeated string address_list = 4;
   //Added the below two for more details
   string service_id = 6;
   string organization_id = 7;

@@ -71,10 +71,33 @@ func (m ModelService) storeModelDetails(request *CreateModelRequest, response *M
 	return
 }
 
+func (m ModelService) deleteModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (err error) {
+	key := m.getModelKeyToUpdate(request)
+	data, ok, err := m.storage.Get(key)
+	if ok && err != nil {
+		data.Status = "DELETED"
+		err = m.storage.Put(key, data)
+	}
+	return
+}
+
+func (m ModelService) getModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelUserData, err error) {
+	key := m.getModelKeyToUpdate(request)
+	data, ok, err := m.storage.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("error in retreving data from storage for key %v", key)
+	}
+	return
+}
+
 func (m ModelService) updateModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (err error) {
 	key := m.getModelKeyToUpdate(request)
-	data := m.getModelDataForUpdate(request)
-	err = m.storage.Put(key, data)
+	if data, err := m.getModelDataForUpdate(request); err != nil {
+		err = m.storage.Put(key, data)
+	}
 	return
 }
 func (m ModelService) getModelKeyToCreate(request *CreateModelRequest, response *ModelDetailsResponse) (key *ModelUserKey) {
@@ -99,10 +122,12 @@ func (m ModelService) getModelKeyToUpdate(request *UpdateModelRequest) (key *Mod
 	return
 }
 
-func (m ModelService) getModelDataForUpdate(request *UpdateModelRequest) (key *ModelUserData) {
-	key = &ModelUserData{
-
-		ModelId: request.ModelDetails.ModelId,
+func (m ModelService) getModelDataForUpdate(request *UpdateModelRequest) (data *ModelUserData, err error) {
+	key := m.getModelKeyToUpdate(request)
+	if data, ok, err := m.storage.Get(key); err != nil && ok {
+		data.AuthorizedAddresses = request.AddressList
+		data.isPublic = request.IsPubliclyAccessible
+		data.UpdatedByAddress = request.Authorization.UserAddress
 	}
 	return
 }
@@ -111,7 +136,7 @@ func (m ModelService) createModelData(request *CreateModelRequest, response *Mod
 	data = &ModelUserData{
 		Status:              string(response.Status),
 		CreatedByAddress:    request.Authorization.UserAddress,
-		AuthorizedAddresses: request.Address,
+		AuthorizedAddresses: request.AddressList,
 		isPublic:            request.IsPubliclyAccessible,
 		ModelId:             response.ModelDetails.ModelId,
 	}
@@ -120,7 +145,11 @@ func (m ModelService) createModelData(request *CreateModelRequest, response *Mod
 
 func (m ModelService) CreateModel(c context.Context, request *CreateModelRequest) (response *ModelDetailsResponse,
 	err error) {
-	// verify the request that has come in
+	// verify the request
+	if err = m.verifySignerForCreateModel(request.Authorization); err != nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" authentication FAILED , %v", err)
+	}
 	// make a call to the client
 	// if the response is successful , store details in etcd
 	// send back the response to the client
@@ -144,6 +173,10 @@ func (m ModelService) CreateModel(c context.Context, request *CreateModelRequest
 
 func (m ModelService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
+	if err = m.verifySignerForUpdateModel(request.Authorization); err != nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" authentication FAILED , %v", err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	fmt.Println("Updating model access addresses to etcd ")
@@ -158,32 +191,62 @@ func (m ModelService) UpdateModelAccess(c context.Context, request *UpdateModelR
 	return
 }
 
-func (m ModelService) DeleteModel(c context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
-	fmt.Println("Deleting model addresses from etcd ")
+func (m ModelService) DeleteModel(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
+	err error) {
+	if err = m.verifySignerForDeleteModel(request.Authorization); err != nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" authentication FAILED , %v", err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if client, err := m.getServiceClient(); err != nil {
-		return client.DeleteModel(ctx, request)
+		response, err = client.DeleteModel(ctx, request)
+		if err = m.deleteModelDetails(request, response); err != nil {
+			return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)
+		}
 	} else {
 		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
 	}
+
+	return
 }
 
-func (m ModelService) GetModelDetails(c context.Context, id *ModelDetailsRequest) (*ModelDetailsResponse, error) {
-	fmt.Println("Just get the model details stored in ETCD")
-	return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service method GetModelDetails for Model Training")
-
-}
-
-func (m ModelService) GetTrainingStatus(c context.Context, id *ModelDetailsRequest) (*ModelDetailsResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	fmt.Println("Update the Training Status details from etcd .....")
-	defer cancel()
-	if client, err := m.getServiceClient(); err != nil {
-		return client.GetModelDetails(ctx, id)
-	} else {
-		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service method GetTrainingStatus for Model Training")
+func (m ModelService) GetModelDetails(c context.Context, request *ModelDetailsRequest) (response *ModelDetailsResponse,
+	err error) {
+	if err = m.verifySignerForGetModelDetails(request.Authorization); err != nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" authentication FAILED , %v", err)
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	fmt.Println("Updating model access addresses to etcd ")
+	if client, err := m.getServiceClient(); err != nil {
+		response, err = client.GetModelDetails(ctx, request)
+		//todo update data from client and return data stored in etcd
+
+	} else {
+		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
+	}
+	return
+}
+
+func (m ModelService) GetTrainingStatus(c context.Context, request *ModelDetailsRequest) (response *ModelDetailsResponse,
+	err error) {
+	if err = m.verifySignerForGetTrainingStatus(request.Authorization); err != nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" authentication FAILED , %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	fmt.Println("Updating model access addresses to etcd ")
+	if client, err := m.getServiceClient(); err != nil {
+		response, err = client.GetTrainingStatus(ctx, request)
+		//todo update data from client and return data stored in etcd
+
+	} else {
+		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
+	}
+	return
 }
 
 //message used to sign is of the form ("__create_model", mpe_address, current_block_number)

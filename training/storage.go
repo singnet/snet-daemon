@@ -39,6 +39,7 @@ type ModelUserData struct {
 	Status              string
 	CreatedByAddress    string
 	ModelId             string
+	UpdatedByAddress    string
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {

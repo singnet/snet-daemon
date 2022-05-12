@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/singnet/snet-daemon/storage"
 	"github.com/singnet/snet-daemon/utils"
-	"math/big"
 	"reflect"
 )
 
@@ -25,13 +24,13 @@ type ModelUserKey struct {
 	OrganizationId string
 	ServiceId      string
 	GroupID        string
-	ChannelId      *big.Int
+	MethodName     string
 	ModelId        string
 }
 
 func (key *ModelUserKey) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.OrganizationId,
-		key.ServiceId, key.GroupID, key.ChannelId, key.ModelId)
+		key.ServiceId, key.GroupID, key.MethodName, key.ModelId)
 }
 
 type ModelUserData struct {
@@ -39,6 +38,7 @@ type ModelUserData struct {
 	AuthorizedAddresses []string
 	Status              string
 	CreatedByAddress    string
+	ModelId             string
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {

@@ -58,7 +58,7 @@ type Components struct {
 	freeCallLockerStorage      *storage.PrefixedAtomicStorage
 	tokenManager               token.Manager
 	tokenService               *escrow.TokenService
-	modelService               *training.ModelService
+	modelService               training.ModelServer
 	modelUserStorage           *training.ModelStorage
 }
 
@@ -558,7 +558,7 @@ func (components *Components) ModelUserStorage() *training.ModelStorage {
 	return components.modelUserStorage
 }
 
-func (components *Components) ModelService() *training.ModelService {
+func (components *Components) ModelService() training.ModelServer {
 	if components.modelService != nil {
 		return components.modelService
 	}

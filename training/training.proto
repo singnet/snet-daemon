@@ -1,10 +1,11 @@
 syntax = "proto3";
 package training;
 //Please note that the AI developers need to provide a server implementation of the gprc server of this proto.
-message ModelId {
+message ModelDetails {
   string model_id = 1;
   string method_name = 2;
-  AuthorizationDetails authorization = 5;
+  string description = 3;
+
 }
 
 message AuthorizationDetails {
@@ -34,12 +35,19 @@ message CreateModelRequest {
   bool is_publicly_accessible = 4;
 
   AuthorizationDetails authorization = 5;
+
+  string model_description = 6;
+}
+
+message ModelDetailsRequest {
+  ModelDetails model_details =1 ;
+  AuthorizationDetails authorization = 2;
 }
 
 
 message UpdateModelRequest {
   AuthorizedAddressList addressList = 1;
-  string model_id = 2;
+  ModelDetails model_details = 2;
   Status status = 3;
   string message = 4;
   bytes signature = 5;
@@ -54,10 +62,9 @@ message AuthorizedAddressList {
 
 message ModelDetailsResponse {
   Status status = 1;
-  string model_id =2;
+  ModelDetails model_details =2;
   string message = 3;
   AuthorizedAddressList address_list = 4;
-  string method_name =5;
   //Added the below two for more details
   string service_id = 6;
   string organization_id = 7;
@@ -72,7 +79,7 @@ service Model {
   rpc create_model(CreateModelRequest) returns (ModelDetailsResponse) {}
   rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}
-  rpc get_model_details(ModelId) returns (ModelDetailsResponse) {}
-  rpc get_training_status (ModelId) returns (ModelDetailsResponse) {}
+  rpc get_model_details(ModelDetailsRequest) returns (ModelDetailsResponse) {}
+  rpc get_training_status (ModelDetailsRequest) returns (ModelDetailsResponse) {}
 
 }

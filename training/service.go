@@ -48,7 +48,7 @@ func (n NoModelSupportService) GetModelDetails(c context.Context, id *ModelDetai
 		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoModelSupportService) GetTrainingStatus(c context.Context, id *ModelDetailsRequest) (*ModelDetailsResponse, error) {
+func (n NoModelSupportService) GetModelStatus(c context.Context, id *ModelDetailsRequest) (*ModelDetailsResponse, error) {
 	return &ModelDetailsResponse{Status: Status_ERROR},
 		fmt.Errorf("service end point is not defined or is invalid for training , please contact the AI developer")
 }
@@ -222,27 +222,7 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 	return
 }
 
-func (service ModelService) GetModelDetails(c context.Context, request *ModelDetailsRequest) (response *ModelDetailsResponse,
-	err error) {
-	if err = service.verifySignerForGetModelDetails(request.Authorization); err != nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
-			fmt.Errorf(" authentication FAILED , %v", err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	if client, err := service.getServiceClient(); err != nil {
-		response, err = client.GetModelDetails(ctx, request)
-		log.Infof("Updating model based on response from GetModelDetails")
-		//todo update data from client and return data stored in etcd
-
-	} else {
-		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
-	}
-	return
-}
-
-func (service ModelService) GetTrainingStatus(c context.Context, request *ModelDetailsRequest) (response *ModelDetailsResponse,
+func (service ModelService) GetModelStatus(c context.Context, request *ModelDetailsRequest) (response *ModelDetailsResponse,
 	err error) {
 	if err = service.verifySignerForGetTrainingStatus(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
@@ -252,7 +232,7 @@ func (service ModelService) GetTrainingStatus(c context.Context, request *ModelD
 	defer cancel()
 
 	if client, err := service.getServiceClient(); err != nil {
-		response, err = client.GetTrainingStatus(ctx, request)
+		response, err = client.GetModelStatus(ctx, request)
 		log.Infof("Updating model based on response from GetTrainingStatus")
 		//todo update data from client and return data stored in etcd
 

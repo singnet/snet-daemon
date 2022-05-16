@@ -74,10 +74,11 @@ service Model {
   // The AI developer needs to Implement this service and Daemon will call these
   // There will be no cost borne by the consumer in calling these methods,
   // Pricing will apply when you actually call the training methods defined.
+  // AI consumer will call all these methods
   rpc create_model(CreateModelRequest) returns (ModelDetailsResponse) {}
   rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}
-  rpc get_model_details(ModelDetailsRequest) returns (ModelDetailsResponse) {}
-  rpc get_training_status (ModelDetailsRequest) returns (ModelDetailsResponse) {}
+  rpc get_model_status(ModelDetailsRequest) returns (ModelDetailsResponse) {}
+
 
 }

@@ -13,8 +13,8 @@ message AuthorizationDetails {
   //signature of the following message:
   //("__methodName", user_address, current_block_number)
   bytes signature = 2;
-  string user_address = 3;
-  int32 channel_id = 4;
+  string signer_address = 3;
+
 }
 
 enum Status {
@@ -39,6 +39,19 @@ message CreateModelRequest {
   string model_description = 6;
 }
 
+message AccessibleModelsRequest {
+  string method_name = 1;
+  AuthorizationDetails authorization = 2;
+}
+
+message AllAccessibleModelsRequest {
+
+}
+
+message AccessibleModelsResponse {
+   repeated ModelDetails list_of_models= 1;
+}
+
 message ModelDetailsRequest {
   ModelDetails model_details =1 ;
   AuthorizationDetails authorization = 2;
@@ -47,14 +60,8 @@ message ModelDetailsRequest {
 
 message UpdateModelRequest {
   repeated string addressList = 1;
-  ModelDetails model_details = 2;
-  Status status = 3;
-  string message = 4;
-  bytes signature = 5;
-  //This should be in the list of address maintained against the model id
-  string signed_address = 6;
-  AuthorizationDetails authorization = 7;
-  bool is_publicly_accessible = 8;
+  ModelDetailsRequest model_details_request = 2;
+  bool is_publicly_accessible = 3;
 }
 
 
@@ -79,6 +86,7 @@ service Model {
   rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc get_model_status(ModelDetailsRequest) returns (ModelDetailsResponse) {}
+  rpc get_all_models(AccessibleModelsRequest) returns (AccessibleModelsResponse) {}
 
 
 }

@@ -26,17 +26,21 @@ type ModelService struct {
 	serviceUrl           string
 }
 
-func (service ModelService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (*AccessibleModelsResponse, error) {
-	//TODO implement me
-	panic("implement me")
+func (service ModelService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (response *AccessibleModelsResponse, err error) {
+	if request == nil || request.Authorization == nil {
+		return &AccessibleModelsResponse{Status: Status_ERROR},
+			fmt.Errorf(" INVALID  REQUEST DETAILS , no Authorization provided ")
+	}
+	//TODO
+	return
 }
 
 type NoModelSupportService struct {
 }
 
 func (n NoModelSupportService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (*AccessibleModelsResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	return &AccessibleModelsResponse{Status: Status_ERROR},
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
 func (n NoModelSupportService) CreateModel(c context.Context, request *CreateModelRequest) (*ModelDetailsResponse, error) {
@@ -98,6 +102,7 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest, resp
 }
 
 func (service ModelService) getModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelUserData, err error) {
+
 	key := service.getModelKeyToUpdate(request.ModelDetailsRequest)
 	data, ok, err := service.storage.Get(key)
 
@@ -185,6 +190,10 @@ func (service ModelService) createModelData(request *CreateModelRequest, respons
 func (service ModelService) CreateModel(c context.Context, request *CreateModelRequest) (response *ModelDetailsResponse,
 	err error) {
 	// verify the request
+	if request == nil || request.Authorization == nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" INVALID  REQUEST DETAILS , no Authorization provided  , %v", err)
+	}
 	if err = service.verifySignerForCreateModel(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" authentication FAILED , %v", err)
@@ -212,6 +221,10 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 
 func (service ModelService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
+	if request == nil || request.ModelDetailsRequest == nil || request.ModelDetailsRequest.Authorization == nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" INVALID  REQUEST DETAILS , no Authorization provided  , %v", err)
+	}
 	if err = service.verifySignerForUpdateModel(request.ModelDetailsRequest.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" authentication FAILED , %v", err)
@@ -233,6 +246,10 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 
 func (service ModelService) DeleteModel(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
+	if request == nil || request.ModelDetailsRequest == nil || request.ModelDetailsRequest.Authorization == nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" INVALID  REQUEST DETAILS , no Authorization provided  , %v", err)
+	}
 	if err = service.verifySignerForDeleteModel(request.ModelDetailsRequest.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" authentication FAILED , %v", err)
@@ -254,6 +271,10 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 
 func (service ModelService) GetModelStatus(c context.Context, request *ModelDetailsRequest) (response *ModelDetailsResponse,
 	err error) {
+	if request == nil || request.Authorization == nil {
+		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" INVALID  REQUEST DETAILS , no Authorization provided  , %v", err)
+	}
 	if err = service.verifySignerForGetModelStatus(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" authentication FAILED , %v", err)

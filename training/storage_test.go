@@ -72,14 +72,6 @@ func (suite *ModelStorageSuite) TestModelStorage_PutIfAbsent() {
 	assert.Equal(suite.T(), err, nil)
 }
 
-func (suite *ModelStorageSuite) TestModelUserKey_String() {
-
-}
-
-func (suite *ModelStorageSuite) TestNewUserModelStorage() {
-
-}
-
 func (suite *ModelStorageSuite) Test_serializeModelKey() {
 
 }

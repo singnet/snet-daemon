@@ -1,1035 +1,213 @@
 package training
 
 import (
+	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/metrics"
+	"github.com/singnet/snet-daemon/storage"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/context"
-	"reflect"
+	"google.golang.org/grpc"
 	"testing"
 )
 
-func TestModelService_CreateModel(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		c       context.Context
-		request *CreateModelRequest
-	}
-	tests := []struct {
-		name         string
-		fields       fields
-		args         args
-		wantResponse *ModelDetailsResponse
-		wantErr      bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			gotResponse, err := service.CreateModel(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateModel() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
-				t.Errorf("CreateModel() gotResponse = %v, want %v", gotResponse, tt.wantResponse)
-			}
-		})
-	}
+type ModelServiceTestSuite struct {
+	suite.Suite
+	serviceURL    string
+	server        *grpc.Server
+	mockService   MockServiceModelGRPCImpl
+	service       ModelServer
+	senderPvtKy   *ecdsa.PrivateKey
+	senderAddress common.Address
+
+	alternateUserPvtKy   *ecdsa.PrivateKey
+	alternateUserAddress common.Address
 }
 
-func TestModelService_DeleteModel(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		c       context.Context
-		request *UpdateModelRequest
-	}
-	tests := []struct {
-		name         string
-		fields       fields
-		args         args
-		wantResponse *ModelDetailsResponse
-		wantErr      bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			gotResponse, err := service.DeleteModel(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("DeleteModel() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
-				t.Errorf("DeleteModel() gotResponse = %v, want %v", gotResponse, tt.wantResponse)
-			}
-		})
-	}
+func TestModelServiceTestSuite(t *testing.T) {
+	suite.Run(t, new(ModelServiceTestSuite))
 }
 
-func TestModelService_GetAllModels(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		c       context.Context
-		request *AccessibleModelsRequest
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *AccessibleModelsResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			got, err := service.GetAllModels(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetAllModels() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAllModels() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) SetupSuite() {
+	config.Vip().Set(config.ModelTrainingEndpoint, "http://localhost:1111")
+	suite.serviceURL = "http://localhost:1111"
+	suite.server = metrics.GetGRPCServerAndServe()
+	suite.mockService = MockServiceModelGRPCImpl{}
+	RegisterModelServer(suite.server, suite.mockService)
+	testJsonOrgGroupData := "{   \"org_name\": \"organization_name\",   \"org_id\": \"ExampleOrganizationId\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
+	testJsonData := "{   \"version\": 1,   \"display_name\": \"Example1\",   \"encoding\": \"grpc\",   \"service_type\": \"grpc\",   \"payment_expiration_threshold\": 40320,   \"model_ipfs_hash\": \"Qmdiq8Hu6dYiwp712GtnbBxagyfYyvUY1HYqkH7iN76UCc\", " +
+		"  \"mpe_address\": \"0x7E6366Fbe3bdfCE3C906667911FC5237Cc96BD08\",   \"groups\": [     {    \"free_calls\": 12,  \"free_call_signer_address\": \"0x94d04332C4f5273feF69c4a52D24f42a3aF1F207\",  \"endpoints\": [\"http://34.344.33.1:2379\",\"http://34.344.33.1:2389\"],       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",\"group_name\": \"default_group\",       \"pricing\": [         {           \"price_model\": \"fixed_price\",           \"price_in_cogs\": 2         },          {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"default\":true,         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     },     {       \"endpoints\": [\"http://97.344.33.1:2379\",\"http://67.344.33.1:2389\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"pricing\": [         {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     }   ] } "
+
+	orgMetaData, _ := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
+	serviceMetaData, _ := blockchain.InitServiceMetaDataFromJson(testJsonData)
+	suite.service = NewModelService(nil, serviceMetaData, orgMetaData,
+		NewUserModelStorage(storage.NewMemStorage()))
+	suite.senderPvtKy, _ = crypto.GenerateKey()
+	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPvtKy.PublicKey)
+	suite.alternateUserPvtKy, _ = crypto.GenerateKey()
+	suite.alternateUserAddress = crypto.PubkeyToAddress(suite.alternateUserPvtKy.PublicKey)
+
 }
 
-func TestModelService_GetModelStatus(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		c       context.Context
-		request *ModelDetailsRequest
-	}
-	tests := []struct {
-		name         string
-		fields       fields
-		args         args
-		wantResponse *ModelDetailsResponse
-		wantErr      bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			gotResponse, err := service.GetModelStatus(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetModelStatus() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
-				t.Errorf("GetModelStatus() gotResponse = %v, want %v", gotResponse, tt.wantResponse)
-			}
-		})
-	}
+type MockServiceModelGRPCImpl struct {
 }
 
-func TestModelService_UpdateModelAccess(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		c       context.Context
-		request *UpdateModelRequest
-	}
-	tests := []struct {
-		name         string
-		fields       fields
-		args         args
-		wantResponse *ModelDetailsResponse
-		wantErr      bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			gotResponse, err := service.UpdateModelAccess(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UpdateModelAccess() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
-				t.Errorf("UpdateModelAccess() gotResponse = %v, want %v", gotResponse, tt.wantResponse)
-			}
-		})
-	}
+func (m MockServiceModelGRPCImpl) CreateModel(context context.Context, request *CreateModelRequest) (*ModelDetailsResponse, error) {
+	return &ModelDetailsResponse{Status: Status_CREATED,
+		ModelDetails: &ModelDetails{
+			ModelId: "1",
+		}}, nil
 }
 
-func TestModelService_createModelData(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *CreateModelRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		wantData *ModelUserData
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if gotData := service.createModelData(tt.args.request, tt.args.response); !reflect.DeepEqual(gotData, tt.wantData) {
-				t.Errorf("createModelData() = %v, want %v", gotData, tt.wantData)
-			}
-		})
-	}
+func (m MockServiceModelGRPCImpl) UpdateModelAccess(context context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
+	return &ModelDetailsResponse{Status: Status_IN_PROGRESS,
+		ModelDetails: &ModelDetails{
+			ModelId: request.ModelDetailsRequest.ModelDetails.ModelId,
+		}}, nil
 }
 
-func TestModelService_deleteModelDetails(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *UpdateModelRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.deleteModelDetails(tt.args.request, tt.args.response); (err != nil) != tt.wantErr {
-				t.Errorf("deleteModelDetails() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (m MockServiceModelGRPCImpl) DeleteModel(context context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
+	return &ModelDetailsResponse{Status: Status_DELETED,
+		ModelDetails: &ModelDetails{
+			ModelId: request.ModelDetailsRequest.ModelDetails.ModelId,
+		}}, nil
 }
 
-func TestModelService_getMessageBytes(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		prefixMessage string
-		request       *AuthorizationDetails
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   []byte
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := &ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if got := service.getMessageBytes(tt.args.prefixMessage, tt.args.request); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getMessageBytes() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (m MockServiceModelGRPCImpl) GetModelStatus(context context.Context, request *ModelDetailsRequest) (*ModelDetailsResponse, error) {
+	return &ModelDetailsResponse{Status: Status_IN_PROGRESS,
+		ModelDetails: &ModelDetails{
+			ModelId: request.ModelDetails.ModelId,
+		}}, nil
 }
 
-func TestModelService_getModelDataForStatusUpdate(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *ModelDetailsRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		wantData *ModelUserData
-		wantErr  bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			gotData, err := service.getModelDataForStatusUpdate(tt.args.request, tt.args.response)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getModelDataForStatusUpdate() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotData, tt.wantData) {
-				t.Errorf("getModelDataForStatusUpdate() gotData = %v, want %v", gotData, tt.wantData)
-			}
-		})
-	}
+func (m MockServiceModelGRPCImpl) GetAllModels(context context.Context, request *AccessibleModelsRequest) (*AccessibleModelsResponse, error) {
+	//Ideally client should take a list of all models and update the status of each and send back a response
+	return &AccessibleModelsResponse{}, nil
 }
 
-func TestModelService_getModelDataForUpdate(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *UpdateModelRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		wantData *ModelUserData
-		wantErr  bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			gotData, err := service.getModelDataForUpdate(tt.args.request, tt.args.response)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getModelDataForUpdate() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotData, tt.wantData) {
-				t.Errorf("getModelDataForUpdate() gotData = %v, want %v", gotData, tt.wantData)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TearDownSuite() {
+	suite.server.GracefulStop()
 }
 
-func TestModelService_getModelDetails(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *UpdateModelRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		wantData *ModelUserData
-		wantErr  bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			gotData, err := service.getModelDetails(tt.args.request, tt.args.response)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getModelDetails() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotData, tt.wantData) {
-				t.Errorf("getModelDetails() gotData = %v, want %v", gotData, tt.wantData)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
+	response, err := suite.service.CreateModel(context.TODO(), nil)
+	assert.NotNil(suite.T(), err)
+	assert.NotNil(suite.T(), response)
+
 }
 
-func TestModelService_getModelKeyToCreate(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *CreateModelRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantKey *ModelUserKey
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if gotKey := service.getModelKeyToCreate(tt.args.request, tt.args.response); !reflect.DeepEqual(gotKey, tt.wantKey) {
-				t.Errorf("getModelKeyToCreate() = %v, want %v", gotKey, tt.wantKey)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_DeleteModel(t *testing.T) {
+
 }
 
-func TestModelService_getModelKeyToUpdate(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request *ModelDetailsRequest
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantKey *ModelUserKey
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if gotKey := service.getModelKeyToUpdate(tt.args.request); !reflect.DeepEqual(gotKey, tt.wantKey) {
-				t.Errorf("getModelKeyToUpdate() = %v, want %v", gotKey, tt.wantKey)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_GetAllModels(t *testing.T) {
+
 }
 
-func TestModelService_getServiceClient(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	tests := []struct {
-		name       string
-		fields     fields
-		wantClient ModelClient
-		wantErr    bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			gotClient, err := service.getServiceClient()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getServiceClient() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotClient, tt.wantClient) {
-				t.Errorf("getServiceClient() gotClient = %v, want %v", gotClient, tt.wantClient)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus(t *testing.T) {
+
 }
 
-func TestModelService_storeModelDetails(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *CreateModelRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.storeModelDetails(tt.args.request, tt.args.response); (err != nil) != tt.wantErr {
-				t.Errorf("storeModelDetails() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess(t *testing.T) {
+
 }
 
-func TestModelService_updateModelDetails(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *UpdateModelRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.updateModelDetails(tt.args.request, tt.args.response); (err != nil) != tt.wantErr {
-				t.Errorf("updateModelDetails() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_createModelData(t *testing.T) {
+
 }
 
-func TestModelService_updateModelDetailsForStatus(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request  *ModelDetailsRequest
-		response *ModelDetailsResponse
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.updateModelDetailsForStatus(tt.args.request, tt.args.response); (err != nil) != tt.wantErr {
-				t.Errorf("updateModelDetailsForStatus() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_deleteModelDetails(t *testing.T) {
+
 }
 
-func TestModelService_verifySignatureForGetAllModels(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request *AuthorizationDetails
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := &ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.verifySignatureForGetAllModels(tt.args.request); (err != nil) != tt.wantErr {
-				t.Errorf("verifySignatureForGetAllModels() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_getMessageBytes(t *testing.T) {
+
 }
 
-func TestModelService_verifySignerForCreateModel(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request *AuthorizationDetails
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := &ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.verifySignerForCreateModel(tt.args.request); (err != nil) != tt.wantErr {
-				t.Errorf("verifySignerForCreateModel() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_getModelDataForStatusUpdate(t *testing.T) {
+
 }
 
-func TestModelService_verifySignerForDeleteModel(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request *AuthorizationDetails
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := &ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.verifySignerForDeleteModel(tt.args.request); (err != nil) != tt.wantErr {
-				t.Errorf("verifySignerForDeleteModel() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_getModelDataForUpdate(t *testing.T) {
+
 }
 
-func TestModelService_verifySignerForGetModelStatus(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request *AuthorizationDetails
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := &ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.verifySignerForGetModelStatus(tt.args.request); (err != nil) != tt.wantErr {
-				t.Errorf("verifySignerForGetModelStatus() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_getModelDetails(t *testing.T) {
+
 }
 
-func TestModelService_verifySignerForUpdateModel(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request *AuthorizationDetails
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := &ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.verifySignerForUpdateModel(tt.args.request); (err != nil) != tt.wantErr {
-				t.Errorf("verifySignerForUpdateModel() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_getModelKeyToCreate(t *testing.T) {
+
 }
 
-func TestNewModelService(t *testing.T) {
-	type args struct {
-		channelService escrow.PaymentChannelService
-		serMetaData    *blockchain.ServiceMetadata
-		orgMetadata    *blockchain.OrganizationMetaData
-		storage        *ModelStorage
-	}
-	tests := []struct {
-		name string
-		args args
-		want ModelServer
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewModelService(tt.args.channelService, tt.args.serMetaData, tt.args.orgMetadata, tt.args.storage); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewModelService() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_getModelKeyToUpdate(t *testing.T) {
+
 }
 
-func TestNoModelSupportService_CreateModel(t *testing.T) {
-	type args struct {
-		c       context.Context
-		request *CreateModelRequest
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *ModelDetailsResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := NoModelSupportService{}
-			got, err := n.CreateModel(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateModel() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("CreateModel() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_getServiceClient(t *testing.T) {
+
 }
 
-func TestNoModelSupportService_DeleteModel(t *testing.T) {
-	type args struct {
-		c       context.Context
-		request *UpdateModelRequest
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *ModelDetailsResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := NoModelSupportService{}
-			got, err := n.DeleteModel(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("DeleteModel() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("DeleteModel() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_storeModelDetails(t *testing.T) {
+
 }
 
-func TestNoModelSupportService_GetAllModels(t *testing.T) {
-	type args struct {
-		c       context.Context
-		request *AccessibleModelsRequest
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *AccessibleModelsResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := NoModelSupportService{}
-			got, err := n.GetAllModels(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetAllModels() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAllModels() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_updateModelDetails(t *testing.T) {
+
 }
 
-func TestNoModelSupportService_GetModelDetails(t *testing.T) {
-	type args struct {
-		c  context.Context
-		id *ModelDetailsRequest
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *ModelDetailsResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := NoModelSupportService{}
-			got, err := n.GetModelDetails(tt.args.c, tt.args.id)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetModelDetails() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetModelDetails() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_updateModelDetailsForStatus(t *testing.T) {
+
 }
 
-func TestNoModelSupportService_GetModelStatus(t *testing.T) {
-	type args struct {
-		c  context.Context
-		id *ModelDetailsRequest
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *ModelDetailsResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := NoModelSupportService{}
-			got, err := n.GetModelStatus(tt.args.c, tt.args.id)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetModelStatus() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetModelStatus() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_verifySignatureForGetAllModels(t *testing.T) {
+
 }
 
-func TestNoModelSupportService_UpdateModelAccess(t *testing.T) {
-	type args struct {
-		c       context.Context
-		request *UpdateModelRequest
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *ModelDetailsResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := NoModelSupportService{}
-			got, err := n.UpdateModelAccess(tt.args.c, tt.args.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UpdateModelAccess() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UpdateModelAccess() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelServiceTestSuite) TestModelService_verifySignerForCreateModel(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestModelService_verifySignerForDeleteModel(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestModelService_verifySignerForGetModelStatus(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestModelService_verifySignerForUpdateModel(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestNewModelService(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestNoModelSupportService_CreateModel(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestNoModelSupportService_DeleteModel(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestNoModelSupportService_GetAllModels(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestNoModelSupportService_GetModelDetails(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestNoModelSupportService_GetModelStatus(t *testing.T) {
+
+}
+
+func (suite *ModelServiceTestSuite) TestNoModelSupportService_UpdateModelAccess(t *testing.T) {
+
 }

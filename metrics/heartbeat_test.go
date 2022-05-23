@@ -7,17 +7,12 @@ package metrics
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/soheilhy/cmux"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,47 +30,7 @@ func (suite *HeartBeatTestSuite) TearDownSuite() {
 func (suite *HeartBeatTestSuite) SetupSuite() {
 	SetNoHeartbeatURLState(false)
 	suite.serviceURL = "http://localhost:1111"
-	suite.server = setAndServe()
-}
-func setAndServe() (server *grpc.Server) {
-	server = grpc.NewServer()
-	ch := make(chan int)
-	go func() {
-		lis, err := net.Listen("tcp", ":1111")
-		if err != nil {
-			panic(err)
-		}
-		mux := cmux.New(lis)
-		grpcWebServer := grpcweb.WrapServer(server, grpcweb.WithCorsForRegisteredEndpointsOnly(false))
-		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			if grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req) {
-				grpcWebServer.ServeHTTP(resp, req)
-			} else {
-				if strings.Split(req.URL.Path, "/")[1] == "register" {
-					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprintln(resp, "Registering service...... ")
-				} else if strings.Split(req.URL.Path, "/")[1] == "heartbeat" {
-					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprint(resp, "{\"serviceID\":\"SERVICE001\",\"status\":\"SERVING\"}")
-				} else {
-					http.NotFound(resp, req)
-
-				}
-			}
-		})
-		daemonHeartBeat := &DaemonHeartbeat{DaemonID: "metrics.GetDaemonID()", DaemonVersion: "test version"}
-		grpc_health_v1.RegisterHealthServer(server, daemonHeartBeat)
-
-		httpL := mux.Match(cmux.HTTP1Fast())
-		grpcL := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc"))
-		go server.Serve(grpcL)
-		go http.Serve(httpL, httpHandler)
-		go mux.Serve()
-		ch <- 0
-	}()
-
-	_ = <-ch
-	return
+	suite.server = GetGRPCServerAndServe()
 }
 
 func TestHeartBeatTestSuite(t *testing.T) {

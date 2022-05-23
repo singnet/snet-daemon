@@ -296,31 +296,31 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 
 //message used to sign is of the form ("__create_model", mpe_address, current_block_number)
 func (service *ModelService) verifySignerForCreateModel(request *AuthorizationDetails) error {
-	return utils.VerifySigner(service.getMessageBytes("__create_model", request),
+	return utils.VerifySigner(service.getMessageBytes("__CreateModel", request),
 		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
 }
 
 //message used to sign is of the form ("__update_model", mpe_address, current_block_number)
 func (service *ModelService) verifySignerForUpdateModel(request *AuthorizationDetails) error {
-	return utils.VerifySigner(service.getMessageBytes("__update_model", request),
+	return utils.VerifySigner(service.getMessageBytes("__UpdateModel", request),
 		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
 }
 
 //message used to sign is of the form ("__delete_model", mpe_address, current_block_number)
 func (service *ModelService) verifySignerForDeleteModel(request *AuthorizationDetails) error {
-	return utils.VerifySigner(service.getMessageBytes("__delete_model", request),
+	return utils.VerifySigner(service.getMessageBytes("__DeleteModel", request),
 		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
 }
 
 //message used to sign is of the form ("__delete_model", mpe_address, current_block_number)
 func (service *ModelService) verifySignerForGetModelStatus(request *AuthorizationDetails) error {
-	return utils.VerifySigner(service.getMessageBytes("__get_model_status", request),
+	return utils.VerifySigner(service.getMessageBytes("__GetModelStatus", request),
 		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
 }
 
 //message used to sign is of the form ("__get_training_status", mpe_address, current_block_number)
 func (service *ModelService) verifySignatureForGetAllModels(request *AuthorizationDetails) error {
-	return utils.VerifySigner(service.getMessageBytes("__get_all_models", request),
+	return utils.VerifySigner(service.getMessageBytes("__GetAllModels", request),
 		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
 }
 

@@ -92,7 +92,7 @@ func TestModelService_DeleteModel(t *testing.T) {
 	}
 }
 
-func TestModelService_GetModelDetails(t *testing.T) {
+func TestModelService_GetAllModels(t *testing.T) {
 	type fields struct {
 		serviceMetaData      *blockchain.ServiceMetadata
 		organizationMetaData *blockchain.OrganizationMetaData
@@ -102,14 +102,14 @@ func TestModelService_GetModelDetails(t *testing.T) {
 	}
 	type args struct {
 		c       context.Context
-		request *ModelDetailsRequest
+		request *AccessibleModelsRequest
 	}
 	tests := []struct {
-		name         string
-		fields       fields
-		args         args
-		wantResponse *ModelDetailsResponse
-		wantErr      bool
+		name    string
+		fields  fields
+		args    args
+		want    *AccessibleModelsResponse
+		wantErr bool
 	}{
 		// TODO: Add test cases.
 	}
@@ -122,19 +122,19 @@ func TestModelService_GetModelDetails(t *testing.T) {
 				storage:              tt.fields.storage,
 				serviceUrl:           tt.fields.serviceUrl,
 			}
-			gotResponse, err := service.GetModelDetails(tt.args.c, tt.args.request)
+			got, err := service.GetAllModels(tt.args.c, tt.args.request)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetModelDetails() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetAllModels() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
-				t.Errorf("GetModelDetails() gotResponse = %v, want %v", gotResponse, tt.wantResponse)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetAllModels() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestModelService_GetTrainingStatus(t *testing.T) {
+func TestModelService_GetModelStatus(t *testing.T) {
 	type fields struct {
 		serviceMetaData      *blockchain.ServiceMetadata
 		organizationMetaData *blockchain.OrganizationMetaData
@@ -164,13 +164,13 @@ func TestModelService_GetTrainingStatus(t *testing.T) {
 				storage:              tt.fields.storage,
 				serviceUrl:           tt.fields.serviceUrl,
 			}
-			gotResponse, err := service.GetTrainingStatus(tt.args.c, tt.args.request)
+			gotResponse, err := service.GetModelStatus(tt.args.c, tt.args.request)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetTrainingStatus() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetModelStatus() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(gotResponse, tt.wantResponse) {
-				t.Errorf("GetTrainingStatus() gotResponse = %v, want %v", gotResponse, tt.wantResponse)
+				t.Errorf("GetModelStatus() gotResponse = %v, want %v", gotResponse, tt.wantResponse)
 			}
 		})
 	}
@@ -326,6 +326,48 @@ func TestModelService_getMessageBytes(t *testing.T) {
 	}
 }
 
+func TestModelService_getModelDataForStatusUpdate(t *testing.T) {
+	type fields struct {
+		serviceMetaData      *blockchain.ServiceMetadata
+		organizationMetaData *blockchain.OrganizationMetaData
+		channelService       escrow.PaymentChannelService
+		storage              *ModelStorage
+		serviceUrl           string
+	}
+	type args struct {
+		request  *ModelDetailsRequest
+		response *ModelDetailsResponse
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		args     args
+		wantData *ModelUserData
+		wantErr  bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := ModelService{
+				serviceMetaData:      tt.fields.serviceMetaData,
+				organizationMetaData: tt.fields.organizationMetaData,
+				channelService:       tt.fields.channelService,
+				storage:              tt.fields.storage,
+				serviceUrl:           tt.fields.serviceUrl,
+			}
+			gotData, err := service.getModelDataForStatusUpdate(tt.args.request, tt.args.response)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getModelDataForStatusUpdate() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotData, tt.wantData) {
+				t.Errorf("getModelDataForStatusUpdate() gotData = %v, want %v", gotData, tt.wantData)
+			}
+		})
+	}
+}
+
 func TestModelService_getModelDataForUpdate(t *testing.T) {
 	type fields struct {
 		serviceMetaData      *blockchain.ServiceMetadata
@@ -455,7 +497,7 @@ func TestModelService_getModelKeyToUpdate(t *testing.T) {
 		serviceUrl           string
 	}
 	type args struct {
-		request *UpdateModelRequest
+		request *ModelDetailsRequest
 	}
 	tests := []struct {
 		name    string
@@ -590,6 +632,77 @@ func TestModelService_updateModelDetails(t *testing.T) {
 	}
 }
 
+func TestModelService_updateModelDetailsForStatus(t *testing.T) {
+	type fields struct {
+		serviceMetaData      *blockchain.ServiceMetadata
+		organizationMetaData *blockchain.OrganizationMetaData
+		channelService       escrow.PaymentChannelService
+		storage              *ModelStorage
+		serviceUrl           string
+	}
+	type args struct {
+		request  *ModelDetailsRequest
+		response *ModelDetailsResponse
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := ModelService{
+				serviceMetaData:      tt.fields.serviceMetaData,
+				organizationMetaData: tt.fields.organizationMetaData,
+				channelService:       tt.fields.channelService,
+				storage:              tt.fields.storage,
+				serviceUrl:           tt.fields.serviceUrl,
+			}
+			if err := service.updateModelDetailsForStatus(tt.args.request, tt.args.response); (err != nil) != tt.wantErr {
+				t.Errorf("updateModelDetailsForStatus() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestModelService_verifySignatureForGetAllModels(t *testing.T) {
+	type fields struct {
+		serviceMetaData      *blockchain.ServiceMetadata
+		organizationMetaData *blockchain.OrganizationMetaData
+		channelService       escrow.PaymentChannelService
+		storage              *ModelStorage
+		serviceUrl           string
+	}
+	type args struct {
+		request *AuthorizationDetails
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &ModelService{
+				serviceMetaData:      tt.fields.serviceMetaData,
+				organizationMetaData: tt.fields.organizationMetaData,
+				channelService:       tt.fields.channelService,
+				storage:              tt.fields.storage,
+				serviceUrl:           tt.fields.serviceUrl,
+			}
+			if err := service.verifySignatureForGetAllModels(tt.args.request); (err != nil) != tt.wantErr {
+				t.Errorf("verifySignatureForGetAllModels() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestModelService_verifySignerForCreateModel(t *testing.T) {
 	type fields struct {
 		serviceMetaData      *blockchain.ServiceMetadata
@@ -660,7 +773,7 @@ func TestModelService_verifySignerForDeleteModel(t *testing.T) {
 	}
 }
 
-func TestModelService_verifySignerForGetModelDetails(t *testing.T) {
+func TestModelService_verifySignerForGetModelStatus(t *testing.T) {
 	type fields struct {
 		serviceMetaData      *blockchain.ServiceMetadata
 		organizationMetaData *blockchain.OrganizationMetaData
@@ -688,43 +801,8 @@ func TestModelService_verifySignerForGetModelDetails(t *testing.T) {
 				storage:              tt.fields.storage,
 				serviceUrl:           tt.fields.serviceUrl,
 			}
-			if err := service.verifySignerForGetModelDetails(tt.args.request); (err != nil) != tt.wantErr {
-				t.Errorf("verifySignerForGetModelDetails() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestModelService_verifySignerForGetTrainingStatus(t *testing.T) {
-	type fields struct {
-		serviceMetaData      *blockchain.ServiceMetadata
-		organizationMetaData *blockchain.OrganizationMetaData
-		channelService       escrow.PaymentChannelService
-		storage              *ModelStorage
-		serviceUrl           string
-	}
-	type args struct {
-		request *AuthorizationDetails
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := &ModelService{
-				serviceMetaData:      tt.fields.serviceMetaData,
-				organizationMetaData: tt.fields.organizationMetaData,
-				channelService:       tt.fields.channelService,
-				storage:              tt.fields.storage,
-				serviceUrl:           tt.fields.serviceUrl,
-			}
-			if err := service.verifySignerForGetTrainingStatus(tt.args.request); (err != nil) != tt.wantErr {
-				t.Errorf("verifySignerForGetTrainingStatus() error = %v, wantErr %v", err, tt.wantErr)
+			if err := service.verifySignerForGetModelStatus(tt.args.request); (err != nil) != tt.wantErr {
+				t.Errorf("verifySignerForGetModelStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -844,6 +922,34 @@ func TestNoModelSupportService_DeleteModel(t *testing.T) {
 	}
 }
 
+func TestNoModelSupportService_GetAllModels(t *testing.T) {
+	type args struct {
+		c       context.Context
+		request *AccessibleModelsRequest
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *AccessibleModelsResponse
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := NoModelSupportService{}
+			got, err := n.GetAllModels(tt.args.c, tt.args.request)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAllModels() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetAllModels() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNoModelSupportService_GetModelDetails(t *testing.T) {
 	type args struct {
 		c  context.Context
@@ -872,7 +978,7 @@ func TestNoModelSupportService_GetModelDetails(t *testing.T) {
 	}
 }
 
-func TestNoModelSupportService_GetTrainingStatus(t *testing.T) {
+func TestNoModelSupportService_GetModelStatus(t *testing.T) {
 	type args struct {
 		c  context.Context
 		id *ModelDetailsRequest
@@ -888,13 +994,13 @@ func TestNoModelSupportService_GetTrainingStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			n := NoModelSupportService{}
-			got, err := n.GetTrainingStatus(tt.args.c, tt.args.id)
+			got, err := n.GetModelStatus(tt.args.c, tt.args.id)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetTrainingStatus() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetModelStatus() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetTrainingStatus() got = %v, want %v", got, tt.want)
+				t.Errorf("GetModelStatus() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

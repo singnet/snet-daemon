@@ -2,246 +2,98 @@ package training
 
 import (
 	"github.com/singnet/snet-daemon/storage"
-	"reflect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"testing"
 )
 
-func TestModelStorage_CompareAndSwap(t *testing.T) {
-	type fields struct {
-		delegate storage.TypedAtomicStorage
-	}
-	type args struct {
-		key       *ModelUserKey
-		prevState *ModelUserData
-		newState  *ModelUserData
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantOk  bool
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := &ModelStorage{
-				delegate: tt.fields.delegate,
-			}
-			gotOk, err := storage.CompareAndSwap(tt.args.key, tt.args.prevState, tt.args.newState)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CompareAndSwap() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotOk != tt.wantOk {
-				t.Errorf("CompareAndSwap() gotOk = %v, want %v", gotOk, tt.wantOk)
-			}
-		})
+type ModelStorageSuite struct {
+	suite.Suite
+	memoryStorage     *storage.MemoryStorage
+	storage           *ModelStorage
+	organizationId    string
+	serviceId         string
+	groupId           string
+	methodName        string
+	accessibleAddress []string
+}
+
+func (suite *ModelStorageSuite) getUserModelKey(modelId string) *ModelUserKey {
+	return &ModelUserKey{OrganizationId: suite.organizationId, GroupID: suite.groupId,
+		ServiceId: suite.serviceId, ModelId: modelId, MethodName: suite.methodName}
+}
+
+func (suite *ModelStorageSuite) getUserModelData(modelId string) *ModelUserData {
+	return &ModelUserData{
+		Status:              "Created",
+		ModelId:             modelId,
+		OrganizationId:      suite.organizationId,
+		ServiceId:           suite.serviceId,
+		GroupId:             suite.groupId,
+		MethodName:          suite.methodName,
+		AuthorizedAddresses: suite.accessibleAddress,
+		CreatedByAddress:    suite.accessibleAddress[0],
+		UpdatedByAddress:    suite.accessibleAddress[1],
 	}
 }
 
-func TestModelStorage_Get(t *testing.T) {
-	type fields struct {
-		delegate storage.TypedAtomicStorage
-	}
-	type args struct {
-		key *ModelUserKey
-	}
-	tests := []struct {
-		name      string
-		fields    fields
-		args      args
-		wantState *ModelUserData
-		wantOk    bool
-		wantErr   bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := &ModelStorage{
-				delegate: tt.fields.delegate,
-			}
-			gotState, gotOk, err := storage.Get(tt.args.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotState, tt.wantState) {
-				t.Errorf("Get() gotState = %v, want %v", gotState, tt.wantState)
-			}
-			if gotOk != tt.wantOk {
-				t.Errorf("Get() gotOk = %v, want %v", gotOk, tt.wantOk)
-			}
-		})
-	}
+func (suite *ModelStorageSuite) SetupSuite() {
+	suite.memoryStorage = storage.NewMemStorage()
+	suite.storage = NewUserModelStorage(suite.memoryStorage)
+	suite.accessibleAddress = make([]string, 2)
+	suite.accessibleAddress[0] = "ADD1"
+	suite.accessibleAddress[1] = "ADD2"
+	//[2]string{"A1", "A2"}
 }
 
-func TestModelStorage_GetAll(t *testing.T) {
-	type fields struct {
-		delegate storage.TypedAtomicStorage
-	}
-	tests := []struct {
-		name       string
-		fields     fields
-		wantStates []*ModelUserData
-		wantErr    bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := &ModelStorage{
-				delegate: tt.fields.delegate,
-			}
-			gotStates, err := storage.GetAll()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetAll() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotStates, tt.wantStates) {
-				t.Errorf("GetAll() gotStates = %v, want %v", gotStates, tt.wantStates)
-			}
-		})
-	}
+func TestFreeCallUserStorageSuite(t *testing.T) {
+	suite.Run(t, new(ModelStorageSuite))
 }
 
-func TestModelStorage_Put(t *testing.T) {
-	type fields struct {
-		delegate storage.TypedAtomicStorage
-	}
-	type args struct {
-		key   *ModelUserKey
-		state *ModelUserData
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := &ModelStorage{
-				delegate: tt.fields.delegate,
-			}
-			if err := storage.Put(tt.args.key, tt.args.state); (err != nil) != tt.wantErr {
-				t.Errorf("Put() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+func (suite *ModelStorageSuite) TestModelStorage_GetAll() {
+	key1 := suite.getUserModelKey("1")
+	key2 := suite.getUserModelKey("2")
+	data1 := suite.getUserModelData("1")
+	data2 := suite.getUserModelData("2")
+	suite.storage.Put(key1, data1)
+	suite.storage.Put(key2, data2)
+	models, err := suite.storage.GetAll()
+	assert.Equal(suite.T(), len(models), 2)
+	assert.Equal(suite.T(), err, nil)
+	assert.Equal(suite.T(), models[0].String(), suite.getUserModelData("1").String())
+	assert.Equal(suite.T(), models[1], suite.getUserModelData("2"))
 }
 
-func TestModelStorage_PutIfAbsent(t *testing.T) {
-	type fields struct {
-		delegate storage.TypedAtomicStorage
-	}
-	type args struct {
-		key   *ModelUserKey
-		state *ModelUserData
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantOk  bool
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := &ModelStorage{
-				delegate: tt.fields.delegate,
-			}
-			gotOk, err := storage.PutIfAbsent(tt.args.key, tt.args.state)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("PutIfAbsent() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotOk != tt.wantOk {
-				t.Errorf("PutIfAbsent() gotOk = %v, want %v", gotOk, tt.wantOk)
-			}
-		})
-	}
+func (suite *ModelStorageSuite) TestModelStorage_PutIfAbsent() {
+	key1 := suite.getUserModelKey("3")
+	data1 := suite.getUserModelData("3")
+	ok, err := suite.storage.PutIfAbsent(key1, data1)
+	assert.Equal(suite.T(), ok, true)
+	assert.Equal(suite.T(), err, nil)
 }
 
-func TestModelUserKey_String(t *testing.T) {
-	type fields struct {
-		OrganizationId string
-		ServiceId      string
-		GroupID        string
-		MethodName     string
-		ModelId        string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			key := &ModelUserKey{
-				OrganizationId: tt.fields.OrganizationId,
-				ServiceId:      tt.fields.ServiceId,
-				GroupID:        tt.fields.GroupID,
-				MethodName:     tt.fields.MethodName,
-				ModelId:        tt.fields.ModelId,
-			}
-			if got := key.String(); got != tt.want {
-				t.Errorf("String() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelStorageSuite) TestModelUserKey_String() {
+
 }
 
-func TestNewUserModelStorage(t *testing.T) {
-	type args struct {
-		atomicStorage storage.AtomicStorage
-	}
-	tests := []struct {
-		name string
-		args args
-		want *ModelStorage
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewUserModelStorage(tt.args.atomicStorage); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewUserModelStorage() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func (suite *ModelStorageSuite) TestNewUserModelStorage() {
+
 }
 
-func Test_serializeModelKey(t *testing.T) {
-	type args struct {
-		key interface{}
-	}
-	tests := []struct {
-		name           string
-		args           args
-		wantSerialized string
-		wantErr        bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotSerialized, err := serializeModelKey(tt.args.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("serializeModelKey() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotSerialized != tt.wantSerialized {
-				t.Errorf("serializeModelKey() gotSerialized = %v, want %v", gotSerialized, tt.wantSerialized)
-			}
-		})
-	}
+func (suite *ModelStorageSuite) Test_serializeModelKey() {
+
+}
+
+func (suite *ModelStorageSuite) TestModelStorage_CompareAndSwap() {
+	key1 := suite.getUserModelKey("1")
+	data1 := suite.getUserModelData("1")
+	data2 := suite.getUserModelData("2")
+	suite.storage.Put(key1, data1)
+	ok, err := suite.storage.CompareAndSwap(key1, data1, data2)
+	assert.Equal(suite.T(), ok, true)
+	assert.Equal(suite.T(), err, nil)
+	data, ok, err := suite.storage.Get(key1)
+	assert.Equal(suite.T(), ok, true)
+	assert.Equal(suite.T(), err, nil)
+	assert.Equal(suite.T(), data, data2)
 }

@@ -70,7 +70,6 @@ message ModelDetailsResponse {
   ModelDetails model_details =2;
   string message = 3;
   repeated string address_list = 4;
-  //Added the below two for more details
   string service_id = 6;
   string organization_id = 7;
 

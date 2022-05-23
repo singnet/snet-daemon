@@ -33,6 +33,13 @@ func (key *ModelUserKey) String() string {
 		key.ServiceId, key.GroupID, key.MethodName, key.ModelId)
 }
 
+func (data *ModelUserData) String() string {
+	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v/isPublic:%v/accesibleAddress:%v/createdBy:%v/updatedBy:%v/status:%v}",
+		data.OrganizationId,
+		data.ServiceId, data.GroupId, data.MethodName, data.ModelId, data.AuthorizedAddresses, data.isPublic,
+		data.CreatedByAddress, data.UpdatedByAddress, data.Status)
+}
+
 type ModelUserData struct {
 	isPublic            bool
 	AuthorizedAddresses []string
@@ -40,6 +47,10 @@ type ModelUserData struct {
 	CreatedByAddress    string
 	ModelId             string
 	UpdatedByAddress    string
+	GroupId             string
+	OrganizationId      string
+	ServiceId           string
+	MethodName          string
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {

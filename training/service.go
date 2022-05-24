@@ -310,7 +310,7 @@ func (service *ModelService) verifySignerForCreateModel(request *AuthorizationDe
 
 //message used to sign is of the form ("__update_model", mpe_address, current_block_number)
 func (service *ModelService) verifySignerForUpdateModel(request *AuthorizationDetails) error {
-	return utils.VerifySigner(service.getMessageBytes("__UpdateModel", request),
+	return utils.VerifySigner(service.getMessageBytes("__UpdateModelAccess", request),
 		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
 }
 

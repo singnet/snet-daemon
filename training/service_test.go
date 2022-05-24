@@ -202,6 +202,30 @@ func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {
 	assert.Equal(suite.T(), Status_IN_PROGRESS, response.Status)
 }
 
+func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
+	request := &UpdateModelRequest{
+		ModelDetailsRequest: &ModelDetailsRequest{
+			ModelDetails: &ModelDetails{
+				ModelId:    "1",
+				MethodName: "TESTMETHOD",
+			},
+			Authorization: &AuthorizationDetails{
+				SignerAddress: suite.senderAddress.String(),
+				Signature:     suite.getSignature("__UpdateModelAccess", 1200, suite.senderPvtKy),
+				CurrentBlock:  1200,
+			},
+		},
+
+		IsPubliclyAccessible: false,
+	}
+	fmt.Println(suite.senderAddress.String())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
+	defer cancel()
+	response, err := suite.service.UpdateModelAccess(ctx, request)
+	assert.Nil(suite.T(), err)
+	assert.Equal(suite.T(), Status_IN_PROGRESS, response.Status)
+}
+
 /*
 func (suite *ModelServiceTestSuite) TestModelService_GetAllModels(t *testing.T) {
 
@@ -209,9 +233,7 @@ func (suite *ModelServiceTestSuite) TestModelService_GetAllModels(t *testing.T) 
 
 
 
-func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess(t *testing.T) {
 
-}
 
 func (suite *ModelServiceTestSuite) TestModelService_createModelData(t *testing.T) {
 

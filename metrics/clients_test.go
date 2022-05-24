@@ -30,7 +30,7 @@ func (suite *ClientTestSuite) TearDownSuite() {
 func (suite *ClientTestSuite) SetupSuite() {
 	SetNoHeartbeatURLState(false)
 	suite.serviceURL = "http://localhost:1111"
-	suite.server = GetGRPCServerAndServe()
+	suite.server = setAndServe()
 }
 
 func TestClientTestSuite(t *testing.T) {

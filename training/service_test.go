@@ -226,103 +226,21 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 	assert.Equal(suite.T(), Status_IN_PROGRESS, response.Status)
 }
 
-/*
-func (suite *ModelServiceTestSuite) TestModelService_GetAllModels(t *testing.T) {
+func (suite *ModelServiceTestSuite) TestModelService_GetAllModels() {
+	request := &AccessibleModelsRequest{
 
+		Authorization: &AuthorizationDetails{
+			SignerAddress: suite.senderAddress.String(),
+			Signature:     suite.getSignature("__UpdateModelAccess", 1200, suite.senderPvtKy),
+			CurrentBlock:  1200,
+		},
+	}
+
+	fmt.Println(suite.senderAddress.String())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
+	defer cancel()
+	response, err := suite.service.GetAllModels(ctx, request)
+	assert.NotNil(suite.T(), err)
+	//TODO
+	assert.Equal(suite.T(), Status_ERROR, response.Status)
 }
-
-
-
-
-
-func (suite *ModelServiceTestSuite) TestModelService_createModelData(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_deleteModelDetails(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_getMessageBytes(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_getModelDataForStatusUpdate(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_getModelDataForUpdate(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_getModelDetails(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_getModelKeyToCreate(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_getModelKeyToUpdate(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_storeModelDetails(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_updateModelDetails(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_updateModelDetailsForStatus(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_verifySignatureForGetAllModels(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_verifySignerForCreateModel(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_verifySignerForDeleteModel(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_verifySignerForGetModelStatus(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_verifySignerForUpdateModel(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestNewModelService(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestNoModelSupportService_CreateModel(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestNoModelSupportService_DeleteModel(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestNoModelSupportService_GetAllModels(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestNoModelSupportService_GetModelDetails(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestNoModelSupportService_GetModelStatus(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestNoModelSupportService_UpdateModelAccess(t *testing.T) {
-
-}*/

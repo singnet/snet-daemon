@@ -26,15 +26,6 @@ type ModelService struct {
 	serviceUrl           string
 }
 
-func (service ModelService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (response *AccessibleModelsResponse, err error) {
-	if request == nil || request.Authorization == nil {
-		return &AccessibleModelsResponse{Status: Status_ERROR},
-			fmt.Errorf(" INVALID  REQUEST DETAILS , no Authorization provided ")
-	}
-	//TODO
-	return
-}
-
 type NoModelSupportService struct {
 }
 
@@ -175,6 +166,18 @@ func (service ModelService) getModelDataForStatusUpdate(request *ModelDetailsReq
 	if data, ok, err = service.storage.Get(key); err != nil && !ok {
 		log.WithError(fmt.Errorf("Issue with retrieving model data from storage"))
 	}
+	return
+}
+func (service ModelService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (response *AccessibleModelsResponse, err error) {
+	if request == nil || request.Authorization == nil {
+		return &AccessibleModelsResponse{Status: Status_ERROR},
+			fmt.Errorf(" INVALID  REQUEST DETAILS , no Authorization provided ")
+	}
+	if err = service.verifySignerForCreateModel(request.Authorization); err != nil {
+		return &AccessibleModelsResponse{Status: Status_ERROR},
+			fmt.Errorf(" authentication FAILED , %v", err)
+	}
+	//TODO
 	return
 }
 

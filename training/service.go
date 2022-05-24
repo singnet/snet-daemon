@@ -67,19 +67,21 @@ func (n NoModelSupportService) GetModelStatus(c context.Context, id *ModelDetail
 	return &ModelDetailsResponse{Status: Status_ERROR},
 		fmt.Errorf("service end point is not defined or is invalid for training , please contact the AI developer")
 }
-
-func (service ModelService) getServiceClient() (client ModelClient, err error) {
-	conn, err := grpc.Dial(service.serviceUrl, grpc.WithInsecure())
-	if err != nil {
-		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
-		return nil, err
-	}
+func deferConnection(conn *grpc.ClientConn) {
 	defer func(conn *grpc.ClientConn) {
 		err := conn.Close()
 		if err != nil {
 			log.WithError(err).Errorf("error in closing Client Connection")
 		}
 	}(conn)
+}
+func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
+	conn, err = grpc.Dial(service.serviceUrl, grpc.WithInsecure())
+	if err != nil {
+		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
+		return nil, nil, err
+	}
+	/*	*/
 	// create the client instance
 	client = NewModelClient(conn)
 	return
@@ -143,7 +145,7 @@ func (service ModelService) getModelKeyToCreate(request *CreateModelRequest, res
 	key = &ModelUserKey{
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
-		GroupID:        service.organizationMetaData.GetGroupIdString(),
+		GroupId:        service.organizationMetaData.GetGroupIdString(),
 		MethodName:     request.MethodName,
 		ModelId:        response.ModelDetails.ModelId,
 	}
@@ -154,7 +156,7 @@ func (service ModelService) getModelKeyToUpdate(request *ModelDetailsRequest) (k
 	key = &ModelUserKey{
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
-		GroupID:        service.organizationMetaData.GetGroupIdString(),
+		GroupId:        service.organizationMetaData.GetGroupIdString(),
 		MethodName:     request.ModelDetails.MethodName,
 		ModelId:        request.ModelDetails.ModelId,
 	}
@@ -183,6 +185,9 @@ func (service ModelService) createModelData(request *CreateModelRequest, respons
 		AuthorizedAddresses: request.AddressList,
 		isPublic:            request.IsPubliclyAccessible,
 		ModelId:             response.ModelDetails.ModelId,
+		OrganizationId:      config.GetString(config.OrganizationId),
+		ServiceId:           config.GetString(config.ServiceId),
+		GroupId:             service.organizationMetaData.GetGroupIdString(),
 	}
 	return
 }
@@ -201,10 +206,9 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 	// make a call to the client
 	// if the response is successful , store details in etcd
 	// send back the response to the client
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)
-	defer cancel()
-	if client, err := service.getServiceClient(); err == nil {
-		response, err = client.CreateModel(ctx, request)
+
+	if conn, client, err := service.getServiceClient(); err == nil {
+		response, err = client.CreateModel(c, request)
 		if err == nil {
 			//store the details in etcd
 			log.Infof("Creating model based on response from CreateModel")
@@ -212,6 +216,7 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 				return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 			}
 		}
+		deferConnection(conn)
 	} else {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf("error in invoking service for Model Training %v", err)
@@ -232,12 +237,13 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	if client, err := service.getServiceClient(); err != nil {
+	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.UpdateModelAccess(ctx, request)
 		log.Infof("Updating model based on response from UpdateModel")
 		if err = service.updateModelDetails(request, response); err != nil {
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}
+		deferConnection(conn)
 	} else {
 		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
 	}
@@ -254,14 +260,15 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" authentication FAILED , %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)
 	defer cancel()
-	if client, err := service.getServiceClient(); err != nil {
+	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.DeleteModel(ctx, request)
 		log.Infof("Deleting model based on response from DeleteModel")
 		if err = service.deleteModelDetails(request, response); err != nil {
 			return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)
 		}
+		deferConnection(conn)
 	} else {
 		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
 	}
@@ -279,15 +286,16 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" authentication FAILED , %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)
 	defer cancel()
 
-	if client, err := service.getServiceClient(); err != nil {
+	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.GetModelStatus(ctx, request)
 		log.Infof("Updating modelG based on response from UpdateModel")
 		if err = service.updateModelDetailsForStatus(request, response); err != nil {
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}
+		deferConnection(conn)
 	} else {
 		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
 	}

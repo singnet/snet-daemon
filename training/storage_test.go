@@ -19,7 +19,7 @@ type ModelStorageSuite struct {
 }
 
 func (suite *ModelStorageSuite) getUserModelKey(modelId string) *ModelUserKey {
-	return &ModelUserKey{OrganizationId: suite.organizationId, GroupID: suite.groupId,
+	return &ModelUserKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
 		ServiceId: suite.serviceId, ModelId: modelId, MethodName: suite.methodName}
 }
 
@@ -61,7 +61,7 @@ func (suite *ModelStorageSuite) TestModelStorage_GetAll() {
 	assert.Equal(suite.T(), len(models), 2)
 	assert.Equal(suite.T(), err, nil)
 	assert.Equal(suite.T(), models[0].String(), suite.getUserModelData("1").String())
-	assert.Equal(suite.T(), models[1], suite.getUserModelData("2"))
+	assert.Equal(suite.T(), models[1].String(), suite.getUserModelData("2").String())
 }
 
 func (suite *ModelStorageSuite) TestModelStorage_PutIfAbsent() {

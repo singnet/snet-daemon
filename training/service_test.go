@@ -7,19 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/storage"
-	"github.com/soheilhy/cmux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"math/big"
 	"net"
-	"net/http"
-	"strings"
 	"testing"
 	"time"
 )
@@ -40,50 +36,28 @@ type ModelServiceTestSuite struct {
 func TestModelServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(ModelServiceTestSuite))
 }
-func (suite *ModelServiceTestSuite) GetGRPCServerAndServe() (server *grpc.Server) {
-	server = grpc.NewServer()
+func (suite *ModelServiceTestSuite) getGRPCServerAndServe() {
 	ch := make(chan int)
 	go func() {
-		lis, err := net.Listen("tcp", ":2222")
+		listener, err := net.Listen("tcp", ":2222")
 		if err != nil {
 			panic(err)
 		}
-		mux := cmux.New(lis)
-		grpcWebServer := grpcweb.WrapServer(server, grpcweb.WithCorsForRegisteredEndpointsOnly(false))
-		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			if grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req) {
-				grpcWebServer.ServeHTTP(resp, req)
-			} else {
-				if strings.Split(req.URL.Path, "/")[1] == "register" {
-					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprintln(resp, "Registering service...... ")
-				} else if strings.Split(req.URL.Path, "/")[1] == "heartbeat" {
-					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					fmt.Fprint(resp, "{\"serviceID\":\"SERVICE001\",\"status\":\"SERVING\"}")
-				} else {
-					http.NotFound(resp, req)
+		suite.server = grpc.NewServer()
 
-				}
-			}
-		})
-		suite.server = server
-		RegisterModelServer(server, suite.mockService)
-		httpL := mux.Match(cmux.HTTP1Fast())
-		grpcL := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc"))
-		go server.Serve(grpcL)
-		go http.Serve(httpL, httpHandler)
-		go mux.Serve()
+		RegisterModelServer(suite.server, suite.mockService)
 		ch <- 0
+		suite.server.Serve(listener)
+
 	}()
 
 	_ = <-ch
-	return
 }
 func (suite *ModelServiceTestSuite) SetupSuite() {
-	config.Vip().Set(config.ModelTrainingEndpoint, "http://localhost:2222")
+	config.Vip().Set(config.ModelTrainingEndpoint, "localhost:2222")
 	suite.mockService = MockServiceModelGRPCImpl{}
 	suite.serviceURL = config.GetString(config.ModelTrainingEndpoint)
-	suite.server = suite.GetGRPCServerAndServe()
+	suite.getGRPCServerAndServe()
 
 	testJsonOrgGroupData := "{   \"org_name\": \"organization_name\",   \"org_id\": \"ExampleOrganizationId\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
 	testJsonData := "{   \"version\": 1,   \"display_name\": \"Example1\",   \"encoding\": \"grpc\",   \"service_type\": \"grpc\",   \"payment_expiration_threshold\": 40320,   \"model_ipfs_hash\": \"Qmdiq8Hu6dYiwp712GtnbBxagyfYyvUY1HYqkH7iN76UCc\", " +
@@ -104,7 +78,7 @@ type MockServiceModelGRPCImpl struct {
 }
 
 func (m MockServiceModelGRPCImpl) CreateModel(context context.Context, request *CreateModelRequest) (*ModelDetailsResponse, error) {
-	print("In Service CreateModel")
+	println("In Service CreateModel")
 	return &ModelDetailsResponse{Status: Status_CREATED,
 		ModelDetails: &ModelDetails{
 			ModelId: "1",
@@ -181,21 +155,59 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	defer cancel()
 	response, err = suite.service.CreateModel(ctx, request)
 	assert.Nil(suite.T(), err)
+	assert.Equal(suite.T(), "1", response.ModelDetails.ModelId)
+}
 
+func (suite *ModelServiceTestSuite) TestModelService_DeleteModel() {
+	request := &UpdateModelRequest{
+		ModelDetailsRequest: &ModelDetailsRequest{
+			ModelDetails: &ModelDetails{
+				ModelId:    "1",
+				MethodName: "TESTMETHOD",
+			},
+			Authorization: &AuthorizationDetails{
+				SignerAddress: suite.senderAddress.String(),
+				Signature:     suite.getSignature("__DeleteModel", 1200, suite.senderPvtKy),
+				CurrentBlock:  1200,
+			},
+		},
+
+		IsPubliclyAccessible: false,
+	}
+	fmt.Println(suite.senderAddress.String())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
+	defer cancel()
+	response, err := suite.service.DeleteModel(ctx, request)
+	assert.Nil(suite.T(), err)
+	assert.Equal(suite.T(), Status_DELETED, response.Status)
+}
+
+func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {
+	request := &ModelDetailsRequest{
+		ModelDetails: &ModelDetails{
+			ModelId:    "1",
+			MethodName: "TESTMETHOD",
+		},
+		Authorization: &AuthorizationDetails{
+			SignerAddress: suite.senderAddress.String(),
+			Signature:     suite.getSignature("__GetModelStatus", 1200, suite.senderPvtKy),
+			CurrentBlock:  1200,
+		},
+	}
+	fmt.Println(suite.senderAddress.String())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
+	defer cancel()
+	response, err := suite.service.GetModelStatus(ctx, request)
+	assert.Nil(suite.T(), err)
+	assert.Equal(suite.T(), Status_IN_PROGRESS, response.Status)
 }
 
 /*
-func (suite *ModelServiceTestSuite) TestModelService_DeleteModel(t *testing.T) {
-
-}
-
 func (suite *ModelServiceTestSuite) TestModelService_GetAllModels(t *testing.T) {
 
 }
 
-func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus(t *testing.T) {
 
-}
 
 func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess(t *testing.T) {
 
@@ -230,10 +242,6 @@ func (suite *ModelServiceTestSuite) TestModelService_getModelKeyToCreate(t *test
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_getModelKeyToUpdate(t *testing.T) {
-
-}
-
-func (suite *ModelServiceTestSuite) TestModelService_getServiceClient(t *testing.T) {
 
 }
 
@@ -295,5 +303,4 @@ func (suite *ModelServiceTestSuite) TestNoModelSupportService_GetModelStatus(t *
 
 func (suite *ModelServiceTestSuite) TestNoModelSupportService_UpdateModelAccess(t *testing.T) {
 
-}
-*/
+}*/

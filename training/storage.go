@@ -12,25 +12,25 @@ type ModelStorage struct {
 }
 
 func NewUserModelStorage(atomicStorage storage.AtomicStorage) *ModelStorage {
-	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/storage")
-	storage := storage.NewTypedAtomicStorageImpl(
+	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/modelStorage")
+	modelStorage := storage.NewTypedAtomicStorageImpl(
 		prefixedStorage, serializeModelKey, reflect.TypeOf(ModelUserKey{}), utils.Serialize, utils.Deserialize,
 		reflect.TypeOf(ModelUserData{}),
 	)
-	return &ModelStorage{delegate: storage}
+	return &ModelStorage{delegate: modelStorage}
 }
 
 type ModelUserKey struct {
 	OrganizationId string
 	ServiceId      string
-	GroupID        string
+	GroupId        string
 	MethodName     string
 	ModelId        string
 }
 
 func (key *ModelUserKey) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.OrganizationId,
-		key.ServiceId, key.GroupID, key.MethodName, key.ModelId)
+		key.ServiceId, key.GroupId, key.MethodName, key.ModelId)
 }
 
 func (data *ModelUserData) String() string {

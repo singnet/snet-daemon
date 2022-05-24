@@ -164,7 +164,7 @@ func (service ModelService) getModelDataForStatusUpdate(request *ModelDetailsReq
 	ok := false
 
 	if data, ok, err = service.storage.Get(key); err != nil && !ok {
-		log.WithError(fmt.Errorf("Issue with retrieving model data from storage"))
+		log.WithError(fmt.Errorf("issue with retrieving model data from storage"))
 	}
 	return
 }

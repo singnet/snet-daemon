@@ -22,12 +22,13 @@ import (
 
 type ModelServiceTestSuite struct {
 	suite.Suite
-	serviceURL    string
-	server        *grpc.Server
-	mockService   MockServiceModelGRPCImpl
-	service       ModelServer
-	senderPvtKy   *ecdsa.PrivateKey
-	senderAddress common.Address
+	serviceURL            string
+	server                *grpc.Server
+	mockService           MockServiceModelGRPCImpl
+	service               ModelServer
+	serviceNotImplemented ModelServer
+	senderPvtKy           *ecdsa.PrivateKey
+	senderAddress         common.Address
 
 	alternateUserPvtKy   *ecdsa.PrivateKey
 	alternateUserAddress common.Address
@@ -54,6 +55,7 @@ func (suite *ModelServiceTestSuite) getGRPCServerAndServe() {
 	_ = <-ch
 }
 func (suite *ModelServiceTestSuite) SetupSuite() {
+	suite.serviceNotImplemented = NewModelService(nil, nil, nil, nil)
 	config.Vip().Set(config.ModelTrainingEndpoint, "localhost:2222")
 	suite.mockService = MockServiceModelGRPCImpl{}
 	suite.serviceURL = config.GetString(config.ModelTrainingEndpoint)
@@ -156,20 +158,25 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	response, err = suite.service.CreateModel(ctx, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), "1", response.ModelDetails.ModelId)
+	response, err = suite.serviceNotImplemented.CreateModel(ctx, request)
+	assert.NotNil(suite.T(), err)
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_DeleteModel() {
+	response, err := suite.service.DeleteModel(context.Background(), nil)
+	assert.NotNil(suite.T(), err)
+	authorization := &AuthorizationDetails{
+		SignerAddress: suite.senderAddress.String(),
+		Signature:     suite.getSignature("__DeleteModel", 1200, suite.senderPvtKy),
+		CurrentBlock:  1200,
+	}
 	request := &UpdateModelRequest{
 		ModelDetailsRequest: &ModelDetailsRequest{
 			ModelDetails: &ModelDetails{
 				ModelId:    "1",
 				MethodName: "TESTMETHOD",
 			},
-			Authorization: &AuthorizationDetails{
-				SignerAddress: suite.senderAddress.String(),
-				Signature:     suite.getSignature("__DeleteModel", 1200, suite.senderPvtKy),
-				CurrentBlock:  1200,
-			},
+			Authorization: authorization,
 		},
 
 		IsPubliclyAccessible: false,
@@ -177,9 +184,10 @@ func (suite *ModelServiceTestSuite) TestModelService_DeleteModel() {
 	fmt.Println(suite.senderAddress.String())
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
-	response, err := suite.service.DeleteModel(ctx, request)
+	response, err = suite.service.DeleteModel(ctx, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), Status_DELETED, response.Status)
+
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {

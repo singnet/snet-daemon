@@ -13,7 +13,7 @@ message AuthorizationDetails {
   //Signer can fill in any message here
   string message = 2;
   //signature of the following message:
-  //("__methodName", user_address, current_block_number)
+  //("user specified message", user_address, current_block_number)
   bytes signature = 3;
   string signer_address = 4;
 

@@ -73,7 +73,6 @@ func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client Mo
 		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
 		return nil, nil, err
 	}
-	/*	*/
 	// create the client instance
 	client = NewModelClient(conn)
 	return
@@ -176,6 +175,9 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 			data.UpdatedByAddress = request.ModelDetailsRequest.Authorization.SignerAddress
 			data.Status = string(response.Status)
 		}
+		// for all the new address , add the entry
+		//todo
+		// for any old address removed , remove the entry
 
 		err = service.storage.Put(key, data)
 	}
@@ -373,7 +375,7 @@ func (service *ModelService) verifySignature(request *AuthorizationDetails) erro
 		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
 }
 
-//"__methodName", user_address, current_block_number
+//"user passed message	", user_address, current_block_number
 func (service *ModelService) getMessageBytes(prefixMessage string, request *AuthorizationDetails) []byte {
 	userAddress := utils.ToChecksumAddress(request.SignerAddress)
 	message := bytes.Join([][]byte{

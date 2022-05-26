@@ -22,7 +22,7 @@ message AuthorizationDetails {
 enum Status {
   CREATED = 0;
   IN_PROGRESS = 1;
-  ERROR =2;
+  ERROR = 2;
   COMPLETED = 3;
   DELETED = 4;
 }
@@ -48,12 +48,12 @@ message AccessibleModelsRequest {
 }
 
 message AccessibleModelsResponse {
-   repeated ModelDetails list_of_models= 1;
-   Status status = 2;
+  repeated ModelDetails list_of_models = 1;
+  Status status = 2;
 }
 
 message ModelDetailsRequest {
-  ModelDetails model_details =1 ;
+  ModelDetails model_details = 1 ;
   AuthorizationDetails authorization = 2;
 }
 
@@ -68,7 +68,7 @@ message UpdateModelRequest {
 
 message ModelDetailsResponse {
   Status status = 1;
-  ModelDetails model_details =2;
+  ModelDetails model_details = 2;
   string message = 3;
   repeated string address_list = 4;
   string service_id = 6;

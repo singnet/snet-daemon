@@ -86,6 +86,8 @@ service Model {
   rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc get_model_status(ModelDetailsRequest) returns (ModelDetailsResponse) {}
 
+
+  // Daemon will implement , however the AI developer can skip implementing these and just provide dummy code.
   rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc get_all_models(AccessibleModelsRequest) returns (AccessibleModelsResponse) {}
 

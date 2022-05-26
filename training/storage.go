@@ -93,6 +93,7 @@ type ModelData struct {
 	OrganizationId      string
 	ServiceId           string
 	MethodName          string
+	Description         string
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {

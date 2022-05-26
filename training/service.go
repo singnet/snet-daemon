@@ -165,23 +165,78 @@ func (service ModelService) getModelDetails(request *UpdateModelRequest, respons
 	err = service.storage.Put(key, data)
 	return
 }
+func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
+	responseData = &ModelDetails{
+		ModelId:     data.ModelId,
+		MethodName:  data.MethodName,
+		Description: data.Description,
+	}
+	return
+}
 
 func (service ModelService) updateModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (err error) {
 	key := service.getModelKeyToUpdate(request.ModelDetailsRequest)
+	oldAddresses := make([]string, 0)
+
 	if data, err := service.getModelDataForUpdate(request, response); err != nil {
+		copy(oldAddresses, data.AuthorizedAddresses)
 		if data, ok, err := service.storage.Get(key); err != nil && ok {
 			data.AuthorizedAddresses = request.AddressList
 			data.isPublic = request.IsPubliclyAccessible
 			data.UpdatedByAddress = request.ModelDetailsRequest.Authorization.SignerAddress
 			data.Status = string(response.Status)
 		}
-		// for all the new address , add the entry
-		//todo
-		// for any old address removed , remove the entry
+		//get the difference of all the addresses b/w old and new
+		updatedAddresses := difference(oldAddresses, request.AddressList)
+		for _, address := range updatedAddresses {
+			modelUserKey := getModelUserKey(key, address)
+			modelUserData := service.getModelUserData(key, address)
+			//if the address is present in the request but not in the old address , add it to the storage
+			if isValuePresent(address, request.AddressList) {
+				modelUserData.ModelIds = append(modelUserData.ModelIds, request.ModelDetailsRequest.ModelDetails.ModelId)
+			} else { // the address was present in the old data , but not in new , hence needs to be deleted
+				modelUserData.ModelIds = remove(modelUserData.ModelIds, request.ModelDetailsRequest.ModelDetails.ModelId)
+			}
+			err = service.userStorage.Put(modelUserKey, modelUserData)
+			log.WithError(err)
 
+		}
 		err = service.storage.Put(key, data)
 	}
 	return
+}
+
+func difference(oldAddresses []string, newAddresses []string) []string {
+	var diff []string
+	for i := 0; i < 2; i++ {
+		for _, s1 := range oldAddresses {
+			found := false
+			for _, s2 := range newAddresses {
+				if s1 == s2 {
+					found = true
+					break
+				}
+			}
+			// String not found. We add it to return slice
+			if !found {
+				diff = append(diff, s1)
+			}
+		}
+		// Swap the slices, only if it was the first loop
+		if i == 0 {
+			oldAddresses, newAddresses = newAddresses, oldAddresses
+		}
+	}
+	return diff
+}
+
+func isValuePresent(value string, list []string) bool {
+	for _, v := range list {
+		if v == value {
+			return true
+		}
+	}
+	return false
 }
 
 func (service ModelService) updateModelDetailsForStatus(request *ModelDetailsRequest, response *ModelDetailsResponse) (err error) {
@@ -236,7 +291,31 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 		return &AccessibleModelsResponse{Status: Status_ERROR},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
-	//TODO
+	key := &ModelUserKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        service.organizationMetaData.GetGroupIdString(),
+		MethodName:     request.MethodName,
+		UserAddress:    request.Authorization.SignerAddress,
+	}
+	modelDetailsArray := make([]*ModelDetails, 0)
+	if data, ok, err := service.userStorage.Get(key); data != nil && ok && err != nil {
+		for _, modelId := range data.ModelIds {
+			modelKey := &ModelKey{
+				OrganizationId: config.GetString(config.OrganizationId),
+				ServiceId:      config.GetString(config.ServiceId),
+				GroupId:        service.organizationMetaData.GetGroupIdString(),
+				MethodName:     request.MethodName,
+				ModelId:        modelId,
+			}
+			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr != nil {
+				modelDetailsArray = append(modelDetailsArray, convertModelDataToBO(modelData))
+			}
+		}
+	}
+	response = &AccessibleModelsResponse{
+		ListOfModels: modelDetailsArray,
+	}
 	return
 }
 
@@ -358,7 +437,7 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.GetModelStatus(ctx, request)
-		log.Infof("Updating modelG based on response from UpdateModel")
+		log.Infof("Updating model status based on response from UpdateModel")
 		if err = service.updateModelDetailsForStatus(request, response); err != nil {
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}

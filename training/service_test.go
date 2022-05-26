@@ -237,3 +237,24 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), Status_IN_PROGRESS, response.Status)
 }
+
+func (suite *ModelServiceTestSuite) TestModelService_remove() {
+	sample1 := []string{"a", "b", "c"}
+	sample2 := []string{"b", "c"}
+	output := remove(sample1, "a")
+	assert.Equal(suite.T(), output, sample2)
+}
+
+func (suite *ModelServiceTestSuite) TestModelService_difference() {
+	sample1 := []string{"a", "b", "c"}
+	sample2 := []string{"b", "c", "e", "f"}
+	output := difference(sample1, sample2)
+	expected := []string{"a", "e", "f"}
+	assert.Equal(suite.T(), expected, output)
+}
+
+func (suite *ModelServiceTestSuite) TestModelService_isValuePresent() {
+	sample1 := []string{"a", "b", "c"}
+	assert.Equal(suite.T(), isValuePresent("a", sample1), true)
+	assert.Equal(suite.T(), isValuePresent("d", sample1), false)
+}

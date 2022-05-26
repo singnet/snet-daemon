@@ -59,7 +59,8 @@ type Components struct {
 	tokenManager               token.Manager
 	tokenService               *escrow.TokenService
 	modelService               training.ModelServer
-	modelUserStorage           *training.ModelStorage
+	modelUserStorage           *training.ModelUserStorage
+	modelStorage               *training.ModelStorage
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -550,12 +551,20 @@ func (components *Components) ConfigurationService() *configuration_service.Conf
 	return components.configurationService
 }
 
-func (components *Components) ModelUserStorage() *training.ModelStorage {
+func (components *Components) ModelUserStorage() *training.ModelUserStorage {
 	if components.modelUserStorage != nil {
 		return components.modelUserStorage
 	}
-	components.modelUserStorage = training.NewUserModelStorage(components.AtomicStorage())
+	components.modelUserStorage = training.NewUerModelStorage(components.AtomicStorage())
 	return components.modelUserStorage
+}
+
+func (components *Components) ModelStorage() *training.ModelStorage {
+	if components.modelStorage != nil {
+		return components.modelStorage
+	}
+	components.modelStorage = training.NewModelStorage(components.AtomicStorage())
+	return components.modelStorage
 }
 
 func (components *Components) ModelService() training.ModelServer {
@@ -563,7 +572,7 @@ func (components *Components) ModelService() training.ModelServer {
 		return components.modelService
 	}
 	components.modelService = training.NewModelService(components.PaymentChannelService(), components.ServiceMetaData(),
-		components.OrganizationMetaData(), components.ModelUserStorage())
+		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage())
 	return components.modelService
 }
 

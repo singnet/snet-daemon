@@ -10,12 +10,24 @@ import (
 type ModelStorage struct {
 	delegate storage.TypedAtomicStorage
 }
+type ModelUserStorage struct {
+	delegate storage.TypedAtomicStorage
+}
 
-func NewUserModelStorage(atomicStorage storage.AtomicStorage) *ModelStorage {
+func NewUerModelStorage(atomicStorage storage.AtomicStorage) *ModelUserStorage {
+	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/userModelStorage")
+	userModelStorage := storage.NewTypedAtomicStorageImpl(
+		prefixedStorage, serializeModelUserKey, reflect.TypeOf(ModelUserKey{}), utils.Serialize, utils.Deserialize,
+		reflect.TypeOf(ModelUserData{}),
+	)
+	return &ModelUserStorage{delegate: userModelStorage}
+}
+
+func NewModelStorage(atomicStorage storage.AtomicStorage) *ModelStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/modelStorage")
 	modelStorage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializeModelKey, reflect.TypeOf(ModelUserKey{}), utils.Serialize, utils.Deserialize,
-		reflect.TypeOf(ModelUserData{}),
+		prefixedStorage, serializeModelKey, reflect.TypeOf(ModelKey{}), utils.Serialize, utils.Deserialize,
+		reflect.TypeOf(ModelData{}),
 	)
 	return &ModelStorage{delegate: modelStorage}
 }
@@ -25,22 +37,52 @@ type ModelUserKey struct {
 	ServiceId      string
 	GroupId        string
 	MethodName     string
-	ModelId        string
+	UserAddress    string
 }
 
 func (key *ModelUserKey) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.OrganizationId,
-		key.ServiceId, key.GroupId, key.MethodName, key.ModelId)
+		key.ServiceId, key.GroupId, key.MethodName, key.UserAddress)
+}
+
+// ModelUserData maintain the list of all modelIds for a given user address
+type ModelUserData struct {
+	ModelIds []string
+	//the below are only for display purposes
+	OrganizationId string
+	ServiceId      string
+	GroupId        string
+	MethodName     string
+	UserAddress    string
 }
 
 func (data *ModelUserData) String() string {
+	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v,ModelsId:%v}",
+		data.OrganizationId,
+		data.ServiceId, data.GroupId, data.MethodName, data.UserAddress, data.ModelIds)
+}
+
+type ModelKey struct {
+	OrganizationId string
+	ServiceId      string
+	GroupId        string
+	MethodName     string
+	ModelId        string
+}
+
+func (key *ModelKey) String() string {
+	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.OrganizationId,
+		key.ServiceId, key.GroupId, key.MethodName, key.ModelId)
+}
+
+func (data *ModelData) String() string {
 	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v/isPublic:%v/accesibleAddress:%v/createdBy:%v/updatedBy:%v/status:%v}",
 		data.OrganizationId,
 		data.ServiceId, data.GroupId, data.MethodName, data.ModelId, data.AuthorizedAddresses, data.isPublic,
 		data.CreatedByAddress, data.UpdatedByAddress, data.Status)
 }
 
-type ModelUserData struct {
+type ModelData struct {
 	isPublic            bool
 	AuthorizedAddresses []string
 	Status              string
@@ -54,10 +96,43 @@ type ModelUserData struct {
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {
+	myKey := key.(*ModelKey)
+	return myKey.String(), nil
+}
+func (storage *ModelStorage) Get(key *ModelKey) (state *ModelData, ok bool, err error) {
+	value, ok, err := storage.delegate.Get(key)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	return value.(*ModelData), ok, err
+}
+
+func (storage *ModelStorage) GetAll() (states []*ModelData, err error) {
+	values, err := storage.delegate.GetAll()
+	if err != nil {
+		return
+	}
+
+	return values.([]*ModelData), nil
+}
+
+func (storage *ModelStorage) Put(key *ModelKey, state *ModelData) (err error) {
+	return storage.delegate.Put(key, state)
+}
+
+func (storage *ModelStorage) PutIfAbsent(key *ModelKey, state *ModelData) (ok bool, err error) {
+	return storage.delegate.PutIfAbsent(key, state)
+}
+
+func (storage *ModelStorage) CompareAndSwap(key *ModelKey, prevState *ModelData,
+	newState *ModelData) (ok bool, err error) {
+	return storage.delegate.CompareAndSwap(key, prevState, newState)
+}
+func serializeModelUserKey(key interface{}) (serialized string, err error) {
 	myKey := key.(*ModelUserKey)
 	return myKey.String(), nil
 }
-func (storage *ModelStorage) Get(key *ModelUserKey) (state *ModelUserData, ok bool, err error) {
+func (storage *ModelUserStorage) Get(key *ModelUserKey) (state *ModelUserData, ok bool, err error) {
 	value, ok, err := storage.delegate.Get(key)
 	if err != nil || !ok {
 		return nil, ok, err
@@ -65,7 +140,7 @@ func (storage *ModelStorage) Get(key *ModelUserKey) (state *ModelUserData, ok bo
 	return value.(*ModelUserData), ok, err
 }
 
-func (storage *ModelStorage) GetAll() (states []*ModelUserData, err error) {
+func (storage *ModelUserStorage) GetAll() (states []*ModelUserData, err error) {
 	values, err := storage.delegate.GetAll()
 	if err != nil {
 		return
@@ -74,15 +149,15 @@ func (storage *ModelStorage) GetAll() (states []*ModelUserData, err error) {
 	return values.([]*ModelUserData), nil
 }
 
-func (storage *ModelStorage) Put(key *ModelUserKey, state *ModelUserData) (err error) {
+func (storage *ModelUserStorage) Put(key *ModelUserKey, state *ModelUserData) (err error) {
 	return storage.delegate.Put(key, state)
 }
 
-func (storage *ModelStorage) PutIfAbsent(key *ModelUserKey, state *ModelUserData) (ok bool, err error) {
+func (storage *ModelUserStorage) PutIfAbsent(key *ModelUserKey, state *ModelUserData) (ok bool, err error) {
 	return storage.delegate.PutIfAbsent(key, state)
 }
 
-func (storage *ModelStorage) CompareAndSwap(key *ModelUserKey, prevState *ModelUserData,
+func (storage *ModelUserStorage) CompareAndSwap(key *ModelUserKey, prevState *ModelUserData,
 	newState *ModelUserData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }

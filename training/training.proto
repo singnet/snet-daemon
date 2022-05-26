@@ -10,10 +10,12 @@ message ModelDetails {
 
 message AuthorizationDetails {
   uint64 current_block = 1;
+  //Signer can fill in any message here
+  string message = 2;
   //signature of the following message:
   //("__methodName", user_address, current_block_number)
-  bytes signature = 2;
-  string signer_address = 3;
+  bytes signature = 3;
+  string signer_address = 4;
 
 }
 
@@ -37,15 +39,12 @@ message CreateModelRequest {
   AuthorizationDetails authorization = 5;
 
   string model_description = 6;
+  bool is_default_model = 7;
 }
 
 message AccessibleModelsRequest {
   string method_name = 1;
   AuthorizationDetails authorization = 2;
-}
-
-message AllAccessibleModelsRequest {
-
 }
 
 message AccessibleModelsResponse {
@@ -63,6 +62,7 @@ message UpdateModelRequest {
   repeated string addressList = 1;
   ModelDetailsRequest model_details_request = 2;
   bool is_publicly_accessible = 3;
+  bool is_default_model = 4;
 }
 
 
@@ -83,9 +83,10 @@ service Model {
   // Pricing will apply when you actually call the training methods defined.
   // AI consumer will call all these methods
   rpc create_model(CreateModelRequest) returns (ModelDetailsResponse) {}
-  rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc get_model_status(ModelDetailsRequest) returns (ModelDetailsResponse) {}
+
+  rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc get_all_models(AccessibleModelsRequest) returns (AccessibleModelsResponse) {}
 
 

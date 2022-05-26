@@ -18,13 +18,13 @@ type ModelStorageSuite struct {
 	accessibleAddress []string
 }
 
-func (suite *ModelStorageSuite) getUserModelKey(modelId string) *ModelUserKey {
-	return &ModelUserKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
+func (suite *ModelStorageSuite) getUserModelKey(modelId string) *ModelKey {
+	return &ModelKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
 		ServiceId: suite.serviceId, ModelId: modelId, MethodName: suite.methodName}
 }
 
-func (suite *ModelStorageSuite) getUserModelData(modelId string) *ModelUserData {
-	return &ModelUserData{
+func (suite *ModelStorageSuite) getUserModelData(modelId string) *ModelData {
+	return &ModelData{
 		Status:              "Created",
 		ModelId:             modelId,
 		OrganizationId:      suite.organizationId,
@@ -39,11 +39,10 @@ func (suite *ModelStorageSuite) getUserModelData(modelId string) *ModelUserData 
 
 func (suite *ModelStorageSuite) SetupSuite() {
 	suite.memoryStorage = storage.NewMemStorage()
-	suite.storage = NewUserModelStorage(suite.memoryStorage)
+	suite.storage = NewModelStorage(suite.memoryStorage)
 	suite.accessibleAddress = make([]string, 2)
 	suite.accessibleAddress[0] = "ADD1"
 	suite.accessibleAddress[1] = "ADD2"
-	//[2]string{"A1", "A2"}
 }
 
 func TestFreeCallUserStorageSuite(t *testing.T) {

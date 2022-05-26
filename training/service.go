@@ -102,7 +102,7 @@ func getModelUserKey(key *ModelKey, address string) *ModelUserKey {
 
 func (service ModelService) getModelUserData(key *ModelKey, address string) *ModelUserData {
 	//Check if there are any model Ids already associated with this user
-	modelIds := make([]string, 1)
+	modelIds := make([]string, 0)
 	userKey := getModelUserKey(key, address)
 	if data, ok, err := service.userStorage.Get(userKey); ok && err != nil && data != nil {
 		modelIds = data.ModelIds
@@ -147,22 +147,6 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (err
 		err = service.storage.Put(key, data)
 		err = service.deleteUserModelDetails(key, data)
 	}
-	return
-}
-
-func (service ModelService) getModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
-
-	key := service.getModelKeyToUpdate(request.ModelDetailsRequest)
-	data, ok, err := service.storage.Get(key)
-
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, fmt.Errorf("error in retreving data from storage for key %v", key)
-	}
-	data.Status = string(response.Status)
-	err = service.storage.Put(key, data)
 	return
 }
 func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
@@ -332,7 +316,7 @@ func (service ModelService) createModelData(request *CreateModelRequest, respons
 	}
 	//by default add the creator to the Authorized list of Address
 	if data.AuthorizedAddresses == nil {
-		data.AuthorizedAddresses = make([]string, 1)
+		data.AuthorizedAddresses = make([]string, 0)
 	}
 	data.AuthorizedAddresses = append(data.AuthorizedAddresses, data.CreatedByAddress)
 	return
@@ -468,7 +452,7 @@ func (service *ModelService) getMessageBytes(prefixMessage string, request *Auth
 func NewModelService(channelService escrow.PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage) ModelServer {
 	serviceURL := config.GetString(config.ModelTrainingEndpoint)
-	if config.IsValidUrl(serviceURL) {
+	if config.IsValidUrl(serviceURL) && config.GetBool(config.BlockchainEnabledKey) {
 		return &ModelService{
 			channelService:       channelService,
 			serviceMetaData:      serMetaData,

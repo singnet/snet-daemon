@@ -138,10 +138,12 @@ func (suite *ModelServiceTestSuite) getSignature(text string, blockNumber int, p
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
+	//No Authorization request
 	response, err := suite.service.CreateModel(context.TODO(), nil)
 	assert.NotNil(suite.T(), err)
 	assert.NotNil(suite.T(), response)
 
+	// valid request
 	request := &CreateModelRequest{
 		Authorization: &AuthorizationDetails{
 			SignerAddress: suite.senderAddress.String(),
@@ -152,6 +154,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 		MethodName:           "TESTMETHOD",
 		ModelDescription:     "Just Testing",
 		IsPubliclyAccessible: false,
+		AddressList:          []string{"A1", "A2", "A3"},
 	}
 	fmt.Println(suite.senderAddress.String())
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
@@ -159,8 +162,41 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	response, err = suite.service.CreateModel(ctx, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), "1", response.ModelDetails.ModelId)
+	userKey := &ModelUserKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
+		MethodName:     "TESTMETHOD",
+		UserAddress:    "A1",
+	}
+	//check if we have stored the user's associated model Ids
+	data, ok, err := suite.service.(*ModelService).userStorage.Get(userKey)
+	assert.Equal(suite.T(), []string{"1"}, data.ModelIds)
+	assert.Equal(suite.T(), ok, true)
+	assert.Nil(suite.T(), err)
+
+	//check if the model Id stored has all the details
+	key := &ModelKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
+		MethodName:     "TESTMETHOD",
+		ModelId:        "1",
+	}
+	modelData, ok, err := suite.service.(*ModelService).storage.Get(key)
+	assert.Equal(suite.T(), []string{"A1", "A2", "A3", suite.senderAddress.String()}, modelData.AuthorizedAddresses)
+	assert.Equal(suite.T(), ok, true)
+	assert.Nil(suite.T(), err)
+
+	//when AI developer has not implemented the training.prot , ensure we get back an error when daemon is called
 	response, err = suite.serviceNotImplemented.CreateModel(ctx, request)
 	assert.NotNil(suite.T(), err)
+
+	//send a bad signature
+	request.Authorization.Signature = suite.getSignature("Differennt message", 1200, suite.senderPvtKy)
+	response, err = suite.service.CreateModel(ctx, request)
+	assert.NotNil(suite.T(), err)
+
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_DeleteModel() {

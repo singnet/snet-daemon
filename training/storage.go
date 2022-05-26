@@ -33,16 +33,17 @@ func NewModelStorage(atomicStorage storage.AtomicStorage) *ModelStorage {
 }
 
 type ModelUserKey struct {
-	OrganizationId string
-	ServiceId      string
-	GroupId        string
-	MethodName     string
-	UserAddress    string
+	OrganizationId  string
+	ServiceId       string
+	GroupId         string
+	GRPCMethodName  string
+	GRPCServiceName string
+	UserAddress     string
 }
 
 func (key *ModelUserKey) String() string {
-	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.OrganizationId,
-		key.ServiceId, key.GroupId, key.MethodName, key.UserAddress)
+	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v/%v}", key.OrganizationId,
+		key.ServiceId, key.GroupId, key.GRPCServiceName, key.GRPCMethodName, key.UserAddress)
 }
 
 // ModelUserData maintain the list of all modelIds for a given user address
@@ -52,38 +53,39 @@ type ModelUserData struct {
 	OrganizationId string
 	ServiceId      string
 	GroupId        string
-	MethodName     string
+	GRPCMethodName string
 	UserAddress    string
 }
 
 func (data *ModelUserData) String() string {
 	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v,ModelsId:%v}",
 		data.OrganizationId,
-		data.ServiceId, data.GroupId, data.MethodName, data.UserAddress, data.ModelIds)
+		data.ServiceId, data.GroupId, data.GRPCMethodName, data.UserAddress, data.ModelIds)
 }
 
 type ModelKey struct {
-	OrganizationId string
-	ServiceId      string
-	GroupId        string
-	MethodName     string
-	ModelId        string
+	OrganizationId  string
+	ServiceId       string
+	GroupId         string
+	GRPCMethodName  string
+	GRPCServiceName string
+	ModelId         string
 }
 
 func (key *ModelKey) String() string {
-	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.OrganizationId,
-		key.ServiceId, key.GroupId, key.MethodName, key.ModelId)
+	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v/%v}", key.OrganizationId,
+		key.ServiceId, key.GroupId, key.GRPCServiceName, key.GRPCMethodName, key.ModelId)
 }
 
 func (data *ModelData) String() string {
-	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v/isPublic:%v/accesibleAddress:%v/createdBy:%v/updatedBy:%v/status:%v}",
+	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v/%v/IsPublic:%v/accesibleAddress:%v/createdBy:%v/updatedBy:%v/status:%v/TrainingLin:%v}",
 		data.OrganizationId,
-		data.ServiceId, data.GroupId, data.MethodName, data.ModelId, data.AuthorizedAddresses, data.isPublic,
-		data.CreatedByAddress, data.UpdatedByAddress, data.Status)
+		data.ServiceId, data.GroupId, data.GRPCServiceName, data.GRPCMethodName, data.ModelId, data.AuthorizedAddresses, data.IsPublic,
+		data.CreatedByAddress, data.UpdatedByAddress, data.Status, data.TrainingLink)
 }
 
 type ModelData struct {
-	isPublic            bool
+	IsPublic            bool
 	AuthorizedAddresses []string
 	Status              string
 	CreatedByAddress    string
@@ -92,8 +94,11 @@ type ModelData struct {
 	GroupId             string
 	OrganizationId      string
 	ServiceId           string
-	MethodName          string
+	GRPCMethodName      string
+	GRPCServiceName     string
 	Description         string
+	IsDefault           bool
+	TrainingLink        string
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {

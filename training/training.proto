@@ -2,10 +2,25 @@ syntax = "proto3";
 package training;
 //Please note that the AI developers need to provide a server implementation of the gprc server of this proto.
 message ModelDetails {
+  //This Id will be generated when you invoke the create_model method and hence doesnt need to be filled when you
+  //invoke the create model
   string model_id = 1;
-  string method_name = 2;
-  string description = 3;
+  //define the training method name
+  string grpc_method_name = 2;
+  //define the grpc service name , under which the method is defined
+  string grpc_service_name = 3;
+  string description = 4;
+  //set this to true if you want your model to be used by other AI consumers
+  bool is_publicly_accessible = 5;
+  //List of all the addresses that will have access to this model
+  repeated string address_list = 6;
+  // this is optional
+  string training_data_link = 7;
+  bool is_default_model = 8;
 
+  string organization_id = 9;
+  string service_id = 10 ;
+  string group_id = 11;
 }
 
 message AuthorizationDetails {
@@ -28,18 +43,8 @@ enum Status {
 }
 
 message CreateModelRequest {
-  repeated string address_list = 1;
-
-  string training_data_link = 2;
-  //This is to uniquely identify the method name against which the training request
-  string method_name = 3;
-  //Incase the AI consumer wishes to make this madel public
-  bool is_publicly_accessible = 4;
-
-  AuthorizationDetails authorization = 5;
-
-  string model_description = 6;
-  bool is_default_model = 7;
+  AuthorizationDetails authorization = 1;
+  ModelDetails model_details = 2;
 }
 
 message AccessibleModelsRequest {
@@ -69,10 +74,6 @@ message UpdateModelRequest {
 message ModelDetailsResponse {
   Status status = 1;
   ModelDetails model_details = 2;
-  string message = 3;
-  repeated string address_list = 4;
-  string service_id = 6;
-  string organization_id = 7;
 
 }
 

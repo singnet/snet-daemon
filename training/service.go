@@ -77,10 +77,10 @@ func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client Mo
 	client = NewModelClient(conn)
 	return
 }
-func (service ModelService) createModelDetails(request *CreateModelRequest, response *ModelDetailsResponse) (err error) {
+func (service ModelService) createModelDetails(request *CreateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
 	key := service.getModelKeyToCreate(request, response)
-	data := service.createModelData(request, response)
-
+	data = service.getModelDataToCreate(request, response)
+	//store the model details in etcd
 	err = service.storage.Put(key, data)
 	//for every accessible address in the list , store the user address and all the model Ids associated with it
 	for _, address := range data.AuthorizedAddresses {
@@ -92,11 +92,12 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 }
 func getModelUserKey(key *ModelKey, address string) *ModelUserKey {
 	return &ModelUserKey{
-		OrganizationId: key.OrganizationId,
-		ServiceId:      key.ServiceId,
-		GroupId:        key.GroupId,
-		MethodName:     key.MethodName,
-		UserAddress:    address,
+		OrganizationId:  key.OrganizationId,
+		ServiceId:       key.ServiceId,
+		GroupId:         key.GroupId,
+		GRPCMethodName:  key.GRPCMethodName,
+		GRPCServiceName: key.GRPCServiceName,
+		UserAddress:     address,
 	}
 }
 
@@ -112,7 +113,7 @@ func (service ModelService) getModelUserData(key *ModelKey, address string) *Mod
 		OrganizationId: key.OrganizationId,
 		ServiceId:      key.ServiceId,
 		GroupId:        key.GroupId,
-		MethodName:     key.MethodName,
+		GRPCMethodName: key.GRPCMethodName,
 		UserAddress:    address,
 		ModelIds:       modelIds,
 	}
@@ -151,9 +152,9 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (err
 }
 func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
 	responseData = &ModelDetails{
-		ModelId:     data.ModelId,
-		MethodName:  data.MethodName,
-		Description: data.Description,
+		ModelId:        data.ModelId,
+		GrpcMethodName: data.GRPCMethodName,
+		Description:    data.Description,
 	}
 	return
 }
@@ -166,7 +167,7 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		copy(oldAddresses, data.AuthorizedAddresses)
 		if data, ok, err := service.storage.Get(key); err != nil && ok {
 			data.AuthorizedAddresses = request.AddressList
-			data.isPublic = request.IsPubliclyAccessible
+			data.IsPublic = request.IsPubliclyAccessible
 			data.UpdatedByAddress = request.ModelDetailsRequest.Authorization.SignerAddress
 			data.Status = string(response.Status)
 		}
@@ -232,11 +233,12 @@ func (service ModelService) updateModelDetailsForStatus(request *ModelDetailsReq
 }
 func (service ModelService) getModelKeyToCreate(request *CreateModelRequest, response *ModelDetailsResponse) (key *ModelKey) {
 	key = &ModelKey{
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        service.organizationMetaData.GetGroupIdString(),
-		MethodName:     request.MethodName,
-		ModelId:        response.ModelDetails.ModelId,
+		OrganizationId:  config.GetString(config.OrganizationId),
+		ServiceId:       config.GetString(config.ServiceId),
+		GroupId:         service.organizationMetaData.GetGroupIdString(),
+		GRPCMethodName:  request.ModelDetails.GrpcMethodName,
+		GRPCServiceName: request.ModelDetails.GrpcServiceName,
+		ModelId:         response.ModelDetails.ModelId,
 	}
 	return
 }
@@ -246,7 +248,7 @@ func (service ModelService) getModelKeyToUpdate(request *ModelDetailsRequest) (k
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
 		GroupId:        service.organizationMetaData.GetGroupIdString(),
-		MethodName:     request.ModelDetails.MethodName,
+		GRPCMethodName: request.ModelDetails.GrpcMethodName,
 		ModelId:        request.ModelDetails.ModelId,
 	}
 	return
@@ -279,7 +281,7 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
 		GroupId:        service.organizationMetaData.GetGroupIdString(),
-		MethodName:     request.MethodName,
+		GRPCMethodName: request.MethodName,
 		UserAddress:    request.Authorization.SignerAddress,
 	}
 	modelDetailsArray := make([]*ModelDetails, 0)
@@ -289,7 +291,7 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 				OrganizationId: config.GetString(config.OrganizationId),
 				ServiceId:      config.GetString(config.ServiceId),
 				GroupId:        service.organizationMetaData.GetGroupIdString(),
-				MethodName:     request.MethodName,
+				GRPCMethodName: request.MethodName,
 				ModelId:        modelId,
 			}
 			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr != nil {
@@ -303,12 +305,17 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 	return
 }
 
-func (service ModelService) createModelData(request *CreateModelRequest, response *ModelDetailsResponse) (data *ModelData) {
+func (service ModelService) getModelDataToCreate(request *CreateModelRequest, response *ModelDetailsResponse) (data *ModelData) {
+
 	data = &ModelData{
 		Status:              string(response.Status),
+		GRPCServiceName:     request.ModelDetails.GrpcServiceName,
+		GRPCMethodName:      request.ModelDetails.GrpcMethodName,
 		CreatedByAddress:    request.Authorization.SignerAddress,
-		AuthorizedAddresses: request.AddressList,
-		isPublic:            request.IsPubliclyAccessible,
+		UpdatedByAddress:    request.Authorization.SignerAddress,
+		AuthorizedAddresses: request.ModelDetails.AddressList,
+		IsPublic:            request.ModelDetails.IsPubliclyAccessible,
+		IsDefault:           request.ModelDetails.IsDefaultModel,
 		ModelId:             response.ModelDetails.ModelId,
 		OrganizationId:      config.GetString(config.OrganizationId),
 		ServiceId:           config.GetString(config.ServiceId),
@@ -341,8 +348,10 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 		response, err = client.CreateModel(c, request)
 		if err == nil {
 			//store the details in etcd
-			log.Infof("Creating model based on response from CreateModel")
-			if err = service.createModelDetails(request, response); err != nil {
+			log.Infof("Creating model based on response from CreateModel of training service")
+			if data, err := service.createModelDetails(request, response); err == nil {
+				response = BuildCreateModelResponse(data)
+			} else {
 				return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 			}
 		}
@@ -351,9 +360,26 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf("error in invoking service for Model Training %v", err)
 	}
+
 	return
 }
-
+func BuildCreateModelResponse(data *ModelData) *ModelDetailsResponse {
+	return &ModelDetailsResponse{
+		Status: 0,
+		ModelDetails: &ModelDetails{
+			ModelId:              data.ModelId,
+			GrpcMethodName:       data.GRPCMethodName,
+			GrpcServiceName:      data.GRPCServiceName,
+			Description:          data.Description,
+			IsPubliclyAccessible: data.IsPublic,
+			AddressList:          data.AuthorizedAddresses,
+			TrainingDataLink:     data.TrainingLink,
+			IsDefaultModel:       data.IsDefault,
+			OrganizationId:       data.OrganizationId,
+			ServiceId:            data.ServiceId,
+		},
+	}
+}
 func (service ModelService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
 	if request == nil || request.ModelDetailsRequest == nil || request.ModelDetailsRequest.Authorization == nil {
@@ -464,7 +490,4 @@ func NewModelService(channelService escrow.PaymentChannelService, serMetaData *b
 	} else {
 		return &NoModelSupportService{}
 	}
-}
-
-type IModelService interface {
 }

@@ -20,7 +20,7 @@ type ModelStorageSuite struct {
 
 func (suite *ModelStorageSuite) getUserModelKey(modelId string) *ModelKey {
 	return &ModelKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
-		ServiceId: suite.serviceId, ModelId: modelId, MethodName: suite.methodName}
+		ServiceId: suite.serviceId, ModelId: modelId, GRPCMethodName: suite.methodName}
 }
 
 func (suite *ModelStorageSuite) getUserModelData(modelId string) *ModelData {
@@ -30,7 +30,7 @@ func (suite *ModelStorageSuite) getUserModelData(modelId string) *ModelData {
 		OrganizationId:      suite.organizationId,
 		ServiceId:           suite.serviceId,
 		GroupId:             suite.groupId,
-		MethodName:          suite.methodName,
+		GRPCMethodName:      suite.methodName,
 		AuthorizedAddresses: suite.accessibleAddress,
 		CreatedByAddress:    suite.accessibleAddress[0],
 		UpdatedByAddress:    suite.accessibleAddress[1],

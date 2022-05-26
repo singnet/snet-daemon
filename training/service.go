@@ -141,7 +141,7 @@ func remove(s []string, r string) []string {
 }
 
 func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (err error) {
-	key := service.getModelKeyToUpdate(request.ModelDetailsRequest)
+	key := service.getModelKeyToUpdate(request)
 	data, ok, err := service.storage.Get(key)
 	if ok && err != nil {
 		data.Status = "DELETED"
@@ -159,34 +159,41 @@ func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
 	return
 }
 
-func (service ModelService) updateModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (err error) {
-	key := service.getModelKeyToUpdate(request.ModelDetailsRequest)
+func (service ModelService) updateModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
+	key := service.getModelKeyToUpdate(request)
 	oldAddresses := make([]string, 0)
-
-	if data, err := service.getModelDataForUpdate(request, response); err != nil {
+	latestAddresses := make([]string, 0)
+	//by default add the creator to the Authorized list of Address
+	if request.UpdateModelDetails.AddressList != nil || len(request.UpdateModelDetails.AddressList) > 0 {
+		latestAddresses = request.UpdateModelDetails.AddressList
+	}
+	latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
+	if data, err = service.getModelDataForUpdate(request, response); err == nil {
 		copy(oldAddresses, data.AuthorizedAddresses)
-		if data, ok, err := service.storage.Get(key); err != nil && ok {
-			data.AuthorizedAddresses = request.AddressList
-			data.IsPublic = request.IsPubliclyAccessible
-			data.UpdatedByAddress = request.ModelDetailsRequest.Authorization.SignerAddress
-			data.Status = string(response.Status)
-		}
+
+		data.AuthorizedAddresses = latestAddresses
+		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
+		data.UpdatedByAddress = request.Authorization.SignerAddress
+		data.Status = string(response.Status)
+		data.IsDefault = request.UpdateModelDetails.IsDefaultModel
+
+		err = service.storage.Put(key, data)
 		//get the difference of all the addresses b/w old and new
-		updatedAddresses := difference(oldAddresses, request.AddressList)
+		updatedAddresses := difference(oldAddresses, latestAddresses)
 		for _, address := range updatedAddresses {
 			modelUserKey := getModelUserKey(key, address)
 			modelUserData := service.getModelUserData(key, address)
 			//if the address is present in the request but not in the old address , add it to the storage
-			if isValuePresent(address, request.AddressList) {
-				modelUserData.ModelIds = append(modelUserData.ModelIds, request.ModelDetailsRequest.ModelDetails.ModelId)
+			if isValuePresent(address, request.UpdateModelDetails.AddressList) {
+				modelUserData.ModelIds = append(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
 			} else { // the address was present in the old data , but not in new , hence needs to be deleted
-				modelUserData.ModelIds = remove(modelUserData.ModelIds, request.ModelDetailsRequest.ModelDetails.ModelId)
+				modelUserData.ModelIds = remove(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
 			}
 			err = service.userStorage.Put(modelUserKey, modelUserData)
 			log.WithError(err)
 
 		}
-		err = service.storage.Put(key, data)
+
 	}
 	return
 }
@@ -224,10 +231,21 @@ func isValuePresent(value string, list []string) bool {
 	return false
 }
 
-func (service ModelService) updateModelDetailsForStatus(request *ModelDetailsRequest, response *ModelDetailsResponse) (err error) {
-	key := service.getModelKeyToUpdate(request)
-	if data, err := service.getModelDataForStatusUpdate(request, response); err != nil {
-		err = service.storage.Put(key, data)
+func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDetailsRequest, response *ModelDetailsResponse) (err error) {
+	key := &ModelKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        service.organizationMetaData.GetGroupIdString(),
+		GRPCMethodName: request.ModelDetails.GrpcMethodName,
+		ModelId:        request.ModelDetails.ModelId,
+	}
+	return
+	if data, ok, err := service.storage.Get(key); err != nil && !ok {
+		data.Status = string(response.Status)
+
+		if err = service.storage.Put(key, data); err != nil {
+			log.WithError(fmt.Errorf("issue with retrieving model data from storage"))
+		}
 	}
 	return
 }
@@ -243,23 +261,24 @@ func (service ModelService) getModelKeyToCreate(request *CreateModelRequest, res
 	return
 }
 
-func (service ModelService) getModelKeyToUpdate(request *ModelDetailsRequest) (key *ModelKey) {
+func (service ModelService) getModelKeyToUpdate(request *UpdateModelRequest) (key *ModelKey) {
 	key = &ModelKey{
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        service.organizationMetaData.GetGroupIdString(),
-		GRPCMethodName: request.ModelDetails.GrpcMethodName,
-		ModelId:        request.ModelDetails.ModelId,
+		OrganizationId:  config.GetString(config.OrganizationId),
+		ServiceId:       config.GetString(config.ServiceId),
+		GroupId:         service.organizationMetaData.GetGroupIdString(),
+		GRPCMethodName:  request.UpdateModelDetails.GrpcMethodName,
+		GRPCServiceName: request.UpdateModelDetails.GrpcServiceName,
+		ModelId:         request.UpdateModelDetails.ModelId,
 	}
 	return
 }
 
 func (service ModelService) getModelDataForUpdate(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
-	data, err = service.getModelDataForStatusUpdate(request.ModelDetailsRequest, response)
+	data, err = service.getModelDataForStatusUpdate(request, response)
 	return
 }
 
-func (service ModelService) getModelDataForStatusUpdate(request *ModelDetailsRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
+func (service ModelService) getModelDataForStatusUpdate(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
 	key := service.getModelKeyToUpdate(request)
 	ok := false
 
@@ -278,23 +297,25 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
 	key := &ModelUserKey{
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        service.organizationMetaData.GetGroupIdString(),
-		GRPCMethodName: request.MethodName,
-		UserAddress:    request.Authorization.SignerAddress,
+		OrganizationId:  config.GetString(config.OrganizationId),
+		ServiceId:       config.GetString(config.ServiceId),
+		GroupId:         service.organizationMetaData.GetGroupIdString(),
+		GRPCMethodName:  request.GrpcMethodName,
+		GRPCServiceName: request.GrpcServiceName,
+		UserAddress:     request.Authorization.SignerAddress,
 	}
 	modelDetailsArray := make([]*ModelDetails, 0)
-	if data, ok, err := service.userStorage.Get(key); data != nil && ok && err != nil {
+	if data, ok, err := service.userStorage.Get(key); data != nil && ok && err == nil {
 		for _, modelId := range data.ModelIds {
 			modelKey := &ModelKey{
-				OrganizationId: config.GetString(config.OrganizationId),
-				ServiceId:      config.GetString(config.ServiceId),
-				GroupId:        service.organizationMetaData.GetGroupIdString(),
-				GRPCMethodName: request.MethodName,
-				ModelId:        modelId,
+				OrganizationId:  config.GetString(config.OrganizationId),
+				ServiceId:       config.GetString(config.ServiceId),
+				GroupId:         service.organizationMetaData.GetGroupIdString(),
+				GRPCMethodName:  request.GrpcMethodName,
+				GRPCServiceName: request.GrpcServiceName,
+				ModelId:         modelId,
 			}
-			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr != nil {
+			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
 				modelDetailsArray = append(modelDetailsArray, convertModelDataToBO(modelData))
 			}
 		}
@@ -382,11 +403,11 @@ func BuildCreateModelResponse(data *ModelData) *ModelDetailsResponse {
 }
 func (service ModelService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
-	if request == nil || request.ModelDetailsRequest == nil || request.ModelDetailsRequest.Authorization == nil {
+	if request == nil || request.Authorization == nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
-	if err = service.verifySignature(request.ModelDetailsRequest.Authorization); err != nil {
+	if err = service.verifySignature(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
@@ -396,9 +417,13 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.UpdateModelAccess(ctx, request)
 		log.Infof("Updating model based on response from UpdateModel")
-		if err = service.updateModelDetails(request, response); err != nil {
+		if data, err := service.updateModelDetails(request, response); err == nil && data != nil {
+			response = BuildCreateModelResponse(data)
+
+		} else {
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}
+
 		deferConnection(conn)
 	} else {
 		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
@@ -408,11 +433,11 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 
 func (service ModelService) DeleteModel(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
-	if request == nil || request.ModelDetailsRequest == nil || request.ModelDetailsRequest.Authorization == nil {
+	if request == nil || request.Authorization == nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
-	if err = service.verifySignature(request.ModelDetailsRequest.Authorization); err != nil {
+	if err = service.verifySignature(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
@@ -448,7 +473,7 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.GetModelStatus(ctx, request)
 		log.Infof("Updating model status based on response from UpdateModel")
-		if err = service.updateModelDetailsForStatus(request, response); err != nil {
+		if err = service.updateModelDetailsWithLatestStatus(request, response); err != nil {
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}
 		deferConnection(conn)

@@ -90,14 +90,14 @@ func (m MockServiceModelGRPCImpl) CreateModel(context context.Context, request *
 func (m MockServiceModelGRPCImpl) UpdateModelAccess(context context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
 	return &ModelDetailsResponse{Status: Status_IN_PROGRESS,
 		ModelDetails: &ModelDetails{
-			ModelId: request.ModelDetailsRequest.ModelDetails.ModelId,
+			ModelId: request.UpdateModelDetails.ModelId,
 		}}, nil
 }
 
 func (m MockServiceModelGRPCImpl) DeleteModel(context context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
 	return &ModelDetailsResponse{Status: Status_DELETED,
 		ModelDetails: &ModelDetails{
-			ModelId: request.ModelDetailsRequest.ModelDetails.ModelId,
+			ModelId: request.UpdateModelDetails.ModelId,
 		}}, nil
 }
 
@@ -208,23 +208,19 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 func (suite *ModelServiceTestSuite) TestModelService_DeleteModel() {
 	response, err := suite.service.DeleteModel(context.Background(), nil)
 	assert.NotNil(suite.T(), err)
-	authorization := &AuthorizationDetails{
-		SignerAddress: suite.senderAddress.String(),
-		Message:       "__DeleteModel",
-		Signature:     suite.getSignature("__DeleteModel", 1200, suite.senderPvtKy),
-		CurrentBlock:  1200,
-	}
-	request := &UpdateModelRequest{
-		ModelDetailsRequest: &ModelDetailsRequest{
-			ModelDetails: &ModelDetails{
-				ModelId:         "1",
-				GrpcServiceName: "TESTSERVICE",
-				GrpcMethodName:  "TESTMETHOD",
-			},
-			Authorization: authorization,
-		},
 
-		IsPubliclyAccessible: false,
+	request := &UpdateModelRequest{
+		UpdateModelDetails: &ModelDetails{
+			ModelId:         "1",
+			GrpcServiceName: "TESTSERVICE",
+			GrpcMethodName:  "TESTMETHOD",
+		},
+		Authorization: &AuthorizationDetails{
+			SignerAddress: suite.senderAddress.String(),
+			Message:       "__GetModelStatus",
+			Signature:     suite.getSignature("__GetModelStatus", 1200, suite.senderPvtKy),
+			CurrentBlock:  1200,
+		},
 	}
 	fmt.Println(suite.senderAddress.String())
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
@@ -259,28 +255,46 @@ func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {
 
 func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 	request := &UpdateModelRequest{
-		ModelDetailsRequest: &ModelDetailsRequest{
-			ModelDetails: &ModelDetails{
-				ModelId:         "1",
-				GrpcServiceName: "TESTSERVICE",
-				GrpcMethodName:  "TESTMETHOD",
-			},
-			Authorization: &AuthorizationDetails{
-				SignerAddress: suite.senderAddress.String(),
-				Message:       "__UpdateModelAccess",
-				Signature:     suite.getSignature("__UpdateModelAccess", 1200, suite.senderPvtKy),
-				CurrentBlock:  1200,
-			},
+		UpdateModelDetails: &ModelDetails{
+			ModelId:              "1",
+			GrpcServiceName:      "TESTSERVICE",
+			GrpcMethodName:       "TESTMETHOD",
+			IsPubliclyAccessible: false,
+			IsDefaultModel:       true,
+			Description:          "How are you",
 		},
-
-		IsPubliclyAccessible: false,
+		Authorization: &AuthorizationDetails{
+			SignerAddress: suite.senderAddress.String(),
+			Message:       "__UpdateModelAccess",
+			Signature:     suite.getSignature("__UpdateModelAccess", 1200, suite.senderPvtKy),
+			CurrentBlock:  1200,
+		},
 	}
-	fmt.Println(suite.senderAddress.String())
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	response, err := suite.service.UpdateModelAccess(ctx, request)
 	assert.Nil(suite.T(), err)
-	assert.Equal(suite.T(), Status_IN_PROGRESS, response.Status)
+	assert.Equal(suite.T(), len(response.GetModelDetails().AddressList), 1)
+}
+
+func (suite *ModelServiceTestSuite) TestModelService_GetAllAccessibleModels() {
+	request := &AccessibleModelsRequest{
+		GrpcServiceName: "TESTSERVICE",
+		GrpcMethodName:  "TESTMETHOD",
+		Authorization: &AuthorizationDetails{
+			SignerAddress: suite.senderAddress.String(),
+			Message:       "__UpdateModelAccess",
+			Signature:     suite.getSignature("__UpdateModelAccess", 1200, suite.senderPvtKy),
+			CurrentBlock:  1200,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
+	defer cancel()
+	response, err := suite.service.GetAllModels(ctx, request)
+	assert.Nil(suite.T(), err)
+	assert.Equal(suite.T(), len(response.ListOfModels) > 0, true)
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_remove() {

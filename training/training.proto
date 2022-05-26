@@ -47,9 +47,11 @@ message CreateModelRequest {
   ModelDetails model_details = 2;
 }
 
+//the signer address will get to know all the models associated with this address.
 message AccessibleModelsRequest {
-  string method_name = 1;
-  AuthorizationDetails authorization = 2;
+  string grpc_method_name = 1;
+  string grpc_service_name = 2;
+  AuthorizationDetails authorization = 3;
 }
 
 message AccessibleModelsResponse {
@@ -64,10 +66,8 @@ message ModelDetailsRequest {
 
 
 message UpdateModelRequest {
-  repeated string addressList = 1;
-  ModelDetailsRequest model_details_request = 2;
-  bool is_publicly_accessible = 3;
-  bool is_default_model = 4;
+  ModelDetails update_model_details = 1 ;
+  AuthorizationDetails authorization = 2;
 }
 
 

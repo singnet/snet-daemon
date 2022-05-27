@@ -30,7 +30,7 @@ func (suite *ModelStorageSuite) getUserModelKey(address string) *ModelUserKey {
 
 func (suite *ModelStorageSuite) getModelData(modelId string) *ModelData {
 	return &ModelData{
-		Status:              "Created",
+		Status:              Status_CREATED,
 		ModelId:             modelId,
 		OrganizationId:      suite.organizationId,
 		ServiceId:           suite.serviceId,

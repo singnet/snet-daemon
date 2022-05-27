@@ -74,6 +74,8 @@ func (suite *ModelServiceTestSuite) SetupSuite() {
 	suite.alternateUserPvtKy, _ = crypto.GenerateKey()
 	suite.alternateUserAddress = crypto.PubkeyToAddress(suite.alternateUserPvtKy.PublicKey)
 
+	config.Vip().Set(config.ModelTrainingEndpoint, "localhost:2222")
+
 }
 
 type MockServiceModelGRPCImpl struct {
@@ -116,10 +118,7 @@ func (m MockServiceModelGRPCImpl) GetAllModels(context context.Context, request 
 func (suite *ModelServiceTestSuite) TearDownSuite() {
 	suite.server.GracefulStop()
 }
-func getSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
 
-	return signature
-}
 func (suite *ModelServiceTestSuite) getSignature(text string, blockNumber int, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	message := bytes.Join([][]byte{
 		[]byte(text),
@@ -223,6 +222,28 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	response, err = suite.service.CreateModel(ctx, request)
 	assert.NotNil(suite.T(), err)
 
+	// valid request
+	request2 := &CreateModelRequest{
+		Authorization: &AuthorizationDetails{
+			SignerAddress: suite.senderAddress.String(),
+			Message:       "__CreateModel",
+			Signature:     suite.getSignature("__CreateModel", 1200, suite.senderPvtKy),
+			CurrentBlock:  1200,
+		},
+		ModelDetails: &ModelDetails{
+			GrpcServiceName:      "TESTSERVICE1",
+			GrpcMethodName:       "TESTMETHOD1",
+			Description:          "Just Testing",
+			IsPubliclyAccessible: false,
+		},
+	}
+	fmt.Println(suite.senderAddress.String())
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*2000)
+	defer cancel()
+	response, err = suite.service.CreateModel(ctx, request2)
+	assert.Nil(suite.T(), err)
+	assert.Equal(suite.T(), response.ModelDetails.AddressList, []string{suite.senderAddress.String()})
+
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {
@@ -278,7 +299,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 	modelData := &ModelData{
 		IsPublic:            false,
 		AuthorizedAddresses: []string{suite.senderAddress.String()},
-		Status:              "",
+		Status:              Status_IN_PROGRESS,
 		CreatedByAddress:    suite.senderAddress.String(),
 		ModelId:             "1",
 		UpdatedByAddress:    suite.senderAddress.String(),
@@ -336,6 +357,22 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 	response, err := suite.service.UpdateModelAccess(ctx, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), len(response.GetModelDetails().AddressList), 1)
+
+	//update a model id which is not there
+	request.UpdateModelDetails.ModelId = "25"
+	response, err = suite.service.UpdateModelAccess(ctx, request)
+	assert.NotNil(suite.T(), err)
+
+	//update request with someone who does not have access
+	request.Authorization.Signature = suite.getSignature("__UpdateModelAccess", 1200, suite.alternateUserPvtKy)
+	response, err = suite.service.UpdateModelAccess(ctx, request)
+	assert.NotNil(suite.T(), err)
+
+	//update request with someone who does not have access
+	request.Authorization = nil
+	response, err = suite.service.UpdateModelAccess(ctx, request)
+	assert.NotNil(suite.T(), err)
+
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_GetAllAccessibleModels() {
@@ -355,6 +392,28 @@ func (suite *ModelServiceTestSuite) TestModelService_GetAllAccessibleModels() {
 	response, err := suite.service.GetAllModels(ctx, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), len(response.ListOfModels) > 0, true)
+
+	request2 := &AccessibleModelsRequest{
+		GrpcServiceName: "TESTSERVICE",
+		GrpcMethodName:  "TESTMETHOD",
+		Authorization: &AuthorizationDetails{
+			SignerAddress: suite.senderAddress.String(),
+			Message:       "__UpdateModelAccess",
+			Signature:     suite.getSignature("__UpdateModelAccess", 1200, suite.alternateUserPvtKy),
+			CurrentBlock:  1200,
+		},
+	}
+	response, err = suite.service.GetAllModels(ctx, request2)
+	assert.NotNil(suite.T(), err)
+
+	request.Authorization.Signature = suite.getSignature("__UpdateModelAccess", 1200, suite.alternateUserPvtKy)
+	response, err = suite.service.GetAllModels(ctx, request)
+	assert.NotNil(suite.T(), err)
+
+	request.Authorization = nil
+	response, err = suite.service.GetAllModels(ctx, request)
+	assert.NotNil(suite.T(), err)
+
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_remove() {
@@ -401,6 +460,16 @@ func (suite *ModelServiceTestSuite) TestModelService_UDeleteModel() {
 	response, err = suite.service.DeleteModel(ctx, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), Status_DELETED, response.Status)
+
+	//unauthorized signer
+	request.Authorization.SignerAddress = suite.alternateUserAddress.String()
+	request.Authorization.Signature = suite.getSignature("__GetModelStatus", 1200, suite.alternateUserPvtKy)
+
+	//bad signer
+	request.Authorization.Message = "blah"
+	response, err = suite.service.DeleteModel(ctx, request)
+	assert.NotNil(suite.T(), err)
+
 	request.Authorization = nil
 	response, err = suite.service.DeleteModel(ctx, request)
 	assert.NotNil(suite.T(), err)

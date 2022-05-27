@@ -141,7 +141,7 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (dat
 	ok := false
 	data, ok, err = service.storage.Get(key)
 	if ok && err == nil {
-		data.Status = string(Status_DELETED)
+		data.Status = (Status_DELETED)
 		err = service.storage.Put(key, data)
 		err = service.deleteUserModelDetails(key, data)
 	}
@@ -175,7 +175,9 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
 		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
 		data.UpdatedByAddress = request.Authorization.SignerAddress
-		data.Status = string(response.Status)
+		if response != nil {
+			data.Status = response.Status
+		}
 		data.IsDefault = request.UpdateModelDetails.IsDefaultModel
 
 		err = service.storage.Put(key, data)
@@ -262,7 +264,7 @@ func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDet
 	}
 	ok := false
 	if data, ok, err = service.storage.Get(key); err == nil && ok {
-		data.Status = string(response.Status)
+		data.Status = response.Status
 
 		if err = service.storage.Put(key, data); err != nil {
 			log.WithError(fmt.Errorf("issue with retrieving model data from storage"))
@@ -304,7 +306,7 @@ func (service ModelService) getModelDataForStatusUpdate(request *UpdateModelRequ
 	ok := false
 
 	if data, ok, err = service.storage.Get(key); err != nil || !ok {
-		log.WithError(fmt.Errorf("issue with retrieving model data from storage"))
+		log.WithError(fmt.Errorf("unable to retrieve model %v data from storage", key.ModelId))
 	}
 	return
 }
@@ -351,7 +353,7 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 func (service ModelService) getModelDataToCreate(request *CreateModelRequest, response *ModelDetailsResponse) (data *ModelData) {
 
 	data = &ModelData{
-		Status:              string(response.Status),
+		Status:              response.Status,
 		GRPCServiceName:     request.ModelDetails.GrpcServiceName,
 		GRPCMethodName:      request.ModelDetails.GrpcMethodName,
 		CreatedByAddress:    request.Authorization.SignerAddress,
@@ -440,23 +442,14 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 		return &ModelDetailsResponse{},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+	log.Infof("Updating model based on response from UpdateModel")
+	if data, err := service.updateModelDetails(request, response); err == nil && data != nil {
+		response = BuildModelResponseFrom(data, data.Status)
 
-	if conn, client, err := service.getServiceClient(); err == nil {
-		response, err = client.UpdateModelAccess(ctx, request)
-		log.Infof("Updating model based on response from UpdateModel")
-		if data, err := service.updateModelDetails(request, response); err == nil && data != nil {
-			response = BuildModelResponseFrom(data, response.Status)
-
-		} else {
-			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
-		}
-
-		deferConnection(conn)
 	} else {
-		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
+		return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 	}
+
 	return
 }
 

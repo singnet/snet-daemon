@@ -232,7 +232,22 @@ func isValuePresent(value string, list []string) bool {
 	return false
 }
 
-func (service ModelService) verifySignerHasAccessToTheModel() (err error) {
+//ensure only authorized use
+func (service ModelService) verifySignerHasAccessToTheModel(serviceName string, methodName string, modelId string, address string) (err error) {
+	key := &ModelUserKey{
+		OrganizationId:  config.GetString(config.OrganizationId),
+		ServiceId:       config.GetString(config.ServiceId),
+		GroupId:         service.organizationMetaData.GetGroupIdString(),
+		GRPCMethodName:  methodName,
+		GRPCServiceName: serviceName,
+		UserAddress:     address,
+	}
+	data, ok, err := service.userStorage.Get(key)
+	if ok && err == nil {
+		if !isValuePresent(modelId, data.ModelIds) {
+			return fmt.Errorf("user %v, does not have access to model Id %v", address, modelId)
+		}
+	}
 	return
 }
 
@@ -302,6 +317,7 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 		return &AccessibleModelsResponse{},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
+
 	key := &ModelUserKey{
 		OrganizationId:  config.GetString(config.OrganizationId),
 		ServiceId:       config.GetString(config.ServiceId),
@@ -367,6 +383,7 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
+
 	// make a call to the client
 	// if the response is successful , store details in etcd
 	// send back the response to the client
@@ -418,6 +435,11 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
+	if err = service.verifySignerHasAccessToTheModel(request.UpdateModelDetails.GrpcServiceName,
+		request.UpdateModelDetails.GrpcMethodName, request.UpdateModelDetails.ModelId, request.Authorization.SignerAddress); err != nil {
+		return &ModelDetailsResponse{},
+			fmt.Errorf(" Unable to access model , %v", err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -448,6 +470,11 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 		return &ModelDetailsResponse{Status: Status_ERROR},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
+	if err = service.verifySignerHasAccessToTheModel(request.UpdateModelDetails.GrpcServiceName,
+		request.UpdateModelDetails.GrpcMethodName, request.UpdateModelDetails.ModelId, request.Authorization.SignerAddress); err != nil {
+		return &ModelDetailsResponse{},
+			fmt.Errorf(" Unable to access model , %v", err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)
 	defer cancel()
 	if conn, client, err := service.getServiceClient(); err == nil {
@@ -474,6 +501,11 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERROR},
+			fmt.Errorf(" Unable to access model , %v", err)
+	}
+	if err = service.verifySignerHasAccessToTheModel(request.ModelDetails.GrpcServiceName,
+		request.ModelDetails.GrpcMethodName, request.ModelDetails.ModelId, request.Authorization.SignerAddress); err != nil {
+		return &ModelDetailsResponse{},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)

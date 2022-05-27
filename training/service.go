@@ -140,11 +140,12 @@ func remove(s []string, r string) []string {
 	return s
 }
 
-func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (err error) {
+func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (data *ModelData, err error) {
 	key := service.getModelKeyToUpdate(request)
-	data, ok, err := service.storage.Get(key)
-	if ok && err != nil {
-		data.Status = "DELETED"
+	ok := false
+	data, ok, err = service.storage.Get(key)
+	if ok && err == nil {
+		data.Status = string(Status_DELETED)
 		err = service.storage.Put(key, data)
 		err = service.deleteUserModelDetails(key, data)
 	}
@@ -231,15 +232,17 @@ func isValuePresent(value string, list []string) bool {
 	return false
 }
 
-func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDetailsRequest, response *ModelDetailsResponse) (err error) {
+func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDetailsRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
 	key := &ModelKey{
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        service.organizationMetaData.GetGroupIdString(),
-		GRPCMethodName: request.ModelDetails.GrpcMethodName,
-		ModelId:        request.ModelDetails.ModelId,
+		OrganizationId:  config.GetString(config.OrganizationId),
+		ServiceId:       config.GetString(config.ServiceId),
+		GroupId:         service.organizationMetaData.GetGroupIdString(),
+		GRPCMethodName:  request.ModelDetails.GrpcMethodName,
+		GRPCServiceName: request.ModelDetails.GrpcServiceName,
+		ModelId:         request.ModelDetails.ModelId,
 	}
-	if data, ok, err := service.storage.Get(key); err != nil && !ok {
+	ok := false
+	if data, ok, err = service.storage.Get(key); err == nil && ok {
 		data.Status = string(response.Status)
 
 		if err = service.storage.Put(key, data); err != nil {
@@ -370,7 +373,7 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 			//store the details in etcd
 			log.Infof("Creating model based on response from CreateModel of training service")
 			if data, err := service.createModelDetails(request, response); err == nil {
-				response = BuildCreateModelResponse(data)
+				response = BuildModelResponseFrom(data, response.Status)
 			} else {
 				return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 			}
@@ -383,9 +386,9 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 
 	return
 }
-func BuildCreateModelResponse(data *ModelData) *ModelDetailsResponse {
+func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsResponse {
 	return &ModelDetailsResponse{
-		Status: 0,
+		Status: status,
 		ModelDetails: &ModelDetails{
 			ModelId:              data.ModelId,
 			GrpcMethodName:       data.GRPCMethodName,
@@ -397,6 +400,7 @@ func BuildCreateModelResponse(data *ModelData) *ModelDetailsResponse {
 			IsDefaultModel:       data.IsDefault,
 			OrganizationId:       data.OrganizationId,
 			ServiceId:            data.ServiceId,
+			GroupId:              data.GroupId,
 		},
 	}
 }
@@ -417,7 +421,7 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 		response, err = client.UpdateModelAccess(ctx, request)
 		log.Infof("Updating model based on response from UpdateModel")
 		if data, err := service.updateModelDetails(request, response); err == nil && data != nil {
-			response = BuildCreateModelResponse(data)
+			response = BuildModelResponseFrom(data, response.Status)
 
 		} else {
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
@@ -445,7 +449,9 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.DeleteModel(ctx, request)
 		log.Infof("Deleting model based on response from DeleteModel")
-		if err = service.deleteModelDetails(request); err != nil {
+		if data, err := service.deleteModelDetails(request); err == nil {
+			response = BuildModelResponseFrom(data, response.Status)
+		} else {
 			return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)
 		}
 		deferConnection(conn)
@@ -472,9 +478,14 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.GetModelStatus(ctx, request)
 		log.Infof("Updating model status based on response from UpdateModel")
-		if err = service.updateModelDetailsWithLatestStatus(request, response); err != nil {
+		if data, err := service.updateModelDetailsWithLatestStatus(request, response); err == nil && data != nil {
+			response = BuildModelResponseFrom(data, response.Status)
+
+		} else {
+
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}
+
 		deferConnection(conn)
 	} else {
 		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")

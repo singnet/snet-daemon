@@ -31,7 +31,7 @@ type NoModelSupportService struct {
 }
 
 func (n NoModelSupportService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (*AccessibleModelsResponse, error) {
-	return &AccessibleModelsResponse{Status: Status_ERROR},
+	return &AccessibleModelsResponse{},
 		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
@@ -232,6 +232,10 @@ func isValuePresent(value string, list []string) bool {
 	return false
 }
 
+func (service ModelService) verifySignerHasAccessToTheModel() (err error) {
+	return
+}
+
 func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDetailsRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
 	key := &ModelKey{
 		OrganizationId:  config.GetString(config.OrganizationId),
@@ -291,11 +295,11 @@ func (service ModelService) getModelDataForStatusUpdate(request *UpdateModelRequ
 }
 func (service ModelService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (response *AccessibleModelsResponse, err error) {
 	if request == nil || request.Authorization == nil {
-		return &AccessibleModelsResponse{Status: Status_ERROR},
+		return &AccessibleModelsResponse{},
 			fmt.Errorf(" Invalid request , no Authorization provided ")
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
-		return &AccessibleModelsResponse{Status: Status_ERROR},
+		return &AccessibleModelsResponse{},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
 	key := &ModelUserKey{

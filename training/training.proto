@@ -56,7 +56,6 @@ message AccessibleModelsRequest {
 
 message AccessibleModelsResponse {
   repeated ModelDetails list_of_models = 1;
-  Status status = 2;
 }
 
 message ModelDetailsRequest {

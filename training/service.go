@@ -239,7 +239,6 @@ func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDet
 		GRPCMethodName: request.ModelDetails.GrpcMethodName,
 		ModelId:        request.ModelDetails.ModelId,
 	}
-	return
 	if data, ok, err := service.storage.Get(key); err != nil && !ok {
 		data.Status = string(response.Status)
 

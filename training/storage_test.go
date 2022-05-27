@@ -59,8 +59,18 @@ func (suite *ModelStorageSuite) TestModelStorage_GetAll() {
 	models, err := suite.storage.GetAll()
 	assert.Equal(suite.T(), len(models), 2)
 	assert.Equal(suite.T(), err, nil)
-	assert.Equal(suite.T(), models[0].String(), suite.getUserModelData("1").String())
-	assert.Equal(suite.T(), models[1].String(), suite.getUserModelData("2").String())
+	match1 := false
+	match2 := false
+	for _, model := range models {
+		if model.String() == suite.getUserModelData("1").String() {
+			match1 = true
+		}
+		if model.String() == suite.getUserModelData("2").String() {
+			match2 = true
+		}
+	}
+	assert.True(suite.T(), match2)
+	assert.True(suite.T(), match1)
 }
 
 func (suite *ModelStorageSuite) TestModelStorage_PutIfAbsent() {

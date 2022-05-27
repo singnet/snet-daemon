@@ -50,17 +50,18 @@ func (key *ModelUserKey) String() string {
 type ModelUserData struct {
 	ModelIds []string
 	//the below are only for display purposes
-	OrganizationId string
-	ServiceId      string
-	GroupId        string
-	GRPCMethodName string
-	UserAddress    string
+	OrganizationId  string
+	ServiceId       string
+	GroupId         string
+	GRPCMethodName  string
+	GRPCServiceName string
+	UserAddress     string
 }
 
 func (data *ModelUserData) String() string {
-	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v,ModelsId:%v}",
+	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v/%v/%v}",
 		data.OrganizationId,
-		data.ServiceId, data.GroupId, data.GRPCMethodName, data.UserAddress, data.ModelIds)
+		data.ServiceId, data.GroupId, data.GRPCMethodName, data.GRPCServiceName, data.UserAddress, data.ModelIds)
 }
 
 type ModelKey struct {
@@ -138,6 +139,7 @@ func serializeModelUserKey(key interface{}) (serialized string, err error) {
 	myKey := key.(*ModelUserKey)
 	return myKey.String(), nil
 }
+
 func (storage *ModelUserStorage) Get(key *ModelUserKey) (state *ModelUserData, ok bool, err error) {
 	value, ok, err := storage.delegate.Get(key)
 	if err != nil || !ok {

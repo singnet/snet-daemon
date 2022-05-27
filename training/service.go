@@ -50,11 +50,6 @@ func (n NoModelSupportService) DeleteModel(c context.Context, request *UpdateMod
 		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoModelSupportService) GetModelDetails(c context.Context, id *ModelDetailsRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERROR},
-		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
-}
-
 func (n NoModelSupportService) GetModelStatus(c context.Context, id *ModelDetailsRequest) (*ModelDetailsResponse, error) {
 	return &ModelDetailsResponse{Status: Status_ERROR},
 		fmt.Errorf("service end point is not defined or is invalid for training , please contact the AI developer")
@@ -105,17 +100,18 @@ func (service ModelService) getModelUserData(key *ModelKey, address string) *Mod
 	//Check if there are any model Ids already associated with this user
 	modelIds := make([]string, 0)
 	userKey := getModelUserKey(key, address)
-	if data, ok, err := service.userStorage.Get(userKey); ok && err != nil && data != nil {
+	if data, ok, err := service.userStorage.Get(userKey); ok && err == nil && data != nil {
 		modelIds = data.ModelIds
 	}
 	modelIds = append(modelIds, key.ModelId)
 	return &ModelUserData{
-		OrganizationId: key.OrganizationId,
-		ServiceId:      key.ServiceId,
-		GroupId:        key.GroupId,
-		GRPCMethodName: key.GRPCMethodName,
-		UserAddress:    address,
-		ModelIds:       modelIds,
+		OrganizationId:  key.OrganizationId,
+		ServiceId:       key.ServiceId,
+		GroupId:         key.GroupId,
+		GRPCMethodName:  key.GRPCMethodName,
+		GRPCServiceName: key.GRPCServiceName,
+		UserAddress:     address,
+		ModelIds:        modelIds,
 	}
 }
 
@@ -123,7 +119,7 @@ func (service ModelService) deleteUserModelDetails(key *ModelKey, data *ModelDat
 
 	for _, address := range data.AuthorizedAddresses {
 		userKey := getModelUserKey(key, address)
-		if data, ok, err := service.userStorage.Get(userKey); ok && err != nil && data != nil {
+		if data, ok, err := service.userStorage.Get(userKey); ok && err == nil && data != nil {
 			data.ModelIds = remove(data.ModelIds, key.ModelId)
 			err = service.userStorage.Put(userKey, data)
 		}
@@ -163,16 +159,20 @@ func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
 func (service ModelService) updateModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
 	key := service.getModelKeyToUpdate(request)
 	oldAddresses := make([]string, 0)
-	latestAddresses := make([]string, 0)
+	var latestAddresses []string
 	//by default add the creator to the Authorized list of Address
 	if request.UpdateModelDetails.AddressList != nil || len(request.UpdateModelDetails.AddressList) > 0 {
 		latestAddresses = request.UpdateModelDetails.AddressList
 	}
 	latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
-	if data, err = service.getModelDataForUpdate(request, response); err == nil {
-		copy(oldAddresses, data.AuthorizedAddresses)
-
-		data.AuthorizedAddresses = latestAddresses
+	if data, err = service.getModelDataForUpdate(request, response); err == nil && data != nil {
+		oldAddresses = data.AuthorizedAddresses
+		if latestAddresses == nil || len(latestAddresses) == 0 {
+			latestAddresses = make([]string, 0)
+		} else {
+			data.AuthorizedAddresses = latestAddresses
+		}
+		latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
 		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
 		data.UpdatedByAddress = request.Authorization.SignerAddress
 		data.Status = string(response.Status)
@@ -303,7 +303,7 @@ func (service ModelService) getModelDataForStatusUpdate(request *UpdateModelRequ
 	key := service.getModelKeyToUpdate(request)
 	ok := false
 
-	if data, ok, err = service.storage.Get(key); err != nil && !ok {
+	if data, ok, err = service.storage.Get(key); err != nil || !ok {
 		log.WithError(fmt.Errorf("issue with retrieving model data from storage"))
 	}
 	return

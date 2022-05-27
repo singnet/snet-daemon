@@ -165,13 +165,9 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		latestAddresses = request.UpdateModelDetails.AddressList
 	}
 	latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
-	if data, err = service.getModelDataForUpdate(request, response); err == nil && data != nil {
+	if data, err = service.getModelDataForUpdate(request); err == nil && data != nil {
 		oldAddresses = data.AuthorizedAddresses
-		if latestAddresses == nil || len(latestAddresses) == 0 {
-			latestAddresses = make([]string, 0)
-		} else {
-			data.AuthorizedAddresses = latestAddresses
-		}
+		data.AuthorizedAddresses = latestAddresses
 		latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
 		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
 		data.UpdatedByAddress = request.Authorization.SignerAddress
@@ -296,12 +292,7 @@ func (service ModelService) getModelKeyToUpdate(request *UpdateModelRequest) (ke
 	return
 }
 
-func (service ModelService) getModelDataForUpdate(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
-	data, err = service.getModelDataForStatusUpdate(request, response)
-	return
-}
-
-func (service ModelService) getModelDataForStatusUpdate(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
+func (service ModelService) getModelDataForUpdate(request *UpdateModelRequest) (data *ModelData, err error) {
 	key := service.getModelKeyToUpdate(request)
 	ok := false
 
@@ -310,6 +301,7 @@ func (service ModelService) getModelDataForStatusUpdate(request *UpdateModelRequ
 	}
 	return
 }
+
 func (service ModelService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (response *AccessibleModelsResponse, err error) {
 	if request == nil || request.Authorization == nil {
 		return &AccessibleModelsResponse{},

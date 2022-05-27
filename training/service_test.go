@@ -421,6 +421,8 @@ func (suite *ModelServiceTestSuite) TestModelService_remove() {
 	sample2 := []string{"b", "c"}
 	output := remove(sample1, "a")
 	assert.Equal(suite.T(), output, sample2)
+	output = remove(output, "a")
+	assert.Equal(suite.T(), output, sample2)
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_difference() {
@@ -440,7 +442,7 @@ func (suite *ModelServiceTestSuite) TestModelService_isValuePresent() {
 func (suite *ModelServiceTestSuite) TestModelService_UDeleteModel() {
 	response, err := suite.service.DeleteModel(context.Background(), nil)
 	assert.NotNil(suite.T(), err)
-
+	//unauthorized signer
 	request := &UpdateModelRequest{
 		UpdateModelDetails: &ModelDetails{
 			ModelId:         "1",
@@ -448,22 +450,24 @@ func (suite *ModelServiceTestSuite) TestModelService_UDeleteModel() {
 			GrpcMethodName:  "TESTMETHOD",
 		},
 		Authorization: &AuthorizationDetails{
-			SignerAddress: suite.senderAddress.String(),
+			SignerAddress: suite.alternateUserAddress.String(),
 			Message:       "__GetModelStatus",
-			Signature:     suite.getSignature("__GetModelStatus", 1200, suite.senderPvtKy),
+			Signature:     suite.getSignature("__GetModelStatus", 1200, suite.alternateUserPvtKy),
 			CurrentBlock:  1200,
 		},
 	}
-	fmt.Println(suite.senderAddress.String())
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	response, err = suite.service.DeleteModel(ctx, request)
+	assert.NotNil(suite.T(), err)
+
+	fmt.Println(suite.senderAddress.String())
+	//valid signer
+	request.Authorization.SignerAddress = suite.senderAddress.String()
+	request.Authorization.Signature = suite.getSignature("__GetModelStatus", 1200, suite.senderPvtKy)
+	response, err = suite.service.DeleteModel(ctx, request)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), Status_DELETED, response.Status)
-
-	//unauthorized signer
-	request.Authorization.SignerAddress = suite.alternateUserAddress.String()
-	request.Authorization.Signature = suite.getSignature("__GetModelStatus", 1200, suite.alternateUserPvtKy)
 
 	//bad signer
 	request.Authorization.Message = "blah"

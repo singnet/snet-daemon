@@ -137,6 +137,30 @@ func (suite *ModelServiceTestSuite) getSignature(text string, blockNumber int, p
 	return signature
 }
 
+func (suite *ModelServiceTestSuite) TestModelService_UndefinedTrainingService() {
+	//when AI developer has not implemented the training.prot , ensure we get back an error when daemon is called
+	response, err := suite.serviceNotImplemented.CreateModel(context.TODO(), &CreateModelRequest{})
+	assert.NotNil(suite.T(), err)
+	assert.Equal(suite.T(), response.Status, Status_ERROR)
+
+	response2, err := suite.serviceNotImplemented.UpdateModelAccess(context.TODO(), &UpdateModelRequest{})
+	assert.NotNil(suite.T(), err)
+	assert.Equal(suite.T(), response2.Status, Status_ERROR)
+
+	response3, err := suite.serviceNotImplemented.DeleteModel(context.TODO(), &UpdateModelRequest{})
+	assert.NotNil(suite.T(), err)
+	assert.Equal(suite.T(), response3.Status, Status_ERROR)
+
+	response4, err := suite.serviceNotImplemented.GetModelStatus(context.TODO(), &ModelDetailsRequest{})
+	assert.NotNil(suite.T(), err)
+	assert.Equal(suite.T(), response4.Status, Status_ERROR)
+
+	response5, err := suite.serviceNotImplemented.GetAllModels(context.TODO(), &AccessibleModelsRequest{})
+	assert.NotNil(suite.T(), err)
+	assert.Equal(suite.T(), len(response5.ListOfModels), 0)
+
+}
+
 func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	//No Authorization request
 	response, err := suite.service.CreateModel(context.TODO(), nil)
@@ -193,10 +217,6 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	assert.Equal(suite.T(), []string{"A1", "A2", "A3", suite.senderAddress.String()}, modelData.AuthorizedAddresses)
 	assert.Equal(suite.T(), ok, true)
 	assert.Nil(suite.T(), err)
-
-	//when AI developer has not implemented the training.prot , ensure we get back an error when daemon is called
-	response, err = suite.serviceNotImplemented.CreateModel(ctx, request)
-	assert.NotNil(suite.T(), err)
 
 	//send a bad signature
 	request.Authorization.Signature = suite.getSignature("Differennt message", 1200, suite.senderPvtKy)

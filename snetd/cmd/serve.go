@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
+	"github.com/singnet/snet-daemon/training"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
@@ -183,6 +184,7 @@ func (d *daemon) start() {
 		escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
 		escrow.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
 		escrow.RegisterTokenServiceServer(d.grpcServer, d.components.TokenService())
+		training.RegisterModelServer(d.grpcServer, d.components.ModelService())
 		grpc_health_v1.RegisterHealthServer(d.grpcServer, d.components.DaemonHeartBeat())
 		configuration_service.RegisterConfigurationServiceServer(d.grpcServer, d.components.ConfigurationService())
 		mux := cmux.New(d.lis)

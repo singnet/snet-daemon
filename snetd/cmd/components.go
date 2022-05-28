@@ -11,6 +11,7 @@ import (
 	"github.com/singnet/snet-daemon/pricing"
 	"github.com/singnet/snet-daemon/storage"
 	"github.com/singnet/snet-daemon/token"
+	"github.com/singnet/snet-daemon/training"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -57,6 +58,9 @@ type Components struct {
 	freeCallLockerStorage      *storage.PrefixedAtomicStorage
 	tokenManager               token.Manager
 	tokenService               *escrow.TokenService
+	modelService               training.ModelServer
+	modelUserStorage           *training.ModelUserStorage
+	modelStorage               *training.ModelStorage
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -545,6 +549,31 @@ func (components *Components) ConfigurationService() *configuration_service.Conf
 	components.configurationService = configuration_service.NewConfigurationService(components.ChannelBroadcast())
 
 	return components.configurationService
+}
+
+func (components *Components) ModelUserStorage() *training.ModelUserStorage {
+	if components.modelUserStorage != nil {
+		return components.modelUserStorage
+	}
+	components.modelUserStorage = training.NewUerModelStorage(components.AtomicStorage())
+	return components.modelUserStorage
+}
+
+func (components *Components) ModelStorage() *training.ModelStorage {
+	if components.modelStorage != nil {
+		return components.modelStorage
+	}
+	components.modelStorage = training.NewModelStorage(components.AtomicStorage())
+	return components.modelStorage
+}
+
+func (components *Components) ModelService() training.ModelServer {
+	if components.modelService != nil {
+		return components.modelService
+	}
+	components.modelService = training.NewModelService(components.PaymentChannelService(), components.ServiceMetaData(),
+		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage())
+	return components.modelService
 }
 
 func (components *Components) TokenManager() token.Manager {

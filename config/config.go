@@ -37,6 +37,7 @@ const (
 	LogKey                         = "log"
 	MaxMessageSizeInMB             = "max_message_size_in_mb"
 	MeteringEnabled                = "metering_enabled"
+	ModelTrainingEndpoint          = "model_training_endpoint"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"

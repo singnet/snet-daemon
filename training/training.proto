@@ -72,7 +72,7 @@ message TrainingMethodOption {
 }
 
 extend google.protobuf.MethodOptions {
-  TrainingMethodOption my_method_option = 9999127;
+  TrainingMethodOption my_method_option = 9999197;
 }
 
 message UpdateModelRequest {

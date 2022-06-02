@@ -68,7 +68,7 @@ message ModelDetailsRequest {
 //format is of type "packageName/serviceName/MethodName", Example :"/example_service.Calculator/estimate_add"
 //Daemon will invoke the model training  end point , when the below method option is specified
 message TrainingMethodOption {
-  string estimatePriceMethod = 1;
+  string trainingMethodIndicator = 1;
 }
 extend google.protobuf.MethodOptions {
   TrainingMethodOption my_method_option = 9999127;

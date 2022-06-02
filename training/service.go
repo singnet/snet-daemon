@@ -36,22 +36,22 @@ func (n NoModelSupportService) GetAllModels(c context.Context, request *Accessib
 }
 
 func (n NoModelSupportService) CreateModel(c context.Context, request *CreateModelRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERROR},
+	return &ModelDetailsResponse{Status: Status_ERRORED},
 		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
 func (n NoModelSupportService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERROR},
+	return &ModelDetailsResponse{Status: Status_ERRORED},
 		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
 func (n NoModelSupportService) DeleteModel(c context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERROR},
+	return &ModelDetailsResponse{Status: Status_ERRORED},
 		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
 func (n NoModelSupportService) GetModelStatus(c context.Context, id *ModelDetailsRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERROR},
+	return &ModelDetailsResponse{Status: Status_ERRORED},
 		fmt.Errorf("service end point is not defined or is invalid for training , please contact the AI developer")
 }
 func deferConnection(conn *grpc.ClientConn) {
@@ -370,11 +370,11 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 	err error) {
 	// verify the request
 	if request == nil || request.Authorization == nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
 
@@ -395,7 +395,7 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 		}
 		deferConnection(conn)
 	} else {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf("error in invoking service for Model Training %v", err)
 	}
 
@@ -422,11 +422,11 @@ func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsRespons
 func (service ModelService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
 	if request == nil || request.Authorization == nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
 	if err = service.verifySignerHasAccessToTheModel(request.UpdateModelDetails.GrpcServiceName,
@@ -448,11 +448,11 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 func (service ModelService) DeleteModel(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
 	if request == nil || request.Authorization == nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
 	if err = service.verifySignerHasAccessToTheModel(request.UpdateModelDetails.GrpcServiceName,
@@ -472,7 +472,7 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 		}
 		deferConnection(conn)
 	} else {
-		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
+		return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking service for Model Training")
 	}
 
 	return
@@ -481,11 +481,11 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 func (service ModelService) GetModelStatus(c context.Context, request *ModelDetailsRequest) (response *ModelDetailsResponse,
 	err error) {
 	if request == nil || request.Authorization == nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
-		return &ModelDetailsResponse{Status: Status_ERROR},
+		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
 	if err = service.verifySignerHasAccessToTheModel(request.ModelDetails.GrpcServiceName,
@@ -509,7 +509,7 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 
 		deferConnection(conn)
 	} else {
-		return &ModelDetailsResponse{Status: Status_ERROR}, fmt.Errorf("error in invoking service for Model Training")
+		return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking service for Model Training")
 	}
 	return
 }

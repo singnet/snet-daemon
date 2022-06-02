@@ -140,19 +140,19 @@ func (suite *ModelServiceTestSuite) TestModelService_UndefinedTrainingService() 
 	//when AI developer has not implemented the training.prot , ensure we get back an error when daemon is called
 	response, err := suite.serviceNotImplemented.CreateModel(context.TODO(), &CreateModelRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), response.Status, Status_ERROR)
+	assert.Equal(suite.T(), response.Status, Status_ERRORED)
 
 	response2, err := suite.serviceNotImplemented.UpdateModelAccess(context.TODO(), &UpdateModelRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), response2.Status, Status_ERROR)
+	assert.Equal(suite.T(), response2.Status, Status_ERRORED)
 
 	response3, err := suite.serviceNotImplemented.DeleteModel(context.TODO(), &UpdateModelRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), response3.Status, Status_ERROR)
+	assert.Equal(suite.T(), response3.Status, Status_ERRORED)
 
 	response4, err := suite.serviceNotImplemented.GetModelStatus(context.TODO(), &ModelDetailsRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), response4.Status, Status_ERROR)
+	assert.Equal(suite.T(), response4.Status, Status_ERRORED)
 
 	response5, err := suite.serviceNotImplemented.GetAllModels(context.TODO(), &AccessibleModelsRequest{})
 	assert.NotNil(suite.T(), err)

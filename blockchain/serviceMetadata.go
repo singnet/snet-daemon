@@ -156,6 +156,7 @@ type ServiceMetadata struct {
 	isfreeCallAllowed         bool
 	freeCallsAllowed          int
 	dynamicPriceMethodMapping map[string]string
+	trainingMethods           map[string]string
 }
 type Tiers struct {
 	Tiers Tier `json:"tier"`
@@ -442,17 +443,19 @@ func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullNam
 }
 func setServiceProto(metaData *ServiceMetadata) (err error) {
 	metaData.dynamicPriceMethodMapping = make(map[string]string, 0)
+	metaData.trainingMethods = make(map[string]string, 0)
 	//This is to handler the scenario where there could be mutiple protos associated with the service proto
 	protoFiles, err := ipfsutils.ReadFilesCompressed(ipfsutils.GetIpfsFile(metaData.ModelIpfsHash))
 	for _, file := range protoFiles {
 		if srvProto, err := parseServiceProto(file); err != nil {
 			return err
 		} else {
-			dynamicMethodMap, err := buildDynamicPricingMethodsMap(srvProto)
+			dynamicMethodMap, trainingMethodMap, err := buildDynamicPricingMethodsMap(srvProto)
 			if err != nil {
 				return err
 			}
 			metaData.dynamicPriceMethodMapping = dynamicMethodMap
+			metaData.trainingMethods = trainingMethodMap
 		}
 	}
 
@@ -469,8 +472,10 @@ func parseServiceProto(serviceProtoFile string) (*proto.Proto, error) {
 	return parsedProto, nil
 }
 
-func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMethodMapping map[string]string, err error) {
+func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMethodMapping map[string]string,
+	trainingMethodPricing map[string]string, err error) {
 	dynamicPricingMethodMapping = make(map[string]string, 0)
+	trainingMethodPricing = make(map[string]string, 0)
 	var pkgName, serviceName, methodName string
 	for _, elem := range serviceProto.Elements {
 		//package is parsed earlier than service ( per documentation)
@@ -484,16 +489,20 @@ func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMet
 				if rpcMethod, ok := serviceElements.(*proto.RPC); ok {
 					methodName = rpcMethod.Name
 					for _, methodOption := range rpcMethod.Options {
-						if strings.Compare(methodOption.Name, "(my_method_option).estimate") == 0 {
+						if strings.Compare(methodOption.Name, "(my_method_option).estimatePriceMethod") == 0 {
 							pricingMethod := fmt.Sprintf("%v", methodOption.Constant.Source)
 							dynamicPricingMethodMapping["/"+pkgName+"."+serviceName+"/"+methodName+""] =
 								pricingMethod
+						}
+						if strings.Compare(methodOption.Name, "(my_method_option).trainingMethodIndicator") == 0 {
+							trainingMethod := fmt.Sprintf("%v", methodOption.Constant.Source)
+							trainingMethodPricing["/"+pkgName+"."+serviceName+"/"+methodName+""] =
+								trainingMethod
 						}
 					}
 				}
 			}
 		}
 	}
-	//add in validations on the map TODO
-	return dynamicPricingMethodMapping, nil
+	return
 }

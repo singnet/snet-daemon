@@ -25,11 +25,22 @@ import (
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
 
 type grpcHandler struct {
-	grpcConn            *grpc.ClientConn
-	options             grpc.DialOption
-	enc                 string
-	passthroughEndpoint string
-	executable          string
+	grpcConn              *grpc.ClientConn
+	grpcModelConn         *grpc.ClientConn
+	options               grpc.DialOption
+	enc                   string
+	passthroughEndpoint   string
+	modelTrainingEndpoint string
+	executable            string
+	serviceMetaData       *blockchain.ServiceMetadata
+}
+
+func (g grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
+	if isModelTraining {
+		return g.grpcModelConn
+	}
+
+	return g.grpcConn
 }
 
 func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHandler {
@@ -40,9 +51,11 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	}
 
 	h := grpcHandler{
-		enc:                 serviceMetadata.GetWireEncoding(),
-		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
-		executable:          config.GetString(config.ExecutablePathKey),
+		serviceMetaData:       serviceMetadata,
+		enc:                   serviceMetadata.GetWireEncoding(),
+		passthroughEndpoint:   config.GetString(config.PassthroughEndpointKey),
+		modelTrainingEndpoint: config.GetString(config.ModelTrainingEndpoint),
+		executable:            config.GetString(config.ExecutablePathKey),
 		options: grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
 			grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024)),
@@ -50,25 +63,10 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 
 	switch serviceMetadata.GetServiceType() {
 	case "grpc":
-		passthroughURL, err := url.Parse(h.passthroughEndpoint)
-		if err != nil {
-			log.WithError(err).Panic("error parsing passthrough endpoint")
+		h.grpcConn = h.getConnection(h.passthroughEndpoint)
+		if config.GetBool(config.ModelTrainingEnabled) {
+			h.grpcModelConn = h.getConnection(h.modelTrainingEndpoint)
 		}
-		var conn *grpc.ClientConn
-		if strings.Compare(passthroughURL.Scheme, "https") == 0 {
-			conn, err = grpc.Dial(passthroughURL.Host,
-				grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), h.options)
-			if err != nil {
-				log.WithError(err).Panic("error dialing service")
-			}
-		} else {
-			conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
-
-			if err != nil {
-				log.WithError(err).Panic("error dialing service")
-			}
-		}
-		h.grpcConn = conn
 		return h.grpcToGRPC
 	case "jsonrpc":
 		return h.grpcToJSONRPC
@@ -76,6 +74,27 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		return h.grpcToProcess
 	}
 	return nil
+}
+
+func (h grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
+	passthroughURL, err := url.Parse(endpoint)
+	if err != nil {
+		log.WithError(err).Panic("error parsing passthrough endpoint")
+	}
+	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
+		conn, err = grpc.Dial(passthroughURL.Host,
+			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), h.options)
+		if err != nil {
+			log.WithError(err).Panic("error dialing service")
+		}
+	} else {
+		conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
+
+		if err != nil {
+			log.WithError(err).Panic("error dialing service")
+		}
+	}
+	return
 }
 
 /*
@@ -99,7 +118,8 @@ func (g grpcHandler) grpcToGRPC(srv interface{}, inStream grpc.ServerStream) err
 
 	outCtx, outCancel := context.WithCancel(inCtx)
 	outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
-	outStream, err := g.grpcConn.NewStream(outCtx, grpcDesc, method, grpc.CallContentSubtype(g.enc))
+	isModelTraining := g.serviceMetaData.IsModelTraining(method)
+	outStream, err := g.GrpcConn(isModelTraining).NewStream(outCtx, grpcDesc, method, grpc.CallContentSubtype(g.enc))
 	if err != nil {
 		return err
 	}

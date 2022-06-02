@@ -18,26 +18,30 @@ import (
 )
 
 const (
-	AllowedUserFlag                = "allowed_user_flag"
-	AllowedUserAddresses           = "allowed_user_addresses"
-	AuthenticationAddresses        = "authentication_addresses"
-	AutoSSLDomainKey               = "auto_ssl_domain"
-	AutoSSLCacheDirKey             = "auto_ssl_cache_dir"
-	BlockchainEnabledKey           = "blockchain_enabled"
-	BlockChainNetworkSelected      = "blockchain_network_selected"
-	BurstSize                      = "burst_size"
-	ConfigPathKey                  = "config_path"
-	DaemonGroupName                = "daemon_group_name"
-	DaemonTypeKey                  = "daemon_type"
-	DaemonEndPoint                 = "daemon_end_point"
-	ExecutablePathKey              = "executable_path"
-	EnableDynamicPricing           = "enable_dynamic_pricing"
-	IpfsEndPoint                   = "ipfs_end_point"
-	IpfsTimeout                    = "ipfs_timeout"
-	LogKey                         = "log"
-	MaxMessageSizeInMB             = "max_message_size_in_mb"
-	MeteringEnabled                = "metering_enabled"
+	AllowedUserFlag           = "allowed_user_flag"
+	AllowedUserAddresses      = "allowed_user_addresses"
+	AuthenticationAddresses   = "authentication_addresses"
+	AutoSSLDomainKey          = "auto_ssl_domain"
+	AutoSSLCacheDirKey        = "auto_ssl_cache_dir"
+	BlockchainEnabledKey      = "blockchain_enabled"
+	BlockChainNetworkSelected = "blockchain_network_selected"
+	BurstSize                 = "burst_size"
+	ConfigPathKey             = "config_path"
+	DaemonGroupName           = "daemon_group_name"
+	DaemonTypeKey             = "daemon_type"
+	DaemonEndPoint            = "daemon_end_point"
+	ExecutablePathKey         = "executable_path"
+	EnableDynamicPricing      = "enable_dynamic_pricing"
+	IpfsEndPoint              = "ipfs_end_point"
+	IpfsTimeout               = "ipfs_timeout"
+	LogKey                    = "log"
+	MaxMessageSizeInMB        = "max_message_size_in_mb"
+	MeteringEnabled           = "metering_enabled"
+	// ModelMaintenanceEndPoint This is for grpc server end point for Model Maintenance like Create, update, delete, status check
+	ModelMaintenanceEndPoint = "model_maintenance_endpoint"
+	// ModelTrainingEndpoint This is for directing any training calls on Models, as training calls are heavy on resources
 	ModelTrainingEndpoint          = "model_training_endpoint"
+	ModelTrainingEnabled           = "model_training_enabled"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
@@ -124,7 +128,8 @@ const (
 	},
 	"alerts_email": "", 
 	"service_heartbeat_type": "http",
-    "token_expiry_in_minutes": 1440
+    "token_expiry_in_minutes": 1440,
+    "model_training_enabled":false
 }
 `
 )

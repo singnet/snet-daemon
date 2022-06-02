@@ -533,7 +533,7 @@ func (service *ModelService) getMessageBytes(prefixMessage string, request *Auth
 
 func NewModelService(channelService escrow.PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage) ModelServer {
-	serviceURL := config.GetString(config.ModelTrainingEndpoint)
+	serviceURL := config.GetString(config.ModelMaintenanceEndPoint)
 	if config.IsValidUrl(serviceURL) && config.GetBool(config.BlockchainEnabledKey) {
 		return &ModelService{
 			channelService:       channelService,

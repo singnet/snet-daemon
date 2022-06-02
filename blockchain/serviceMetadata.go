@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -439,6 +440,16 @@ func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullNam
 	} else {
 		isDynamicPricingEligible = true
 	}
+	return
+}
+
+//methodFullName , ex "/example_service.Calculator/add"
+func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useModelTrainingEndPoint bool) {
+
+	if !config.GetBool(config.ModelTrainingEnabled) {
+		return false
+	}
+	useModelTrainingEndPoint, _ = strconv.ParseBool(metaData.trainingMethods[methodFullName])
 	return
 }
 func setServiceProto(metaData *ServiceMetadata) (err error) {

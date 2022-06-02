@@ -56,9 +56,9 @@ func (suite *ModelServiceTestSuite) getGRPCServerAndServe() {
 }
 func (suite *ModelServiceTestSuite) SetupSuite() {
 	suite.serviceNotImplemented = NewModelService(nil, nil, nil, nil, nil)
-	config.Vip().Set(config.ModelTrainingEndpoint, "localhost:2222")
+	config.Vip().Set(config.ModelMaintenanceEndPoint, "localhost:2222")
 	suite.mockService = MockServiceModelGRPCImpl{}
-	suite.serviceURL = config.GetString(config.ModelTrainingEndpoint)
+	suite.serviceURL = config.GetString(config.ModelMaintenanceEndPoint)
 	suite.getGRPCServerAndServe()
 
 	testJsonOrgGroupData := "{   \"org_name\": \"organization_name\",   \"org_id\": \"ExampleOrganizationId\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
@@ -74,7 +74,7 @@ func (suite *ModelServiceTestSuite) SetupSuite() {
 	suite.alternateUserPvtKy, _ = crypto.GenerateKey()
 	suite.alternateUserAddress = crypto.PubkeyToAddress(suite.alternateUserPvtKy.PublicKey)
 
-	config.Vip().Set(config.ModelTrainingEndpoint, "localhost:2222")
+	config.Vip().Set(config.ModelMaintenanceEndPoint, "localhost:2222")
 
 }
 

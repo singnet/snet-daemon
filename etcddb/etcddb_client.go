@@ -117,15 +117,6 @@ func getTlsConfig() (*tls.Config, error) {
 
 }
 
-func checkIfHttps(endpoints []string) bool {
-	for _, endpoint := range endpoints {
-		if strings.Contains(endpoint, "https") {
-			return true
-		}
-	}
-	return false
-}
-
 // Get gets value from etcd by key
 func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 

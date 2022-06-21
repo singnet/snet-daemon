@@ -8,6 +8,7 @@ import (
 	"github.com/golang-collections/collections/set"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/utils"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -60,7 +61,7 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 
 	var etcdv3 *clientv3.Client
 
-	if checkIfHttps(metaData.GetPaymentStorageEndPoints()) {
+	if utils.CheckIfHttps(metaData.GetPaymentStorageEndPoints()) {
 		if tlsConfig, err := getTlsConfig(); err == nil {
 			etcdv3, err = clientv3.New(clientv3.Config{
 				Endpoints:   metaData.GetPaymentStorageEndPoints(),
@@ -114,15 +115,6 @@ func getTlsConfig() (*tls.Config, error) {
 	}
 	return tlsConfig, nil
 
-}
-
-func checkIfHttps(endpoints []string) bool {
-	for _, endpoint := range endpoints {
-		if strings.Contains(endpoint, "https") {
-			return true
-		}
-	}
-	return false
 }
 
 // Get gets value from etcd by key

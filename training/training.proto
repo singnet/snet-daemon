@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "google/protobuf/descriptor.proto";
 package training;
 //Please note that the AI developers need to provide a server implementation of the gprc server of this proto.
 message ModelDetails {
@@ -37,7 +38,7 @@ message AuthorizationDetails {
 enum Status {
   CREATED = 0;
   IN_PROGRESS = 1;
-  ERROR = 2;
+  ERRORED = 2;
   COMPLETED = 3;
   DELETED = 4;
 }
@@ -63,6 +64,16 @@ message ModelDetailsRequest {
   AuthorizationDetails authorization = 2;
 }
 
+//helps determine which service end point to call for model training
+//format is of type "packageName/serviceName/MethodName", Example :"/example_service.Calculator/estimate_add"
+//Daemon will invoke the model training  end point , when the below method option is specified
+message TrainingMethodOption {
+  string trainingMethodIndicator = 1;
+}
+
+extend google.protobuf.MethodOptions {
+  TrainingMethodOption my_method_option = 9999197;
+}
 
 message UpdateModelRequest {
   ModelDetails update_model_details = 1 ;
@@ -87,7 +98,7 @@ service Model {
   rpc get_model_status(ModelDetailsRequest) returns (ModelDetailsResponse) {}
 
 
-  // Daemon will implement , however the AI developer can skip implementing these and just provide dummy code.
+  // Daemon will implement , however the AI developer should skip implementing these and just provide dummy code.
   rpc update_model_access(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc get_all_models(AccessibleModelsRequest) returns (AccessibleModelsResponse) {}
 

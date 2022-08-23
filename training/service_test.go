@@ -56,9 +56,9 @@ func (suite *ModelServiceTestSuite) getGRPCServerAndServe() {
 }
 func (suite *ModelServiceTestSuite) SetupSuite() {
 	suite.serviceNotImplemented = NewModelService(nil, nil, nil, nil, nil)
-	config.Vip().Set(config.ModelTrainingEndpoint, "localhost:2222")
+	config.Vip().Set(config.ModelMaintenanceEndPoint, "localhost:2222")
 	suite.mockService = MockServiceModelGRPCImpl{}
-	suite.serviceURL = config.GetString(config.ModelTrainingEndpoint)
+	suite.serviceURL = config.GetString(config.ModelMaintenanceEndPoint)
 	suite.getGRPCServerAndServe()
 
 	testJsonOrgGroupData := "{   \"org_name\": \"organization_name\",   \"org_id\": \"ExampleOrganizationId\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
@@ -74,7 +74,7 @@ func (suite *ModelServiceTestSuite) SetupSuite() {
 	suite.alternateUserPvtKy, _ = crypto.GenerateKey()
 	suite.alternateUserAddress = crypto.PubkeyToAddress(suite.alternateUserPvtKy.PublicKey)
 
-	config.Vip().Set(config.ModelTrainingEndpoint, "localhost:2222")
+	config.Vip().Set(config.ModelMaintenanceEndPoint, "localhost:2222")
 
 }
 
@@ -140,19 +140,19 @@ func (suite *ModelServiceTestSuite) TestModelService_UndefinedTrainingService() 
 	//when AI developer has not implemented the training.prot , ensure we get back an error when daemon is called
 	response, err := suite.serviceNotImplemented.CreateModel(context.TODO(), &CreateModelRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), response.Status, Status_ERROR)
+	assert.Equal(suite.T(), response.Status, Status_ERRORED)
 
 	response2, err := suite.serviceNotImplemented.UpdateModelAccess(context.TODO(), &UpdateModelRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), response2.Status, Status_ERROR)
+	assert.Equal(suite.T(), response2.Status, Status_ERRORED)
 
 	response3, err := suite.serviceNotImplemented.DeleteModel(context.TODO(), &UpdateModelRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), response3.Status, Status_ERROR)
+	assert.Equal(suite.T(), response3.Status, Status_ERRORED)
 
 	response4, err := suite.serviceNotImplemented.GetModelStatus(context.TODO(), &ModelDetailsRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), response4.Status, Status_ERROR)
+	assert.Equal(suite.T(), response4.Status, Status_ERRORED)
 
 	response5, err := suite.serviceNotImplemented.GetAllModels(context.TODO(), &AccessibleModelsRequest{})
 	assert.NotNil(suite.T(), err)

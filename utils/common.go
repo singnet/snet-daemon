@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/authutils"
 	log "github.com/sirupsen/logrus"
+	"strings"
 )
 
 func Serialize(value interface{}) (slice string, err error) {
@@ -42,4 +43,13 @@ func ToChecksumAddress(hexAddress string) common.Address {
 	address := common.HexToAddress(hexAddress)
 	mixedAddress := common.NewMixedcaseAddress(address)
 	return mixedAddress.Address()
+}
+
+func CheckIfHttps(endpoints []string) bool {
+	for _, endpoint := range endpoints {
+		if strings.Contains(endpoint, "https") {
+			return true
+		}
+	}
+	return false
 }

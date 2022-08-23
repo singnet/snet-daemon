@@ -6,6 +6,8 @@
 package metrics
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,13 +34,19 @@ const (
 	Critical Status = 3 // if the daemon main thread killed or any other critical issues
 )
 
+type StorageClientCert struct {
+	ValidFrom string `json:"validFrom"`
+	ValidTill string `json:"validTill"`
+}
+
 // define heartbeat data model. Service Status JSON object Array marshalled to a string
 type DaemonHeartbeat struct {
-	DaemonID         string `json:"daemonID"`
-	Timestamp        string `json:"timestamp"`
-	Status           string `json:"status"`
-	ServiceHeartbeat string `json:"serviceheartbeat"`
-	DaemonVersion    string `json:"daemonVersion"`
+	DaemonID                 string            `json:"daemonID"`
+	Timestamp                string            `json:"timestamp"`
+	Status                   string            `json:"status"`
+	ServiceHeartbeat         string            `json:"serviceheartbeat"`
+	DaemonVersion            string            `json:"daemonVersion"`
+	StorageClientCertDetails StorageClientCert `json:"storageClientCertDetails"`
 }
 
 // Converts the enum index into enum names
@@ -77,10 +85,34 @@ func ValidateHeartbeatConfig() error {
 	}
 	return nil
 }
+func getStorageCertificateDetails() (cert StorageClientCert) {
+	cert = StorageClientCert{}
+	log.Debug("enabling SSL support via X509 keypair")
+	certificate, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
+	if err != nil {
+		log.WithError(fmt.Errorf("unable to load specific SSL X509 keypair for storage certificate %v", err))
+		return
+	}
+	if len(certificate.Certificate) > 0 {
+		parseCertificate, err := x509.ParseCertificate(certificate.Certificate[0])
+		if err != nil {
+			log.WithError(fmt.Errorf("unable to get certificate infor %v", err))
+			return
+		}
+		cert.ValidFrom = fmt.Sprintf("Valid Since: %+v days", parseCertificate.NotBefore.String())
+		cert.ValidTill = fmt.Sprintf("Valid Till: %+v days", parseCertificate.NotAfter.String())
+	}
+	if err != nil {
+		log.WithError(fmt.Errorf("unable to load specific SSL X509 keypair for storage certificate"))
+	}
+	return
+}
 
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
 func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (heartbeat DaemonHeartbeat, err error) {
-	heartbeat = DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10), Online.String(), "{}", config.GetVersionTag()}
+	heartbeat = DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10),
+		Online.String(), "{}", config.GetVersionTag(),
+		getStorageCertificateDetails()}
 	var curResp = `{"serviceID":"` + serviceID + `","status":"NOT_SERVING"}`
 	if serviceType == "none" || serviceType == "" || isNoHeartbeatURL {
 		curResp = `{"serviceID":"` + serviceID + `","status":"SERVING"}`

@@ -12,7 +12,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"math/big"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -62,13 +65,32 @@ func deferConnection(conn *grpc.ClientConn) {
 		}
 	}(conn)
 }
-func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
-	conn, err = grpc.Dial(service.serviceUrl, grpc.WithInsecure())
+func getConnection(endpoint string) (conn *grpc.ClientConn) {
+	options := grpc.WithDefaultCallOptions(
+		grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
+		grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024))
+
+	passthroughURL, err := url.Parse(endpoint)
 	if err != nil {
-		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
-		return nil, nil, err
+		log.WithError(err).Panic("error parsing passthrough endpoint")
 	}
-	// create the client instance
+	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
+		conn, err = grpc.Dial(passthroughURL.Host,
+			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), options)
+		if err != nil {
+			log.WithError(err).Panic("error dialing service")
+		}
+	} else {
+		conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), options)
+
+		if err != nil {
+			log.WithError(err).Panic("error dialing service")
+		}
+	}
+	return
+}
+func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
+	conn = getConnection(service.serviceUrl)
 	client = NewModelClient(conn)
 	return
 }
@@ -369,14 +391,14 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 func (service ModelService) CreateModel(c context.Context, request *CreateModelRequest) (response *ModelDetailsResponse,
 	err error) {
 	// verify the request
-	if request == nil || request.Authorization == nil {
+	/*if request == nil || request.Authorization == nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Unable to access model , %v", err)
-	}
+	}*/
 
 	// make a call to the client
 	// if the response is successful , store details in etcd
@@ -413,8 +435,8 @@ func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsRespons
 			AddressList:          data.AuthorizedAddresses,
 			TrainingDataLink:     data.TrainingLink,
 			IsDefaultModel:       data.IsDefault,
-			OrganizationId:       data.OrganizationId,
-			ServiceId:            data.ServiceId,
+			OrganizationId:       config.GetString(config.OrganizationId),
+			ServiceId:            config.GetString(config.ServiceId),
 			GroupId:              data.GroupId,
 		},
 	}

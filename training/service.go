@@ -391,14 +391,14 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 func (service ModelService) CreateModel(c context.Context, request *CreateModelRequest) (response *ModelDetailsResponse,
 	err error) {
 	// verify the request
-	/*if request == nil || request.Authorization == nil {
+	if request == nil || request.Authorization == nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Unable to access model , %v", err)
-	}*/
+	}
 
 	// make a call to the client
 	// if the response is successful , store details in etcd

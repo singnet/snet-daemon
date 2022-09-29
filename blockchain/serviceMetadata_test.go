@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -124,4 +125,11 @@ func TestServiceMetadata_addOns(t *testing.T) {
 	metadata, err := ReadServiceMetaDataFromLocalFile("../service_metadata.json")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, metadata.Groups[0].AddOns[0].DiscountInPercentage, 4.0)
+	employee_1 := &ServiceMetadata{}
+	e, err := json.Marshal(employee_1)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(string(e))
 }

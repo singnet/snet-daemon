@@ -99,11 +99,25 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 	data = service.getModelDataToCreate(request, response)
 	//store the model details in etcd
 	err = service.storage.Put(key, data)
+	log.Debug("Putting Model Data....")
+	log.Debug(" Model key is:" + key.String())
+	log.Debug(" Model Data is:" + data.String())
+	if err != nil {
+		log.WithError(err)
+		return
+	}
 	//for every accessible address in the list , store the user address and all the model Ids associated with it
 	for _, address := range data.AuthorizedAddresses {
 		userKey := getModelUserKey(key, address)
 		userData := service.getModelUserData(key, address)
 		err = service.userStorage.Put(userKey, userData)
+		if err != nil {
+			log.WithError(err)
+			return
+		}
+		log.Debug("Putting USER Model Data....")
+		log.Debug(" USER Model key is:" + userKey.String())
+		log.Debug(" USER Model Data is:" + userData.String())
 	}
 	return
 }
@@ -122,7 +136,9 @@ func (service ModelService) getModelUserData(key *ModelKey, address string) *Mod
 	//Check if there are any model Ids already associated with this user
 	modelIds := make([]string, 0)
 	userKey := getModelUserKey(key, address)
-	if data, ok, err := service.userStorage.Get(userKey); ok && err == nil && data != nil {
+	log.Debug(" USER Model key is:" + userKey.String())
+	data, ok, err := service.userStorage.Get(userKey)
+	if ok && err == nil && data != nil {
 		modelIds = data.ModelIds
 	}
 	modelIds = append(modelIds, key.ModelId)
@@ -342,6 +358,9 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 		GRPCServiceName: request.GrpcServiceName,
 		UserAddress:     request.Authorization.SignerAddress,
 	}
+	log.Debug("GETTING USER Model key....")
+	log.Debug(" USER Model key is:" + key.String())
+
 	modelDetailsArray := make([]*ModelDetails, 0)
 	if data, ok, err := service.userStorage.Get(key); data != nil && ok && err == nil {
 		for _, modelId := range data.ModelIds {
@@ -373,6 +392,8 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 		CreatedByAddress:    request.Authorization.SignerAddress,
 		UpdatedByAddress:    request.Authorization.SignerAddress,
 		AuthorizedAddresses: request.ModelDetails.AddressList,
+		Description:         request.ModelDetails.Description,
+		TrainingLink:        request.ModelDetails.TrainingDataLink,
 		IsPublic:            request.ModelDetails.IsPubliclyAccessible,
 		IsDefault:           request.ModelDetails.IsDefaultModel,
 		ModelId:             response.ModelDetails.ModelId,
@@ -390,14 +411,17 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 
 func (service ModelService) CreateModel(c context.Context, request *CreateModelRequest) (response *ModelDetailsResponse,
 	err error) {
+
 	// verify the request
 	if request == nil || request.Authorization == nil {
+		log.WithError(err)
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
+		log.WithError(err)
 		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Unable to access model , %v", err)
+			fmt.Errorf(" Unable to create Model  , %v", err)
 	}
 
 	// make a call to the client
@@ -414,6 +438,9 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 			} else {
 				return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 			}
+		} else {
+			return &ModelDetailsResponse{Status: Status_ERRORED},
+				fmt.Errorf("error in invoking service for Model Training %v", err)
 		}
 		deferConnection(conn)
 	} else {

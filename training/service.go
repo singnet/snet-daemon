@@ -374,7 +374,6 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 		GRPCServiceName: request.GrpcServiceName,
 		UserAddress:     request.Authorization.SignerAddress,
 	}
-	log.Debug("GETTING USER Model key....")
 	log.Debug(" USER Model key is:" + key.String())
 
 	modelDetailsArray := make([]*ModelDetails, 0)

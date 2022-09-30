@@ -19,6 +19,10 @@ import (
 	"time"
 )
 
+const (
+	DateFormat = "02-01-2006"
+)
+
 type IService interface {
 }
 type ModelService struct {
@@ -180,6 +184,7 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (dat
 	data, ok, err = service.storage.Get(key)
 	if ok && err == nil {
 		data.Status = (Status_DELETED)
+		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
 		err = service.storage.Put(key, data)
 		err = service.deleteUserModelDetails(key, data)
 	}
@@ -198,6 +203,8 @@ func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
 		OrganizationId:       data.OrganizationId,
 		ServiceId:            data.ServiceId,
 		GroupId:              data.GroupId,
+		UpdatedDate:          data.UpdatedDate,
+		Status:               data.Status,
 	}
 	return
 }
@@ -221,6 +228,7 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 			data.Status = response.Status
 		}
 		data.IsDefault = request.UpdateModelDetails.IsDefaultModel
+		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
 
 		err = service.storage.Put(key, data)
 		//get the difference of all the addresses b/w old and new
@@ -408,6 +416,7 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 		OrganizationId:      config.GetString(config.OrganizationId),
 		ServiceId:           config.GetString(config.ServiceId),
 		GroupId:             service.organizationMetaData.GetGroupIdString(),
+		UpdatedDate:         fmt.Sprintf("%v", time.Now().Format(DateFormat)),
 	}
 	//by default add the creator to the Authorized list of Address
 	if data.AuthorizedAddresses == nil {
@@ -473,6 +482,8 @@ func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsRespons
 			OrganizationId:       config.GetString(config.OrganizationId),
 			ServiceId:            config.GetString(config.ServiceId),
 			GroupId:              data.GroupId,
+			Status:               status,
+			UpdatedDate:          data.UpdatedDate,
 		},
 	}
 }

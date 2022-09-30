@@ -22,6 +22,9 @@ message ModelDetails {
   string organization_id = 9;
   string service_id = 10 ;
   string group_id = 11;
+
+  Status status = 12;
+  string updated_date = 13;
 }
 
 message AuthorizationDetails {

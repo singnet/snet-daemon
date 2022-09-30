@@ -100,6 +100,7 @@ type ModelData struct {
 	Description         string
 	IsDefault           bool
 	TrainingLink        string
+	UpdatedDate         string
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {

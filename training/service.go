@@ -187,9 +187,17 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (dat
 }
 func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
 	responseData = &ModelDetails{
-		ModelId:        data.ModelId,
-		GrpcMethodName: data.GRPCMethodName,
-		Description:    data.Description,
+		ModelId:              data.ModelId,
+		GrpcMethodName:       data.GRPCMethodName,
+		GrpcServiceName:      data.GRPCServiceName,
+		Description:          data.Description,
+		IsPubliclyAccessible: data.IsPublic,
+		AddressList:          data.AuthorizedAddresses,
+		TrainingDataLink:     data.TrainingLink,
+		IsDefaultModel:       data.IsDefault,
+		OrganizationId:       data.OrganizationId,
+		ServiceId:            data.ServiceId,
+		GroupId:              data.GroupId,
 	}
 	return
 }

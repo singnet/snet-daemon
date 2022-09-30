@@ -522,7 +522,7 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.DeleteModel(ctx, request)
 		log.Infof("Deleting model based on response from DeleteModel")
-		if data, err := service.deleteModelDetails(request); err == nil {
+		if data, err := service.deleteModelDetails(request); err == nil && data != nil {
 			response = BuildModelResponseFrom(data, response.Status)
 		} else {
 			return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)

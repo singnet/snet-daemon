@@ -183,10 +183,12 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 			CurrentBlock:  1200,
 		},
 		ModelDetails: &ModelDetails{
-			GrpcServiceName:      "",
+			GrpcServiceName:      " ",
 			GrpcMethodName:       "/example_service.Calculator/train_add",
 			Description:          "Just Testing",
 			IsPubliclyAccessible: false,
+			ModelName:            "ABCD",
+			TrainingDataLink:     " ",
 			AddressList:          []string{"A1", "A2", "A3"},
 		},
 	}
@@ -202,7 +204,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
 		GRPCMethodName:  "/example_service.Calculator/train_add",
-		GRPCServiceName: "",
+		GRPCServiceName: " ",
 		UserAddress:     suite.senderAddress.String(),
 	}
 	//check if we have stored the user's associated model Ids
@@ -217,7 +219,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
 		GRPCMethodName:  "/example_service.Calculator/train_add",
-		GRPCServiceName: "",
+		GRPCServiceName: " ",
 		ModelId:         "1",
 	}
 	modelData, ok, err := suite.service.(*ModelService).storage.Get(key)
@@ -239,7 +241,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 			CurrentBlock:  1200,
 		},
 		ModelDetails: &ModelDetails{
-			GrpcServiceName:      "",
+			GrpcServiceName:      " ",
 			GrpcMethodName:       "/example_service.Calculator/train_add",
 			Description:          "Just Testing",
 			IsPubliclyAccessible: false,
@@ -255,7 +257,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	response, err = suite.service.CreateModel(ctx, request)
 
 	request3 := &AccessibleModelsRequest{
-		GrpcServiceName: "",
+		GrpcServiceName: " ",
 		GrpcMethodName:  "/example_service.Calculator/train_add",
 		Authorization: &AuthorizationDetails{
 			SignerAddress: suite.senderAddress.String(),
@@ -269,7 +271,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	defer cancel()
 	response2, err := suite.service.GetAllModels(ctx, request3)
 	assert.Nil(suite.T(), err)
-	fmt.Println(fmt.Sprintf("GELLLOOO %v", time.Now().Format("02-01-2006")))
+	fmt.Println(response2)
 	assert.Equal(suite.T(), len(response2.ListOfModels) > 1, true)
 
 }
@@ -278,7 +280,7 @@ func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {
 	request := &ModelDetailsRequest{
 		ModelDetails: &ModelDetails{
 			ModelId:         "1",
-			GrpcServiceName: "",
+			GrpcServiceName: " ",
 			GrpcMethodName:  "/example_service.Calculator/train_add",
 		},
 		Authorization: &AuthorizationDetails{
@@ -303,7 +305,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
 		GRPCMethodName:  "/example_service.Calculator/train_add",
-		GRPCServiceName: "",
+		GRPCServiceName: " ",
 		UserAddress:     suite.senderAddress.String(),
 	}
 	//check if we have stored the user's associated model Ids
@@ -313,7 +315,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
 		GRPCMethodName:  "/example_service.Calculator/train_add",
-		GRPCServiceName: "",
+		GRPCServiceName: " ",
 		UserAddress:     suite.senderAddress.String(),
 	})
 
@@ -333,7 +335,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		ServiceId:           config.GetString(config.ServiceId),
 		GroupId:             suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
 		GRPCMethodName:      "/example_service.Calculator/train_add",
-		GRPCServiceName:     "",
+		GRPCServiceName:     " ",
 		Description:         "",
 		IsDefault:           false,
 		TrainingLink:        "",
@@ -344,7 +346,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
 		GRPCMethodName:  "/example_service.Calculator/train_add",
-		GRPCServiceName: "",
+		GRPCServiceName: " ",
 		ModelId:         "1",
 	}, modelData)
 	//	assert.Equal(suite.T(), ok, true)
@@ -355,7 +357,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
 		GRPCMethodName:  "/example_service.Calculator/train_add",
-		GRPCServiceName: "",
+		GRPCServiceName: " ",
 		ModelId:         "1",
 	})
 
@@ -364,10 +366,10 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 	request := &UpdateModelRequest{
 		UpdateModelDetails: &ModelDetails{
 			ModelId:              "1",
-			GrpcServiceName:      "",
+			GrpcServiceName:      " ",
 			GrpcMethodName:       "/example_service.Calculator/train_add",
 			IsPubliclyAccessible: false,
-			IsDefaultModel:       true,
+			ModelName:            "ABCD",
 			Description:          "How are you",
 		},
 		Authorization: &AuthorizationDetails{
@@ -405,7 +407,7 @@ func (suite *ModelServiceTestSuite) TestModelService_GetAllAccessibleModels() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	request2 := &AccessibleModelsRequest{
-		GrpcServiceName: "",
+		GrpcServiceName: " ",
 		GrpcMethodName:  "/example_service.Calculator/train_add",
 		Authorization: &AuthorizationDetails{
 			SignerAddress: suite.senderAddress.String(),
@@ -457,7 +459,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UDeleteModel() {
 	request := &UpdateModelRequest{
 		UpdateModelDetails: &ModelDetails{
 			ModelId:         "1",
-			GrpcServiceName: "",
+			GrpcServiceName: " ",
 			GrpcMethodName:  "/example_service.Calculator/train_add",
 		},
 		Authorization: &AuthorizationDetails{

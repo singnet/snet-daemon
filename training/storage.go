@@ -87,6 +87,7 @@ func (data *ModelData) String() string {
 
 type ModelData struct {
 	IsPublic            bool
+	ModelName           string
 	AuthorizedAddresses []string
 	Status              Status
 	CreatedByAddress    string

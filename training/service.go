@@ -199,12 +199,12 @@ func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
 		IsPubliclyAccessible: data.IsPublic,
 		AddressList:          data.AuthorizedAddresses,
 		TrainingDataLink:     data.TrainingLink,
-		IsDefaultModel:       data.IsDefault,
+		ModelName:            data.ModelName,
 		OrganizationId:       data.OrganizationId,
 		ServiceId:            data.ServiceId,
 		GroupId:              data.GroupId,
 		UpdatedDate:          data.UpdatedDate,
-		Status:               data.Status,
+		Status:               data.Status.String(),
 	}
 	return
 }
@@ -227,7 +227,7 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		if response != nil {
 			data.Status = response.Status
 		}
-		data.IsDefault = request.UpdateModelDetails.IsDefaultModel
+		data.ModelName = request.UpdateModelDetails.ModelName
 		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
 
 		err = service.storage.Put(key, data)
@@ -388,10 +388,16 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 				ModelId:         modelId,
 			}
 			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
-				modelDetailsArray = append(modelDetailsArray, convertModelDataToBO(modelData))
+
+				boModel := convertModelDataToBO(modelData)
+				fmt.Println(boModel)
+				fmt.Println("Status of BO Data sent back", boModel.Status)
+				fmt.Println("Date of BO Model Data sent back", boModel.UpdatedDate)
+				modelDetailsArray = append(modelDetailsArray, boModel)
 			}
 		}
 	}
+	fmt.Println(modelDetailsArray)
 	response = &AccessibleModelsResponse{
 		ListOfModels: modelDetailsArray,
 	}
@@ -408,9 +414,10 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 		UpdatedByAddress:    request.Authorization.SignerAddress,
 		AuthorizedAddresses: request.ModelDetails.AddressList,
 		Description:         request.ModelDetails.Description,
+		ModelName:           request.ModelDetails.ModelName,
 		TrainingLink:        request.ModelDetails.TrainingDataLink,
 		IsPublic:            request.ModelDetails.IsPubliclyAccessible,
-		IsDefault:           request.ModelDetails.IsDefaultModel,
+		IsDefault:           false,
 		ModelId:             response.ModelDetails.ModelId,
 		OrganizationId:      config.GetString(config.OrganizationId),
 		ServiceId:           config.GetString(config.ServiceId),
@@ -473,15 +480,15 @@ func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsRespons
 			ModelId:              data.ModelId,
 			GrpcMethodName:       data.GRPCMethodName,
 			GrpcServiceName:      data.GRPCServiceName,
-			Description:          data.Description,
-			IsPubliclyAccessible: data.IsPublic,
+			Description:          "HELLO_SHYAM", //data.Description,
+			IsPubliclyAccessible: false,
 			AddressList:          data.AuthorizedAddresses,
 			TrainingDataLink:     data.TrainingLink,
-			IsDefaultModel:       data.IsDefault,
+			ModelName:            data.ModelName,
 			OrganizationId:       config.GetString(config.OrganizationId),
 			ServiceId:            config.GetString(config.ServiceId),
 			GroupId:              data.GroupId,
-			Status:               status,
+			Status:               status.String(),
 			UpdatedDate:          data.UpdatedDate,
 		},
 	}

@@ -11,7 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math/big"
-	"strconv"
 	"strings"
 )
 
@@ -156,8 +155,8 @@ type ServiceMetadata struct {
 	freeCallSignerAddress     common.Address
 	isfreeCallAllowed         bool
 	freeCallsAllowed          int
-	dynamicPriceMethodMapping map[string]string
-	trainingMethods           map[string]string
+	dynamicPriceMethodMapping map[string]string `json:"dynamicpricing"`
+	trainingMethods           []string          `json:"training_methods"`
 }
 type Tiers struct {
 	Tiers Tier `json:"tier"`
@@ -327,7 +326,18 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 			return nil, err
 		}
 	}
+	e, err := json.Marshal(metaData.dynamicPriceMethodMapping)
+	if err != nil {
+		fmt.Println(err)
 
+	}
+	fmt.Println(string(e))
+	e1, err := json.Marshal(metaData.trainingMethods)
+	if err != nil {
+		fmt.Println(err)
+
+	}
+	fmt.Println(string(e1))
 	return metaData, err
 }
 
@@ -449,12 +459,20 @@ func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useMode
 	if !config.GetBool(config.ModelTrainingEnabled) {
 		return false
 	}
-	useModelTrainingEndPoint, _ = strconv.ParseBool(metaData.trainingMethods[methodFullName])
+	useModelTrainingEndPoint = isElementInArray(methodFullName, metaData.trainingMethods)
 	return
+}
+func isElementInArray(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 func setServiceProto(metaData *ServiceMetadata) (err error) {
 	metaData.dynamicPriceMethodMapping = make(map[string]string, 0)
-	metaData.trainingMethods = make(map[string]string, 0)
+	metaData.trainingMethods = make([]string, 0)
 	//This is to handler the scenario where there could be mutiple protos associated with the service proto
 	protoFiles, err := ipfsutils.ReadFilesCompressed(ipfsutils.GetIpfsFile(metaData.ModelIpfsHash))
 	for _, file := range protoFiles {
@@ -484,9 +502,9 @@ func parseServiceProto(serviceProtoFile string) (*proto.Proto, error) {
 }
 
 func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMethodMapping map[string]string,
-	trainingMethodPricing map[string]string, err error) {
+	trainingMethodPricing []string, err error) {
 	dynamicPricingMethodMapping = make(map[string]string, 0)
-	trainingMethodPricing = make(map[string]string, 0)
+	trainingMethodPricing = make([]string, 0)
 	var pkgName, serviceName, methodName string
 	for _, elem := range serviceProto.Elements {
 		//package is parsed earlier than service ( per documentation)
@@ -500,15 +518,15 @@ func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMet
 				if rpcMethod, ok := serviceElements.(*proto.RPC); ok {
 					methodName = rpcMethod.Name
 					for _, methodOption := range rpcMethod.Options {
-						if strings.Compare(methodOption.Name, "(my_method_option).estimatePriceMethod") == 0 {
+						if strings.Compare(methodOption.Name, "(pricing.my_method_option).estimatePriceMethod") == 0 {
 							pricingMethod := fmt.Sprintf("%v", methodOption.Constant.Source)
 							dynamicPricingMethodMapping["/"+pkgName+"."+serviceName+"/"+methodName+""] =
 								pricingMethod
 						}
-						if strings.Compare(methodOption.Name, "(my_method_option).trainingMethodIndicator") == 0 {
-							trainingMethod := fmt.Sprintf("%v", methodOption.Constant.Source)
-							trainingMethodPricing["/"+pkgName+"."+serviceName+"/"+methodName+""] =
-								trainingMethod
+						if strings.Compare(methodOption.Name, "(training.my_method_option).trainingMethodIndicator") == 0 {
+							trainingMethod := "/" + pkgName + "." + serviceName + "/" + methodName + ""
+							trainingMethodPricing = append(trainingMethodPricing, trainingMethod)
+
 						}
 					}
 				}

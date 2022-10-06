@@ -480,7 +480,7 @@ func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsRespons
 			ModelId:              data.ModelId,
 			GrpcMethodName:       data.GRPCMethodName,
 			GrpcServiceName:      data.GRPCServiceName,
-			Description:          "HELLO_SHYAM", //data.Description,
+			Description:          data.Description,
 			IsPubliclyAccessible: false,
 			AddressList:          data.AuthorizedAddresses,
 			TrainingDataLink:     data.TrainingLink,

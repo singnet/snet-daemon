@@ -229,6 +229,8 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		}
 		data.ModelName = request.UpdateModelDetails.ModelName
 		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
+		data.Description = request.UpdateModelDetails.Description
+		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
 
 		err = service.storage.Put(key, data)
 		//get the difference of all the addresses b/w old and new
@@ -390,9 +392,6 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
 
 				boModel := convertModelDataToBO(modelData)
-				fmt.Println(boModel)
-				fmt.Println("Status of BO Data sent back", boModel.Status)
-				fmt.Println("Date of BO Model Data sent back", boModel.UpdatedDate)
 				modelDetailsArray = append(modelDetailsArray, boModel)
 			}
 		}

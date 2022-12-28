@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.17-node
+      - image: circleci/golang:1.15-node
     working_directory: /go/src/github.com/singnet/snet-daemon
     environment:
       TRIGGER_BUILD_BRANCH: master

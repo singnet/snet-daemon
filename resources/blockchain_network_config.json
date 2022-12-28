@@ -8,6 +8,10 @@
     "ethereum_json_rpc_endpoint":"https://kovan.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
     "network_id":"42"
   },
+  "goerli":{
+    "ethereum_json_rpc_endpoint":"https://goerli.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+    "network_id":"5"
+  },
   "ropsten":{
     "ethereum_json_rpc_endpoint":"https://ropsten.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
     "network_id":"3"

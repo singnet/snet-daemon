@@ -3,7 +3,7 @@
 set -ex
 
 PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
-
+go get github.com/emicklei/proto
 
 if [ $# -lt 3 ]
   then

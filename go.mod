@@ -21,6 +21,7 @@ require (
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712
+	github.com/emicklei/proto v1.11.1 // indirect
 	github.com/envoyproxy/go-control-plane v0.7.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
 	github.com/ethereum/go-ethereum v1.8.27

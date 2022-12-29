@@ -8,7 +8,6 @@ pushd $PARENT_PATH
 # Run golint
 # NOTE: currently we are just printing lint violations, not failing the test if any errors are present
 ./scripts/lint
-go mod tidy
 # Run integration tests
 # Run integration tests
 go get golang.org/x/tools/cmd/cover

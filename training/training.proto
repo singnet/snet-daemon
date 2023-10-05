@@ -1,6 +1,7 @@
 syntax = "proto3";
 import "google/protobuf/descriptor.proto";
 package training;
+option go_package = "../training";
 //Please note that the AI developers need to provide a server implementation of the gprc server of this proto.
 message ModelDetails {
   //This Id will be generated when you invoke the create_model method and hence doesnt need to be filled when you

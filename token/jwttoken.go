@@ -2,7 +2,7 @@ package token
 
 import (
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"strings"
@@ -13,7 +13,7 @@ type customJWTokenServiceImpl struct {
 	getGroupId func() string
 }
 
-//This will be used in components as a service to Create and Validate tokens
+// This will be used in components as a service to Create and Validate tokens
 func NewJWTTokenService(data blockchain.OrganizationMetaData) Manager {
 	return &customJWTokenServiceImpl{
 		getGroupId: func() string {

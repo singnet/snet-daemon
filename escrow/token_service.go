@@ -1,10 +1,10 @@
-//go:generate protoc -I . ./token_service.proto --go_out=plugins=grpc:.
+//go:generate protoc -I . ./token_service.proto --go-grpc_out=. --go_out=.
 package escrow
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/token"
@@ -21,7 +21,17 @@ type TokenService struct {
 	allowedBlockNumberCheck func(blockNumber *big.Int) (err error)
 }
 
+func (service *TokenService) mustEmbedUnimplementedTokenServiceServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
 type BlockChainDisabledTokenService struct {
+}
+
+func (service BlockChainDisabledTokenService) mustEmbedUnimplementedTokenServiceServer() {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (service BlockChainDisabledTokenService) GetToken(ctx context.Context, request *TokenRequest) (reply *TokenReply, err error) {
@@ -107,7 +117,7 @@ func (service *TokenService) getPayment(channelId *big.Int, latestAuthorizedAmou
 func (service *TokenService) verifySignature(request *TokenRequest, channel *PaymentChannelData) (err error) {
 	message := bytes.Join([][]byte{
 		request.GetClaimSignature(),
-		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	signature := request.GetSignature()
 

@@ -1,10 +1,10 @@
-//go:generate protoc -I . ./training.proto --go_out=plugins=grpc:.
+//go:generate protoc -I . ./training.proto --go-grpc_out=. --go_out=.
 package training
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/escrow"
@@ -27,7 +27,17 @@ type ModelService struct {
 	serviceUrl           string
 }
 
+func (service ModelService) mustEmbedUnimplementedModelServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
 type NoModelSupportService struct {
+}
+
+func (n NoModelSupportService) mustEmbedUnimplementedModelServer() {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (n NoModelSupportService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (*AccessibleModelsResponse, error) {
@@ -182,10 +192,10 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		for _, address := range updatedAddresses {
 			modelUserKey := getModelUserKey(key, address)
 			modelUserData := service.getModelUserData(key, address)
-			//if the address is present in the request but not in the old address , add it to the storage
+			//if the address is present in the request but not in the old address, add it to the storage
 			if isValuePresent(address, request.UpdateModelDetails.AddressList) {
 				modelUserData.ModelIds = append(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
-			} else { // the address was present in the old data , but not in new , hence needs to be deleted
+			} else { // the address was present in the old data, but not in new, hence needs to be deleted
 				modelUserData.ModelIds = remove(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
 			}
 			err = service.userStorage.Put(modelUserKey, modelUserData)
@@ -230,7 +240,7 @@ func isValuePresent(value string, list []string) bool {
 	return false
 }
 
-//ensure only authorized use
+// ensure only authorized use
 func (service ModelService) verifySignerHasAccessToTheModel(serviceName string, methodName string, modelId string, address string) (err error) {
 	key := &ModelUserKey{
 		OrganizationId:  config.GetString(config.OrganizationId),
@@ -514,19 +524,19 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 	return
 }
 
-//message used to sign is of the form ("__create_model", mpe_address, current_block_number)
+// message used to sign is of the form ("__create_model", mpe_address, current_block_number)
 func (service *ModelService) verifySignature(request *AuthorizationDetails) error {
 	return utils.VerifySigner(service.getMessageBytes(request.Message, request),
 		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
 }
 
-//"user passed message	", user_address, current_block_number
+// "user passed message	", user_address, current_block_number
 func (service *ModelService) getMessageBytes(prefixMessage string, request *AuthorizationDetails) []byte {
 	userAddress := utils.ToChecksumAddress(request.SignerAddress)
 	message := bytes.Join([][]byte{
 		[]byte(prefixMessage),
 		userAddress.Bytes(),
-		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	return message
 }

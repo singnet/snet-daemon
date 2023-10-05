@@ -3,6 +3,7 @@ syntax = "proto3";
 package configuration_service;
 
 option java_package = "io.singularitynet.daemon.configuration";
+option go_package = "../configuration_service";
 
 //Currently all monitoring and any configuration changes on Daemon are done manually,
 //goal is to provide a one stop place to remotely monitor and configure the Daemon in a secure way

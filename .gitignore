@@ -32,3 +32,5 @@ blockchain/singularity_net_token.go
 
 # etcd server temporary directories
 storage-*
+*.pem
+*log

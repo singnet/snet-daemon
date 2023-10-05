@@ -6,10 +6,14 @@ PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
 
-go get github.com/golang/protobuf/protoc-gen-go@v1.2.0
-go get github.com/ethereum/go-ethereum/cmd/abigen@v1.8.27
-go get google.golang.org/grpc@v1.16.0
-go get golang.org/x/lint/golint
+go get google.golang.org/protobuf@latest
+go get google.golang.org/grpc@latest
+go get golang.org/x/lint/golint@latest
+
+go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
 pushd resources/blockchain
 npm install

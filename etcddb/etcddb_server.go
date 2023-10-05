@@ -9,7 +9,7 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"go.etcd.io/etcd/embed"
+	"go.etcd.io/etcd/server/v3/embed"
 )
 
 // EtcdServer struct has some useful methods to wolrk with etcd server
@@ -122,16 +122,16 @@ func getEtcdConf(conf *EtcdServerConf) *embed.Config {
 	etcdConf.Dir = conf.DataDir
 
 	// --listen-client-urls
-	etcdConf.LCUrls = []url.URL{*clientURL}
+	etcdConf.ListenClientUrls = []url.URL{*clientURL}
 
 	// --advertise-client-urls
-	etcdConf.ACUrls = []url.URL{*clientURL}
+	etcdConf.AdvertiseClientUrls = []url.URL{*clientURL}
 
 	// --listen-peer-urls
-	etcdConf.LPUrls = []url.URL{*peerURL}
+	etcdConf.ListenPeerUrls = []url.URL{*peerURL}
 
 	// --initial-advertise-peer-urls
-	etcdConf.APUrls = []url.URL{*peerURL}
+	etcdConf.AdvertisePeerUrls = []url.URL{*peerURL}
 
 	// --initial-cluster
 	etcdConf.InitialCluster = conf.Cluster

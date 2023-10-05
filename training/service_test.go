@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
@@ -81,6 +81,11 @@ func (suite *ModelServiceTestSuite) SetupSuite() {
 type MockServiceModelGRPCImpl struct {
 }
 
+func (m MockServiceModelGRPCImpl) mustEmbedUnimplementedModelServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m MockServiceModelGRPCImpl) CreateModel(context context.Context, request *CreateModelRequest) (*ModelDetailsResponse, error) {
 	println("In Service CreateModel")
 	return &ModelDetailsResponse{Status: Status_CREATED,
@@ -123,7 +128,7 @@ func (suite *ModelServiceTestSuite) getSignature(text string, blockNumber int, p
 	message := bytes.Join([][]byte{
 		[]byte(text),
 		crypto.PubkeyToAddress(privateKey.PublicKey).Bytes(),
-		abi.U256(big.NewInt(int64(blockNumber))),
+		math.U256Bytes(big.NewInt(int64(blockNumber))),
 	}, nil)
 	hash := crypto.Keccak256(
 		blockchain.HashPrefix32Bytes,

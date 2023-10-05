@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
+	"os"
 )
 
 type NetworkSelected struct {
@@ -20,34 +20,32 @@ const (
 	EthereumJsonRpcEndpointKey = "ethereum_json_rpc_endpoint"
 	NetworkId                  = "network_id"
 	RegistryAddressKey         = "registry_address_key"
-
 )
 
 var networkSelected = &NetworkSelected{}
 var networkIdNameMapping string
 var registryAddressJson string
 
-func  determineNetworkSelected(data []byte) (err error) {
+func determineNetworkSelected(data []byte) (err error) {
 	dynamicBinding := map[string]interface{}{}
 	networkName := GetString(BlockChainNetworkSelected)
 	if err = json.Unmarshal(data, &dynamicBinding); err != nil {
 		return err
 	}
-		//Get the Network Name selected in config ( snetd.config.json) , Based on this retrieve the Registry address ,
-		//Ethereum End point and Network ID mapped to
-	networkSelected.NetworkName=             networkName
-	networkSelected.RegistryAddressKey=      getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]interface{})[RegistryAddressKey],RegistryAddressKey)
-	networkSelected.EthereumJSONRPCEndpoint= getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]interface{})[EthereumJsonRpcEndpointKey],EthereumJsonRpcEndpointKey)
-	networkSelected.NetworkId=               fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]interface{})[NetworkId])
+	//Get the Network Name selected in config ( snetd.config.json) , Based on this retrieve the Registry address ,
+	//Ethereum End point and Network ID mapped to
+	networkSelected.NetworkName = networkName
+	networkSelected.RegistryAddressKey = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]interface{})[RegistryAddressKey], RegistryAddressKey)
+	networkSelected.EthereumJSONRPCEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]interface{})[EthereumJsonRpcEndpointKey], EthereumJsonRpcEndpointKey)
+	networkSelected.NetworkId = fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]interface{})[NetworkId])
 
 	return err
 }
 
-
-//Check if the value set in the  config file, if yes, then we use it as is
-//else we derive the value from the JSON parsed
-func getDetailsFromJsonOrConfig(details interface{},configName string) string {
-	if len(GetString(configName))> 0 {
+// Check if the value set in the  config file, if yes, then we use it as is
+// else we derive the value from the JSON parsed
+func getDetailsFromJsonOrConfig(details interface{}, configName string) string {
+	if len(GetString(configName)) > 0 {
 		return GetString(configName)
 	}
 	if details == nil {
@@ -56,22 +54,22 @@ func getDetailsFromJsonOrConfig(details interface{},configName string) string {
 	return fmt.Sprintf("%v", details)
 }
 
-//Get the Network ID associated  with the network selected
+// Get the Network ID associated  with the network selected
 func GetNetworkId() string {
 	return networkSelected.NetworkId
 }
 
-//Get the block chain end point associated with the Network selected
+// Get the block chain end point associated with the Network selected
 func GetBlockChainEndPoint() string {
 	return networkSelected.EthereumJSONRPCEndpoint
 }
 
-//Get the Registry address of the contract
+// Get the Registry address of the contract
 func GetRegistryAddress() string {
 	return networkSelected.RegistryAddressKey
 }
 
-//Read the Registry address from JSON file passed
+// Read the Registry address from JSON file passed
 func setRegistryAddress(fileName string) (err error) {
 	var data []byte
 
@@ -81,8 +79,8 @@ func setRegistryAddress(fileName string) (err error) {
 	}
 	//This value will be set when the binary across multiple platforms is built
 	if len(registryAddressJson) > 0 {
-		data = []byte (registryAddressJson)
-	} else  {
+		data = []byte(registryAddressJson)
+	} else {
 		//this is only for your local set up and testing
 		//This is only for local set up testing
 		if data, err = ReadFromFile(fileName); err != nil {
@@ -90,13 +88,13 @@ func setRegistryAddress(fileName string) (err error) {
 				fileName, GetString(BlockChainNetworkSelected), err)
 		}
 	}
-	if err = deriveDatafromJSON(data); err != nil  {
+	if err = deriveDatafromJSON(data); err != nil {
 		return err
 	}
 	return nil
 }
 
-func  deriveDatafromJSON(data []byte) (err error) {
+func deriveDatafromJSON(data []byte) (err error) {
 	m := map[string]interface{}{}
 	err = json.Unmarshal(data, &m)
 	if err != nil {
@@ -113,11 +111,11 @@ func  deriveDatafromJSON(data []byte) (err error) {
 	return nil
 }
 
-//Read the file given file, if the file is not found  ,then return back an error
+// Read the file given file, if the file is not found  ,then return back an error
 func ReadFromFile(filename string) ([]byte, error) {
-	file, err := ioutil.ReadFile(filename)
+	file, err := os.ReadFile(filename)
 	if err != nil {
-		if file, err = ioutil.ReadFile("../" + filename); err != nil {
+		if file, err = os.ReadFile("../" + filename); err != nil {
 			return nil, errors.Wrapf(err, "could not read file: %v", filename)
 		}
 	}
@@ -125,11 +123,11 @@ func ReadFromFile(filename string) ([]byte, error) {
 
 }
 
-//Read from the block chain network config json
+// Read from the block chain network config json
 func setBlockChainNetworkDetails(fileName string) (err error) {
 	var data []byte
-	if (len(networkIdNameMapping) > 0 ){
-		data = []byte (networkIdNameMapping)
+	if len(networkIdNameMapping) > 0 {
+		data = []byte(networkIdNameMapping)
 	} else {
 		data, err = ReadFromFile(fileName)
 		if err != nil {

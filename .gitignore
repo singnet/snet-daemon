@@ -34,3 +34,5 @@ blockchain/singularity_net_token.go
 storage-*
 *.pem
 *log
+data.etcd/
+

@@ -2,10 +2,10 @@ package codec
 
 import (
 	"fmt"
-
 	"google.golang.org/grpc/encoding"
-	_ "google.golang.org/grpc/encoding/proto" // ensure default "proto" codec is registered first
+	_ "google.golang.org/protobuf/encoding/protojson" // ensure default "proto" codec is registered first
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/protoadapt"
 )
 
 func init() {
@@ -64,11 +64,11 @@ Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See
 type protoCodec struct{}
 
 func (protoCodec) Marshal(v interface{}) ([]byte, error) {
-	return proto.Marshal(v.(proto.Message))
+	return proto.Marshal(protoadapt.MessageV2Of(v.(protoadapt.MessageV1)))
 }
 
 func (protoCodec) Unmarshal(data []byte, v interface{}) error {
-	return proto.Unmarshal(data, v.(proto.Message))
+	return proto.Unmarshal(data, protoadapt.MessageV2Of(v.(protoadapt.MessageV1)))
 }
 
 func (protoCodec) Name() string {

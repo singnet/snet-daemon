@@ -33,6 +33,7 @@ type grpcHandler struct {
 	modelTrainingEndpoint string
 	executable            string
 	serviceMetaData       *blockchain.ServiceMetadata
+	serviceCredentials    []serviceCredential
 }
 
 func (g grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
@@ -70,6 +71,13 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		return h.grpcToGRPC
 	case "jsonrpc":
 		return h.grpcToJSONRPC
+	case "http":
+		h.serviceCredentials = []serviceCredential{}
+		err := config.Vip().UnmarshalKey(config.ServiceCredentialsKey, &h.serviceCredentials)
+		if err != nil {
+			log.Fatalln("invalid config:", err)
+		}
+		return h.grpcToHTTP
 	case "process":
 		return h.grpcToProcess
 	}
@@ -229,6 +237,98 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 		}
 	}()
 	return ret
+}
+
+type httpLocation string
+
+var query httpLocation = "query"
+var body httpLocation = "body"
+var header httpLocation = "header"
+
+type serviceCredential struct {
+	Key      string       `json:"key"`
+	Value    string       `json:"value"`
+	Location httpLocation `json:"location"`
+}
+
+func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) error {
+	method, ok := grpc.MethodFromServerStream(inStream)
+
+	if !ok {
+		return status.Errorf(codes.Internal, "could not determine method from server stream")
+	}
+
+	methodSegs := strings.Split(method, "/")
+	method = methodSegs[len(methodSegs)-1]
+
+	if !ok {
+		return status.Errorf(codes.Internal, "could not get metadata from incoming context")
+	}
+
+	f := &codec.GrpcFrame{}
+	if err := inStream.RecvMsg(f); err != nil {
+		return status.Errorf(codes.Internal, "error receiving request; error: %+cred", err)
+	}
+
+	base, err := url.Parse(g.passthroughEndpoint)
+	if err != nil {
+		log.Println(err)
+	}
+
+	//base.Path += method
+
+	params := url.Values{}
+	var headers = http.Header{}
+
+	var bodymap = map[string]any{}
+	err = json.Unmarshal(f.Data, &bodymap)
+	if err != nil {
+		log.Println(err)
+	}
+
+	for _, cred := range g.serviceCredentials {
+		switch cred.Location {
+		case query:
+			params.Add(cred.Key, cred.Value)
+		case body:
+			bodymap[cred.Key] = cred.Value
+		case header:
+			headers.Set(cred.Key, cred.Value)
+		}
+	}
+
+	dataBytes, err := json.Marshal(bodymap)
+	if err != nil {
+		return err
+	}
+
+	base.RawQuery = params.Encode()
+	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(dataBytes))
+	httpReq.Header = headers
+	if err != nil {
+		return status.Errorf(codes.Internal, "error creating http request; error: %+cred", err)
+	}
+
+	httpReq.Header.Set("content-type", "application/json")
+
+	httpResp, err := http.DefaultClient.Do(httpReq)
+
+	if err != nil {
+		return status.Errorf(codes.Internal, "error executing http call; error: %+cred", err)
+	}
+
+	respData, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return status.Errorf(codes.Internal, "error reading response; error: %+cred", err)
+	}
+
+	f = &codec.GrpcFrame{Data: respData}
+
+	if err = inStream.SendMsg(f); err != nil {
+		return status.Errorf(codes.Internal, "error sending response; error: %+cred", err)
+	}
+
+	return nil
 }
 
 func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) error {

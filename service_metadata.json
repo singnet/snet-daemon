@@ -2,7 +2,7 @@
   "version": 1,
   "display_name": "Entity Disambiguation",
   "encoding": "proto",
-  "service_type": "grpc",
+  "service_type": "http",
   "model_ipfs_hash": "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv",
   "mpe_address": "0x34E2EeE197EfAAbEcC495FdF3B1781a3b894eB5f",
   "groups": [

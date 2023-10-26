@@ -272,7 +272,7 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 
 	base, err := url.Parse(g.passthroughEndpoint)
 	if err != nil {
-		log.Println(err)
+		log.Println("cant' parse passthroughEndpoint: ", err)
 	}
 
 	//base.Path += method
@@ -280,30 +280,30 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 	params := url.Values{}
 	var headers = http.Header{}
 
-	var bodymap = map[string]any{}
-	err = json.Unmarshal(f.Data, &bodymap)
-	if err != nil {
-		log.Println(err)
-	}
+	//var bodymap = map[string]any{}
+	//err = json.Unmarshal(f.Data, &bodymap)
+	//if err != nil {
+	//	log.Println(err)
+	//}
 
 	for _, cred := range g.serviceCredentials {
 		switch cred.Location {
 		case query:
 			params.Add(cred.Key, cred.Value)
-		case body:
-			bodymap[cred.Key] = cred.Value
+		//case body:
+		//	bodymap[cred.Key] = cred.Value
 		case header:
 			headers.Set(cred.Key, cred.Value)
 		}
 	}
 
-	dataBytes, err := json.Marshal(bodymap)
-	if err != nil {
-		return err
-	}
+	//dataBytes, err := json.Marshal(bodymap)
+	//if err != nil {
+	//	return status.Errorf(codes.Internal, "error executing http call: json.Marshal; error: %+cred", err)
+	//}
 
 	base.RawQuery = params.Encode()
-	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(dataBytes))
+	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(f.Data))
 	httpReq.Header = headers
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request; error: %+cred", err)

@@ -280,31 +280,39 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 	params := url.Values{}
 	var headers = http.Header{}
 
-	var bodymap = map[string]any{}
-	err = json.Unmarshal(f.Data, &bodymap)
-	if err != nil {
-		log.Println(err)
-	}
+	//var bodymap = map[string]any{}
+	//err = json.Unmarshal(f.Data, &bodymap)
+	//if err != nil {
+	//	log.Println("json.Unmarshal(f.Data, &bodymap): ", err)
+	//}
 
 	for _, cred := range g.serviceCredentials {
 		switch cred.Location {
 		case query:
 			params.Add(cred.Key, cred.Value)
 		case body:
-			bodymap[cred.Key] = cred.Value
+			//bodymap[cred.Key] = cred.Value
 		case header:
 			headers.Set(cred.Key, cred.Value)
 		}
 	}
 
-	dataBytes, err := json.Marshal(bodymap)
-	if err != nil {
-		return err
-	}
+	//dataBytes, err := json.Marshal(bodymap)
+	//if err != nil {
+	//	log.Println("json.Marshal(bodymap):", err)
+	//	return err
+	//}
 
 	base.RawQuery = params.Encode()
-	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(dataBytes))
+	log.Println("URL: ", base.String())
+	log.Println("data: ", string(f.Data))
+	//log.Println("data2: ", string(f.Data[5:]))
+	//log.Println("data3: ", string(f.Data[2:]))
+	var a []byte = []byte(`{"text":""}`)
+
+	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(a))
 	httpReq.Header = headers
+	log.Println("headers: ", headers)
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request; error: %+cred", err)
 	}
@@ -322,6 +330,7 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 		return status.Errorf(codes.Internal, "error reading response; error: %+cred", err)
 	}
 
+	log.Println("resp: ", string(respData))
 	f = &codec.GrpcFrame{Data: respData}
 
 	if err = inStream.SendMsg(f); err != nil {

@@ -270,9 +270,14 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 		return status.Errorf(codes.Internal, "error receiving request; error: %+cred", err)
 	}
 
+	log.Println("bytes input: ", f.Data)
+	log.Println("string input: ", string(f.Data))
+	jsonInput := f.Data[2:] // trim grpc headers
+	log.Println("string input trimmed: ", string(jsonInput))
+
 	base, err := url.Parse(g.passthroughEndpoint)
 	if err != nil {
-		log.Println(err)
+		log.Println("cant' parse passthroughEndpoint: ", err)
 	}
 
 	//base.Path += method
@@ -283,15 +288,15 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 	//var bodymap = map[string]any{}
 	//err = json.Unmarshal(f.Data, &bodymap)
 	//if err != nil {
-	//	log.Println("json.Unmarshal(f.Data, &bodymap): ", err)
+	//	log.Println(err)
 	//}
 
 	for _, cred := range g.serviceCredentials {
 		switch cred.Location {
 		case query:
 			params.Add(cred.Key, cred.Value)
-		case body:
-			//bodymap[cred.Key] = cred.Value
+		//case body:
+		//	bodymap[cred.Key] = cred.Value
 		case header:
 			headers.Set(cred.Key, cred.Value)
 		}
@@ -299,20 +304,12 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 
 	//dataBytes, err := json.Marshal(bodymap)
 	//if err != nil {
-	//	log.Println("json.Marshal(bodymap):", err)
-	//	return err
+	//	return status.Errorf(codes.Internal, "error executing http call: json.Marshal; error: %+cred", err)
 	//}
 
 	base.RawQuery = params.Encode()
-	log.Println("URL: ", base.String())
-	log.Println("data: ", string(f.Data))
-	//log.Println("data2: ", string(f.Data[5:]))
-	//log.Println("data3: ", string(f.Data[2:]))
-	var a []byte = []byte(`{"text":""}`)
-
-	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(a))
+	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonInput))
 	httpReq.Header = headers
-	log.Println("headers: ", headers)
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request; error: %+cred", err)
 	}
@@ -325,17 +322,27 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 		return status.Errorf(codes.Internal, "error executing http call; error: %+cred", err)
 	}
 
-	respData, err := io.ReadAll(httpResp.Body)
+	resp, err := io.ReadAll(httpResp.Body)
 	if err != nil {
 		return status.Errorf(codes.Internal, "error reading response; error: %+cred", err)
 	}
-
-	log.Println("resp: ", string(respData))
+	dataSize := len(resp)
+	thirdByte := dataSize / 128
+	remainingBytes := dataSize % 128
+	secondByte := remainingBytes + 128
+	compressedFlag := 10 // first byte
+	var respData = append([]byte{byte(compressedFlag), byte(secondByte), byte(thirdByte)}, resp...)
+	log.Println("bytes resp: ", respData)
+	log.Println("string resp: ", string(respData))
 	f = &codec.GrpcFrame{Data: respData}
-
 	if err = inStream.SendMsg(f); err != nil {
 		return status.Errorf(codes.Internal, "error sending response; error: %+cred", err)
 	}
+
+	log.Println("dataSize (bytes): ", dataSize)
+
+	log.Println("2 byte: ", secondByte)
+	log.Println("3 byte: ", thirdByte)
 
 	return nil
 }

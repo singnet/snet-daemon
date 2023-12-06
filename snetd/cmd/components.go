@@ -572,6 +572,11 @@ func (components *Components) ModelService() training.ModelServer {
 	if components.modelService != nil {
 		return components.modelService
 	}
+	if !config.GetBool(config.BlockchainEnabledKey) {
+		components.modelService = &training.NoModelSupportService{}
+		return components.modelService
+	}
+
 	components.modelService = training.NewModelService(components.PaymentChannelService(), components.ServiceMetaData(),
 		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage())
 	return components.modelService

@@ -8,7 +8,6 @@ pushd $PARENT_PATH
 # Run golint
 # NOTE: currently we are just printing lint violations, not failing the test if any errors are present
 ./scripts/lint
-
 # Run integration tests
 # Run integration tests
 go get golang.org/x/tools/cmd/cover
@@ -16,7 +15,7 @@ go get github.com/mattn/goveralls
 for d in */ ; do
   for entry in "$d"/*;do
 	  if [[ $entry =~ [a-zA-Z-]{1,}(_test.go)$  ]];
-	  then 
+	  then
 		go test -v ./${d: 0:-1} -coverprofile ${d: 0:-1}.part;
 		break
 	  fi

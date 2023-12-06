@@ -16,127 +16,126 @@ import (
 )
 
 /*
-	{
-	    "version": 1,
-	    "display_name": "Entity Disambiguation",
-	    "encoding": "proto",
-	    "service_type": "grpc",
-	    "model_ipfs_hash": "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv",
-	    "mpe_address": "0x34E2EeE197EfAAbEcC495FdF3B1781a3b894eB5f",
-	    "groups": [
-	        {
-	            "group_name": "default_group",
-	            "free_calls": 12,
-	            "free_call_signer_address": "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F",
-	            "pricing": [
-	                {
-	                    "price_model": "fixed_price",
-	                    "price_in_cogs": 1,
-	                    "default": true
-	                }
-	            ],
-	            "endpoints": [
-	                "https://tz-services-1.snet.sh:8005"
-	            ],
-	            "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ=",
+{
+    "version": 1,
+    "display_name": "Entity Disambiguation",
+    "encoding": "proto",
+    "service_type": "grpc",
+    "model_ipfs_hash": "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv",
+    "mpe_address": "0x34E2EeE197EfAAbEcC495FdF3B1781a3b894eB5f",
+    "groups": [
+        {
+            "group_name": "default_group",
+            "free_calls": 12,
+            "free_call_signer_address": "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F",
+            "pricing": [
+                {
+                    "price_model": "fixed_price",
+                    "price_in_cogs": 1,
+                    "default": true
+                }
+            ],
+            "endpoints": [
+                "https://tz-services-1.snet.sh:8005"
+            ],
+            "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ=",
+{
+  "licenses": {
 
-	{
-	  "licenses": {
+    "tiers": [{
+      "type": "Tier",
+      "planName": "Tier AAA",
+      "grpcServiceName": "ServiceA",
+      "grpcMethodName": "MethodA",
+      "range": [
+        {
+          "high": 100,
+          "DiscountInPercentage": 3
+        },
+        {
+          "high": 200,
+          "DiscountInPercentage": 4
+        },
+        {
+          "high": 300,
+          "DiscountInPercentage": 6
+        }
+      ],
+      "detailsUrl": "http://abc.org/licenses/Tier.html",
+      "isActive": "true/false"
+    },
+     {
+      "type": "Tier",
+      "planName": "Tier BBB Applicable for All service.methods",
+      "range": [
+        {
+          "high": 100,
+          "DiscountInPercentage": 1
+        },
+        {
+          "high": 200,
+          "DiscountInPercentage": 1.75
+        },
+        {
+          "high": 300,
+          "DiscountInPercentage": 2.50
+        }
+      ],
+      "detailsUrl": "http://abc.org/licenses/Tier.html",
+      "isActive": "true/false"
+    }],
+    "subscriptions": {
+      "type": "Subscription",
+      "subscription": [
+        {
+          "periodInDays": 30,
+          "DiscountInPercentage": 10,
+          "planName": "Monthly For ServiceA/MethodA",
+          "LicenseCost": 90,
+          "grpcServiceName": "ServiceA",
+          "grpcMethodName": "MethodA"
+        },
+        {
+          "periodInDays": 30,
+          "DiscountInPercentage": 12,
+          "planName": "Monthly",
+          "LicenseCost": 93
+        },
+        {
+          "periodInDays": 120,
+          "DiscountInPercentage": 16,
+          "LicenseCost": 120,
+          "planName": "Quarterly"
+        },
+        {
+          "periodInDays": 365,
+          "DiscountInPercentage": 23,
+          "LicenseCost": 390,
+          "planName": "Yearly"
+        }
+      ],
+      "detailsUrl": "http://abc.org/licenses/Subscription.html",
+      "isActive": "true/false"
+    }
+  }
+}
 
-	    "tiers": [{
-	      "type": "Tier",
-	      "planName": "Tier AAA",
-	      "grpcServiceName": "ServiceA",
-	      "grpcMethodName": "MethodA",
-	      "range": [
-	        {
-	          "high": 100,
-	          "DiscountInPercentage": 3
-	        },
-	        {
-	          "high": 200,
-	          "DiscountInPercentage": 4
-	        },
-	        {
-	          "high": 300,
-	          "DiscountInPercentage": 6
-	        }
-	      ],
-	      "detailsUrl": "http://abc.org/licenses/Tier.html",
-	      "isActive": "true/false"
-	    },
-	     {
-	      "type": "Tier",
-	      "planName": "Tier BBB Applicable for All service.methods",
-	      "range": [
-	        {
-	          "high": 100,
-	          "DiscountInPercentage": 1
-	        },
-	        {
-	          "high": 200,
-	          "DiscountInPercentage": 1.75
-	        },
-	        {
-	          "high": 300,
-	          "DiscountInPercentage": 2.50
-	        }
-	      ],
-	      "detailsUrl": "http://abc.org/licenses/Tier.html",
-	      "isActive": "true/false"
-	    }],
-	    "subscriptions": {
-	      "type": "Subscription",
-	      "subscription": [
-	        {
-	          "periodInDays": 30,
-	          "DiscountInPercentage": 10,
-	          "planName": "Monthly For ServiceA/MethodA",
-	          "LicenseCost": 90,
-	          "grpcServiceName": "ServiceA",
-	          "grpcMethodName": "MethodA"
-	        },
-	        {
-	          "periodInDays": 30,
-	          "DiscountInPercentage": 12,
-	          "planName": "Monthly",
-	          "LicenseCost": 93
-	        },
-	        {
-	          "periodInDays": 120,
-	          "DiscountInPercentage": 16,
-	          "LicenseCost": 120,
-	          "planName": "Quarterly"
-	        },
-	        {
-	          "periodInDays": 365,
-	          "DiscountInPercentage": 23,
-	          "LicenseCost": 390,
-	          "planName": "Yearly"
-	        }
-	      ],
-	      "detailsUrl": "http://abc.org/licenses/Subscription.html",
-	      "isActive": "true/false"
-	    }
-	  }
-	}
-
-	    ],
-	    "assets": {
-	        "hero_image": "Qmb1n3LxPXLHTUMu7afrpZdpug4WhhcmVVCEwUxjLQafq1/hero_named-entity-disambiguation.png"
-	    },
-	    "service_description": {
-	        "url": "https://singnet.github.io/nlp-services-misc/users_guide/named-entity-disambiguation-service.html",
-	        "description": "Provide further clearity regaridng entities named within a piece of text. For example, \"Paris is the capital of France\", we would want to link \"Paris\" to Paris the city not Paris Hilton in this case.",
-	        "short_description": "text of 180 chars"
-	    },
-	    "contributors": [
-	            {
-	                "name": "dummy dummy",
-	                "email_id": "dummy@dummy.io"
-	            }
-	        ]
-	}
+    ],
+    "assets": {
+        "hero_image": "Qmb1n3LxPXLHTUMu7afrpZdpug4WhhcmVVCEwUxjLQafq1/hero_named-entity-disambiguation.png"
+    },
+    "service_description": {
+        "url": "https://singnet.github.io/nlp-services-misc/users_guide/named-entity-disambiguation-service.html",
+        "description": "Provide further clearity regaridng entities named within a piece of text. For example, \"Paris is the capital of France\", we would want to link \"Paris\" to Paris the city not Paris Hilton in this case.",
+        "short_description": "text of 180 chars"
+    },
+    "contributors": [
+            {
+                "name": "dummy dummy",
+                "email_id": "dummy@dummy.io"
+            }
+        ]
+}
 */
 const IpfsPrefix = "ipfs://"
 
@@ -157,8 +156,8 @@ type ServiceMetadata struct {
 	freeCallSignerAddress     common.Address
 	isfreeCallAllowed         bool
 	freeCallsAllowed          int
-	dynamicPriceMethodMapping map[string]string
-	trainingMethods           map[string]string
+	dynamicPriceMethodMapping map[string]string `json:"dynamicpricing"`
+	trainingMethods           []string          `json:"training_methods"`
 }
 type Tiers struct {
 	Tiers Tier `json:"tier"`
@@ -328,7 +327,18 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 			return nil, err
 		}
 	}
+	e, err := json.Marshal(metaData.dynamicPriceMethodMapping)
+	if err != nil {
+		fmt.Println(err)
 
+	}
+	fmt.Println(string(e))
+	e1, err := json.Marshal(metaData.trainingMethods)
+	if err != nil {
+		fmt.Println(err)
+
+	}
+	fmt.Println(string(e1))
 	return metaData, err
 }
 
@@ -426,7 +436,7 @@ func (metaData *ServiceMetadata) GetLicenses() Licenses {
 	return metaData.defaultGroup.Licenses
 }
 
-// methodFullName , ex "/example_service.Calculator/add"
+//methodFullName , ex "/example_service.Calculator/add"
 func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullName string) (pricingMethod string, isDynamicPricingEligible bool) {
 	//Check if Method Level Options are defined , for the given Service and method,
 	//If Defined check if its in the format supported , then return the full method Name
@@ -444,18 +454,26 @@ func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullNam
 	return
 }
 
-// methodFullName , ex "/example_service.Calculator/add"
+//methodFullName , ex "/example_service.Calculator/add"
 func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useModelTrainingEndPoint bool) {
 
 	if !config.GetBool(config.ModelTrainingEnabled) {
 		return false
 	}
-	useModelTrainingEndPoint, _ = strconv.ParseBool(metaData.trainingMethods[methodFullName])
+	useModelTrainingEndPoint = isElementInArray(methodFullName, metaData.trainingMethods)
 	return
+}
+func isElementInArray(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
 func setServiceProto(metaData *ServiceMetadata) (err error) {
 	metaData.dynamicPriceMethodMapping = make(map[string]string, 0)
-	metaData.trainingMethods = make(map[string]string, 0)
+	metaData.trainingMethods = make([]string, 0)
 	//This is to handler the scenario where there could be mutiple protos associated with the service proto
 	protoFiles, err := ipfsutils.ReadFilesCompressed(ipfsutils.GetIpfsFile(metaData.ModelIpfsHash))
 	for _, file := range protoFiles {
@@ -485,9 +503,9 @@ func parseServiceProto(serviceProtoFile string) (*proto.Proto, error) {
 }
 
 func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMethodMapping map[string]string,
-	trainingMethodPricing map[string]string, err error) {
+	trainingMethodPricing []string, err error) {
 	dynamicPricingMethodMapping = make(map[string]string, 0)
-	trainingMethodPricing = make(map[string]string, 0)
+	trainingMethodPricing = make([]string, 0)
 	var pkgName, serviceName, methodName string
 	for _, elem := range serviceProto.Elements {
 		//package is parsed earlier than service ( per documentation)
@@ -501,15 +519,15 @@ func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMet
 				if rpcMethod, ok := serviceElements.(*proto.RPC); ok {
 					methodName = rpcMethod.Name
 					for _, methodOption := range rpcMethod.Options {
-						if strings.Compare(methodOption.Name, "(my_method_option).estimatePriceMethod") == 0 {
+						if strings.Compare(methodOption.Name, "(pricing.my_method_option).estimatePriceMethod") == 0 {
 							pricingMethod := fmt.Sprintf("%v", methodOption.Constant.Source)
 							dynamicPricingMethodMapping["/"+pkgName+"."+serviceName+"/"+methodName+""] =
 								pricingMethod
 						}
-						if strings.Compare(methodOption.Name, "(my_method_option).trainingMethodIndicator") == 0 {
-							trainingMethod := fmt.Sprintf("%v", methodOption.Constant.Source)
-							trainingMethodPricing["/"+pkgName+"."+serviceName+"/"+methodName+""] =
-								trainingMethod
+						if strings.Compare(methodOption.Name, "(training.my_method_option).trainingMethodIndicator") == 0 {
+							trainingMethod := "/" + pkgName + "." + serviceName + "/" + methodName + ""
+							trainingMethodPricing = append(trainingMethodPricing, trainingMethod)
+
 						}
 					}
 				}

@@ -12,17 +12,23 @@ message ModelDetails {
   //define the grpc service name , under which the method is defined
   string grpc_service_name = 3;
   string description = 4;
-  //set this to true if you want your model to be used by other AI consumers
-  bool is_publicly_accessible = 5;
-  //List of all the addresses that will have access to this model
-  repeated string address_list = 6;
-  // this is optional
-  string training_data_link = 7;
-  bool is_default_model = 8;
 
-  string organization_id = 9;
-  string service_id = 10 ;
-  string group_id = 11;
+  string status = 6;
+  string updated_date = 7;
+  //List of all the addresses that will have access to this model
+  repeated string address_list = 8;
+  // this is optional
+  string training_data_link = 9;
+  string model_name = 10;
+
+
+  string organization_id = 11;
+  string service_id = 12 ;
+  string group_id = 13;
+
+  //set this to true if you want your model to be used by other AI consumers
+  bool is_publicly_accessible = 14;
+
 }
 
 message AuthorizationDetails {

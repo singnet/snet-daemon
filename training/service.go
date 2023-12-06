@@ -193,7 +193,7 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (dat
 	ok := false
 	data, ok, err = service.storage.Get(key)
 	if ok && err == nil {
-		data.Status = (Status_DELETED)
+		data.Status = Status_DELETED
 		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
 		err = service.storage.Put(key, data)
 		err = service.deleteUserModelDetails(key, data)
@@ -296,7 +296,7 @@ func isValuePresent(value string, list []string) bool {
 	return false
 }
 
-//ensure only authorized use
+// ensure only authorized use
 func (service ModelService) verifySignerHasAccessToTheModel(serviceName string, methodName string, modelId string, address string) (err error) {
 	key := &ModelUserKey{
 		OrganizationId:  config.GetString(config.OrganizationId),

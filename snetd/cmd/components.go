@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -355,7 +355,7 @@ func (components *Components) PrePaidService() escrow.PrePaidService {
 	return components.prepaidUserService
 }
 
-//Add a chain of interceptors
+// Add a chain of interceptors
 func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
@@ -382,7 +382,7 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	return components.grpcInterceptor
 }
 
-//Metering end point authentication is now mandatory for daemon
+// Metering end point authentication is now mandatory for daemon
 func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string, groupId string) (ok bool, err error) {
 
 	if _, err = crypto.HexToECDSA(config.GetString(config.PvtKeyForMetering)); err != nil {
@@ -397,6 +397,7 @@ func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL st
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-authtype", "verification")
+	req.Header.Set("Access-Control-Allow-Origin", "*")
 	metrics.SignMessageForMetering(req,
 		&metrics.CommonStats{OrganizationID: config.GetString(config.OrganizationId), ServiceID: config.GetString(config.ServiceId),
 			GroupID: groupId, UserName: metrics.GetDaemonID()})
@@ -412,7 +413,7 @@ func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL st
 
 }
 
-//Check if the response received was proper
+// Check if the response received was proper
 func checkResponse(response *http.Response) (allowed bool, err error) {
 	if response == nil {
 		log.Error("Empty response received.")
@@ -422,7 +423,7 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 		log.Errorf("Service call failed with status code : %d ", response.StatusCode)
 		return false, fmt.Errorf("Service call failed with status code : %d ", response.StatusCode)
 	}
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Infof("Unable to retrieve calls allowed from Body , : %s ", err.Error())
 		return false, err

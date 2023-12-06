@@ -28,6 +28,7 @@ func (suite *FreeCallServiceSuite) FreeCallUserData() *FreeCallUserData {
 		GroupID:        "ewAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 	}
 }
+
 func (suite *FreeCallServiceSuite) SetupSuite() {
 	metadata, err := blockchain.InitServiceMetaDataFromJson(testJsonData)
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)

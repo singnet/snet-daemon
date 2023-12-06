@@ -72,6 +72,7 @@ func deferConnection(conn *grpc.ClientConn) {
 		}
 	}(conn)
 }
+
 func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
 	conn, err = grpc.Dial(service.serviceUrl, grpc.WithInsecure())
 	if err != nil {
@@ -82,6 +83,7 @@ func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client Mo
 	client = NewModelClient(conn)
 	return
 }
+
 func (service ModelService) createModelDetails(request *CreateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
 	key := service.getModelKeyToCreate(request, response)
 	data = service.getModelDataToCreate(request, response)
@@ -95,6 +97,7 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 	}
 	return
 }
+
 func getModelUserKey(key *ModelKey, address string) *ModelUserKey {
 	return &ModelUserKey{
 		OrganizationId:  key.OrganizationId,
@@ -151,12 +154,13 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (dat
 	ok := false
 	data, ok, err = service.storage.Get(key)
 	if ok && err == nil {
-		data.Status = (Status_DELETED)
+		data.Status = Status_DELETED
 		err = service.storage.Put(key, data)
 		err = service.deleteUserModelDetails(key, data)
 	}
 	return
 }
+
 func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
 	responseData = &ModelDetails{
 		ModelId:        data.ModelId,
@@ -429,6 +433,7 @@ func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsRespons
 		},
 	}
 }
+
 func (service ModelService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
 	err error) {
 	if request == nil || request.Authorization == nil {

@@ -103,6 +103,7 @@ func getConnection(endpoint string) (conn *grpc.ClientConn) {
 	}
 	return
 }
+
 func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
 	conn = getConnection(service.serviceUrl)
 	client = NewModelClient(conn)

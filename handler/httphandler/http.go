@@ -5,6 +5,7 @@ import (
 	"github.com/singnet/snet-daemon/ratelimit"
 	"golang.org/x/time/rate"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/singnet/snet-daemon/config"
@@ -25,6 +26,8 @@ func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
 }
 
 func (h *httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	resp.Header().Set("Access-Control-Allow-Origin", "*")
+	log.Printf("ServeHTTP: %#v \n", req)
 	if h.passthroughEnabled {
 		if h.rateLimiter.Allow() == false {
 			http.Error(resp, http.StatusText(429), http.StatusTooManyRequests)

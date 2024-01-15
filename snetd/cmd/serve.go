@@ -3,9 +3,25 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/gorilla/handlers"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"github.com/pkg/errors"
+	"github.com/rs/cors"
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
+	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/handler/httphandler"
+	"github.com/singnet/snet-daemon/logger"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/training"
+	log "github.com/sirupsen/logrus"
+	"github.com/soheilhy/cmux"
+	"github.com/spf13/cobra"
+	"golang.org/x/crypto/acme/autocert"
+	"golang.org/x/net/http2"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"net"
 	"net/http"
@@ -13,22 +29,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-
-	"github.com/gorilla/handlers"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/pkg/errors"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/escrow"
-	"github.com/singnet/snet-daemon/handler"
-	"github.com/singnet/snet-daemon/handler/httphandler"
-	"github.com/singnet/snet-daemon/logger"
-	log "github.com/sirupsen/logrus"
-	"github.com/soheilhy/cmux"
-	"github.com/spf13/cobra"
-	"golang.org/x/crypto/acme/autocert"
-	"golang.org/x/net/http2"
-	"google.golang.org/grpc"
 )
 
 var corsOptions = []handlers.CORSOption{
@@ -194,11 +194,18 @@ func (d *daemon) start() {
 		grpcL := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc"))
 		httpL := mux.Match(cmux.HTTP1Fast())
 
-		grpcWebServer := grpcweb.WrapServer(d.grpcServer, grpcweb.WithCorsForRegisteredEndpointsOnly(false))
+		grpcWebServer := grpcweb.WrapServer(d.grpcServer, grpcweb.WithCorsForRegisteredEndpointsOnly(false), grpcweb.WithOriginFunc(func(origin string) bool {
+			return true
+		}))
 
 		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+			log.Println("httpHandler path: ", req.URL.Path)
+			log.Printf("input request %#v \n", req)
+			resp.Header().Set("Access-Control-Allow-Origin", "*")
 			if grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req) {
 				grpcWebServer.ServeHTTP(resp, req)
+				log.Println("IsGrpcWebRequest/IsAcceptableGrpcCorsRequest")
+				resp.Header().Set("Access-Control-Allow-Origin", "*")
 			} else {
 				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
 					resp.Header().Set("Access-Control-Allow-Origin", "*")
@@ -210,16 +217,59 @@ func (d *daemon) start() {
 					http.NotFound(resp, req)
 				}
 			}
+			log.Println("output headers:")
+			for key, value := range resp.Header() {
+				fmt.Printf("%s value is %v\n", key, value)
+			}
 		})
 
 		log.Debug("starting daemon")
 
+		corsOpts := cors.New(cors.Options{
+			AllowedOrigins: []string{"*"}, //you service is available and allowed for this base url
+			AllowedMethods: []string{
+				http.MethodGet, //http methods for your app
+				http.MethodPost,
+				http.MethodPut,
+				http.MethodPatch,
+				http.MethodDelete,
+				http.MethodOptions,
+				http.MethodHead,
+				http.MethodConnect,
+			},
+			AllowCredentials: true,
+			Debug:            true,
+			AllowOriginRequestFunc: func(r *http.Request, origin string) bool {
+				return true
+			},
+			AllowOriginFunc: func(origin string) bool {
+				return true
+			},
+			ExposedHeaders: []string{"X-Grpc-Web", "Content-Length", "Access-Control-Allow-Origin", "Content-Type", "Origin"},
+			AllowedHeaders: []string{"X-Grpc-Web", "User-Agent", "Origin", "Accept", "Authorization", "Content-Type", "X-Requested-With", "Content-Length", "Access-Control-Allow-Origin",
+				handler.PaymentTypeHeader,
+				handler.ClientTypeHeader,
+				handler.PaymentChannelSignatureHeader,
+				handler.PaymentChannelIDHeader,
+				handler.PaymentChannelAmountHeader,
+				handler.PaymentChannelNonceHeader,
+				handler.FreeCallUserIdHeader,
+				handler.FreeCallAuthTokenHeader,
+				handler.FreeCallAuthTokenExpiryBlockNumberHeader,
+				handler.UserInfoHeader,
+				handler.UserAgentHeader,
+				handler.DynamicPriceDerived,
+				handler.PrePaidAuthTokenHeader,
+				handler.CurrentBlockNumberHeader,
+				handler.PaymentMultiPartyEscrowAddressHeader,
+			},
+		})
+
 		go d.grpcServer.Serve(grpcL)
-		go http.Serve(httpL, httpHandler)
+		go http.Serve(httpL, corsOpts.Handler(httpHandler))
 		go mux.Serve()
 	} else {
 		log.Debug("starting simple HTTP daemon")
-
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
 

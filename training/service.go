@@ -12,8 +12,15 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"math/big"
+	"net/url"
+	"strings"
 	"time"
+)
+
+const (
+	DateFormat = "02-01-2006"
 )
 
 type IService interface {
@@ -72,13 +79,33 @@ func deferConnection(conn *grpc.ClientConn) {
 		}
 	}(conn)
 }
-func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
-	conn, err = grpc.Dial(service.serviceUrl, grpc.WithInsecure())
+func getConnection(endpoint string) (conn *grpc.ClientConn) {
+	options := grpc.WithDefaultCallOptions(
+		grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
+		grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024))
+
+	passthroughURL, err := url.Parse(endpoint)
 	if err != nil {
-		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
-		return nil, nil, err
+		log.WithError(err).Panic("error parsing passthrough endpoint")
 	}
-	// create the client instance
+	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
+		conn, err = grpc.Dial(passthroughURL.Host,
+			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), options)
+		if err != nil {
+			log.WithError(err).Panic("error dialing service")
+		}
+	} else {
+		conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), options)
+
+		if err != nil {
+			log.WithError(err).Panic("error dialing service")
+		}
+	}
+	return
+}
+
+func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
+	conn = getConnection(service.serviceUrl)
 	client = NewModelClient(conn)
 	return
 }
@@ -87,11 +114,25 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 	data = service.getModelDataToCreate(request, response)
 	//store the model details in etcd
 	err = service.storage.Put(key, data)
+	log.Debug("Putting Model Data....")
+	log.Debug(" Model key is:" + key.String())
+	log.Debug(" Model Data is:" + data.String())
+	if err != nil {
+		log.WithError(err)
+		return
+	}
 	//for every accessible address in the list , store the user address and all the model Ids associated with it
 	for _, address := range data.AuthorizedAddresses {
 		userKey := getModelUserKey(key, address)
 		userData := service.getModelUserData(key, address)
 		err = service.userStorage.Put(userKey, userData)
+		if err != nil {
+			log.WithError(err)
+			return
+		}
+		log.Debug("Putting USER Model Data....")
+		log.Debug(" USER Model key is:" + userKey.String())
+		log.Debug(" USER Model Data is:" + userData.String())
 	}
 	return
 }
@@ -110,7 +151,9 @@ func (service ModelService) getModelUserData(key *ModelKey, address string) *Mod
 	//Check if there are any model Ids already associated with this user
 	modelIds := make([]string, 0)
 	userKey := getModelUserKey(key, address)
-	if data, ok, err := service.userStorage.Get(userKey); ok && err == nil && data != nil {
+	log.Debug(" USER Model key is:" + userKey.String())
+	data, ok, err := service.userStorage.Get(userKey)
+	if ok && err == nil && data != nil {
 		modelIds = data.ModelIds
 	}
 	modelIds = append(modelIds, key.ModelId)
@@ -151,7 +194,8 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (dat
 	ok := false
 	data, ok, err = service.storage.Get(key)
 	if ok && err == nil {
-		data.Status = (Status_DELETED)
+		data.Status = Status_DELETED
+		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
 		err = service.storage.Put(key, data)
 		err = service.deleteUserModelDetails(key, data)
 	}
@@ -159,9 +203,19 @@ func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (dat
 }
 func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
 	responseData = &ModelDetails{
-		ModelId:        data.ModelId,
-		GrpcMethodName: data.GRPCMethodName,
-		Description:    data.Description,
+		ModelId:              data.ModelId,
+		GrpcMethodName:       data.GRPCMethodName,
+		GrpcServiceName:      data.GRPCServiceName,
+		Description:          data.Description,
+		IsPubliclyAccessible: data.IsPublic,
+		AddressList:          data.AuthorizedAddresses,
+		TrainingDataLink:     data.TrainingLink,
+		ModelName:            data.ModelName,
+		OrganizationId:       data.OrganizationId,
+		ServiceId:            data.ServiceId,
+		GroupId:              data.GroupId,
+		UpdatedDate:          data.UpdatedDate,
+		Status:               data.Status.String(),
 	}
 	return
 }
@@ -184,7 +238,10 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		if response != nil {
 			data.Status = response.Status
 		}
-		data.IsDefault = request.UpdateModelDetails.IsDefaultModel
+		data.ModelName = request.UpdateModelDetails.ModelName
+		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
+		data.Description = request.UpdateModelDetails.Description
+		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
 
 		err = service.storage.Put(key, data)
 		//get the difference of all the addresses b/w old and new
@@ -192,10 +249,10 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		for _, address := range updatedAddresses {
 			modelUserKey := getModelUserKey(key, address)
 			modelUserData := service.getModelUserData(key, address)
-			//if the address is present in the request but not in the old address, add it to the storage
+			//if the address is present in the request but not in the old address , add it to the storage
 			if isValuePresent(address, request.UpdateModelDetails.AddressList) {
 				modelUserData.ModelIds = append(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
-			} else { // the address was present in the old data, but not in new, hence needs to be deleted
+			} else { // the address was present in the old data , but not in new , hence needs to be deleted
 				modelUserData.ModelIds = remove(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
 			}
 			err = service.userStorage.Put(modelUserKey, modelUserData)
@@ -330,6 +387,8 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 		GRPCServiceName: request.GrpcServiceName,
 		UserAddress:     request.Authorization.SignerAddress,
 	}
+	log.Debug(" USER Model key is:" + key.String())
+
 	modelDetailsArray := make([]*ModelDetails, 0)
 	if data, ok, err := service.userStorage.Get(key); data != nil && ok && err == nil {
 		for _, modelId := range data.ModelIds {
@@ -342,10 +401,13 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 				ModelId:         modelId,
 			}
 			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
-				modelDetailsArray = append(modelDetailsArray, convertModelDataToBO(modelData))
+
+				boModel := convertModelDataToBO(modelData)
+				modelDetailsArray = append(modelDetailsArray, boModel)
 			}
 		}
 	}
+	fmt.Println(modelDetailsArray)
 	response = &AccessibleModelsResponse{
 		ListOfModels: modelDetailsArray,
 	}
@@ -361,12 +423,16 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 		CreatedByAddress:    request.Authorization.SignerAddress,
 		UpdatedByAddress:    request.Authorization.SignerAddress,
 		AuthorizedAddresses: request.ModelDetails.AddressList,
+		Description:         request.ModelDetails.Description,
+		ModelName:           request.ModelDetails.ModelName,
+		TrainingLink:        request.ModelDetails.TrainingDataLink,
 		IsPublic:            request.ModelDetails.IsPubliclyAccessible,
-		IsDefault:           request.ModelDetails.IsDefaultModel,
+		IsDefault:           false,
 		ModelId:             response.ModelDetails.ModelId,
 		OrganizationId:      config.GetString(config.OrganizationId),
 		ServiceId:           config.GetString(config.ServiceId),
 		GroupId:             service.organizationMetaData.GetGroupIdString(),
+		UpdatedDate:         fmt.Sprintf("%v", time.Now().Format(DateFormat)),
 	}
 	//by default add the creator to the Authorized list of Address
 	if data.AuthorizedAddresses == nil {
@@ -378,18 +444,21 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 
 func (service ModelService) CreateModel(c context.Context, request *CreateModelRequest) (response *ModelDetailsResponse,
 	err error) {
+
 	// verify the request
 	if request == nil || request.Authorization == nil {
+		log.WithError(err)
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
+		log.WithError(err)
 		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Unable to access model , %v", err)
+			fmt.Errorf(" Unable to create Model  , %v", err)
 	}
 
 	// make a call to the client
-	// if the response is successful , store details in etcd
+	// if the response is successful, store details in etcd
 	// send back the response to the client
 
 	if conn, client, err := service.getServiceClient(); err == nil {
@@ -402,6 +471,9 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 			} else {
 				return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 			}
+		} else {
+			return &ModelDetailsResponse{Status: Status_ERRORED},
+				fmt.Errorf("error in invoking service for Model Training %v", err)
 		}
 		deferConnection(conn)
 	} else {
@@ -419,13 +491,15 @@ func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsRespons
 			GrpcMethodName:       data.GRPCMethodName,
 			GrpcServiceName:      data.GRPCServiceName,
 			Description:          data.Description,
-			IsPubliclyAccessible: data.IsPublic,
+			IsPubliclyAccessible: false,
 			AddressList:          data.AuthorizedAddresses,
 			TrainingDataLink:     data.TrainingLink,
-			IsDefaultModel:       data.IsDefault,
-			OrganizationId:       data.OrganizationId,
-			ServiceId:            data.ServiceId,
+			ModelName:            data.ModelName,
+			OrganizationId:       config.GetString(config.OrganizationId),
+			ServiceId:            config.GetString(config.ServiceId),
 			GroupId:              data.GroupId,
+			Status:               status.String(),
+			UpdatedDate:          data.UpdatedDate,
 		},
 	}
 }
@@ -475,7 +549,7 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.DeleteModel(ctx, request)
 		log.Infof("Deleting model based on response from DeleteModel")
-		if data, err := service.deleteModelDetails(request); err == nil {
+		if data, err := service.deleteModelDetails(request); err == nil && data != nil {
 			response = BuildModelResponseFrom(data, response.Status)
 		} else {
 			return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)

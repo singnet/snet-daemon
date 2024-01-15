@@ -23,12 +23,12 @@ func (server EtcdServer) GetConf() *EtcdServerConf {
 
 }
 
-// IsEtcdServerEnabled checls that etcd server is enabled using conf file
+// IsEtcdServerEnabled checks that etcd server is enabled using conf file
 func IsEtcdServerEnabled() (enabled bool, err error) {
 	return IsEtcdServerEnabledInVip(config.Vip())
 }
 
-// IsEtcdServerEnabledInVip checls that etcd server is enabled using viper conf
+// IsEtcdServerEnabledInVip checks that etcd server is enabled using viper conf
 func IsEtcdServerEnabledInVip(vip *viper.Viper) (enabled bool, err error) {
 
 	conf, err := GetEtcdServerConf(vip)
@@ -40,7 +40,7 @@ func IsEtcdServerEnabledInVip(vip *viper.Viper) (enabled bool, err error) {
 }
 
 // GetEtcdServer returns EtcdServer in case it is defined in the viper config
-// reuturns null if PAYMENT_CHANNEL_STORAGE property is not defined
+// returns null if PAYMENT_CHANNEL_STORAGE property is not defined
 // in the config file or the ENABLED field of the PAYMENT_CHANNEL_STORAGE
 // is set to false
 func GetEtcdServer() (server *EtcdServer, err error) {

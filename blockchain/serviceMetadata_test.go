@@ -104,20 +104,18 @@ func Test_setGroup(t *testing.T) {
 }
 
 func TestServiceMetadata_parseServiceProto(t *testing.T) {
-	strProto := "syntax = \"proto3\";\nimport \"google/protobuf/descriptor.proto\";\npackage example_service;\n\nmessage Numbers {\n    float a = 1;\n    float b = 2;\n}\nmessage Result" +
-		" {\n    float value = 1;\n}\nextend google.protobuf.MethodOptions {\n    EstimatePrice my_method_option = 50007;\n}\nmessage EstimatePrice {\n    string estimate = 1;\n}\nmessage PriceInCogs {\n    uint64 price = 1;\n}\n\nservice Calculator {\n    rpc add( Numbers) returns (Result) {\n        option (my_method_option).estimatePriceMethod = \"/example_service.Calculator/estimate_add\";\n   \n    rpc add( Numbers) returns (Result) {\n        option (my_method_option).trainingMethodIndicator = \"true\";\n  }\n    rpc estimate_add( Numbers) returns (PriceInCogs) {\n    }\n    rpc sub(Numbers) returns (Result) {}\n    rpc mul(Numbers) returns (Result) {}\n    rpc div(Numbers) returns (Result) {}\n}"
-	//metaData, err := InitServiceMetaDataFromJson(testJsonData)
+	strProto := "syntax = \"proto3\";\n\nimport \"singnet/snet-daemon/training/training.proto\";\nimport \"singnet/snet-daemon/pricing/pricing.proto\";\npackage example_service;\n\nmessage AddressList {\n    repeated string address = 1;\n    string model_details = 2;\n}\n\nmessage Numbers {\n    float a = 1;\n    float b = 2;\n    //highlight this as part of documentation\n    string model_id = 3;\n}\n\nmessage Result {\n    float value = 1;\n}\nmessage ModelId {\n    string model_id = 1;\n}\nmessage TrainingRequest  {\n    string link = 1;\n    string address = 2;\n    string model_id =3 ;\n    string request_id =4;\n}\nmessage TrainingResponse  {\n    string link = 1;\n    string model_id =2 ;\n    string status = 3;//put this in enum\n    string request_id = 4;\n}\n\nservice Calculator {\n    //AI developer can define their own training methods , if you wish to have a different pricing , please use\n    // define the pricing method as shown below, dynamic_pricing_train_add, please make sure the i/p is exactly the same\n    rpc train_add(TrainingRequest) returns (TrainingResponse) {\n        option (pricing.my_method_option).estimatePriceMethod = \"/example_service.Calculator/dynamic_pricing_train_add\";\n        option (training.my_method_option).trainingMethodIndicator = \"true\";\n    }\n\n    rpc train_subtraction(TrainingRequest) returns (TrainingResponse) {\n        option (pricing.my_method_option).estimatePriceMethod = \"/example_service.Calculator/dynamic_pricing_train_add\";\n        option (training.my_method_option).trainingMethodIndicator = \"true\";\n    }\n\n    //make sure the params to the method are exactly the same as that of the method in which needs dynamic price computation\n    rpc dynamic_pricing_train_add(TrainingRequest) returns (pricing.PriceInCogs) {}\n    rpc dynamic_pricing_add(Numbers) returns (pricing.PriceInCogs) {}\n\n    rpc add(Numbers) returns (Result) {option (pricing.my_method_option).estimatePriceMethod = \"/example_service.Calculator/dynamic_pricing_add\";}\n    rpc sub(Numbers) returns (Result) {}\n    rpc mul(Numbers) returns (Result) {}\n    rpc div(Numbers) returns (Result) {}\n}\n"
 	srvProto, err := parseServiceProto(strProto)
 	assert.Nil(t, err)
-	priceMethodMap, trainingMethodMap, err := buildDynamicPricingMethodsMap(srvProto)
+	priceMethodMap, trainingMethods, err := buildDynamicPricingMethodsMap(srvProto)
 	assert.Nil(t, err)
 	assert.NotNil(t, priceMethodMap)
-	assert.NotNil(t, trainingMethodMap)
+	assert.NotNil(t, trainingMethods)
 	dynamicPriceMethod, ok := priceMethodMap["/example_service.Calculator/add"]
-	dynamicTrainingMethod, ok := trainingMethodMap["/example_service.Calculator/add"]
-	assert.Equal(t, dynamicPriceMethod, "/example_service.Calculator/estimate_add")
-	assert.Equal(t, dynamicTrainingMethod, "true")
-	assert.True(t, ok)
+	isTrainingMethod := isElementInArray("/example_service.Calculator/train_add", trainingMethods)
+	assert.Equal(t, dynamicPriceMethod, "/example_service.Calculator/dynamic_pricing_add")
+	assert.True(t, ok, "true")
+	assert.True(t, isTrainingMethod)
 }
 
 func TestServiceMetadata_addOns(t *testing.T) {

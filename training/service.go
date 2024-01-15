@@ -457,7 +457,7 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 	}
 
 	// make a call to the client
-	// if the response is successful , store details in etcd
+	// if the response is successful, store details in etcd
 	// send back the response to the client
 
 	if conn, client, err := service.getServiceClient(); err == nil {

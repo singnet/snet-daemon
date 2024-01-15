@@ -73,7 +73,7 @@ message ModelDetailsRequest {
 
 //helps determine which service end point to call for model training
 //format is of type "packageName/serviceName/MethodName", Example :"/example_service.Calculator/estimate_add"
-//Daemon will invoke the model training  end point , when the below method option is specified
+//Daemon will invoke the model training end point , when the below method option is specified
 message TrainingMethodOption {
   string trainingMethodIndicator = 1;
 }
@@ -103,6 +103,11 @@ service Model {
   rpc create_model(CreateModelRequest) returns (ModelDetailsResponse) {}
   rpc delete_model(UpdateModelRequest) returns (ModelDetailsResponse) {}
   rpc get_model_status(ModelDetailsRequest) returns (ModelDetailsResponse) {}
+
+  //  rpc train_method(ModelDetailsRequest) returns (ModelDetailsRequest) {
+  //    // Applying an extension to a method
+  //    option (my_method_option).trainingMethodIndicator = "example_service.train_method/estimate_add";
+  //  }
 
 
   // Daemon will implement , however the AI developer should skip implementing these and just provide dummy code.

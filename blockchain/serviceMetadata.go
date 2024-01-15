@@ -329,16 +329,16 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 	}
 	e, err := json.Marshal(metaData.dynamicPriceMethodMapping)
 	if err != nil {
-		fmt.Println(err)
-
+		log.Println(err)
 	}
-	fmt.Println(string(e))
+
+	log.Println(string(e))
 	e1, err := json.Marshal(metaData.trainingMethods)
 	if err != nil {
-		fmt.Println(err)
-
+		log.Println(err)
 	}
-	fmt.Println(string(e1))
+
+	log.Println(string(e1))
 	return metaData, err
 }
 
@@ -392,7 +392,7 @@ func setFreeCallData(metaData *ServiceMetadata) error {
 		metaData.isfreeCallAllowed = true
 		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
 		//If the signer address is not a valid address, then return back an error
-		if !common.IsHexAddress((metaData.defaultGroup.FreeCallSigner)) {
+		if !common.IsHexAddress(metaData.defaultGroup.FreeCallSigner) {
 			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly")
 		}
 		metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
@@ -474,7 +474,7 @@ func isElementInArray(a string, list []string) bool {
 func setServiceProto(metaData *ServiceMetadata) (err error) {
 	metaData.dynamicPriceMethodMapping = make(map[string]string, 0)
 	metaData.trainingMethods = make([]string, 0)
-	//This is to handler the scenario where there could be mutiple protos associated with the service proto
+	//This is to handler the scenario where there could be multiple protos associated with the service proto
 	protoFiles, err := ipfsutils.ReadFilesCompressed(ipfsutils.GetIpfsFile(metaData.ModelIpfsHash))
 	for _, file := range protoFiles {
 		if srvProto, err := parseServiceProto(file); err != nil {
@@ -527,7 +527,6 @@ func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMet
 						if strings.Compare(methodOption.Name, "(training.my_method_option).trainingMethodIndicator") == 0 {
 							trainingMethod := "/" + pkgName + "." + serviceName + "/" + methodName + ""
 							trainingMethodPricing = append(trainingMethodPricing, trainingMethod)
-
 						}
 					}
 				}

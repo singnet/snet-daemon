@@ -233,7 +233,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	assert.Nil(suite.T(), err)
 
 	//send a bad signature
-	request.Authorization.Signature = suite.getSignature("Differennt message", 1200, suite.senderPvtKy)
+	request.Authorization.Signature = suite.getSignature("Different message", 1200, suite.senderPvtKy)
 	response, err = suite.service.CreateModel(ctx, request)
 	assert.NotNil(suite.T(), err)
 

@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/storage"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/context"
@@ -19,6 +20,8 @@ import (
 	"testing"
 	"time"
 )
+
+var count int = 0
 
 type ModelServiceTestSuite struct {
 	suite.Suite
@@ -38,6 +41,8 @@ func TestModelServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(ModelServiceTestSuite))
 }
 func (suite *ModelServiceTestSuite) getGRPCServerAndServe() {
+	config.Vip().Set(config.ModelMaintenanceEndPoint, "http://localhost:2222")
+	config.Vip().Set(config.ModelTrainingEndpoint, "http://localhost:2222")
 	ch := make(chan int)
 	go func() {
 		listener, err := net.Listen("tcp", ":2222")
@@ -79,13 +84,21 @@ func (suite *ModelServiceTestSuite) SetupSuite() {
 }
 
 type MockServiceModelGRPCImpl struct {
+	count int
+}
+
+func (m MockServiceModelGRPCImpl) mustEmbedUnimplementedModelServer() {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m MockServiceModelGRPCImpl) CreateModel(context context.Context, request *CreateModelRequest) (*ModelDetailsResponse, error) {
 	println("In Service CreateModel")
+	count = count + 1
+	log.Debug(count)
 	return &ModelDetailsResponse{Status: Status_CREATED,
 		ModelDetails: &ModelDetails{
-			ModelId: "1",
+			ModelId: fmt.Sprintf("%d", count),
 		}}, nil
 }
 
@@ -123,7 +136,7 @@ func (suite *ModelServiceTestSuite) getSignature(text string, blockNumber int, p
 	message := bytes.Join([][]byte{
 		[]byte(text),
 		crypto.PubkeyToAddress(privateKey.PublicKey).Bytes(),
-		abi.U256(big.NewInt(int64(blockNumber))),
+		math.U256Bytes(big.NewInt(int64(blockNumber))),
 	}, nil)
 	hash := crypto.Keccak256(
 		blockchain.HashPrefix32Bytes,
@@ -175,14 +188,16 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 			CurrentBlock:  1200,
 		},
 		ModelDetails: &ModelDetails{
-			GrpcServiceName:      "TESTSERVICE",
-			GrpcMethodName:       "TESTMETHOD",
+			GrpcServiceName:      " ",
+			GrpcMethodName:       "/example_service.Calculator/train_add",
 			Description:          "Just Testing",
 			IsPubliclyAccessible: false,
+			ModelName:            "ABCD",
+			TrainingDataLink:     " ",
 			AddressList:          []string{"A1", "A2", "A3"},
 		},
 	}
-	fmt.Println(suite.senderAddress.String())
+	log.Debug(suite.senderAddress.String())
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	response, err = suite.service.CreateModel(ctx, request)
@@ -193,8 +208,8 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 		OrganizationId:  config.GetString(config.OrganizationId),
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  "TESTMETHOD",
-		GRPCServiceName: "TESTSERVICE",
+		GRPCMethodName:  "/example_service.Calculator/train_add",
+		GRPCServiceName: " ",
 		UserAddress:     suite.senderAddress.String(),
 	}
 	//check if we have stored the user's associated model Ids
@@ -208,8 +223,8 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 		OrganizationId:  config.GetString(config.OrganizationId),
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  "TESTMETHOD",
-		GRPCServiceName: "TESTSERVICE",
+		GRPCMethodName:  "/example_service.Calculator/train_add",
+		GRPCServiceName: " ",
 		ModelId:         "1",
 	}
 	modelData, ok, err := suite.service.(*ModelService).storage.Get(key)
@@ -218,7 +233,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	assert.Nil(suite.T(), err)
 
 	//send a bad signature
-	request.Authorization.Signature = suite.getSignature("Differennt message", 1200, suite.senderPvtKy)
+	request.Authorization.Signature = suite.getSignature("Different message", 1200, suite.senderPvtKy)
 	response, err = suite.service.CreateModel(ctx, request)
 	assert.NotNil(suite.T(), err)
 
@@ -231,18 +246,38 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 			CurrentBlock:  1200,
 		},
 		ModelDetails: &ModelDetails{
-			GrpcServiceName:      "TESTSERVICE1",
-			GrpcMethodName:       "TESTMETHOD1",
+			GrpcServiceName:      " ",
+			GrpcMethodName:       "/example_service.Calculator/train_add",
 			Description:          "Just Testing",
 			IsPubliclyAccessible: false,
 		},
 	}
-	fmt.Println(suite.senderAddress.String())
+	log.Debug(suite.senderAddress.String())
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	response, err = suite.service.CreateModel(ctx, request2)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), response.ModelDetails.AddressList, []string{suite.senderAddress.String()})
+	//Create an Other Model Id for the same user !!!
+	response, err = suite.service.CreateModel(ctx, request)
+
+	request3 := &AccessibleModelsRequest{
+		GrpcServiceName: " ",
+		GrpcMethodName:  "/example_service.Calculator/train_add",
+		Authorization: &AuthorizationDetails{
+			SignerAddress: suite.senderAddress.String(),
+			Message:       "__UpdateModelAccess",
+			Signature:     suite.getSignature("__UpdateModelAccess", 1200, suite.senderPvtKy),
+			CurrentBlock:  1200,
+		},
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*2000)
+	defer cancel()
+	response2, err := suite.service.GetAllModels(ctx, request3)
+	assert.Nil(suite.T(), err)
+	fmt.Println(response2)
+	assert.Equal(suite.T(), len(response2.ListOfModels) > 1, true)
 
 }
 
@@ -250,8 +285,8 @@ func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {
 	request := &ModelDetailsRequest{
 		ModelDetails: &ModelDetails{
 			ModelId:         "1",
-			GrpcServiceName: "TESTSERVICE",
-			GrpcMethodName:  "TESTMETHOD",
+			GrpcServiceName: " ",
+			GrpcMethodName:  "/example_service.Calculator/train_add",
 		},
 		Authorization: &AuthorizationDetails{
 			SignerAddress: suite.senderAddress.String(),
@@ -260,7 +295,7 @@ func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {
 			CurrentBlock:  1200,
 		},
 	}
-	fmt.Println(suite.senderAddress.String())
+	log.Debug(suite.senderAddress.String())
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	response, err := suite.service.GetModelStatus(ctx, request)
@@ -274,26 +309,24 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		OrganizationId:  config.GetString(config.OrganizationId),
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  "TESTMETHOD",
-		GRPCServiceName: "TESTSERVICE",
+		GRPCMethodName:  "/example_service.Calculator/train_add",
+		GRPCServiceName: " ",
 		UserAddress:     suite.senderAddress.String(),
 	}
 	//check if we have stored the user's associated model Ids
 	err := suite.service.(*ModelService).userStorage.Put(userKey, &ModelUserData{
-		ModelIds:        []string{"1"},
+		ModelIds:        []string{"1", "2"},
 		OrganizationId:  config.GetString(config.OrganizationId),
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  "TESTMETHOD",
-		GRPCServiceName: "TESTSERVICE",
+		GRPCMethodName:  "/example_service.Calculator/train_add",
+		GRPCServiceName: " ",
 		UserAddress:     suite.senderAddress.String(),
 	})
 
-	fmt.Println("WTF")
-
 	modata, _, _ := suite.service.(*ModelService).userStorage.Get(userKey)
 
-	fmt.Println(modata)
+	log.Debug(modata)
 	//	assert.Equal(suite.T(), ok, true)
 	assert.Nil(suite.T(), err)
 	modelData := &ModelData{
@@ -306,8 +339,8 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		OrganizationId:      config.GetString(config.OrganizationId),
 		ServiceId:           config.GetString(config.ServiceId),
 		GroupId:             suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:      "TESTMETHOD",
-		GRPCServiceName:     "TESTSERVICE",
+		GRPCMethodName:      "/example_service.Calculator/train_add",
+		GRPCServiceName:     " ",
 		Description:         "",
 		IsDefault:           false,
 		TrainingLink:        "",
@@ -317,8 +350,8 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		OrganizationId:  config.GetString(config.OrganizationId),
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  "TESTMETHOD",
-		GRPCServiceName: "TESTSERVICE",
+		GRPCMethodName:  "/example_service.Calculator/train_add",
+		GRPCServiceName: " ",
 		ModelId:         "1",
 	}, modelData)
 	//	assert.Equal(suite.T(), ok, true)
@@ -328,20 +361,20 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		OrganizationId:  config.GetString(config.OrganizationId),
 		ServiceId:       config.GetString(config.ServiceId),
 		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  "TESTMETHOD",
-		GRPCServiceName: "TESTSERVICE",
+		GRPCMethodName:  "/example_service.Calculator/train_add",
+		GRPCServiceName: " ",
 		ModelId:         "1",
 	})
 
-	fmt.Println(data)
+	log.Debug(data)
 
 	request := &UpdateModelRequest{
 		UpdateModelDetails: &ModelDetails{
 			ModelId:              "1",
-			GrpcServiceName:      "TESTSERVICE",
-			GrpcMethodName:       "TESTMETHOD",
+			GrpcServiceName:      " ",
+			GrpcMethodName:       "/example_service.Calculator/train_add",
 			IsPubliclyAccessible: false,
-			IsDefaultModel:       true,
+			ModelName:            "ABCD",
 			Description:          "How are you",
 		},
 		Authorization: &AuthorizationDetails{
@@ -376,26 +409,11 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_GetAllAccessibleModels() {
-	request := &AccessibleModelsRequest{
-		GrpcServiceName: "TESTSERVICE",
-		GrpcMethodName:  "TESTMETHOD",
-		Authorization: &AuthorizationDetails{
-			SignerAddress: suite.senderAddress.String(),
-			Message:       "__UpdateModelAccess",
-			Signature:     suite.getSignature("__UpdateModelAccess", 1200, suite.senderPvtKy),
-			CurrentBlock:  1200,
-		},
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
-	response, err := suite.service.GetAllModels(ctx, request)
-	assert.Nil(suite.T(), err)
-	assert.Equal(suite.T(), len(response.ListOfModels) > 0, true)
-
 	request2 := &AccessibleModelsRequest{
-		GrpcServiceName: "TESTSERVICE",
-		GrpcMethodName:  "TESTMETHOD",
+		GrpcServiceName: " ",
+		GrpcMethodName:  "/example_service.Calculator/train_add",
 		Authorization: &AuthorizationDetails{
 			SignerAddress: suite.senderAddress.String(),
 			Message:       "__UpdateModelAccess",
@@ -403,15 +421,15 @@ func (suite *ModelServiceTestSuite) TestModelService_GetAllAccessibleModels() {
 			CurrentBlock:  1200,
 		},
 	}
+	response, err := suite.service.GetAllModels(ctx, request2)
+	assert.NotNil(suite.T(), err)
+	assert.NotNil(suite.T(), response)
+	request2.Authorization.Signature = suite.getSignature("__UpdateModelAccess", 1200, suite.alternateUserPvtKy)
 	response, err = suite.service.GetAllModels(ctx, request2)
 	assert.NotNil(suite.T(), err)
 
-	request.Authorization.Signature = suite.getSignature("__UpdateModelAccess", 1200, suite.alternateUserPvtKy)
-	response, err = suite.service.GetAllModels(ctx, request)
-	assert.NotNil(suite.T(), err)
-
-	request.Authorization = nil
-	response, err = suite.service.GetAllModels(ctx, request)
+	request2.Authorization = nil
+	response, err = suite.service.GetAllModels(ctx, request2)
 	assert.NotNil(suite.T(), err)
 
 }
@@ -446,8 +464,8 @@ func (suite *ModelServiceTestSuite) TestModelService_UDeleteModel() {
 	request := &UpdateModelRequest{
 		UpdateModelDetails: &ModelDetails{
 			ModelId:         "1",
-			GrpcServiceName: "TESTSERVICE",
-			GrpcMethodName:  "TESTMETHOD",
+			GrpcServiceName: " ",
+			GrpcMethodName:  "/example_service.Calculator/train_add",
 		},
 		Authorization: &AuthorizationDetails{
 			SignerAddress: suite.alternateUserAddress.String(),
@@ -461,7 +479,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UDeleteModel() {
 	response, err = suite.service.DeleteModel(ctx, request)
 	assert.NotNil(suite.T(), err)
 
-	fmt.Println(suite.senderAddress.String())
+	log.Debug(suite.senderAddress.String())
 	//valid signer
 	request.Authorization.SignerAddress = suite.senderAddress.String()
 	request.Authorization.Signature = suite.getSignature("__GetModelStatus", 1200, suite.senderPvtKy)

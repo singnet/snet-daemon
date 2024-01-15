@@ -1,9 +1,8 @@
-//go:generate protoc -I . ./pricing.proto --go_out=plugins=grpc:.
+//go:generate protoc -I . ./pricing.proto --go-grpc_out=. --go_out=.
 package pricing
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/codec"
 	"github.com/singnet/snet-daemon/config"
@@ -14,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"math/big"
 	"net/url"
 )

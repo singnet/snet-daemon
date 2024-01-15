@@ -1,5 +1,5 @@
-//go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name MultiPartyEscrow --go-package blockchain --output-file multi_party_escrow.go
-//go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name Registry --go-package blockchain --output-file registry.go
+//go:generate node ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name MultiPartyEscrow --go-package blockchain --output-file multi_party_escrow.go
+//go:generate node ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name Registry --go-package blockchain --output-file registry.go
 package blockchain
 
 import (
@@ -78,8 +78,6 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	p.sigHasher = func(i []byte) []byte {
 		return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 	}
-
-
 
 	return p, nil
 }

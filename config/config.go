@@ -46,6 +46,7 @@ const (
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
 	PassthroughEndpointKey         = "passthrough_endpoint"
+	ServiceCredentialsKey          = "service_credentials"
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
 	SSLKeyPathKey                  = "ssl_key"
@@ -190,8 +191,7 @@ func Validate() error {
 	// Validate metrics URL and set state
 	passEndpoint := vip.GetString(PassthroughEndpointKey)
 	daemonEndpoint := vip.GetString(DaemonEndPoint)
-	var err error
-	err = ValidateEndpoints(daemonEndpoint, passEndpoint)
+	err := ValidateEndpoints(daemonEndpoint, passEndpoint)
 	if err != nil {
 		return err
 	}
@@ -215,10 +215,10 @@ func Validate() error {
 	return validateMeteringChecks()
 }
 
-//Feature in Daemon to restrict access to only certain users , this feature is useful,when you are
-//in a test environment and dont want everyone to make requests to your service.
-//Since this was flag was introduced to restrict users while in testing mode, we dont want this configuration
-//to be mistakenly set on mainnet
+// Feature in Daemon to restrict access to only certain users , this feature is useful,when you are
+// in a test environment and dont want everyone to make requests to your service.
+// Since this was flag was introduced to restrict users while in testing mode, we dont want this configuration
+// to be mistakenly set on mainnet
 func allowedUserConfigurationChecks() error {
 	if GetBool(AllowedUserFlag) {
 		if GetString(BlockChainNetworkSelected) == "main" {
@@ -265,6 +265,10 @@ func GetDuration(key string) time.Duration {
 
 func GetBool(key string) bool {
 	return vip.GetBool(key)
+}
+
+func Get(key string) any {
+	return vip.Get(key)
 }
 
 // SubWithDefault returns sub-config by keys including configuration defaults
@@ -392,7 +396,7 @@ func IsAllowedUser(address *common.Address) bool {
 	return false
 }
 
-//Set the list of allowed users
+// Set the list of allowed users
 func SetAllowedUsers() (err error) {
 	users := vip.GetStringSlice(AllowedUserAddresses)
 	if users == nil || len(users) == 0 {
@@ -404,7 +408,7 @@ func SetAllowedUsers() (err error) {
 			err = fmt.Errorf("%v is not a valid hex address", user)
 			return err
 		} else {
-			userAddress = append(userAddress, common.Address(common.BytesToAddress(common.FromHex(user))))
+			userAddress = append(userAddress, common.BytesToAddress(common.FromHex(user)))
 		}
 	}
 	return nil

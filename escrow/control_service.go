@@ -1,12 +1,12 @@
-//go:generate protoc -I . ./control_service.proto --go_out=plugins=grpc:.
+//go:generate protoc -I . ./control_service.proto --go-grpc_out=. --go_out=.
 package escrow
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/gogo/protobuf/sortkeys"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
@@ -22,7 +22,17 @@ type ProviderControlService struct {
 	mpeAddress           common.Address
 }
 
+func (service *ProviderControlService) mustEmbedUnimplementedProviderControlServiceServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
 type BlockChainDisabledProviderControlService struct {
+}
+
+func (service *BlockChainDisabledProviderControlService) mustEmbedUnimplementedProviderControlServiceServer() {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (service *BlockChainDisabledProviderControlService) GetListUnclaimed(ctx context.Context, request *GetPaymentsListRequest) (paymentReply *PaymentsListReply, err error) {
@@ -121,13 +131,13 @@ func (service *ProviderControlService) startClaims(request *StartMultipleClaimRe
 	return reply, nil
 }
 
-//("__StartClaimForMultipleChannels_, mpe_address,channel_id1,channel_id2,...,current_block_number)
+// ("__StartClaimForMultipleChannels_, mpe_address,channel_id1,channel_id2,...,current_block_number)
 func (service *ProviderControlService) verifySignerForStartClaimForMultipleChannels(request *StartMultipleClaimRequest) error {
 	message := bytes.Join([][]byte{
 		[]byte("__StartClaimForMultipleChannels_"),
 		service.serviceMetaData.GetMpeAddress().Bytes(),
 		getBytesOfChannelIds(request),
-		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	return service.verifySigner(message, request.GetSignature())
 }
@@ -157,12 +167,12 @@ func getBytesOfChannelIds(request *StartMultipleClaimRequest) []byte {
 	return channelIdInBytes
 }
 
-//Get the list of all claims that have been initiated but not completed yet.
-//Verify that mpe_address is correct
-//Verify that actual block_number is not very different (+-5 blocks) from the current_block_number from the signature
-//Verify that message was signed by the service provider (“payment_address” in metadata should match to the signer).
-//Check for any claims already done on block chain but have not been reflected in the storage yet,
-//update the storage status by calling the Finish() method on such claims.
+// Get the list of all claims that have been initiated but not completed yet.
+// Verify that mpe_address is correct
+// Verify that actual block_number is not very different (+-5 blocks) from the current_block_number from the signature
+// Verify that message was signed by the service provider (“payment_address” in metadata should match to the signer).
+// Check for any claims already done on block chain but have not been reflected in the storage yet,
+// update the storage status by calling the Finish() method on such claims.
 func (service *ProviderControlService) GetListInProgress(ctx context.Context, request *GetPaymentsListRequest) (reply *PaymentsListReply, err error) {
 
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
@@ -184,13 +194,13 @@ func (service *ProviderControlService) GetListInProgress(ctx context.Context, re
 	return service.listClaims()
 }
 
-//Initialize the claim for specific channel
-//Verify that the “payment_address” in meta data matches to that of the signer.
-//Increase nonce and send last payment with old nonce to the caller.
-//Begin the claim process on the current channel and Increment the channel nonce and
-//decrease the full amount to allow channel sender to continue working with remaining amount.
-//Check for any claims already done on block chain but have not been reflected in the storage yet,
-//update the storage status by calling the Finish() method on such claims
+// Initialize the claim for specific channel
+// Verify that the “payment_address” in meta data matches to that of the signer.
+// Increase nonce and send last payment with old nonce to the caller.
+// Begin the claim process on the current channel and Increment the channel nonce and
+// decrease the full amount to allow channel sender to continue working with remaining amount.
+// Check for any claims already done on block chain but have not been reflected in the storage yet,
+// update the storage status by calling the Finish() method on such claims
 func (service *ProviderControlService) StartClaim(ctx context.Context, startClaim *StartClaimRequest) (paymentReply *PaymentReply, err error) {
 	//Check if the mpe address matches to what is there in service metadata
 	if err := service.checkMpeAddress(startClaim.MpeAddress); err != nil {
@@ -210,7 +220,7 @@ func (service *ProviderControlService) StartClaim(ctx context.Context, startClai
 	return service.beginClaimOnChannel(bytesToBigInt(startClaim.GetChannelId()))
 }
 
-//get the list of channels in progress which have some amount to be claimed.
+// get the list of channels in progress which have some amount to be claimed.
 func (service *ProviderControlService) listChannels() (*PaymentsListReply, error) {
 	//get the list of channels in progress which have some amount to be claimed.
 	channels, err := service.channelService.ListChannels()
@@ -237,7 +247,7 @@ func (service *ProviderControlService) listChannels() (*PaymentsListReply, error
 	return paymentList, nil
 }
 
-//message used to sign is of the form ("__list_unclaimed", mpe_address, current_block_number)
+// message used to sign is of the form ("__list_unclaimed", mpe_address, current_block_number)
 func (service *ProviderControlService) verifySignerForListUnclaimed(request *GetPaymentsListRequest) error {
 	return service.verifySigner(service.getMessageBytes("__list_unclaimed", request), request.GetSignature())
 }
@@ -246,7 +256,7 @@ func (service *ProviderControlService) getMessageBytes(prefixMessage string, req
 	message := bytes.Join([][]byte{
 		[]byte(prefixMessage),
 		service.serviceMetaData.GetMpeAddress().Bytes(),
-		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	return message
 }
@@ -263,8 +273,8 @@ func (service *ProviderControlService) verifySigner(message []byte, signature []
 	return nil
 }
 
-//Begin the claim process on the current channel and Increment the channel nonce and
-//decrease the full amount to allow channel sender to continue working with remaining amount.
+// Begin the claim process on the current channel and Increment the channel nonce and
+// decrease the full amount to allow channel sender to continue working with remaining amount.
 func (service *ProviderControlService) beginClaimOnChannel(channelId *big.Int) (*PaymentReply, error) {
 	latestChannel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelId})
 	if err != nil {
@@ -294,8 +304,8 @@ func (service *ProviderControlService) beginClaimOnChannel(channelId *big.Int) (
 	return paymentReply, nil
 }
 
-//Verify if the signer is same as the payment address in metadata
-//__start_claim”, mpe_address, channel_id, channel_nonce
+// Verify if the signer is same as the payment address in metadata
+// __start_claim”, mpe_address, channel_id, channel_nonce
 func (service *ProviderControlService) verifySignerForStartClaim(startClaim *StartClaimRequest) error {
 	channelId := bytesToBigInt(startClaim.GetChannelId())
 	signature := startClaim.Signature
@@ -348,16 +358,16 @@ func (service *ProviderControlService) listClaims() (*PaymentsListReply, error) 
 	return reply, nil
 }
 
-//message used to sign is of the form ("__list_in_progress", mpe_address, current_block_number)
+// message used to sign is of the form ("__list_in_progress", mpe_address, current_block_number)
 func (service *ProviderControlService) verifySignerForListInProgress(request *GetPaymentsListRequest) error {
 	return service.verifySigner(service.getMessageBytes("__list_in_progress", request), request.GetSignature())
 }
 
-//No write operation on block chains are done by Daemon (will be take care of by the snet client )
-//Finish on the claim should be called only after the payment is successfully claimed and block chain is updated accordingly.
-//One way to determine this is by checking the nonce in the block chain with the nonce in the payment,
-//for a given channel if the block chain nonce is greater than that of the nonce from etcd storage => that the claim is already done in block chain.
-//and the Finish method is called on the claim.
+// No write operation on block chains are done by Daemon (will be take care of by the snet client )
+// Finish on the claim should be called only after the payment is successfully claimed and block chain is updated accordingly.
+// One way to determine this is by checking the nonce in the block chain with the nonce in the payment,
+// for a given channel if the block chain nonce is greater than that of the nonce from etcd storage => that the claim is already done in block chain.
+// and the Finish method is called on the claim.
 func (service *ProviderControlService) removeClaimedPayments() error {
 	//Get the pending claims
 	//retrieve all the claims in progress
@@ -388,7 +398,7 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 	return nil
 }
 
-//Check if the mpe address passed matches to what is present in the metadata.
+// Check if the mpe address passed matches to what is present in the metadata.
 func (service *ProviderControlService) checkMpeAddress(mpeAddress string) error {
 	passedAddress := common.HexToAddress(mpeAddress)
 	if !(service.mpeAddress == passedAddress) {

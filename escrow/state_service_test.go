@@ -5,8 +5,8 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/storage"
@@ -112,7 +112,7 @@ func getChannelStateRequestMessage(mpeAddress common.Address, channelId *big.Int
 		[]byte("__get_channel_state"),
 		mpeAddress.Bytes(),
 		bigIntToBytes(channelId),
-		abi.U256(currentBlock),
+		math.U256Bytes(currentBlock),
 	}, nil)
 	return message
 }

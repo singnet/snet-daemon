@@ -7,14 +7,13 @@ import (
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"io"
-	"io/ioutil"
 	"strings"
 	"time"
 )
 
-//to read all files which have been compressed, PS there can be more than one file
-//We need to start reading the proto files associated with the service.
-//proto files are compressed and stored as modelipfsHash
+// to read all files which have been compressed, PS there can be more than one file
+// We need to start reading the proto files associated with the service.
+// proto files are compressed and stored as modelipfsHash
 func ReadFilesCompressed(compressedFile string) (protofiles []string, err error) {
 	f := strings.NewReader(compressedFile)
 	tarReader := tar.NewReader(f)
@@ -54,6 +53,7 @@ func ReadFilesCompressed(compressedFile string) (protofiles []string, err error)
 	}
 	return protofiles, nil
 }
+
 func GetIpfsFile(hash string) string {
 
 	log.WithField("hash", hash).Debug("Hash Used to retrieve from IPFS")
@@ -64,7 +64,7 @@ func GetIpfsFile(hash string) string {
 		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error executing the cat command in ipfs")
 	}
 
-	blob, err := ioutil.ReadAll(cid)
+	blob, err := io.ReadAll(cid)
 	if err != nil {
 		log.WithError(err).WithField("hashFromMetaData", hash).Panicf("error: in Reading the meta data file %s", err)
 

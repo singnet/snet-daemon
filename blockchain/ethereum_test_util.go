@@ -1,4 +1,4 @@
-//go:generate nodejs ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-token-contracts --contract-name SingularityNetToken --go-package blockchain --output-file singularity_net_token.go
+//go:generate node ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-token-contracts --contract-name SingularityNetToken --go-package blockchain --output-file singularity_net_token.go
 
 package blockchain
 

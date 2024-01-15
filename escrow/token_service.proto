@@ -3,6 +3,7 @@ syntax = "proto3";
 package escrow;
 
 option java_package = "io.singularitynet.daemon.escrow";
+option go_package = "../escrow";
 //It is expected that the user would call the GetChannelState to Determine the Current state of the Channel
 //Based on the usage forecast, the user/client will have to sign for an amount L + U , where L is the last amount Signed
 //and U is the amount based on expected usage.

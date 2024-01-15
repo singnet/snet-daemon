@@ -1,12 +1,13 @@
 package httphandler
 
 import (
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/ratelimit"
 	"golang.org/x/time/rate"
-	"io/ioutil"
+	"io"
+	"log"
 	"net/http"
 
-	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 )
 
@@ -17,14 +18,16 @@ type httpHandler struct {
 }
 
 func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
-	return httpHandler{
+	return &httpHandler{
 		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
 		rateLimiter:         ratelimit.NewRateLimiter(),
 	}
 }
 
-func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (h *httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	resp.Header().Set("Access-Control-Allow-Origin", "*")
+	log.Printf("ServeHTTP: %#v \n", req)
 	if h.passthroughEnabled {
 		if h.rateLimiter.Allow() == false {
 			http.Error(resp, http.StatusText(429), http.StatusTooManyRequests)
@@ -42,8 +45,11 @@ func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 					resp.Header().Add(k, v)
 				}
 			}
-			if body, err := ioutil.ReadAll(resp2.Body); err == nil {
-				resp.Write(body)
+			if body, err := io.ReadAll(resp2.Body); err == nil {
+				_, err := resp.Write(body)
+				if err != nil {
+					return
+				}
 			} else {
 				http.Error(resp, err.Error(), http.StatusInternalServerError)
 				return
@@ -53,8 +59,11 @@ func (h httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			return
 		}
 	} else {
-		if body, err := ioutil.ReadAll(req.Body); err == nil {
-			resp.Write(body)
+		if body, err := io.ReadAll(req.Body); err == nil {
+			_, err := resp.Write(body)
+			if err != nil {
+				return
+			}
 		} else {
 			http.Error(resp, err.Error(), http.StatusInternalServerError)
 			return

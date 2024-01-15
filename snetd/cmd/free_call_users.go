@@ -127,7 +127,11 @@ func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error
 		fmt.Printf("Error: Free Call user %s is not found\n", key.String())
 		return
 	}
-	err = command.userStorage.Put(key, &escrow.FreeCallUserData{UserId: key.UserId, FreeCallsMade: 0})
+	updatedData := &escrow.FreeCallUserData{UserId: key.UserId, FreeCallsMade: 0}
+	updatedData.OrganizationId = key.OrganizationId
+	updatedData.ServiceId = key.ServiceId
+	updatedData.GroupID = key.GroupID
+	err = command.userStorage.Put(key, updatedData)
 	if err != nil {
 		fmt.Printf("Error: Unable to reset the user -%s\n", key.String())
 		return

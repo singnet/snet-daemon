@@ -16,12 +16,22 @@ type FreeCallStateService struct {
 	freeCallValidator *FreeCallPaymentValidator
 }
 
+func (service *FreeCallStateService) mustEmbedUnimplementedFreeCallStateServiceServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewFreeCallStateService(orgMetadata *blockchain.OrganizationMetaData,
 	srvMetaData *blockchain.ServiceMetadata, service FreeCallUserService, validator *FreeCallPaymentValidator) *FreeCallStateService {
 	return &FreeCallStateService{orgMetadata: orgMetadata, serviceMetadata: srvMetaData, freeCallService: service, freeCallValidator: validator}
 }
 
 type BlockChainDisabledFreeCallStateService struct {
+}
+
+func (service *BlockChainDisabledFreeCallStateService) mustEmbedUnimplementedFreeCallStateServiceServer() {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (service *FreeCallStateService) GetFreeCallsAvailable(context context.Context,

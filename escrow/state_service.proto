@@ -3,6 +3,7 @@ syntax = "proto3";
 package escrow;
 
 option java_package = "io.singularitynet.daemon.escrow";
+option go_package = "../escrow";
 
 // PaymentChannelStateService contains methods to get the MultiPartyEscrow
 // payment channel state.

@@ -3,8 +3,8 @@ package escrow
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/config"
@@ -119,7 +119,7 @@ func (suite *ControlServiceTestSuite) SignStartClaimForMultipleChannels(request 
 		suite.serviceMetaData.GetMpeAddress().Bytes(),
 		bigIntToBytes(big.NewInt(1)),
 		bigIntToBytes(big.NewInt(2)),
-		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	request.Signature = getSignature(message, suite.receiverPvtKy)
 }
@@ -128,7 +128,7 @@ func (suite *ControlServiceTestSuite) SignListInProgress(request *GetPaymentsLis
 	message := bytes.Join([][]byte{
 		[]byte("__list_in_progress"),
 		suite.serviceMetaData.GetMpeAddress().Bytes(),
-		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	request.Signature = getSignature(message, suite.receiverPvtKy)
 }

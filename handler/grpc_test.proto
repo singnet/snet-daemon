@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package handler;
 
+option go_package = "../handler";
+
 service ExampleService {
     rpc Ping(Input) returns (Output) {}
 }

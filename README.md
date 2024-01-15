@@ -22,7 +22,7 @@ deploying SingularityNET services using SingularityNET Daemon should install the
 
 ### Prerequisites
 
-* [Go 1.15+](https://golang.org/dl/)
+* [Go 1.21+](https://golang.org/dl/)
 * [Node 8+ w/npm](https://nodejs.org/en/download/)
 
 ### Dependencies
@@ -144,6 +144,18 @@ time.
 * **blockchain_network_selected**  (required)
   Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
   Daemon will automatically read the Registry address associated with this network For local network ( you can also specify the registry address manually),see the blockchain_network_config.json
+
+* **daemon_type** (required;) -
+  Defines the type of service. Available values :`grpc, jsonrpc, http, process`.
+
+* **service_credentials** (optional, if daemon_type = http): 
+Array of credentials, example: 
+```
+[{"key": "X-Banana-API-Key",
+"value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39",
+"location": "header"}]
+```
+Location can be: query or header
 
 * **daemon_end_point** (required;) - 
 Defines the ip and the port on which the daemon listens to.

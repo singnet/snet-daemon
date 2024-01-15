@@ -24,13 +24,13 @@ type EtcdClientConf struct {
 // GetEtcdClientConf gets EtcdServerConf from viper
 // The DefaultEtcdClientConf is used in case the PAYMENT_CHANNEL_STORAGE_CLIENT field
 // is not set in the configuration file
-//Left Vip, just in case we need to read something from configuration in the future
-func GetEtcdClientConf(vip *viper.Viper,metaData *blockchain.OrganizationMetaData) (conf *EtcdClientConf, err error) {
+// Left Vip, just in case we need to read something from configuration in the future
+func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaData) (conf *EtcdClientConf, err error) {
 
 	conf = &EtcdClientConf{
-		ConnectionTimeout:metaData.GetConnectionTimeOut(),
-		RequestTimeout:metaData.GetRequestTimeOut(),
-		Endpoints:metaData.GetPaymentStorageEndPoints(),
+		ConnectionTimeout: metaData.GetConnectionTimeOut(),
+		RequestTimeout:    metaData.GetRequestTimeOut(),
+		Endpoints:         metaData.GetPaymentStorageEndPoints(),
 	}
 
 	return
@@ -45,13 +45,19 @@ func normalizeDefaultConf(conf string) string {
 // Scheme - URL schema used to create client and peer and urls
 // Host - host where the etcd server is executed
 // ClientPort - port to listen clients, used together with
-//              Schema and host to compose listen-client-urls (see link below)
+//
+//	Schema and host to compose listen-client-urls (see link below)
+//
 // PeerPort - port to listen etcd peers, used together with
-//              Schema and host to compose listen-client-urls (see link below)
+//
+//	Schema and host to compose listen-client-urls (see link below)
+//
 // Token - unique initial cluster token. Using unique token etcd can generate unique
-//         cluster IDs and member IDs for the clusters even if they otherwise have
-//         the exact same configuration. This can protect etcd from
-//         cross-cluster-interaction, which might corrupt the clusters.
+//
+//	cluster IDs and member IDs for the clusters even if they otherwise have
+//	the exact same configuration. This can protect etcd from
+//	cross-cluster-interaction, which might corrupt the clusters.
+//
 // StartupTimeout - time to wait the etcd server successfully started
 // Enabled - enable running embedded etcd server
 // For more details see etcd Clustering Guide link:
@@ -132,17 +138,17 @@ func (formatter *capnslogToLogrusLogFormatter) Flush() {
 
 func initEtcdLogger(conf *EtcdServerConf) (err error) {
 
-	etcdLogger, err := capnslog.GetRepoLogger("github.com/coreos/etcd")
-	if err != nil {
-		return
-	}
+	//etcdLogger, err := capnslog.GetRepoLogger("github.com/coreos/etcd")
+	//if err != nil {
+	//	return
+	//}
 
-	logLevel, err := capnslog.ParseLevel(strings.ToUpper(conf.LogLevel))
-	if err != nil {
-		return
-	}
+	//logLevel, err := capnslog.ParseLevel(strings.ToUpper(conf.LogLevel))
+	//if err != nil {
+	//	return
+	//}
 
-	etcdLogger.SetRepoLogLevel(logLevel)
+	//etcdLogger.SetRepoLogLevel(logLevel)
 	capnslog.SetFormatter(&capnslogToLogrusLogFormatter{})
 
 	return

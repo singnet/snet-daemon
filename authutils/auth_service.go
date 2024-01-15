@@ -1,4 +1,4 @@
-//  authutils package provides functions for all authentication and singature validation related operations
+// authutils package provides functions for all authentication and singature validation related operations
 package authutils
 
 import (
@@ -70,7 +70,7 @@ func VerifySigner(message []byte, signature []byte, signer common.Address) error
 	return fmt.Errorf("Incorrect signer.")
 }
 
-//Check if the block number passed is not more +- 5 from the latest block number on chain
+// Check if the block number passed is not more +- 5 from the latest block number on chain
 func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	latestBlockNumber, err := CurrentBlock()
 	if err != nil {
@@ -83,20 +83,20 @@ func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	return nil
 }
 
-//Check if the block number ( date on which the token was issued is not more than 1 month)
+// Check if the block number ( date on which the token was issued is not more than 1 month)
 func CheckIfTokenHasExpired(expiredBlock *big.Int) error {
 	currentBlockNumber, err := CurrentBlock()
 	if err != nil {
 		return err
 	}
 
-	if expiredBlock.Cmp(currentBlockNumber) < 0  {
+	if expiredBlock.Cmp(currentBlockNumber) < 0 {
 		return fmt.Errorf("authentication failed as the Free Call Token passed has expired")
 	}
 	return nil
 }
 
-//Get the current block number from on chain
+// Get the current block number from on chain
 func CurrentBlock() (*big.Int, error) {
 	if ethClient, err := blockchain.GetEthereumClient(); err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func CurrentBlock() (*big.Int, error) {
 	}
 }
 
-//Check if the payment address/signer passed matches to what is present in the metadata
+// Check if the payment address/signer passed matches to what is present in the metadata
 func VerifyAddress(address common.Address, otherAddress common.Address) error {
 	isSameAddress := otherAddress == address
 	if !isSameAddress {
@@ -119,8 +119,6 @@ func VerifyAddress(address common.Address, otherAddress common.Address) error {
 	}
 	return nil
 }
-
-
 
 func GetSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	hash := crypto.Keccak256(

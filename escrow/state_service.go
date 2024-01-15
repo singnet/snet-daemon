@@ -1,4 +1,4 @@
-//go:generate protoc -I . ./state_service.proto --go_out=plugins=grpc:.
+//go:generate protoc -I . ./state_service.proto --go-grpc_out=. --go_out=.
 
 package escrow
 
@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
@@ -23,7 +23,17 @@ type PaymentChannelStateService struct {
 	compareWithLatestBlockNumber func(*big.Int) error
 }
 
+func (service *PaymentChannelStateService) mustEmbedUnimplementedPaymentChannelStateServiceServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
 type BlockChainDisabledStateService struct {
+}
+
+func (service *BlockChainDisabledStateService) mustEmbedUnimplementedPaymentChannelStateServiceServer() {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (service *BlockChainDisabledStateService) GetChannelState(context context.Context, request *ChannelStateRequest) (reply *ChannelStateReply, err error) {
@@ -80,7 +90,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		[]byte("__get_channel_state"),
 		service.mpeAddress().Bytes(),
 		bigIntToBytes(channelID),
-		abi.U256(big.NewInt(int64(request.CurrentBlock))),
+		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
 	}, nil)
 	signature := request.GetSignature()
 

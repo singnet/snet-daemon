@@ -2,8 +2,8 @@ package configuration_service
 
 import (
 	"bytes"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/authutils"
 	"math/big"
@@ -59,7 +59,7 @@ func TestConfigurationService_getMessageBytes(t *testing.T) {
 	msg := service.getMessageBytes("ABC", 123)
 	assert.Equal(t, bytes.Join([][]byte{
 		[]byte("ABC"),
-		abi.U256(big.NewInt(int64(123))),
+		math.U256Bytes(big.NewInt(int64(123))),
 	}, nil), msg)
 }
 

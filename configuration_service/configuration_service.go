@@ -1,11 +1,11 @@
-//go:generate protoc -I . ./configuration_service.proto --go_out=plugins=grpc:.
+//go:generate protoc -I . ./configuration_service.proto --go-grpc_out=. --go_out=.
 package configuration_service
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
@@ -21,12 +21,17 @@ type ConfigurationService struct {
 	broadcast                 *MessageBroadcaster
 }
 
+func (service ConfigurationService) mustEmbedUnimplementedConfigurationServiceServer() {
+	//TODO implement me
+	panic("implement me")
+}
+
 const (
 	START_PROCESSING_ANY_REQUEST = 1
 	STOP_PROCESING_ANY_REQUEST   = 0
 )
 
-//Set the list of allowed users
+// Set the list of allowed users
 func getAuthenticationAddress() []common.Address {
 	users := config.Vip().GetStringSlice(config.AuthenticationAddresses)
 	userAddress := make([]common.Address, 0)
@@ -44,7 +49,7 @@ func getAuthenticationAddress() []common.Address {
 	return userAddress
 }
 
-//TO DO Separate PRs will be submitted to implement all the function below
+// TO DO Separate PRs will be submitted to implement all the function below
 func (service ConfigurationService) GetConfiguration(ctx context.Context, request *EmptyRequest) (response *ConfigurationResponse, err error) {
 	//Authentication checks
 	if err = service.authenticate("_GetConfiguration", request.Auth); err != nil {
@@ -129,8 +134,8 @@ func (service ConfigurationService) checkAuthenticationAddress(signer common.Add
 
 }
 
-//You will be able to start the Daemon without an Authentication Address for now
-//but without Authentication authenticationAddressList , you cannot use the operator UI functionality
+// You will be able to start the Daemon without an Authentication Address for now
+// but without Authentication authenticationAddressList , you cannot use the operator UI functionality
 func NewConfigurationService(messageBroadcaster *MessageBroadcaster) *ConfigurationService {
 	service := &ConfigurationService{
 		authenticationAddressList: getAuthenticationAddress(),
@@ -139,11 +144,11 @@ func NewConfigurationService(messageBroadcaster *MessageBroadcaster) *Configurat
 	return service
 }
 
-//Message format has been agreed to be as the below ( prefix,block number,and authenticating authenticationAddressList)
+// Message format has been agreed to be as the below ( prefix,block number,and authenticating authenticationAddressList)
 func (service *ConfigurationService) getMessageBytes(prefixMessage string, blockNumber uint64) []byte {
 	message := bytes.Join([][]byte{
 		[]byte(prefixMessage),
-		abi.U256(big.NewInt(int64(blockNumber))),
+		math.U256Bytes(big.NewInt(int64(blockNumber))),
 	}, nil)
 	return message
 }

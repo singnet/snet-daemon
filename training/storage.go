@@ -42,7 +42,7 @@ type ModelUserKey struct {
 }
 
 func (key *ModelUserKey) String() string {
-	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v/%v}", key.OrganizationId,
+	return fmt.Sprintf("{ID:%v|%v|%v|%v|%v|%v}", key.OrganizationId,
 		key.ServiceId, key.GroupId, key.GRPCServiceName, key.GRPCMethodName, key.UserAddress)
 }
 
@@ -59,7 +59,7 @@ type ModelUserData struct {
 }
 
 func (data *ModelUserData) String() string {
-	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v/%v/%v}",
+	return fmt.Sprintf("{DATA:%v|%v|%v|%v|%v|%v|%v}",
 		data.OrganizationId,
 		data.ServiceId, data.GroupId, data.GRPCMethodName, data.GRPCServiceName, data.UserAddress, data.ModelIds)
 }
@@ -74,12 +74,12 @@ type ModelKey struct {
 }
 
 func (key *ModelKey) String() string {
-	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v/%v}", key.OrganizationId,
+	return fmt.Sprintf("{ID:%v|%v|%v|%v|%v|%v}", key.OrganizationId,
 		key.ServiceId, key.GroupId, key.GRPCServiceName, key.GRPCMethodName, key.ModelId)
 }
 
 func (data *ModelData) String() string {
-	return fmt.Sprintf("{DATA:%v/%v/%v/%v/%v/%v/IsPublic:%v/accesibleAddress:%v/createdBy:%v/updatedBy:%v/status:%v/TrainingLin:%v}",
+	return fmt.Sprintf("{DATA:%v|%v|%v|%v|%v|%v|IsPublic:%v|accesibleAddress:%v|createdBy:%v|updatedBy:%v|status:%v|TrainingLin:%v}",
 		data.OrganizationId,
 		data.ServiceId, data.GroupId, data.GRPCServiceName, data.GRPCMethodName, data.ModelId, data.AuthorizedAddresses, data.IsPublic,
 		data.CreatedByAddress, data.UpdatedByAddress, data.Status, data.TrainingLink)
@@ -87,6 +87,7 @@ func (data *ModelData) String() string {
 
 type ModelData struct {
 	IsPublic            bool
+	ModelName           string
 	AuthorizedAddresses []string
 	Status              Status
 	CreatedByAddress    string
@@ -100,6 +101,7 @@ type ModelData struct {
 	Description         string
 	IsDefault           bool
 	TrainingLink        string
+	UpdatedDate         string
 }
 
 func serializeModelKey(key interface{}) (serialized string, err error) {

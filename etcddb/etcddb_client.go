@@ -9,7 +9,7 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/storage"
 	"github.com/singnet/snet-daemon/utils"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -17,8 +17,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/concurrency"
+	"go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 // EtcdClientMutex mutex struct for etcd client
@@ -103,7 +103,7 @@ func getTlsConfig() (*tls.Config, error) {
 	if err != nil {
 		panic("unable to load specific SSL X509 keypair for etcd")
 	}
-	caCert, err := ioutil.ReadFile(config.GetString(config.PaymentChannelCaPath))
+	caCert, err := os.ReadFile(config.GetString(config.PaymentChannelCaPath))
 	if err != nil {
 		return nil, err
 	}
@@ -316,8 +316,8 @@ func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok boo
 	}
 }
 
-//If there are no Old values in the transaction, to compare, then this method
-//can be used to write in the new values , if the key does not exist then put it in a transaction
+// If there are no Old values in the transaction, to compare, then this method
+// can be used to write in the new values , if the key does not exist then put it in a transaction
 func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, update []storage.KeyValueData) (
 	ok bool, err error) {
 

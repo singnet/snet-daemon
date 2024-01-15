@@ -1,4 +1,4 @@
-//go:generate protoc grpc_test.proto --go_out=plugins=grpc:.
+//go:generate protoc grpc_test.proto --go-grpc_out=. --go_out=.
 
 package handler
 
@@ -31,6 +31,11 @@ func TestGrpcTestSuite(t *testing.T) {
 type exampleServiceMock struct {
 	output *Output
 	err    error
+}
+
+func (service *exampleServiceMock) mustEmbedUnimplementedExampleServiceServer() {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (service *exampleServiceMock) Ping(context context.Context, input *Input) (output *Output, err error) {

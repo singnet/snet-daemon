@@ -20,10 +20,11 @@ json_data="${json_data//$'\n'/}"
 # Removing spaces
 registryAddressJson="${json_data// /}"
 
-networkJson=`cat resources/blockchain_network_config.json|tr '\n' ' '|sed -r 's/["]+/\\"/g'|sed 's/ //g'`
+networkJson=$(cat resources/blockchain_network_config.json | tr -d '\t\n\r')
+
 buildname=$1-$2-$3
 githash=`git rev-parse HEAD`
-GOOS=$1 GOARCH=$2 go build -ldflags "-X github.com/singnet/snet-daemon/config.registryAddressJson=$registryAddressJson -X github.com/singnet/snet-daemon/config.sha1Revision=$githash -X github.com/singnet/snet-daemon/config.versionTag=$3 -X github.com/singnet/snet-daemon/config.buildTime=$now -X github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson" -o build/snetd-$buildname snetd/main.go
-popd
 
+GOOS=$1 GOARCH=$2 go build -ldflags "-X github.com/singnet/snet-daemon/config.registryAddressJson=$registryAddressJson -X github.com/singnet/snet-daemon/config.sha1Revision=$githash -X github.com/singnet/snet-daemon/config.versionTag=$3 -X github.com/singnet/snet-daemon/config.buildTime=$now -X 'github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson'" -o build/snetd-$buildname snetd/main.go
+popd
 

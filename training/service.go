@@ -240,7 +240,6 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		data.ModelName = request.UpdateModelDetails.ModelName
 		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
 		data.Description = request.UpdateModelDetails.Description
-		//data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
 
 		err = service.storage.Put(key, data)
 		//get the difference of all the addresses b/w old and new

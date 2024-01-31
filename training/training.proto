@@ -28,7 +28,6 @@ message ModelDetails {
 
   //set this to true if you want your model to be used by other AI consumers
   bool is_publicly_accessible = 14;
-
 }
 
 message AuthorizationDetails {
@@ -91,7 +90,6 @@ message UpdateModelRequest {
 message ModelDetailsResponse {
   Status status = 1;
   ModelDetails model_details = 2;
-
 }
 
 service Model {

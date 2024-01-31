@@ -2,16 +2,19 @@ package ipfsutils
 
 import (
 	"archive/tar"
+	"context"
 	"fmt"
-	"github.com/ipfs/go-ipfs-api"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/kubo/client/rpc"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 )
 
-// to read all files which have been compressed, PS there can be more than one file
+// ReadFilesCompressed - read all files which have been compressed, there can be more than one file
 // We need to start reading the proto files associated with the service.
 // proto files are compressed and stored as modelipfsHash
 func ReadFilesCompressed(compressedFile string) (protofiles []string, err error) {
@@ -54,42 +57,67 @@ func ReadFilesCompressed(compressedFile string) (protofiles []string, err error)
 	return protofiles, nil
 }
 
-func GetIpfsFile(hash string) string {
+func GetIpfsFile(hash string) (content string) {
 
 	log.WithField("hash", hash).Debug("Hash Used to retrieve from IPFS")
 
-	sh := GetIpfsShell()
-	cid, err := sh.Cat(hash)
+	ipfsClient := GetIPFSClient()
+
+	cID, err := cid.Parse(hash)
+	if err != nil {
+		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error parsing the ipfs hash")
+	}
+
+	req := ipfsClient.Request("cat", cID.String())
 	if err != nil {
 		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error executing the cat command in ipfs")
+		return
 	}
-
-	blob, err := io.ReadAll(cid)
+	resp, err := req.Send(context.Background())
+	defer resp.Close()
+	if err != nil {
+		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error executing the cat command in ipfs")
+		return
+	}
+	if resp.Error != nil {
+		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error executing the cat command in ipfs")
+		return
+	}
+	fileContent, err := io.ReadAll(resp.Output)
 	if err != nil {
 		log.WithError(err).WithField("hashFromMetaData", hash).Panicf("error: in Reading the meta data file %s", err)
-
+		return
 	}
-	log.WithField("hash", hash).WithField("blob", string(blob)).Debug("Blob of IPFS file with hash")
 
-	jsondata := string(blob)
+	log.WithField("hash", hash).WithField("blob", string(fileContent)).Debug("Blob of IPFS file with hash")
 
-	//validating the file read from IPFS
-	newHash, err := sh.Add(strings.NewReader(jsondata), shell.OnlyHash(true))
+	//sum, err := cID.Prefix().Sum(fileContent)
+	//if err != nil {
+	//	log.WithError(err).Panicf("error in generating the hash for the meta data read from IPFS : %v", err)
+	//}
+
+	// Create a cid manually to check cid
+	_, c, err := cid.CidFromBytes(append(cID.Bytes(), fileContent...))
 	if err != nil {
-		log.WithError(err).Panicf("error in generating the hash for the meta data read from IPFS : %v", err)
-	}
-	if newHash != hash {
-		log.WithError(err).WithField("hashFromIPFSContent", newHash).
-			Panicf("IPFS hash verification failed. Generated hash doesnt match with expected hash %s", hash)
+		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error generating ipfs hash")
+		return
 	}
 
-	cid.Close()
-	return jsondata
+	// To test if two cid's are equivalent, be sure to use the 'Equals' method:
+	if !c.Equals(cID) {
+		log.WithError(err).WithField("hashFromIPFSContent", c.String()).Panicf("IPFS hash verification failed. Generated hash doesnt match with expected hash %s", hash)
+	}
+
+	return string(fileContent)
 }
 
-func GetIpfsShell() *shell.Shell {
-	sh := shell.NewShell(config.GetString(config.IpfsEndPoint))
-	// sets the timeout for accessing the ipfs content
-	sh.SetTimeout(time.Duration(config.GetInt(config.IpfsTimeout)) * time.Second)
-	return sh
+func GetIPFSClient() *rpc.HttpApi {
+	httpClient := http.Client{
+		Timeout: time.Duration(config.GetInt(config.IpfsTimeout)) * time.Second,
+	}
+	ifpsClient, err := rpc.NewURLApiWithClient(config.GetString(config.IpfsEndPoint), &httpClient)
+	if err != nil {
+		log.WithError(err).Panicf("Connection failed to IPFS: %s", config.GetString(config.IpfsEndPoint))
+	}
+	return ifpsClient
 }

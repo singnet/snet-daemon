@@ -75,7 +75,7 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		h.serviceCredentials = []serviceCredential{}
 		err := config.Vip().UnmarshalKey(config.ServiceCredentialsKey, &h.serviceCredentials)
 		if err != nil {
-			log.Fatalln("invalid config:", err)
+			log.WithError(err).Panic("invalid config")
 		}
 		return h.grpcToHTTP
 	case "process":
@@ -214,8 +214,8 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 		for i := 0; ; i++ {
 			//Only for the first time do this, once RecvMsg has been called,
 			//future calls will result in io.EOF , we want to retrieve the
-			//the first message sent by the client and pass this on the regualar service call
-			//This is done to be able to make calls to support regualr Service call + Dynamic pricing call
+			// first message sent by the client and pass this on the regular service call
+			//This is done to be able to make calls to support regular Service call + Dynamic pricing call
 			if i == 0 {
 				//todo we need to think through to determine price for every call on stream calls
 				//will be handled when we support streaming and pricing across all clients in snet-platform
@@ -270,10 +270,9 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 		return status.Errorf(codes.Internal, "error receiving request; error: %+cred", err)
 	}
 
-	log.Println("bytes input: ", f.Data)
-	log.Println("string input: ", string(f.Data))
+	log.Debugln("string input: ", string(f.Data))
 	jsonInput := f.Data[2:] // trim grpc headers
-	log.Println("string input trimmed: ", string(jsonInput))
+	log.Debugln("string input trimmed: ", string(jsonInput))
 
 	base, err := url.Parse(g.passthroughEndpoint)
 	if err != nil {
@@ -332,17 +331,12 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 	secondByte := remainingBytes + 128
 	compressedFlag := 10 // first byte
 	var respData = append([]byte{byte(compressedFlag), byte(secondByte), byte(thirdByte)}, resp...)
-	log.Println("bytes resp: ", respData)
-	log.Println("string resp: ", string(respData))
+	//log.Println("bytes resp: ", respData)
+	log.Debugln("string resp: ", string(respData))
 	f = &codec.GrpcFrame{Data: respData}
 	if err = inStream.SendMsg(f); err != nil {
 		return status.Errorf(codes.Internal, "error sending response; error: %+cred", err)
 	}
-
-	log.Println("dataSize (bytes): ", dataSize)
-
-	log.Println("2 byte: ", secondByte)
-	log.Println("3 byte: ", thirdByte)
 
 	return nil
 }

@@ -23,11 +23,11 @@ deploying SingularityNET services using SingularityNET Daemon should install the
 ### Prerequisites
 
 * [Go 1.21+](https://golang.org/dl/)
-* [Node 8+ w/npm](https://nodejs.org/en/download/)
+* [NodeJS 15+ w/npm](https://nodejs.org/en/download/)
 
 ### Dependencies
 
-* install [Protoc 3.0+](https://askubuntu.com/questions/1072683/how-can-i-install-protoc-on-ubuntu-16-04) 
+* install [Protoc v25.0+](https://github.com/protocolbuffers/protobuf/releases) 
 
 * If you want to cross-compile you will also need Docker
 
@@ -146,7 +146,7 @@ time.
   Daemon will automatically read the Registry address associated with this network For local network ( you can also specify the registry address manually),see the blockchain_network_config.json
 
 * **daemon_type** (required;) -
-  Defines the type of service. Available values :`grpc, jsonrpc, http, process`.
+  Defines the type of service. Available values :grpc, jsonrpc, [http](https://dev.singularitynet.io/docs/ai-developers/service-type-http/), process.
 
 * **service_credentials** (optional, if daemon_type = http): 
 Array of credentials, example: 

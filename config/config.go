@@ -65,6 +65,7 @@ const (
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	TokenExpiryInMinutes        = "token_expiry_in_minutes"
 	TokenSecretKey              = "token_secret_key"
+	BlockchainProviderApiKey    = "blockchain_provider_api_key"
 	//none|grpc|http
 	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `

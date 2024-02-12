@@ -109,14 +109,13 @@ func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client Mo
 	client = NewModelClient(conn)
 	return
 }
+
 func (service ModelService) createModelDetails(request *CreateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
 	key := service.getModelKeyToCreate(request, response)
 	data = service.getModelDataToCreate(request, response)
 	//store the model details in etcd
 	err = service.storage.Put(key, data)
 	log.Debug("Putting Model Data....")
-	log.Debug(" Model key is:" + key.String())
-	log.Debug(" Model Data is:" + data.String())
 	if err != nil {
 		log.WithError(err)
 		return
@@ -241,7 +240,6 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		data.ModelName = request.UpdateModelDetails.ModelName
 		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
 		data.Description = request.UpdateModelDetails.Description
-		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
 
 		err = service.storage.Put(key, data)
 		//get the difference of all the addresses b/w old and new
@@ -335,6 +333,7 @@ func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDet
 	}
 	return
 }
+
 func (service ModelService) getModelKeyToCreate(request *CreateModelRequest, response *ModelDetailsResponse) (key *ModelKey) {
 	key = &ModelKey{
 		OrganizationId:  config.GetString(config.OrganizationId),
@@ -378,6 +377,10 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 		return &AccessibleModelsResponse{},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
+	if request.GetGrpcMethodName() == "" || request.GetGrpcServiceName() == "" {
+		return &AccessibleModelsResponse{},
+			fmt.Errorf(" Invalid request, no GrpcMethodName or GrpcServiceName provided")
+	}
 
 	key := &ModelUserKey{
 		OrganizationId:  config.GetString(config.OrganizationId),
@@ -387,7 +390,6 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 		GRPCServiceName: request.GrpcServiceName,
 		UserAddress:     request.Authorization.SignerAddress,
 	}
-	log.Debug(" USER Model key is:" + key.String())
 
 	modelDetailsArray := make([]*ModelDetails, 0)
 	if data, ok, err := service.userStorage.Get(key); data != nil && ok && err == nil {
@@ -401,13 +403,12 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 				ModelId:         modelId,
 			}
 			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
-
 				boModel := convertModelDataToBO(modelData)
 				modelDetailsArray = append(modelDetailsArray, boModel)
 			}
 		}
 	}
-	fmt.Println(modelDetailsArray)
+	log.Debugln("models: ", modelDetailsArray)
 	response = &AccessibleModelsResponse{
 		ListOfModels: modelDetailsArray,
 	}
@@ -447,40 +448,49 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 
 	// verify the request
 	if request == nil || request.Authorization == nil {
-		log.WithError(err)
 		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
+			fmt.Errorf("invalid request, no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
 		log.WithError(err)
 		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Unable to create Model  , %v", err)
+			fmt.Errorf("unable to create Model: %v", err)
+	}
+	if request.GetModelDetails().GrpcServiceName == "" || request.GetModelDetails().GrpcMethodName == "" {
+		log.WithError(err)
+		return &ModelDetailsResponse{Status: Status_ERRORED},
+			fmt.Errorf("invalid request, no GrpcServiceName or GrpcMethodName provided  , %v", err)
 	}
 
 	// make a call to the client
 	// if the response is successful, store details in etcd
 	// send back the response to the client
-
-	if conn, client, err := service.getServiceClient(); err == nil {
-		response, err = client.CreateModel(c, request)
-		if err == nil {
-			//store the details in etcd
-			log.Infof("Creating model based on response from CreateModel of training service")
-			if data, err := service.createModelDetails(request, response); err == nil {
-				response = BuildModelResponseFrom(data, response.Status)
-			} else {
-				return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
-			}
-		} else {
-			return &ModelDetailsResponse{Status: Status_ERRORED},
-				fmt.Errorf("error in invoking service for Model Training %v", err)
-		}
-		deferConnection(conn)
-	} else {
+	conn, client, err := service.getServiceClient()
+	if err != nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf("error in invoking service for Model Training %v", err)
 	}
 
+	response, err = client.CreateModel(c, request)
+	if err != nil {
+		return &ModelDetailsResponse{Status: Status_ERRORED},
+			fmt.Errorf("error in invoking service for Model Training %v", err)
+	}
+
+	if response.ModelDetails == nil {
+		return &ModelDetailsResponse{Status: Status_ERRORED},
+			fmt.Errorf("error in invoking service for Model Training: service return empty ModelDetails")
+	}
+
+	//store the details in etcd
+	log.Infof("Creating model based on response from CreateModel of training service")
+
+	data, err := service.createModelDetails(request, response)
+	if err != nil {
+		return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
+	}
+	response = BuildModelResponseFrom(data, response.Status)
+	deferConnection(conn)
 	return
 }
 func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsResponse {
@@ -518,6 +528,11 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 		return &ModelDetailsResponse{},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
+	if request.UpdateModelDetails == nil {
+		return &ModelDetailsResponse{Status: Status_ERRORED},
+			fmt.Errorf(" Invalid request , no UpdateModelDetails provided  , %v", err)
+	}
+
 	log.Infof("Updating model based on response from UpdateModel")
 	if data, err := service.updateModelDetails(request, response); err == nil && data != nil {
 		response = BuildModelResponseFrom(data, data.Status)
@@ -544,6 +559,11 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 		return &ModelDetailsResponse{},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
+	if request.UpdateModelDetails == nil {
+		return &ModelDetailsResponse{Status: Status_ERRORED},
+			fmt.Errorf(" Invalid request: UpdateModelDetails are empty")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)
 	defer cancel()
 	if conn, client, err := service.getServiceClient(); err == nil {
@@ -566,7 +586,7 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 	err error) {
 	if request == nil || request.Authorization == nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
+			fmt.Errorf(" Invalid request, no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
@@ -577,6 +597,11 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 		return &ModelDetailsResponse{},
 			fmt.Errorf(" Unable to access model , %v", err)
 	}
+	if request.ModelDetails == nil {
+		return &ModelDetailsResponse{Status: Status_ERRORED},
+			fmt.Errorf(" Invalid request: ModelDetails can't be empty")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)
 	defer cancel()
 

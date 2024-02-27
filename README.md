@@ -159,24 +159,29 @@ These properties you should usually change before starting daemon for the first
 time.
 
 * **blockchain_network_selected**  (required)
-  Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
+  Name of the network to be used for Daemon possible values are one of (goerli, sepolia, main, local).
   Daemon will automatically read the Registry address associated with this network For local network ( you can also
   specify the registry address manually),see the blockchain_network_config.json
 
-* **daemon_type** (required;) -
-  Defines the type of service. Available values :grpc,
-  jsonrpc, [http](https://dev.singularitynet.io/docs/ai-developers/service-type-http/), process.
-
-* **service_credentials** (required if daemon_type is http):
+* **service_credentials** (optional, for service_type http only):
   Array of credentials, example:
 
 ```
-[{"key": "X-Banana-API-Key",
-"value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39",
-"location": "header"}]
+"service_credentials": [
+    {
+      "key": "example_body_param",
+      "value": 12345,
+      "location": "body"
+    },
+    {
+      "key": "X-API-Key",
+      "value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39",
+      "location": "header"
+    }
+  ],
 ```
 
-Location can be: query or header
+Location can be: query, header or body. Query and header values must be string.
 
 * **daemon_end_point** (required;) -
   Defines the ip and the port on which the daemon listens to.

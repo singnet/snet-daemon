@@ -4,22 +4,26 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/singnet/snet-daemon/blockchain"
-	"google.golang.org/grpc/credentials"
-	"io"
-	"net/http"
-	"net/url"
-	"os/exec"
-	"strings"
-
 	"github.com/gorilla/rpc/v2/json2"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/codec"
 	"github.com/singnet/snet-daemon/config"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/dynamicpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"io"
+	"net/http"
+	"net/url"
+	"os/exec"
+	"strings"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
@@ -173,7 +177,7 @@ Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See
 func forwardClientToServer(src grpc.ClientStream, dst grpc.ServerStream) chan error {
 	ret := make(chan error, 1)
 	go func() {
-		f := &codec.GrpcFrame{}
+		f := &emptypb.Empty{}
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
@@ -210,7 +214,7 @@ Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See
 func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan error {
 	ret := make(chan error, 1)
 	go func() {
-		f := &codec.GrpcFrame{}
+		f := &emptypb.Empty{}
 		for i := 0; ; i++ {
 			//Only for the first time do this, once RecvMsg has been called,
 			//future calls will result in io.EOF , we want to retrieve the
@@ -220,12 +224,12 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 				//todo we need to think through to determine price for every call on stream calls
 				//will be handled when we support streaming and pricing across all clients in snet-platform
 				if wrappedStream, ok := src.(*WrapperServerStream); ok {
-					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
+					f = (wrappedStream.OriginalRecvMsg()).(*emptypb.Empty)
 				} else if err := src.RecvMsg(f); err != nil {
 					ret <- err
+					log.Println("err: ", err)
 					break
 				}
-
 			} else if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
 				break
@@ -247,7 +251,7 @@ var header httpLocation = "header"
 
 type serviceCredential struct {
 	Key      string       `json:"key"`
-	Value    string       `json:"value"`
+	Value    any          `json:"value"`
 	Location httpLocation `json:"location"`
 }
 
@@ -261,53 +265,63 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 	methodSegs := strings.Split(method, "/")
 	method = methodSegs[len(methodSegs)-1]
 
-	if !ok {
-		return status.Errorf(codes.Internal, "could not get metadata from incoming context")
-	}
+	log.Debugln("Calling Method: ", method)
 
 	f := &codec.GrpcFrame{}
 	if err := inStream.RecvMsg(f); err != nil {
+		log.Println(err)
 		return status.Errorf(codes.Internal, "error receiving request; error: %+cred", err)
 	}
 
-	log.Debugln("string input: ", string(f.Data))
-	jsonInput := f.Data[2:] // trim grpc headers
-	log.Debugln("string input trimmed: ", string(jsonInput))
+	// convert proto msg to json
+	jsonBody := protoToJson(g.serviceMetaData.ProtoFile, f.Data, method)
+
+	log.Debugln("Proto to json: ", string(jsonBody))
 
 	base, err := url.Parse(g.passthroughEndpoint)
 	if err != nil {
 		log.Println("cant' parse passthroughEndpoint: ", err)
 	}
 
-	//base.Path += method
+	base.Path += method // method from proto should be the same as http handler path
 
 	params := url.Values{}
-	var headers = http.Header{}
+	headers := http.Header{}
 
-	//var bodymap = map[string]any{}
-	//err = json.Unmarshal(f.Data, &bodymap)
-	//if err != nil {
-	//	log.Println(err)
-	//}
+	var bodymap = map[string]any{}
+	errJson := json.Unmarshal(jsonBody, &bodymap)
 
 	for _, cred := range g.serviceCredentials {
 		switch cred.Location {
 		case query:
-			params.Add(cred.Key, cred.Value)
-		//case body:
-		//	bodymap[cred.Key] = cred.Value
+			v, ok := cred.Value.(string)
+			if ok {
+				params.Add(cred.Key, v)
+			}
+		case body:
+			if errJson == nil {
+				bodymap[cred.Key] = cred.Value
+			}
 		case header:
-			headers.Set(cred.Key, cred.Value)
+			v, ok := cred.Value.(string)
+			if ok {
+				headers.Set(cred.Key, v)
+			}
 		}
 	}
 
-	//dataBytes, err := json.Marshal(bodymap)
-	//if err != nil {
-	//	return status.Errorf(codes.Internal, "error executing http call: json.Marshal; error: %+cred", err)
-	//}
+	if errJson == nil {
+		newJson, err := json.Marshal(bodymap)
+		if err == nil {
+			jsonBody = newJson
+		} else {
+			log.Debugln("Can't marshal json: ", err)
+		}
+	}
 
 	base.RawQuery = params.Encode()
-	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonInput))
+	log.Debugln("Calling URL: ", base.String())
+	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonBody))
 	httpReq.Header = headers
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request; error: %+cred", err)
@@ -325,20 +339,84 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 	if err != nil {
 		return status.Errorf(codes.Internal, "error reading response; error: %+cred", err)
 	}
-	dataSize := len(resp)
-	thirdByte := dataSize / 128
-	remainingBytes := dataSize % 128
-	secondByte := remainingBytes + 128
-	compressedFlag := 10 // first byte
-	var respData = append([]byte{byte(compressedFlag), byte(secondByte), byte(thirdByte)}, resp...)
-	//log.Println("bytes resp: ", respData)
-	log.Debugln("string resp: ", string(respData))
-	f = &codec.GrpcFrame{Data: respData}
-	if err = inStream.SendMsg(f); err != nil {
+	log.Println("string resp: ", string(resp))
+
+	protoMessage := jsonToProto(g.serviceMetaData.ProtoFile, resp, method)
+	if err = inStream.SendMsg(protoMessage); err != nil {
 		return status.Errorf(codes.Internal, "error sending response; error: %+cred", err)
 	}
 
 	return nil
+}
+
+func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName string) (proto proto.Message) {
+
+	log.Debugln("Processing file:", protoFile.Name())
+	log.Debugln("Count services: ", protoFile.Services().Len())
+
+	if protoFile.Services().Len() == 0 {
+		log.Println("service in proto not found")
+		return proto
+	}
+
+	service := protoFile.Services().Get(0)
+	if service == nil {
+		log.Println("service in proto not found")
+		return proto
+	}
+
+	method := service.Methods().ByName(protoreflect.Name(methodName))
+	if method == nil {
+		log.Println("method not found")
+		return proto
+	}
+	output := method.Output()
+	log.Debugln("Calling method name from proto: ", output.Name())
+	log.Debugln("Calling method fullname from proto: ", output.FullName())
+	proto = dynamicpb.NewMessage(output)
+	err := protojson.Unmarshal(json, proto)
+	if err != nil {
+		log.Println("Can't unmarshal protojson: ", err)
+	}
+
+	return proto
+}
+
+func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte) {
+
+	if protoFile.Services().Len() == 0 {
+		log.Println("service in proto not found")
+		return []byte("error, invalid proto file")
+	}
+
+	service := protoFile.Services().Get(0)
+	if service == nil {
+		log.Println("service in proto not found")
+		return []byte("error, invalid proto file")
+	}
+
+	method := service.Methods().ByName(protoreflect.Name(methodName))
+	if method == nil {
+		log.Println("method not found")
+		return []byte("error, invalid proto file or input request")
+	}
+
+	input := method.Input()
+	log.Debugln("Input fullname method: ", input.FullName())
+	msg := dynamicpb.NewMessage(input)
+	err := proto.Unmarshal(in, msg)
+	if err != nil {
+		log.Println("proto.Unmarshal: ", err)
+		return []byte("error, invalid proto file or input request")
+	}
+	json, err = protojson.Marshal(msg)
+	if err != nil {
+		log.Println("protojson.Marshal: ", err)
+		return []byte("error, invalid proto file or input request")
+	}
+	log.Debugln("jsonBytes: ", string(json))
+
+	return json
 }
 
 func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) error {
@@ -385,7 +463,7 @@ func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) 
 		return status.Errorf(codes.Internal, "error executing http call; error: %+v", err)
 	}
 
-	result := new(interface{})
+	result := new(any)
 
 	if err = json2.DecodeClientResponse(httpResp.Body, result); err != nil {
 		return status.Errorf(codes.Internal, "json-rpc error; error: %+v", err)
@@ -409,8 +487,8 @@ func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) 
 type WrapperServerStream struct {
 	sendHeaderCalled bool
 	stream           grpc.ServerStream
-	recvMessage      interface{}
-	sentMessage      interface{}
+	recvMessage      any
+	sentMessage      any
 }
 
 func (f *WrapperServerStream) SetTrailer(md metadata.MD) {

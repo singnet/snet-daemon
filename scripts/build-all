@@ -8,17 +8,18 @@ fi
 
  ./scripts/build darwin	amd64 $1
  ./scripts/build darwin	arm64 $1
- ./scripts/build dragonfly amd64 $1
- ./scripts/build freebsd 386 $1
- ./scripts/build freebsd amd64 $1
- ./scripts/build freebsd arm $1
  ./scripts/build linux 386 $1
  ./scripts/build linux	amd64 $1
  ./scripts/build linux	arm $1
  ./scripts/build linux	arm64 $1
- ./scripts/build netbsd	amd64 $1
- ./scripts/build openbsd	amd64 $1
- ./scripts/build windows	386 $1
  ./scripts/build windows	amd64 $1
  ./scripts/build windows	arm $1
  ./scripts/build windows	arm64 $1
+
+# ./scripts/build windows	386 $1
+# ./scripts/build netbsd	amd64 $1
+# ./scripts/build openbsd	amd64 $1
+# ./scripts/build dragonfly amd64 $1
+# ./scripts/build freebsd 386 $1
+# ./scripts/build freebsd amd64 $1
+# ./scripts/build freebsd arm $1

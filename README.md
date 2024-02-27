@@ -24,20 +24,16 @@ These instructions are intended to facilitate the development and testing of Sin
 deploying SingularityNET services using SingularityNET Daemon should install the appropriate binary as
 [released](#release).
 
-### Prerequisites
+### Prerequisites and dependencies
 
 * [Go 1.21+](https://golang.org/dl/)
 * [NodeJS 15+ w/npm](https://nodejs.org/en/download/)
-
-### Dependencies
-
-* install [Protoc v25.0+](https://github.com/protocolbuffers/protobuf/releases)
-
-* If you want to cross-compile you will also need Docker
+* [Protoc v25.0+](https://github.com/protocolbuffers/protobuf/releases)
+* If you want to cross-compile you will also need Docker or run script `./build-all`
 
 ### Installing
 
-* Clone the git repository to the following path $GOPATH/src/github.com/singnet/
+* Clone the git repository (for example $GOPATH/src/github.com/singnet/)
 
 ```bash
 $ git clone git@github.com:singnet/snet-daemon.git

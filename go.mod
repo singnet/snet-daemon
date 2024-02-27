@@ -31,7 +31,7 @@ require (
 	github.com/zbindenren/logrus_mail v0.0.0-20201006120535-9ec03a23b467
 	go.etcd.io/etcd/client/v3 v3.5.12
 	go.etcd.io/etcd/server/v3 v3.5.12
-	golang.org/x/crypto v0.19.0
+	golang.org/x/crypto v0.20.0
 	golang.org/x/net v0.21.0
 	golang.org/x/time v0.5.0
 	google.golang.org/grpc v1.62.0

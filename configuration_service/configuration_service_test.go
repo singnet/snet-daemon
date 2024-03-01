@@ -17,10 +17,10 @@ func TestConfiguration_Service_checkAuthenticationAddress(t *testing.T) {
 
 	config.Vip().Set(config.AuthenticationAddresses, []string{"0x4Af41abf4c6a4633B1574f05e74b802cBF42a96e", "0x06A1D29e9FfA2415434A7A571235744F8DA2a514", "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"})
 	service := ConfigurationService{authenticationAddressList: getAuthenticationAddress()}
-	err := service.checkAuthenticationAddress(common.Address(common.BytesToAddress(common.FromHex("0x39ee715b50e78a920120C1dED58b1a47F571AB75"))))
+	err := service.checkAuthenticationAddress(common.BytesToAddress(common.FromHex("0x39ee715b50e78a920120C1dED58b1a47F571AB75")))
 	assert.Equal(t, err.Error(), "unauthorized access, 0x39ee715b50e78a920120C1dED58b1a47F571AB75 is not authorized")
 	//Pass an invalid hex authenticationAddressList
-	err = service.checkAuthenticationAddress(common.Address(common.BytesToAddress(common.FromHex("0x4Af41abf4c6a4633B1574f05e74b802cBF42a96e"))))
+	err = service.checkAuthenticationAddress(common.BytesToAddress(common.FromHex("0x4Af41abf4c6a4633B1574f05e74b802cBF42a96e")))
 	assert.Nil(t, err)
 
 }

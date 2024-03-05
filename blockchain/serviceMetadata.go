@@ -3,14 +3,21 @@ package blockchain
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/emicklei/proto"
+	pproto "github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"math/big"
 	"os"
+	"os/exec"
+	"path"
 	"strings"
 )
 
@@ -137,7 +144,10 @@ import (
 	        ]
 	}
 */
-const IpfsPrefix = "ipfs://"
+const (
+	IpfsPrefix   = "ipfs://"
+	serviceProto = "service.proto"
+)
 
 type ServiceMetadata struct {
 	Version       int                 `json:"version"`
@@ -156,8 +166,9 @@ type ServiceMetadata struct {
 	freeCallSignerAddress     common.Address
 	isfreeCallAllowed         bool
 	freeCallsAllowed          int
-	dynamicPriceMethodMapping map[string]string `json:"dynamicpricing"`
-	trainingMethods           []string          `json:"training_methods"`
+	DynamicPriceMethodMapping map[string]string           `json:"dynamicpricing"`
+	TrainingMethods           []string                    `json:"training_methods"`
+	ProtoFile                 protoreflect.FileDescriptor `json:"-"`
 }
 type Tiers struct {
 	Tiers Tier `json:"tier"`
@@ -270,10 +281,7 @@ func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 func getRegistryCaller() (reg *RegistryCaller) {
 	ethClient, err := GetEthereumClient()
 	if err != nil {
-
-		log.WithError(err).
-			Panic("Unable to get Blockchain client ")
-
+		log.WithError(err).Panic("Unable to get Blockchain client ")
 	}
 	defer ethClient.Close()
 	registryContractAddress := getRegistryAddressKey()
@@ -320,25 +328,24 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 	if err := setFreeCallData(metaData); err != nil {
 		return nil, err
 	}
-	//If Dynamic pricing is enabled ,there will be mandatory checks on the service proto
-	//this is to ensure that the standards on how one defines the methods to invoke is followed
-	if config.GetBool(config.EnableDynamicPricing) {
-		if err := setServiceProto(metaData); err != nil {
-			return nil, err
-		}
+
+	if err := setServiceProto(metaData); err != nil {
+		return nil, err
 	}
-	e, err := json.Marshal(metaData.dynamicPriceMethodMapping)
+	dynamicPriceMethodMappingJson, err := json.Marshal(metaData.DynamicPriceMethodMapping)
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Println(string(e))
-	e1, err := json.Marshal(metaData.trainingMethods)
+	log.Debugln("dynamicPriceMethodMappingJson: ", string(dynamicPriceMethodMappingJson))
+
+	trainingMethodsJson, err := json.Marshal(metaData.TrainingMethods)
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Println(string(e1))
+	log.Debugln("trainingMethodsJson: ", string(trainingMethodsJson))
+
 	return metaData, err
 }
 
@@ -445,7 +452,7 @@ func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullNam
 	if !config.GetBool(config.EnableDynamicPricing) {
 		return
 	}
-	pricingMethod = metaData.dynamicPriceMethodMapping[methodFullName]
+	pricingMethod = metaData.DynamicPriceMethodMapping[methodFullName]
 	if strings.Compare("", pricingMethod) == 0 {
 		isDynamicPricingEligible = false
 	} else {
@@ -460,9 +467,10 @@ func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useMode
 	if !config.GetBool(config.ModelTrainingEnabled) {
 		return false
 	}
-	useModelTrainingEndPoint = isElementInArray(methodFullName, metaData.trainingMethods)
+	useModelTrainingEndPoint = isElementInArray(methodFullName, metaData.TrainingMethods)
 	return
 }
+
 func isElementInArray(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -471,30 +479,116 @@ func isElementInArray(a string, list []string) bool {
 	}
 	return false
 }
+
+func createProtoRegistry(srcDir string, filename string) (*protoregistry.Files, error) {
+	// Create descriptors using the protoc binary.
+	// Imported dependencies are included so that the descriptors are self-contained.
+	tmpFile := filename + "-tmp.pb"
+	cmd := exec.Command("protoc",
+		"--include_imports",
+		"--descriptor_set_out="+tmpFile,
+		"-I"+srcDir,
+		path.Join(srcDir, filename))
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+	//defer os.Remove(tmpFile)
+
+	marshalledDescriptorSet, err := os.ReadFile(tmpFile)
+	if err != nil {
+		return nil, err
+	}
+	descriptorSet := descriptorpb.FileDescriptorSet{}
+	err = proto.Unmarshal(marshalledDescriptorSet, &descriptorSet)
+	if err != nil {
+		log.Println("can't unmarshal: ", err)
+		return nil, err
+	}
+
+	files, err := protodesc.NewFiles(&descriptorSet)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	return files, nil
+}
+
 func setServiceProto(metaData *ServiceMetadata) (err error) {
-	metaData.dynamicPriceMethodMapping = make(map[string]string, 0)
-	metaData.trainingMethods = make([]string, 0)
+	metaData.DynamicPriceMethodMapping = make(map[string]string, 0)
+	metaData.TrainingMethods = make([]string, 0)
 	//This is to handler the scenario where there could be multiple protos associated with the service proto
 	protoFiles, err := ipfsutils.ReadFilesCompressed(ipfsutils.GetIpfsFile(metaData.ModelIpfsHash))
-	for _, file := range protoFiles {
-		if srvProto, err := parseServiceProto(file); err != nil {
-			return err
-		} else {
-			dynamicMethodMap, trainingMethodMap, err := buildDynamicPricingMethodsMap(srvProto)
-			if err != nil {
-				return err
-			}
-			metaData.dynamicPriceMethodMapping = dynamicMethodMap
-			metaData.trainingMethods = trainingMethodMap
+	if err != nil {
+		return err
+	}
+
+	if metaData.ServiceType == "http" {
+		if len(protoFiles) > 1 {
+			log.Fatalln("daemon support only one proto file for HTTP services!")
 		}
+	}
+
+	for _, file := range protoFiles {
+		log.Debugln("Protofile: ", file)
+
+		if metaData.ServiceType == "http" {
+			_, err = os.Create(serviceProto)
+			if err != nil {
+				log.Fatalln("Can't create proto file: ", err)
+			}
+
+			err = os.WriteFile(serviceProto, []byte(file), 0666)
+			if err != nil {
+				log.Fatalln("Can't write to proto file: ", err)
+			}
+		}
+
+		//If Dynamic pricing is enabled ,there will be mandatory checks on the service proto
+		//this is to ensure that the standards on how one defines the methods to invoke is followed
+		if config.GetBool(config.EnableDynamicPricing) {
+			if srvProto, err := parseServiceProto(file); err != nil {
+				return err
+			} else {
+				dynamicMethodMap, trainingMethodMap, err := buildDynamicPricingMethodsMap(srvProto)
+				if err != nil {
+					return err
+				}
+				metaData.DynamicPriceMethodMapping = dynamicMethodMap
+				metaData.TrainingMethods = trainingMethodMap
+			}
+		}
+	}
+
+	if metaData.ServiceType == "http" {
+		files, err := createProtoRegistry(".", serviceProto)
+		if err != nil {
+			log.Println("createProtoRegistry: ", err)
+		}
+
+		protoFile, err := files.FindFileByPath(serviceProto)
+		if err != nil {
+			log.Println("files.FindFileByPat: ", err)
+		}
+
+		err = files.RegisterFile(protoFile)
+		if err != nil {
+			log.Println("files.RegisterFile(desc): ", err)
+		}
+
+		metaData.ProtoFile = protoFile
 	}
 
 	return nil
 }
 
-func parseServiceProto(serviceProtoFile string) (*proto.Proto, error) {
+func parseServiceProto(serviceProtoFile string) (*pproto.Proto, error) {
 	reader := strings.NewReader(serviceProtoFile)
-	parser := proto.NewParser(reader)
+	parser := pproto.NewParser(reader)
 	parsedProto, err := parser.Parse()
 	if err != nil {
 		return nil, err
@@ -502,21 +596,20 @@ func parseServiceProto(serviceProtoFile string) (*proto.Proto, error) {
 	return parsedProto, nil
 }
 
-func buildDynamicPricingMethodsMap(serviceProto *proto.Proto) (dynamicPricingMethodMapping map[string]string,
+func buildDynamicPricingMethodsMap(serviceProto *pproto.Proto) (dynamicPricingMethodMapping map[string]string,
 	trainingMethodPricing []string, err error) {
 	dynamicPricingMethodMapping = make(map[string]string, 0)
 	trainingMethodPricing = make([]string, 0)
 	var pkgName, serviceName, methodName string
 	for _, elem := range serviceProto.Elements {
 		//package is parsed earlier than service ( per documentation)
-		if pkg, ok := elem.(*proto.Package); ok {
+		if pkg, ok := elem.(*pproto.Package); ok {
 			pkgName = pkg.Name
 		}
-
-		if service, ok := elem.(*proto.Service); ok {
+		if service, ok := elem.(*pproto.Service); ok {
 			serviceName = service.Name
 			for _, serviceElements := range service.Elements {
-				if rpcMethod, ok := serviceElements.(*proto.RPC); ok {
+				if rpcMethod, ok := serviceElements.(*pproto.RPC); ok {
 					methodName = rpcMethod.Name
 					for _, methodOption := range rpcMethod.Options {
 						if strings.Compare(methodOption.Name, "(pricing.my_method_option).estimatePriceMethod") == 0 {

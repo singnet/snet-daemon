@@ -41,9 +41,8 @@ func getAuthenticationAddress() []common.Address {
 	for _, user := range users {
 		if !common.IsHexAddress(user) {
 			fmt.Errorf("%v is not a valid hex address", user)
-
 		} else {
-			userAddress = append(userAddress, common.Address(common.BytesToAddress(common.FromHex(user))))
+			userAddress = append(userAddress, common.BytesToAddress(common.FromHex(user)))
 		}
 	}
 	return userAddress

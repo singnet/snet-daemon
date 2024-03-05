@@ -3,6 +3,7 @@ package codec
 import (
 	"fmt"
 	"google.golang.org/grpc/encoding"
+	_ "google.golang.org/grpc/encoding/proto"         // ensure default "proto" codec is registered first
 	_ "google.golang.org/protobuf/encoding/protojson" // ensure default "proto" codec is registered first
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/protoadapt"
@@ -60,7 +61,7 @@ Copied from https://github.com/mwitkow/grpc-proxy/blob/67591eb23c48346a480470e46
 Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-PROXY for licensing terms.
 Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
 */
-// protoCodec is a Codec implementation with protobuf. It is the default rawCodec for gRPC.
+//protoCodec is a Codec implementation with protobuf. It is the default rawCodec for gRPC.
 type protoCodec struct{}
 
 func (protoCodec) Marshal(v interface{}) ([]byte, error) {

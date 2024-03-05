@@ -1,4 +1,7 @@
+# idea cache
 .idea/
+
+# npm cache and configs
 resources/blockchain/node_modules/
 resources/blockchain/build/
 snetd.db
@@ -12,6 +15,10 @@ blockchain/registry.go
 blockchain/multi_party_escrow.go
 blockchain/singularity_net_token.go
 *.pb.go
+
+# service proto
+service.proto
+service.proto-tmp.pb
 
 # Binaries for programs and plugins
 *.exe

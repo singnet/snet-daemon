@@ -89,12 +89,7 @@ func GetIpfsFile(hash string) (content string) {
 		return
 	}
 
-	log.WithField("hash", hash).WithField("blob", string(fileContent)).Debug("Blob of IPFS file with hash")
-
-	//sum, err := cID.Prefix().Sum(fileContent)
-	//if err != nil {
-	//	log.WithError(err).Panicf("error in generating the hash for the meta data read from IPFS : %v", err)
-	//}
+	// log.WithField("hash", hash).WithField("blob", string(fileContent)).Debug("Blob of IPFS file with hash")
 
 	// Create a cid manually to check cid
 	_, c, err := cid.CidFromBytes(append(cID.Bytes(), fileContent...))

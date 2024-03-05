@@ -24,20 +24,17 @@ These instructions are intended to facilitate the development and testing of Sin
 deploying SingularityNET services using SingularityNET Daemon should install the appropriate binary as
 [released](#release).
 
-### Prerequisites
+### Prerequisites and dependencies
 
 * [Go 1.21+](https://golang.org/dl/)
 * [NodeJS 15+ w/npm](https://nodejs.org/en/download/)
+* [Protoc v25.0+](https://github.com/protocolbuffers/protobuf/releases)
 
-### Dependencies
-
-* install [Protoc v25.0+](https://github.com/protocolbuffers/protobuf/releases)
-
-* If you want to cross-compile you will also need Docker
+Protoc, nodejs, go and go/bin should be in environment variables.
 
 ### Installing
 
-* Clone the git repository to the following path $GOPATH/src/github.com/singnet/
+* Clone the git repository (for example $GOPATH/src/github.com/singnet/)
 
 ```bash
 $ git clone git@github.com:singnet/snet-daemon.git
@@ -50,12 +47,16 @@ $ cd snet-daemon
 $ ./scripts/install
 ```
 
-* Build snet-daemon (on Linux amd64 platform), see below section if you want to cross compile instead.
-  Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as part of the build.
+* Build snet-daemon. Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as part of the build.
   You need to pass the version as shown in the example below
 
 ```bash
-$ ./scripts/build linux amd64 <version>
+$ ./scripts/build <linux/windows/darwin> <amd64/arm/arm64> <version>
+```
+
+Example:
+```bash
+$ ./scripts/build linux amd64 v5.1.2
 ```
 
 * Generate default config file snet-daemon (on Linux amd64 platform)
@@ -66,20 +67,12 @@ $ ./build/snetd-linux-amd64 init
 
 **** Please update the registry address in daemon config based on the test network used
 
-#### Cross-compiling
+#### Multi-compiling
 
-If you want to build snetd for platforms other than the one you are on, run `./scripts/build-xgo` instead
+If you want to build snetd for several platforms, run `./scripts/build-all <version>` instead
 of `./scripts/build`.
 
-You can edit the script to choose a specific platform, but by default it will build for Linux, OSX, and Windows (amd64
-for all, except Linux which will also build for arm6)
-
-Please note using ldflags the latest tagged version (passed as the first parameter to the script) , sha1 revision and
-the build time are set as part of the build.
-
-```bash
-$ ./scripts/build-xgo <version>
-```
+You can edit the script to choose a specific platforms, but by default it will build for Linux, OSX, and Windows
 
 #### Run Deamon
 
@@ -159,24 +152,29 @@ These properties you should usually change before starting daemon for the first
 time.
 
 * **blockchain_network_selected**  (required)
-  Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby).
+  Name of the network to be used for Daemon possible values are one of (goerli, sepolia, main, local).
   Daemon will automatically read the Registry address associated with this network For local network ( you can also
   specify the registry address manually),see the blockchain_network_config.json
 
-* **daemon_type** (required;) -
-  Defines the type of service. Available values :grpc,
-  jsonrpc, [http](https://dev.singularitynet.io/docs/ai-developers/service-type-http/), process.
-
-* **service_credentials** (required if daemon_type is http):
+* **service_credentials** (optional, for service_type http only):
   Array of credentials, example:
 
 ```
-[{"key": "X-Banana-API-Key",
-"value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39",
-"location": "header"}]
+"service_credentials": [
+    {
+      "key": "example_body_param",
+      "value": 12345,
+      "location": "body"
+    },
+    {
+      "key": "X-API-Key",
+      "value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39",
+      "location": "header"
+    }
+  ],
 ```
 
-Location can be: query or header
+Location can be: query, header or body. Query and header values must be string.
 
 * **daemon_end_point** (required;) -
   Defines the ip and the port on which the daemon listens to.

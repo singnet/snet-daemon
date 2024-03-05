@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/gogo/protobuf/sortkeys"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"math/big"
+	"sort"
 )
 
 type ProviderControlService struct {
@@ -148,7 +148,7 @@ func getBytesOfChannelIds(request *StartMultipleClaimRequest) []byte {
 		channelIds = append(channelIds, channelId)
 	}
 	//sort the channel Ids
-	sortkeys.Uint64s(channelIds)
+	Uint64s(channelIds)
 	channelIdInBytes := make([]byte, 0)
 
 	for index, channelId := range channelIds {
@@ -166,6 +166,16 @@ func getBytesOfChannelIds(request *StartMultipleClaimRequest) []byte {
 	}
 	return channelIdInBytes
 }
+
+type Uint64Slice []uint64
+
+func Uint64s(l []uint64) {
+	sort.Sort(Uint64Slice(l))
+}
+
+func (p Uint64Slice) Len() int           { return len(p) }
+func (p Uint64Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p Uint64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 // Get the list of all claims that have been initiated but not completed yet.
 // Verify that mpe_address is correct

@@ -21,8 +21,8 @@ jobs:
 
       - name: protobuff install
         run: |
-          apt update
-          apt install protobuf-compiler
+          sudo apt update
+          sudo apt install protobuf-compiler
 
       - name: check version
         run: go version

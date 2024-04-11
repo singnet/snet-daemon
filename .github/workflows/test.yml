@@ -1,0 +1,31 @@
+name: tests
+on:
+  # push:
+  #   branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+    run_tests:
+      runs-on: ubuntu-latest
+      steps:
+      
+      - name: clone repo
+        uses: actions/checkout@v3
+        
+      - name: download and install
+        uses: actions/setup-go@v5
+        with:
+              go-version: '${{ vars.VERSION }}'
+
+      - name: protobuff install
+        run: |
+          apt update
+          apt install protobuf-compiler
+
+      - name: check version
+        run: go version
+
+      - name: check folder
+        run: ls

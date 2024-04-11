@@ -1,6 +1,5 @@
 # snet-daemon
 
-[![CircleCI](https://circleci.com/gh/singnet/snet-daemon.svg?style=svg)](https://circleci.com/gh/singnet/snet-daemon)
 [![Coverage Status](https://coveralls.io/repos/github/singnet/snet-daemon/badge.svg)](https://coveralls.io/github/singnet/snet-daemon)
 
 SingularityNET Daemon

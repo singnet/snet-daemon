@@ -30,14 +30,14 @@ jobs:
       - name: go_ins_2
         run: go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
-      # - name: generate
-      #   run: go generate ./...
+      - name: generate
+        run: go generate ./...
 
       - name: check version
         run: go version
-###########test
+
       - name: check folder
         run: ls
 
-      # - name: do tests
-      #   run: go test -v ./...
+      - name: do tests
+        run: go test -v ./...

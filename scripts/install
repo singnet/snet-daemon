@@ -6,22 +6,8 @@ PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
 
 pushd $PARENT_PATH
 
-go install github.com/ethereum/go-ethereum/cmd/abigen@latest
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-pushd resources/blockchain
-npm install
-mpe_bytecode=$(cat node_modules/singularitynet-platform-contracts/bytecode/MultiPartyEscrow.json)
-echo "$mpe_bytecode" | sed 's/"//g' > node_modules/singularitynet-platform-contracts/bytecode/MultiPartyEscrow.json
-
-registry_bytecode=$(cat node_modules/singularitynet-platform-contracts/bytecode/Registry.json)
-echo "$registry_bytecode" | sed 's/"//g' > node_modules/singularitynet-platform-contracts/bytecode/Registry.json
-
-bytecode_token=$(cat node_modules/singularitynet-token-contracts/bytecode/SingularityNetToken.json)
-echo "$bytecode_token" | sed 's/"//g' > node_modules/singularitynet-token-contracts/bytecode/SingularityNetToken.json
-
-popd
 
 go generate ./...
 popd

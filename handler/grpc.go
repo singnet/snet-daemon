@@ -177,11 +177,19 @@ Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See
 func forwardClientToServer(src grpc.ClientStream, dst grpc.ServerStream) chan error {
 	ret := make(chan error, 1)
 	go func() {
-		f := &emptypb.Empty{}
+		msg1 := &emptypb.Empty{}
+		msg2 := &codec.GrpcFrame{}
+		var f any
 		for i := 0; ; i++ {
-			if err := src.RecvMsg(f); err != nil {
-				ret <- err // this can be io.EOF which is happy case
-				break
+			if err := src.RecvMsg(msg1); err == nil {
+				f = msg1
+			} else {
+				if err := src.RecvMsg(msg2); err == nil {
+					f = msg2
+				} else {
+					ret <- err // this can be io.EOF which is happy case
+					break
+				}
 			}
 			if i == 0 {
 				// This is a bit of a hack, but client to server headers are only readable after first client msg is
@@ -214,7 +222,7 @@ Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See
 func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan error {
 	ret := make(chan error, 1)
 	go func() {
-		f := &emptypb.Empty{}
+		var msg any
 		for i := 0; ; i++ {
 			//Only for the first time do this, once RecvMsg has been called,
 			//future calls will result in io.EOF , we want to retrieve the
@@ -224,17 +232,24 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 				//todo we need to think through to determine price for every call on stream calls
 				//will be handled when we support streaming and pricing across all clients in snet-platform
 				if wrappedStream, ok := src.(*WrapperServerStream); ok {
-					f = (wrappedStream.OriginalRecvMsg()).(*emptypb.Empty)
-				} else if err := src.RecvMsg(f); err != nil {
+					switch f := (wrappedStream.OriginalRecvMsg()).(type) {
+					case *codec.GrpcFrame:
+						msg = f
+					case *emptypb.Empty:
+						msg = f
+					default:
+						log.Println("fatal error, contact daemon developers")
+					}
+				} else if err := src.RecvMsg(msg); err != nil {
 					ret <- err
 					log.Println("err: ", err)
 					break
 				}
-			} else if err := src.RecvMsg(f); err != nil {
+			} else if err := src.RecvMsg(msg); err != nil {
 				ret <- err // this can be io.EOF which is happy case
 				break
 			}
-			if err := dst.SendMsg(f); err != nil {
+			if err := dst.SendMsg(msg); err != nil {
 				ret <- err
 				break
 			}
@@ -374,9 +389,9 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 	log.Debugln("Calling method name from proto: ", output.Name())
 	log.Debugln("Calling method fullname from proto: ", output.FullName())
 	proto = dynamicpb.NewMessage(output)
-	err := protojson.Unmarshal(json, proto)
+	err := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}.Unmarshal(json, proto)
 	if err != nil {
-		log.Println("Can't unmarshal protojson: ", err)
+		log.Println("Can't unmarshal jsonToProto: ", err)
 	}
 
 	return proto
@@ -409,7 +424,7 @@ func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName st
 		log.Println("proto.Unmarshal: ", err)
 		return []byte("error, invalid proto file or input request")
 	}
-	json, err = protojson.Marshal(msg)
+	json, err = protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
 		log.Println("protojson.Marshal: ", err)
 		return []byte("error, invalid proto file or input request")

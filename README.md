@@ -18,19 +18,21 @@ nonce of the channel.
 It then sends and ON-Chain transaction to claim funds.The daemons continue their work independently without any
 confirmation from the treasurer on the blockchain.
 
+## Usage (without compiling)
+
+Users interested in deploying SingularityNET services using SingularityNET
+Daemon should install the appropriate [binary from releases](https://github.com/singnet/snet-daemon/releases).
+
 ## Development
 
-These instructions are intended to facilitate the development and testing of SingularityNET Daemon. Users interested in
-deploying SingularityNET services using SingularityNET Daemon should install the appropriate binary as
-[released](#release).
+These instructions are intended to facilitate the development and testing of SingularityNET Daemon.
 
 ### Prerequisites and dependencies
 
 * [Go 1.21+](https://golang.org/dl/)
-* [NodeJS 15+ w/npm](https://nodejs.org/en/download/)
 * [Protoc v25.0+](https://github.com/protocolbuffers/protobuf/releases)
 
-Protoc, nodejs, go and go/bin should be in environment variables.
+**Protoc (libprotoc), golang and $GOPATH/bin should be in environment variables.**
 
 ### Installing
 
@@ -41,13 +43,14 @@ $ git clone git@github.com:singnet/snet-daemon.git
 $ cd snet-daemon
 ```
 
-* Install development/test dependencies
+* Install dependencies and generate bindings
 
 ```bash
 $ ./scripts/install
 ```
 
-* Build snet-daemon. Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as part of the build.
+* Build snet-daemon. Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as
+  part of the build.
   You need to pass the version as shown in the example below
 
 ```bash
@@ -55,6 +58,7 @@ $ ./scripts/build <linux/windows/darwin> <amd64/arm/arm64> <version>
 ```
 
 Example:
+
 ```bash
 $ ./scripts/build linux amd64 v5.1.2
 ```
@@ -74,7 +78,7 @@ of `./scripts/build`.
 
 You can edit the script to choose a specific platforms, but by default it will build for Linux, OSX, and Windows
 
-#### Run Deamon
+#### Run Daemon
 
 ```bash
 $ ../build/snetd-linux-amd64

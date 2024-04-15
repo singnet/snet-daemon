@@ -35,7 +35,7 @@ func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
 			return "GroupID"
 		},
 	}
-	config.Vip().Set(config.TokenExpiryInMinutes, 0.1)
+	config.Vip().Set(config.TokenExpiryInMinutes, 1)
 	token, err := tokenImpl.CreateToken("any struct")
 	err = tokenImpl.VerifyToken(token, "different struct")
 	assert.Equal(t, "payload any struct used to generate the Token doesnt match expected values", err.Error())

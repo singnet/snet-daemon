@@ -1,0 +1,43 @@
+name: build
+on:
+  push:
+    branches: [ "master" ]
+  # pull_request:
+  #   branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+    run_build:
+      runs-on: ubuntu-latest
+      steps:
+      
+      - name: clone repo
+        uses: actions/checkout@v3
+        
+      - name: download and install
+        uses: actions/setup-go@v5
+        with:
+              go-version: '${{ vars.VERSION }}'
+
+      - name: protobuff install
+        run: |
+          sudo apt update
+          sudo apt install protobuf-compiler
+
+      - name: go_ins_1
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+      - name: go_ins_2
+        run: go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: generate
+        run: go generate ./...
+
+      - name: check version
+        run: go version
+
+      - name: check folder
+        run: ls
+
+      - name: do build
+        run: go build snetd/main.go

@@ -14,10 +14,6 @@ resources/blockchain/package-lock.json
 blockchain/snet-contracts.go
 *.pb.go
 
-# service proto
-service.proto
-service.proto-tmp.pb
-
 # Binaries for programs and plugins
 *.exe
 *.exe~

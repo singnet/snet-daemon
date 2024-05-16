@@ -46,7 +46,7 @@ const DefaultDaemonConfigurationSchema = `
   "blockchain_network_selected": {
     "mandatory": true,
     "value": "local",
-    "description": "Name of the network to be used for Daemon possible values are one of (kovan,ropsten,main,local or rinkeby). Daemon will automatically read the Registry address associated with this network For local network ( you can also specify the registry address manually),see the blockchain_network_config.json",
+    "description": "Name of the network to be used for Daemon possible values are one of (sepolia, goerli, main or local). Daemon will automatically read the Registry address associated with this network For local network ( you can also specify the registry address manually),see the blockchain_network_config.json",
     "type": "string",
     "editable": true,
     "restart_daemon": true,

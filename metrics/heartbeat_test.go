@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -104,10 +104,10 @@ func (suite *HeartBeatTestSuite) TestHeartbeatHandler() {
 
 	//test the responses
 	assert.Equal(suite.T(), http.StatusOK, response.Code, "handler returned wrong status code")
-	heartbeat, _ := ioutil.ReadAll(response.Body)
+	heartbeat, _ := io.ReadAll(response.Body)
 
 	var dHeartbeat DaemonHeartbeat
-	err = json.Unmarshal([]byte(heartbeat), &dHeartbeat)
+	err = json.Unmarshal(heartbeat, &dHeartbeat)
 	assert.False(suite.T(), err != nil)
 	assert.NotNil(suite.T(), dHeartbeat, "heartbeat must not be nil")
 

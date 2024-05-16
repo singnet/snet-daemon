@@ -177,7 +177,7 @@ func GrpcMeteringInterceptor() grpc.StreamServerInterceptor {
 	return interceptMetering
 }
 
-//Monitor requests arrived and responses sent and publish these stats for Reporting
+// Monitor requests arrived and responses sent and publish these stats for Reporting
 func interceptMetering(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	var e error
 	var start time.Time
@@ -398,7 +398,7 @@ func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamSer
 	return handler(srv, ss)
 }
 
-//set Additional details on the metrics persisted , this is to keep track of how many calls were made per channel
+// set Additional details on the metrics persisted , this is to keep track of how many calls were made per channel
 func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
 	md := context.MD
 	if str, err := GetSingleValue(md, ClientTypeHeader); err == nil {

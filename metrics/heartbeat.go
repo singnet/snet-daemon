@@ -46,6 +46,10 @@ type DaemonHeartbeat struct {
 	Status                   string            `json:"status"`
 	ServiceHeartbeat         string            `json:"serviceheartbeat"`
 	DaemonVersion            string            `json:"daemonVersion"`
+	TrainingEnabled          bool              `json:"trainingEnabled"`
+	TrainingInProto          bool              `json:"trainingInProto"`
+	BlockchainEnabled        bool              `json:"blockchainEnabled"`
+	BlockchainNetwork        string            `json:"blockchainNetwork"`
 	StorageClientCertDetails StorageClientCert `json:"storageClientCertDetails"`
 }
 
@@ -110,9 +114,18 @@ func getStorageCertificateDetails() (cert StorageClientCert) {
 
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
 func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (heartbeat DaemonHeartbeat, err error) {
-	heartbeat = DaemonHeartbeat{GetDaemonID(), strconv.FormatInt(getEpochTime(), 10),
-		Online.String(), "{}", config.GetVersionTag(),
+	heartbeat = DaemonHeartbeat{
+		GetDaemonID(),
+		strconv.FormatInt(getEpochTime(), 10),
+		Online.String(),
+		"{}",
+		config.GetVersionTag(),
+		config.GetBool(config.ModelTrainingEnabled),
+		config.GetBool(config.ModelTrainingEnabled), // TODO
+		config.GetBool(config.BlockchainEnabledKey),
+		config.GetString(config.BlockChainNetworkSelected),
 		getStorageCertificateDetails()}
+
 	var curResp = `{"serviceID":"` + serviceID + `","status":"NOT_SERVING"}`
 	if serviceType == "none" || serviceType == "" || isNoHeartbeatURL {
 		curResp = `{"serviceID":"` + serviceID + `","status":"SERVING"}`

@@ -138,7 +138,6 @@ func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNum
 
 func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
 
-	println("block number:" + payment.CurrentBlockNumber.String())
 	message := bytes.Join([][]byte{
 		[]byte(FreeCallPrefixSignature),
 		[]byte(payment.UserId),

@@ -121,7 +121,7 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string) (hear
 		"{}",
 		config.GetVersionTag(),
 		config.GetBool(config.ModelTrainingEnabled),
-		config.GetBool(config.ModelTrainingEnabled), // TODO
+		false, // TODO
 		config.GetBool(config.BlockchainEnabledKey),
 		config.GetString(config.BlockChainNetworkSelected),
 		getStorageCertificateDetails()}

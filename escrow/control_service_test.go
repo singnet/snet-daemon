@@ -133,10 +133,10 @@ func (suite *ControlServiceTestSuite) SignListInProgress(request *GetPaymentsLis
 	request.Signature = getSignature(message, suite.receiverPvtKy)
 }
 
-//Build Request
-//Validate Signature
-//Add 2 elements in ChannelData
-//After claims, check if 2 payments have come in
+// Build Request
+// Validate Signature
+// Add 2 elements in ChannelData
+// After claims, check if 2 payments have come in
 func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 	suite.putChannel(big.NewInt(1))
 	suite.putChannel(big.NewInt(2))
@@ -147,7 +147,7 @@ func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 	//
 	ids = append(ids, 2)
 	ids = append(ids, 1)
-	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
+	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
 	blknum, _ := authutils.CurrentBlock()
 	startMultipleClaimRequest := &StartMultipleClaimRequest{

@@ -36,7 +36,7 @@ func TestFreeCallStateServiceTestSuite(t *testing.T) {
 }
 
 func (suite *FreeCallStateServiceSuite) SetupSuite() {
-	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
+	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
 	suite.signerPrivateKey, _ = crypto.HexToECDSA("063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
 	suite.freeCallUserPrivateKey = GenerateTestPrivateKey()

@@ -35,7 +35,7 @@ const DefaultDaemonConfigurationSchema = `
 ,
   "ethereum_json_rpc_endpoint": {
     "mandatory": true,
-    "value": "https://kovan.infura.io",
+    "value": "https://sepolia.infura.io/v3",
     "description": "Endpoint to which daemon sends ethereum JSON-RPC requests; Based on the network selected blockchain_network_selected the end point is auto determined.",
     "type": "url",
     "editable": true,

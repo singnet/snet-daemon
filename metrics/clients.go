@@ -13,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
@@ -37,13 +37,13 @@ func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResp
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	req := grpc_health_v1.HealthCheckRequest{Service:config.GetString(config.ServiceId)}
-	resp, err := client.Check(ctx,&req)
+	req := grpc_health_v1.HealthCheckRequest{Service: config.GetString(config.ServiceId)}
+	resp, err := client.Check(ctx, &req)
 	if err != nil {
 		log.WithError(err).Warningf("error in calling the heartbeat service : %v", err)
 		return grpc_health_v1.HealthCheckResponse_UNKNOWN, err
 	}
-	return resp.Status,nil
+	return resp.Status, nil
 }
 
 // calls the service heartbeat and relay the message to daemon (HTTP client for heartbeat)
@@ -58,7 +58,7 @@ func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 		return nil, errors.New("unexpected error with the service")
 	}
 	// Read the response
-	serviceHeartbeat, _ := ioutil.ReadAll(response.Body)
+	serviceHeartbeat, _ := io.ReadAll(response.Body)
 	//Check if we got empty response
 	if string(serviceHeartbeat) == "" {
 		return nil, errors.New("empty service response")
@@ -71,12 +71,13 @@ func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	//Send the Daemon ID and the Network ID to register the Daemon
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(buildPayLoadForServiceRegistration()))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Access-Token", daemonID)
 	if err != nil {
 		log.WithError(err).Infof("unable to create register service request : %v", err)
 		return false
 	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Access-Token", daemonID)
+
 	// sending the post request
 	client := &http.Client{}
 	response, err := client.Do(req)

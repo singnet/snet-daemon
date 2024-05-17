@@ -18,7 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
 	"net/http"
 	"net/url"
@@ -177,7 +176,7 @@ Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See
 func forwardClientToServer(src grpc.ClientStream, dst grpc.ServerStream) chan error {
 	ret := make(chan error, 1)
 	go func() {
-		f := &emptypb.Empty{}
+		f := &codec.GrpcFrame{}
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
@@ -214,7 +213,7 @@ Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See
 func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan error {
 	ret := make(chan error, 1)
 	go func() {
-		f := &emptypb.Empty{}
+		f := &codec.GrpcFrame{}
 		for i := 0; ; i++ {
 			//Only for the first time do this, once RecvMsg has been called,
 			//future calls will result in io.EOF , we want to retrieve the
@@ -224,12 +223,12 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 				//todo we need to think through to determine price for every call on stream calls
 				//will be handled when we support streaming and pricing across all clients in snet-platform
 				if wrappedStream, ok := src.(*WrapperServerStream); ok {
-					f = (wrappedStream.OriginalRecvMsg()).(*emptypb.Empty)
+					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
 				} else if err := src.RecvMsg(f); err != nil {
 					ret <- err
-					log.Println("err: ", err)
 					break
 				}
+
 			} else if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
 				break
@@ -371,12 +370,11 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 		return proto
 	}
 	output := method.Output()
-	log.Debugln("Calling method name from proto: ", output.Name())
-	log.Debugln("Calling method fullname from proto: ", output.FullName())
+	log.Debugln("output of calling method:", output.FullName())
 	proto = dynamicpb.NewMessage(output)
-	err := protojson.Unmarshal(json, proto)
+	err := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}.Unmarshal(json, proto)
 	if err != nil {
-		log.Println("Can't unmarshal protojson: ", err)
+		log.Println("Can't unmarshal jsonToProto: ", err)
 	}
 
 	return proto
@@ -409,7 +407,7 @@ func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName st
 		log.Println("proto.Unmarshal: ", err)
 		return []byte("error, invalid proto file or input request")
 	}
-	json, err = protojson.Marshal(msg)
+	json, err = protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
 		log.Println("protojson.Marshal: ", err)
 		return []byte("error, invalid proto file or input request")

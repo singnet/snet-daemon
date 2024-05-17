@@ -1,23 +1,19 @@
 package blockchain
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/bufbuild/protocompile"
 	pproto "github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
-	"google.golang.org/protobuf/types/descriptorpb"
 	"math/big"
 	"os"
-	"os/exec"
-	"path"
 	"strings"
 )
 
@@ -356,7 +352,6 @@ func setDerivedFields(metaData *ServiceMetadata) (err error) {
 	setMultiPartyEscrowAddress(metaData)
 
 	return nil
-
 }
 
 func setGroup(metaData *ServiceMetadata) (err error) {
@@ -480,44 +475,6 @@ func isElementInArray(a string, list []string) bool {
 	return false
 }
 
-func createProtoRegistry(srcDir string, filename string) (*protoregistry.Files, error) {
-	// Create descriptors using the protoc binary.
-	// Imported dependencies are included so that the descriptors are self-contained.
-	tmpFile := filename + "-tmp.pb"
-	cmd := exec.Command("protoc",
-		"--include_imports",
-		"--descriptor_set_out="+tmpFile,
-		"-I"+srcDir,
-		path.Join(srcDir, filename))
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		return nil, err
-	}
-	//defer os.Remove(tmpFile)
-
-	marshalledDescriptorSet, err := os.ReadFile(tmpFile)
-	if err != nil {
-		return nil, err
-	}
-	descriptorSet := descriptorpb.FileDescriptorSet{}
-	err = proto.Unmarshal(marshalledDescriptorSet, &descriptorSet)
-	if err != nil {
-		log.Println("can't unmarshal: ", err)
-		return nil, err
-	}
-
-	files, err := protodesc.NewFiles(&descriptorSet)
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-
-	return files, nil
-}
-
 func setServiceProto(metaData *ServiceMetadata) (err error) {
 	metaData.DynamicPriceMethodMapping = make(map[string]string, 0)
 	metaData.TrainingMethods = make([]string, 0)
@@ -527,26 +484,12 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 		return err
 	}
 
-	if metaData.ServiceType == "http" {
-		if len(protoFiles) > 1 {
-			log.Fatalln("daemon support only one proto file for HTTP services!")
-		}
+	if metaData.ServiceType == "http" && len(protoFiles) > 1 {
+		log.Fatalln("Currently daemon support only one proto file for HTTP services!")
 	}
 
 	for _, file := range protoFiles {
 		log.Debugln("Protofile: ", file)
-
-		if metaData.ServiceType == "http" {
-			_, err = os.Create(serviceProto)
-			if err != nil {
-				log.Fatalln("Can't create proto file: ", err)
-			}
-
-			err = os.WriteFile(serviceProto, []byte(file), 0666)
-			if err != nil {
-				log.Fatalln("Can't write to proto file: ", err)
-			}
-		}
 
 		//If Dynamic pricing is enabled ,there will be mandatory checks on the service proto
 		//this is to ensure that the standards on how one defines the methods to invoke is followed
@@ -562,25 +505,10 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 				metaData.TrainingMethods = trainingMethodMap
 			}
 		}
-	}
 
-	if metaData.ServiceType == "http" {
-		files, err := createProtoRegistry(".", serviceProto)
-		if err != nil {
-			log.Println("createProtoRegistry: ", err)
+		if metaData.ServiceType == "http" {
+			metaData.ProtoFile = getFileDescriptor(file)
 		}
-
-		protoFile, err := files.FindFileByPath(serviceProto)
-		if err != nil {
-			log.Println("files.FindFileByPat: ", err)
-		}
-
-		err = files.RegisterFile(protoFile)
-		if err != nil {
-			log.Println("files.RegisterFile(desc): ", err)
-		}
-
-		metaData.ProtoFile = protoFile
 	}
 
 	return nil
@@ -627,4 +555,20 @@ func buildDynamicPricingMethodsMap(serviceProto *pproto.Proto) (dynamicPricingMe
 		}
 	}
 	return
+}
+
+func getFileDescriptor(protoContent string) protoreflect.FileDescriptor {
+
+	accessor := protocompile.SourceAccessorFromMap(map[string]string{
+		serviceProto: protoContent,
+	})
+	compiler := protocompile.Compiler{
+		Resolver:       &protocompile.SourceResolver{Accessor: accessor},
+		SourceInfoMode: protocompile.SourceInfoStandard,
+	}
+	fds, err := compiler.Compile(context.Background(), serviceProto)
+	if err != nil {
+		log.Println(err)
+	}
+	return fds.FindFileByPath(serviceProto)
 }

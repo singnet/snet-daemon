@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	contracts "github.com/singnet/snet-ecosystem-contracts"
 	log "github.com/sirupsen/logrus"
 	"os"
 )
@@ -24,7 +25,6 @@ const (
 
 var networkSelected = &NetworkSelected{}
 var networkIdNameMapping string
-var registryAddressJson string
 
 func determineNetworkSelected(data []byte) (err error) {
 	dynamicBinding := map[string]interface{}{}
@@ -70,24 +70,23 @@ func GetRegistryAddress() string {
 }
 
 // Read the Registry address from JSON file passed
-func setRegistryAddress(fileName string) (err error) {
-	var data []byte
+func setRegistryAddress() (err error) {
 
 	//if address is already set in the config file and has been initialized , then skip the setting process
 	if len(networkSelected.RegistryAddressKey) > 0 {
 		return
 	}
+
+	data := contracts.GetNetworksClean(contracts.Registry)
 	//This value will be set when the binary across multiple platforms is built
-	if len(registryAddressJson) > 0 {
-		data = []byte(registryAddressJson)
-	} else {
-		//this is only for your local set up and testing
-		//This is only for local set up testing
-		if data, err = ReadFromFile(fileName); err != nil {
-			return fmt.Errorf("cannot parse the JSON file at %v to determine registry address of %v network, the error is :%v",
-				fileName, GetString(BlockChainNetworkSelected), err)
-		}
-	}
+
+	//this is only for your local set up and testing
+	//This is only for local set up testing
+	//if data, err = ReadFromFile(fileName); err != nil {
+	//	return fmt.Errorf("cannot parse the JSON file at %v to determine registry address of %v network, the error is :%v",
+	//		fileName, GetString(BlockChainNetworkSelected), err)
+	//}
+
 	if err = deriveDatafromJSON(data); err != nil {
 		return err
 	}
@@ -98,13 +97,15 @@ func deriveDatafromJSON(data []byte) (err error) {
 	m := map[string]interface{}{}
 	err = json.Unmarshal(data, &m)
 	if err != nil {
-		return fmt.Errorf("cannot parse the Registry JSON file for the network %v , the error is : %v",
+		return fmt.Errorf("cannot parse the registry JSON file for the network %v , the error is : %v",
 			GetString(BlockChainNetworkSelected), err)
 	}
 
-	if m[GetNetworkId()] != nil {
-		networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]interface{})["address"])
+	if m[GetNetworkId()] == nil {
+		return errors.New("cannot find registry address from JSON for the selected network")
 	}
+
+	networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]interface{})["address"])
 
 	log.Infof("The Network specified is :%v, and maps to the Network Id %v, the determined Registry address is %v and block chain end point is %v",
 		GetString(BlockChainNetworkSelected), GetNetworkId(), GetRegistryAddress(), GetBlockChainEndPoint())
@@ -123,7 +124,7 @@ func ReadFromFile(filename string) ([]byte, error) {
 
 }
 
-// Read from the block chain network config json
+// Read from the blockchain network config json
 func setBlockChainNetworkDetails(fileName string) (err error) {
 	var data []byte
 	if len(networkIdNameMapping) > 0 {
@@ -136,8 +137,7 @@ func setBlockChainNetworkDetails(fileName string) (err error) {
 		}
 	}
 	if err = determineNetworkSelected(data); err == nil {
-		//this file passed will be used only for local testing
-		err = setRegistryAddress("resources/blockchain/node_modules/singularitynet-platform-contracts/networks/Registry.json")
+		err = setRegistryAddress()
 	}
 	return err
 }

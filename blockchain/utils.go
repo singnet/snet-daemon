@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-
 // ParseSignature parses Ethereum signature.
 func ParseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error) {
 	r := [32]byte{}
@@ -79,7 +78,6 @@ func FormatHash(ipfsHash string) string {
 	log.WithField("metadataUri", ipfsHash).Debug("After Formatting")
 	return ipfsHash
 }
-
 
 func ToChecksumAddress(hexAddress string) string {
 	address := common.HexToAddress(hexAddress)

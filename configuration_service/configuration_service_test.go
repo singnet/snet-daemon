@@ -35,7 +35,7 @@ func TestNewConfigurationService(t *testing.T) {
 }
 
 func TestConfigurationService_authenticate(t *testing.T) {
-	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
+	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	service := NewConfigurationService(nil)
 	config.Validate()
 	privateKey, _ := crypto.GenerateKey()

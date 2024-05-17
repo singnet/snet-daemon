@@ -62,20 +62,24 @@ Example:
 $ ./scripts/build linux amd64 v5.1.2
 ```
 
-* Generate default config file snet-daemon (on Linux amd64 platform)
+#### Generate default minimum config file for snet-daemon
 
 ```bash
 $ ./build/snetd-linux-amd64 init 
 ```
 
-**** Please update the registry address in daemon config based on the test network used
+#### Generate default full config file for snet-daemon
+
+```bash
+$ ./build/snetd-linux-amd64 init-full
+```
 
 #### Multi-compiling
 
 If you want to build snetd for several platforms, run `./scripts/build-all <version>` instead
 of `./scripts/build`.
 
-You can edit the script to choose a specific platforms, but by default it will build for Linux, OSX, and Windows
+You can edit the script to choose a specific platforms, but by default it will build for Linux, OSX, and Windows.
 
 #### Run Daemon
 
@@ -121,6 +125,7 @@ Available Commands:
   freecall    Manage operations on free call users
   help        Help about any command
   init        Write default configuration to file
+  init-full   Write full default configuration to file
   list        List channels, claims in progress, etc
   serve       Is the default option which starts the Daemon.
   version     List the current version of the Daemon.
@@ -145,7 +150,7 @@ can be set via environment variables or command line parameters see [table
 below](#environment-variables-and-cli-parameters). Use `--config`
 parameter with any command to set configuration file name. By default daemon
 use configuration file in JSON format `snetd.config.json` but other formats are
-also supported via [Viper](https://github.com/spf13/viper). Use `snet init`
+also supported via [Viper](https://github.com/spf13/viper). Use `snet init-full`
 command to save configuration file with default values. Following
 configuration properties can be set using configuration file.
 
@@ -159,26 +164,6 @@ time.
   Daemon will automatically read the Registry address associated with this network For local network ( you can also
   specify the registry address manually),see the blockchain_network_config.json
 
-* **service_credentials** (optional, for service_type http only):
-  Array of credentials, example:
-
-```
-"service_credentials": [
-    {
-      "key": "example_body_param",
-      "value": 12345,
-      "location": "body"
-    },
-    {
-      "key": "X-API-Key",
-      "value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39",
-      "location": "header"
-    }
-  ],
-```
-
-Location can be: query, header or body. Query and header values must be string.
-
 * **daemon_end_point** (required;) -
   Defines the ip and the port on which the daemon listens to.
   format is :`<host>:<port>`.
@@ -186,7 +171,7 @@ Location can be: query, header or body. Query and header values must be string.
 * **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
   endpoint to which daemon sends ethereum JSON-RPC requests;
   Based on the network selected blockchain_network_selected the end point is auto determined
-  Example `"https://kovan.infura.io"` for kovan testnet.
+  Example `"https://sepolia.infura.io/v3"` for sepolia testnet.
 
 * **blockchain_provider_api_key** (optional) - basic header authorization key for blockchain providers. Tested with
   infura api
@@ -217,9 +202,26 @@ Location can be: query, header or body. Query and header values must be string.
 * **executable_path** (required if `service_type` == `executable`) -
   path to executable to expose as a service.
 
+
+#### Blockchain network config
+
+You can update the registry address or ethereum_json_rpc_endpoint in `resources/blockchain_network_config.json`
+
 #### Other properties
 
 This options are less frequently needed.
+
+* **service_credentials** (optional, for service_type http only):
+  Array of credentials, example:
+
+```
+"service_credentials": [
+    {"key": "example_body_param", "value": 12345,"location": "body"},
+    {"key": "X-API-Key", "value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39", "location": "header"}
+  ],
+```
+
+Location can be: query, header or body. Query and header values must be string.
 
 * **allowed_users_flag** (optional;default:`false`) - You may need to protect the service provider 's service in test
   environment from being called by anyone, only Authorized users can make calls , when this flag is defined in the

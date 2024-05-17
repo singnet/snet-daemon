@@ -70,27 +70,29 @@ const (
 	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
-	"allowed_user_flag" :false,
-	"auto_ssl_domain": "",
-	"auto_ssl_cache_dir": ".certs",
 	"blockchain_enabled": true,
-	"blockchain_network_selected": "local",
+	"blockchain_network_selected": "sepolia",
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
+	"payment_channel_storage_type": "etcd",
+	"ipfs_end_point": "http://ipfs.singularitynet.io:80", 
+	"ipfs_timeout" : 30,
+	"passthrough_enabled": true,
+	"passthrough_endpoint":"YOUR_SERVICE_ENDPOINT",
+	"service_id": "ExampleServiceId", 
+	"organization_id": "ExampleOrganizationId",
+	"metering_enabled": false,
+	"ssl_cert": "",
+	"ssl_key": "",
+	"max_message_size_in_mb" : 4,
 	"daemon_type": "grpc",
     "enable_dynamic_pricing":false,
 	"hdwallet_index": 0,
 	"hdwallet_mnemonic": "",
-	"ipfs_end_point": "http://localhost:5002/", 
-	"ipfs_timeout" : 30,
-	"max_message_size_in_mb" : 4,
-	"metering_enabled": false,
-	"organization_id": "ExampleOrganizationId", 
-	"passthrough_enabled": true,
-	"service_id": "ExampleServiceId", 
+	"allowed_user_flag" :false,
+	"auto_ssl_domain": "",
+	"auto_ssl_cache_dir": ".certs",
 	"private_key": "",
-	"ssl_cert": "",
-	"ssl_key": "",
 	"log":  {
 		"level": "info",
 		"timezone": "UTC",
@@ -108,8 +110,6 @@ const (
 		},
 		"hooks": []
 	},
-	"payment_channel_storage_type": "etcd",
-
 	"payment_channel_storage_client": {
 		"connection_timeout": "5s",
 		"request_timeout": "3s",
@@ -132,8 +132,42 @@ const (
 	"service_heartbeat_type": "http",
     "token_expiry_in_minutes": 1440,
     "model_training_enabled":false
-}
-`
+}`
+	MinimumConfigJson string = ` {
+	"blockchain_enabled": true,
+	"blockchain_network_selected": "sepolia",
+	"daemon_end_point": "127.0.0.1:8080",
+	"daemon_group_name":"default_group",
+	"passthrough_enabled": true,
+	"passthrough_endpoint":"YOUR_SERVICE_ENDPOINT",
+	"service_id": "ExampleServiceId", 
+	"organization_id": "ExampleOrganizationId",
+	"payment_channel_storage_type": "etcd",
+	"ipfs_end_point": "http://ipfs.singularitynet.io:80",
+    "enable_dynamic_pricing":false,
+    "model_training_enabled":false,
+	"log":  {
+		"level": "info",
+		"timezone": "UTC",
+		"formatter": {
+			"type": "text",
+			"timestamp_format": "2006-01-02T15:04:05.999999999Z07:00"
+		},
+		"output": {
+			"type": "file",
+			"file_pattern": "./snet-daemon.%Y%m%d.log",
+			"current_link": "./snet-daemon.log",
+			"rotation_time_in_sec": 86400,
+			"max_age_in_sec": 604800,
+			"rotation_count": 0
+		},
+		"hooks": []
+	},
+	"payment_channel_storage_client": {
+		"connection_timeout": "5s",
+		"request_timeout": "3s",
+		"endpoints": ["http://127.0.0.1:2379"]
+	}}`
 )
 
 var vip *viper.Viper
@@ -356,7 +390,7 @@ func IsValidUrl(urlToTest string) bool {
 	}
 }
 
-// validates in input URL
+// ValidateEmail validates an input email
 func ValidateEmail(email string) bool {
 	Re := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
 	return Re.MatchString(email)

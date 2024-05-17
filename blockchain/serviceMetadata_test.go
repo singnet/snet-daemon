@@ -85,7 +85,7 @@ func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
 
 func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
 	assert.Panics(t, func() { getServiceMetaDataUrifromRegistry() })
-	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
+	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
 	assert.Panics(t, func() { getServiceMetaDataUrifromRegistry() })
 

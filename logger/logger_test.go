@@ -68,7 +68,7 @@ func TestMain(m *testing.M) {
 func readConfig(configJSON string) *viper.Viper {
 	var err error
 
-	var vip *viper.Viper = viper.New()
+	var vip = viper.New()
 	err = config.ReadConfigFromJsonString(vip, configJSON)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot read test config: %v", err))

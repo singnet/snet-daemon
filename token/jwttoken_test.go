@@ -25,7 +25,7 @@ func Test_customJWTokenClaimsImpl_CreateToken(t *testing.T) {
 	time.Sleep(time.Second * 5)
 	assert.Nil(t, err)
 	err = tokenImpl.VerifyToken(token, "any struct")
-	assert.Equal(t, "Token is expired", err.Error())
+	assert.Equal(t, "token has invalid claims: token is expired", err.Error())
 
 }
 

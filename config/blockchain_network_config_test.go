@@ -13,35 +13,29 @@ func TestGetNetworkId(t *testing.T) {
 	//assert2.NotEqual(t,err,nil)
 }
 
-var defaultBlockChainNetworkConfig string = `
+var defaultBlockChainNetworkConfig = `
 {
-  "local":{
-    "ethereum_json_rpc_endpoint":"http://localhost:8545",
-    "network_id":"42",
-    "registry_address_key":"0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2"
-
+  "local": {
+    "ethereum_json_rpc_endpoint": "http://localhost:8545",
+    "network_id": "42",
+    "registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2"
   },
-  "kovan":{
-    "ethereum_json_rpc_endpoint":"https://kovan.infura.io",
-    "network_id":"42"
+  "main": {
+    "ethereum_json_rpc_endpoint": "https://mainnet.infura.io/v3",
+    "network_id": "1"
   },
-  "ropsten":{
-    "ethereum_json_rpc_endpoint":"https://ropsten.infura.io",
-    "network_id":"3"
-
+  "goerli": {
+    "ethereum_json_rpc_endpoint": "https://goerli.infura.io/v3",
+    "network_id": "5"
   },
-  "rinkeby":{
-    "ethereum_json_rpc_endpoint":"https://rinkeby.infura.io",
-    "network_id":"7"
-  },
-  "main":{
-    "ethereum_json_rpc_endpoint":"https://mainnet.infura.io",
-    "network_id":"1"
+  "sepolia": {
+    "ethereum_json_rpc_endpoint": "https://sepolia.infura.io/v3",
+    "network_id": "11155111"
   }
 }`
 
 func TestGetBlockChainEndPoint(t *testing.T) {
-	Vip().Set(BlockChainNetworkSelected,"local")
+	Vip().Set(BlockChainNetworkSelected, "local")
 	determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
 
 	assert.Matches(t, GetBlockChainEndPoint(), GetString(BlockChainNetworkSelected))
@@ -98,7 +92,7 @@ func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 		want    string
 		network string
 	}{
-		{EthereumJsonRpcEndpointKey, "https://ropsten.infura.io", "ropsten"},
+		{EthereumJsonRpcEndpointKey, "https://sepolia.infura.io/v3", "sepolia"},
 		{RegistryAddressKey, "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2", "local"},
 	}
 	for _, tt := range tests {
@@ -115,20 +109,19 @@ func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 
 func Test_setRegistryAddress(t *testing.T) {
 	tests := []struct {
-		fileName string
-		registryJson string
-		wantErr      bool
+		networkID string
+		wantErr   bool
 	}{
-		{"resources/blockchain/node_modules/singularitynet-platform-contracts/networks/Registry.json","", false},
-		{"junsdsdsk", "sdsd",true},
-		{"junsdsdsk", "",true},
+		{"11155111", false},
+		{"5", false},
+		{"11155111_", true},
 	}
 
 	for _, tt := range tests {
-		networkSelected.RegistryAddressKey = ""
-		registryAddressJson = tt.registryJson
-		t.Run(tt.registryJson, func(t *testing.T) {
-			if err := setRegistryAddress(tt.fileName); (err != nil) != tt.wantErr {
+		networkSelected.NetworkId = tt.networkID
+		networkSelected.RegistryAddressKey = "" // reset for every test
+		t.Run(networkSelected.NetworkId, func(t *testing.T) {
+			if err := setRegistryAddress(); (err != nil) != tt.wantErr {
 				t.Errorf("setRegistryAddress() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -139,14 +132,13 @@ func Test_setRegistryAddress(t *testing.T) {
 func Test_setBlockChainNetworkDetails(t *testing.T) {
 
 	tests := []struct {
-		name    string
-
-		wantErr bool
+		name                 string
+		wantErr              bool
 		networkIdNameMapping string
 	}{
-		{BlockChainNetworkFileName,false,""},
-		{"",true,""},
-		{BlockChainNetworkFileName,true,"junk"},
+		{BlockChainNetworkFileName, false, ""},
+		{"", true, ""},
+		{BlockChainNetworkFileName, true, "junk"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -156,7 +148,5 @@ func Test_setBlockChainNetworkDetails(t *testing.T) {
 			}
 		})
 	}
-
-
 
 }

@@ -1,5 +1,4 @@
-//go:generate node ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name MultiPartyEscrow --go-package blockchain --output-file multi_party_escrow.go
-//go:generate node ../resources/blockchain/scripts/generateAbi.js --contract-package singularitynet-platform-contracts --contract-name Registry --go-package blockchain --output-file registry.go
+//go:generate go run ../resources/generate-smart-binds/main.go
 package blockchain
 
 import (

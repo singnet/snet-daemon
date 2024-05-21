@@ -123,7 +123,7 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 	return
 }
 
-//Check if the block number passed is not more +- 5 from the latest block number on chain
+// Check if the block number passed is not more +- 5 from the latest block number on chain
 func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	latestBlockNumber, err := validator.currentBlock()
 	if err != nil {
@@ -138,7 +138,6 @@ func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNum
 
 func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
 
-	println("block number:" + payment.CurrentBlockNumber.String())
 	message := bytes.Join([][]byte{
 		[]byte(FreeCallPrefixSignature),
 		[]byte(payment.UserId),
@@ -192,7 +191,7 @@ func (validator *FreeCallPaymentValidator) getSignerOfAuthTokenForFreeCall(payme
 
 }
 
-//user signs using his private key , the public adress of this user should be in the token issued by Dapp
+// user signs using his private key , the public adress of this user should be in the token issued by Dapp
 func getUserAddressFromSignatureOfFreeCalls(payment *FreeCallPayment) (signer *common.Address, err error) {
 	message := bytes.Join([][]byte{
 		[]byte(FreeCallPrefixSignature),
@@ -201,7 +200,7 @@ func getUserAddressFromSignatureOfFreeCalls(payment *FreeCallPayment) (signer *c
 		[]byte(config.GetString(config.ServiceId)),
 		[]byte(payment.GroupId),
 		bigIntToBytes(payment.CurrentBlockNumber),
-		(payment.AuthToken),
+		payment.AuthToken,
 	}, nil)
 
 	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
@@ -230,7 +229,6 @@ func checkCurationValidations(signer *common.Address) error {
 	if config.GetBool(config.AllowedUserFlag) {
 		if !config.IsAllowedUser(signer) {
 			return fmt.Errorf("you are not Authorized to call this service during curation process")
-
 		}
 	}
 	return nil

@@ -3,8 +3,7 @@ package codec
 import (
 	"fmt"
 	"google.golang.org/grpc/encoding"
-	_ "google.golang.org/grpc/encoding/proto"         // ensure default "proto" codec is registered first
-	_ "google.golang.org/protobuf/encoding/protojson" // ensure default "proto" codec is registered first
+	_ "google.golang.org/grpc/encoding/proto" // ensure default "proto" codec is registered first
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/protoadapt"
 )
@@ -27,7 +26,7 @@ type GrpcFrame struct {
 	Data []byte
 }
 
-func (s bytesCodec) Marshal(v interface{}) ([]byte, error) {
+func (s bytesCodec) Marshal(v any) ([]byte, error) {
 	if m, ok := v.(*GrpcFrame); ok {
 		return m.Data, nil
 	}
@@ -39,7 +38,7 @@ func (s bytesCodec) Marshal(v interface{}) ([]byte, error) {
 	return s.fallback.Marshal(v)
 }
 
-func (s bytesCodec) Unmarshal(data []byte, v interface{}) error {
+func (s bytesCodec) Unmarshal(data []byte, v any) error {
 	if m, ok := v.(*GrpcFrame); ok {
 		m.Data = data
 		return nil
@@ -56,22 +55,38 @@ func (s bytesCodec) Name() string {
 	return s.name
 }
 
-/*
-Copied from https://github.com/mwitkow/grpc-proxy/blob/67591eb23c48346a480470e462289835d96f70da/proxy/codec.go#L57
-Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-PROXY for licensing terms.
-Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
-*/
-//protoCodec is a Codec implementation with protobuf. It is the default rawCodec for gRPC.
+// protoCodec is a Codec implementation with protobuf. It is the default rawCodec for gRPC.
 type protoCodec struct{}
-
-func (protoCodec) Marshal(v interface{}) ([]byte, error) {
-	return proto.Marshal(protoadapt.MessageV2Of(v.(protoadapt.MessageV1)))
-}
-
-func (protoCodec) Unmarshal(data []byte, v interface{}) error {
-	return proto.Unmarshal(data, protoadapt.MessageV2Of(v.(protoadapt.MessageV1)))
-}
 
 func (protoCodec) Name() string {
 	return "proto"
+}
+
+func (protoCodec) Marshal(v any) ([]byte, error) {
+	vv := messageV2Of(v)
+	if vv == nil {
+		return nil, fmt.Errorf("failed to marshal, message is %T, want proto.Message", v)
+	}
+
+	return proto.Marshal(vv)
+}
+
+func (protoCodec) Unmarshal(data []byte, v any) error {
+	vv := messageV2Of(v)
+	if vv == nil {
+		return fmt.Errorf("failed to unmarshal, message is %T, want proto.Message", v)
+	}
+
+	return proto.Unmarshal(data, vv)
+}
+
+func messageV2Of(v any) proto.Message {
+	switch v := v.(type) {
+	case protoadapt.MessageV1:
+		return protoadapt.MessageV2Of(v)
+	case protoadapt.MessageV2:
+		return v
+	}
+
+	return nil
 }

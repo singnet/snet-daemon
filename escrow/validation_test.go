@@ -93,7 +93,7 @@ func TestValidationTestSuite(t *testing.T) {
 }
 
 func (suite *ValidationTestSuite) SetupSuite() {
-	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
+	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerPrivateKey = GenerateTestPrivateKey()
@@ -282,5 +282,3 @@ func (suite *ValidationTestSuite) TestGetPublicKeyFromPayment2() {
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), blockchain.HexToAddress("0x6b1E951a2F9dE2480C613C1dCDDee4DD4CaE1e4e"), *address)
 }
-
-

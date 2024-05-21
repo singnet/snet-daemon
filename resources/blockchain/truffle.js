@@ -22,10 +22,10 @@ module.exports = {
             provider: () => provider("http://127.0.0.1:" + ganachePort),
             network_id: "*" // Any network ID
         },
-        kovan: {
+        sepolia: {
             gasPrice: 500000000,
-            provider: () => provider("https://kovan.infura.io"),
-            network_id: "42" // Kovan network ID
+            provider: () => provider("https://sepolia.infura.io/v3"),
+            network_id: "11155111" // Sepolia network ID
         },
     },
 };

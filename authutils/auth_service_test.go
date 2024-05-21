@@ -1,8 +1,7 @@
-//  authutils package provides functions for all authentication and singature validation related operations
+// authutils package provides functions for all authentication and singature validation related operations
 package authutils
 
 import (
-
 	"math/big"
 	"testing"
 
@@ -11,7 +10,7 @@ import (
 )
 
 func TestCompareWithLatestBlockNumber(t *testing.T) {
-	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
+	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
 	currentBlockNum, _ := CurrentBlock()
 	err := CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(13)))
@@ -24,7 +23,7 @@ func TestCompareWithLatestBlockNumber(t *testing.T) {
 }
 
 func TestCheckAllowedBlockDifferenceForToken(t *testing.T) {
-	config.Vip().Set(config.BlockChainNetworkSelected, "ropsten")
+	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
 	currentBlockNum, _ := CurrentBlock()
 	err := CheckIfTokenHasExpired(currentBlockNum.Sub(currentBlockNum, big.NewInt(20000)))

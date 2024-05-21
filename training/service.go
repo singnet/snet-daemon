@@ -487,6 +487,7 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 
 	data, err := service.createModelDetails(request, response)
 	if err != nil {
+		log.Println(err)
 		return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 	}
 	response = BuildModelResponseFrom(data, response.Status)
@@ -607,12 +608,13 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.GetModelStatus(ctx, request)
+		log.Println("get model status: ", response)
 		log.Infof("Updating model status based on response from UpdateModel")
 		if data, err := service.updateModelDetailsWithLatestStatus(request, response); err == nil && data != nil {
 			response = BuildModelResponseFrom(data, response.Status)
 
 		} else {
-
+			log.Println(err)
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}
 

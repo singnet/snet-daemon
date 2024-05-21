@@ -25,7 +25,7 @@ func Test_customJWTokenClaimsImpl_CreateToken(t *testing.T) {
 	time.Sleep(time.Second * 5)
 	assert.Nil(t, err)
 	err = tokenImpl.VerifyToken(token, "any struct")
-	assert.Equal(t, "Token is expired", err.Error())
+	assert.Equal(t, "token has invalid claims: token is expired", err.Error())
 
 }
 
@@ -35,7 +35,7 @@ func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
 			return "GroupID"
 		},
 	}
-	config.Vip().Set(config.TokenExpiryInMinutes, 0.1)
+	config.Vip().Set(config.TokenExpiryInMinutes, 1)
 	token, err := tokenImpl.CreateToken("any struct")
 	err = tokenImpl.VerifyToken(token, "different struct")
 	assert.Equal(t, "payload any struct used to generate the Token doesnt match expected values", err.Error())

@@ -2,11 +2,13 @@ package escrow
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"golang.org/x/net/context"
-	"math/big"
 )
 
 type FreeCallStateService struct {
@@ -37,7 +39,7 @@ func (service *BlockChainDisabledFreeCallStateService) mustEmbedUnimplementedFre
 func (service *FreeCallStateService) GetFreeCallsAvailable(context context.Context,
 	request *FreeCallStateRequest) (reply *FreeCallStateReply, err error) {
 	if err = service.verify(request); err != nil {
-		log.WithError(err).Errorf("Error in authorizing the request")
+		zap.L().Error("Error in authorizing the request", zap.Error(err))
 		return nil, err
 	}
 	availableCalls, err := service.checkForFreeCalls(service.getFreeCallPayment(request))
@@ -60,7 +62,7 @@ func (service *FreeCallStateService) verify(request *FreeCallStateRequest) (err 
 }
 
 func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment) (callsAvailable int, err error) {
-	//Now get the state from etcd for this user , if there are no records , then return the free calls
+	//Now get the state from etcd for this user, if there are no records, then return the free calls
 	key, err := service.freeCallService.GetFreeCallUserKey(payment)
 	if err != nil {
 		return 0, err
@@ -72,8 +74,10 @@ func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment)
 	if err != nil {
 		return 0, err
 	}
-	callsAvailable = service.serviceMetadata.GetFreeCallsAllowed() - data.FreeCallsMade
-	return callsAvailable, nil
+	if freeCallsAllowed := config.GetFreeCallsCount(key.UserId); freeCallsAllowed > 0 {
+		return freeCallsAllowed - data.FreeCallsMade, err
+	}
+	return service.serviceMetadata.GetFreeCallsAllowed() - data.FreeCallsMade, nil
 }
 
 func (service *FreeCallStateService) getFreeCallPayment(request *FreeCallStateRequest) *FreeCallPayment {

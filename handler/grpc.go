@@ -4,11 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/gorilla/rpc/v2/json2"
+	"io"
+	"net/http"
+	"net/url"
+	"os/exec"
+	"strings"
+
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/codec"
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
+
+	"github.com/gorilla/rpc/v2/json2"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -18,11 +25,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
-	"io"
-	"net/http"
-	"net/url"
-	"os/exec"
-	"strings"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
@@ -78,7 +80,7 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		h.serviceCredentials = []serviceCredential{}
 		err := config.Vip().UnmarshalKey(config.ServiceCredentialsKey, &h.serviceCredentials)
 		if err != nil {
-			log.WithError(err).Panic("invalid config")
+			zap.L().Panic("invalid config", zap.Error(err))
 		}
 		return h.grpcToHTTP
 	case "process":
@@ -90,19 +92,19 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 func (h grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
 	passthroughURL, err := url.Parse(endpoint)
 	if err != nil {
-		log.WithError(err).Panic("error parsing passthrough endpoint")
+		zap.L().Panic("error parsing passthrough endpoint", zap.Error(err))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
 		conn, err = grpc.Dial(passthroughURL.Host,
 			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), h.options)
 		if err != nil {
-			log.WithError(err).Panic("error dialing service")
+			zap.L().Panic("error dialing service", zap.Error(err))
 		}
 	} else {
 		conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
 
 		if err != nil {
-			log.WithError(err).Panic("error dialing service")
+			zap.L().Panic("error dialing service", zap.Error(err))
 		}
 	}
 	return
@@ -254,7 +256,7 @@ type serviceCredential struct {
 	Location httpLocation `json:"location"`
 }
 
-func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) error {
+func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -264,22 +266,22 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 	methodSegs := strings.Split(method, "/")
 	method = methodSegs[len(methodSegs)-1]
 
-	log.Debugln("Calling Method: ", method)
+	zap.L().Debug("Calling method", zap.String("method", method))
 
 	f := &codec.GrpcFrame{}
 	if err := inStream.RecvMsg(f); err != nil {
-		log.Println(err)
+		zap.L().Error(err.Error())
 		return status.Errorf(codes.Internal, "error receiving request; error: %+cred", err)
 	}
 
 	// convert proto msg to json
 	jsonBody := protoToJson(g.serviceMetaData.ProtoFile, f.Data, method)
 
-	log.Debugln("Proto to json: ", string(jsonBody))
+	zap.L().Debug("Proto to json", zap.String("json", string(jsonBody)))
 
 	base, err := url.Parse(g.passthroughEndpoint)
 	if err != nil {
-		log.Println("cant' parse passthroughEndpoint: ", err)
+		zap.L().Error("can't parse passthroughEndpoint", zap.Error(err))
 	}
 
 	base.Path += method // method from proto should be the same as http handler path
@@ -314,12 +316,12 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 		if err == nil {
 			jsonBody = newJson
 		} else {
-			log.Debugln("Can't marshal json: ", err)
+			zap.L().Debug("Can't marshal json", zap.Error(err))
 		}
 	}
 
 	base.RawQuery = params.Encode()
-	log.Debugln("Calling URL: ", base.String())
+	zap.L().Debug("Calling URL", zap.String("Url", base.String()))
 	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonBody))
 	httpReq.Header = headers
 	if err != nil {
@@ -338,7 +340,7 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 	if err != nil {
 		return status.Errorf(codes.Internal, "error reading response; error: %+cred", err)
 	}
-	log.Println("string resp: ", string(resp))
+	zap.L().Info("Getting response", zap.String("response", string(resp)))
 
 	protoMessage := jsonToProto(g.serviceMetaData.ProtoFile, resp, method)
 	if err = inStream.SendMsg(protoMessage); err != nil {
@@ -350,31 +352,31 @@ func (g grpcHandler) grpcToHTTP(srv interface{}, inStream grpc.ServerStream) err
 
 func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName string) (proto proto.Message) {
 
-	log.Debugln("Processing file:", protoFile.Name())
-	log.Debugln("Count services: ", protoFile.Services().Len())
+	zap.L().Debug("Processing file", zap.String("fileName", string(protoFile.Name())))
+	zap.L().Debug("Count services: ", zap.Int("value", protoFile.Services().Len()))
 
 	if protoFile.Services().Len() == 0 {
-		log.Println("service in proto not found")
+		zap.L().Info("service in proto not found")
 		return proto
 	}
 
 	service := protoFile.Services().Get(0)
 	if service == nil {
-		log.Println("service in proto not found")
+		zap.L().Info("service in proto not found")
 		return proto
 	}
 
 	method := service.Methods().ByName(protoreflect.Name(methodName))
 	if method == nil {
-		log.Println("method not found")
+		zap.L().Info("method not found")
 		return proto
 	}
 	output := method.Output()
-	log.Debugln("output of calling method:", output.FullName())
+	zap.L().Debug("output of calling method", zap.Any("method", output.FullName()))
 	proto = dynamicpb.NewMessage(output)
 	err := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}.Unmarshal(json, proto)
 	if err != nil {
-		log.Println("Can't unmarshal jsonToProto: ", err)
+		zap.L().Error("Can't unmarshal jsonToProto", zap.Error(err))
 	}
 
 	return proto
@@ -383,36 +385,36 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte) {
 
 	if protoFile.Services().Len() == 0 {
-		log.Println("service in proto not found")
+		zap.L().Info("service in proto not found")
 		return []byte("error, invalid proto file")
 	}
 
 	service := protoFile.Services().Get(0)
 	if service == nil {
-		log.Println("service in proto not found")
+		zap.L().Info("service in proto not found")
 		return []byte("error, invalid proto file")
 	}
 
 	method := service.Methods().ByName(protoreflect.Name(methodName))
 	if method == nil {
-		log.Println("method not found")
+		zap.L().Info("method not found")
 		return []byte("error, invalid proto file or input request")
 	}
 
 	input := method.Input()
-	log.Debugln("Input fullname method: ", input.FullName())
+	zap.L().Debug("Input fullname method", zap.Any("value", input.FullName()))
 	msg := dynamicpb.NewMessage(input)
 	err := proto.Unmarshal(in, msg)
 	if err != nil {
-		log.Println("proto.Unmarshal: ", err)
+		zap.L().Error("Errog in unmarshaling", zap.Error(err))
 		return []byte("error, invalid proto file or input request")
 	}
 	json, err = protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
-		log.Println("protojson.Marshal: ", err)
+		zap.L().Error("Errog in marshaling", zap.Error(err))
 		return []byte("error, invalid proto file or input request")
 	}
-	log.Debugln("jsonBytes: ", string(json))
+	zap.L().Debug("Getting json", zap.String("json", string(json)))
 
 	return json
 }

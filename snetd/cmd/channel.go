@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/storage"
 	"github.com/spf13/cobra"
-	"math/big"
 )
 
 // ListChannelsCmd shows list of channels from shared storage
@@ -19,7 +20,7 @@ var ChannelCmd = &cobra.Command{
 	},
 }
 
-//Channel command type
+// Channel command type
 type channelCommand struct {
 	storage          storage.PrefixedAtomicStorage
 	paymentChannelId *big.Int

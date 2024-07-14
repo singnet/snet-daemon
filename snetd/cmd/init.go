@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/singnet/snet-daemon/config"
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var InitCmd = &cobra.Command{
@@ -15,15 +16,16 @@ var InitCmd = &cobra.Command{
 		var err error
 		var configFile = cmd.Flags().Lookup("config").Value.String()
 
-		log.WithField("configFile", configFile).Info("Writing default configuration to the file")
+		zap.L().Info("Writing default configuration to the file", zap.String("config", configFile))
 
 		if isFileExist(configFile) {
-			log.WithField("configFile", configFile).Fatal("such configFile already exists, please remove file first or rename file")
+			zap.L().Fatal("such configFile already exists, please remove file first or rename file",
+				zap.String("configFile", configFile))
 		}
 
 		err = os.WriteFile(configFile, []byte(config.MinimumConfigJson), 0666)
 		if err != nil {
-			log.WithError(err).WithField("configFile", configFile).Fatal("Cannot write configuration")
+			zap.L().Fatal("Cannot write configuration", zap.String("config", configFile), zap.Error(err))
 		}
 	},
 }
@@ -36,15 +38,15 @@ var InitFullCmd = &cobra.Command{
 		var err error
 		var configFile = cmd.Flags().Lookup("config").Value.String()
 
-		log.WithField("configFile", configFile).Info("Writing full configuration to the file")
+		zap.L().Info("Writing full configuration to the file", zap.String("config", configFile))
 
 		if isFileExist(configFile) {
-			log.WithField("configFile", configFile).Fatal("such configFile already exists, please remove file first or rename file")
+			zap.L().Fatal("such configFile already exists, please remove file first or rename file", zap.String("config", configFile))
 		}
 
 		err = config.WriteConfig(configFile)
 		if err != nil {
-			log.WithError(err).WithField("configFile", configFile).Fatal("Cannot write full configuration")
+			zap.L().Fatal("Cannot write full configuration", zap.Error(err), zap.String("config", configFile))
 		}
 	},
 }

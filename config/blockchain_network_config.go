@@ -3,10 +3,12 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	contracts "github.com/singnet/snet-ecosystem-contracts"
-	log "github.com/sirupsen/logrus"
 	"os"
+
+	contracts "github.com/singnet/snet-ecosystem-contracts"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type NetworkSelected struct {
@@ -94,7 +96,7 @@ func setRegistryAddress() (err error) {
 }
 
 func deriveDatafromJSON(data []byte) (err error) {
-	m := map[string]interface{}{}
+	m := map[string]any{}
 	err = json.Unmarshal(data, &m)
 	if err != nil {
 		return fmt.Errorf("cannot parse the registry JSON file for the network %v , the error is : %v",
@@ -107,8 +109,10 @@ func deriveDatafromJSON(data []byte) (err error) {
 
 	networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]interface{})["address"])
 
-	log.Infof("The Network specified is :%v, and maps to the Network Id %v, the determined Registry address is %v and block chain end point is %v",
-		GetString(BlockChainNetworkSelected), GetNetworkId(), GetRegistryAddress(), GetBlockChainEndPoint())
+	zap.L().Info("Derive data from JSON", zap.String("Network", GetString(BlockChainNetworkSelected)),
+		zap.String("NetwrokId", GetNetworkId()),
+		zap.String("RegistryAddress", GetRegistryAddress()),
+		zap.String("Blockchain endpoint", GetBlockChainEndPoint()))
 	return nil
 }
 

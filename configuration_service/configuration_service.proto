@@ -60,7 +60,7 @@ message UpdateRequest {
     //Signature will compromise of the below
     // ("_UpdateRequest", "block_number",authentication_address)
     CallerAuthentication auth = 1;
-    //Indicates the updated configuration ( only the modified leaf and its changed value is passed ) Example (log.output.rotation_time_in_sec is a valid key )
+    //Indicates the updated configuration ( only the modified leaf and its changed value is passed ) Example (log.output.max_size_in_mb is a valid key )
     map<string, string> updated_configuration = 2;
 
 

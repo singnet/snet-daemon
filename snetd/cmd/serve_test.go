@@ -1,11 +1,14 @@
 package cmd
 
 import (
-	"github.com/singnet/snet-daemon/config"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/singnet/snet-daemon/config"
+	_ "github.com/singnet/snet-daemon/fix-proto"
+	"github.com/stretchr/testify/assert"
 )
-//todo
+
+// TODO
 func TestDaemonPort(t *testing.T) {
-assert.Equal(t,config.GetString(config.DaemonEndPoint),"127.0.0.1:8080")
+	assert.Equal(t, config.GetString(config.DaemonEndPoint), "127.0.0.1:8080")
 }

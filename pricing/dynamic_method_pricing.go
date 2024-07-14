@@ -3,19 +3,21 @@ package pricing
 
 import (
 	"fmt"
+	"math/big"
+	"net/url"
+
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/codec"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
-	log "github.com/sirupsen/logrus"
+
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"math/big"
-	"net/url"
 )
 
 type DynamicMethodPrice struct {
@@ -35,14 +37,14 @@ func (priceType *DynamicMethodPrice) checkForDynamicPricing(
 	derivedContext *handler.GrpcStreamContext) (price *big.Int, e error) {
 
 	method, ok := grpc.MethodFromServerStream(derivedContext.InStream)
-	log.WithField("methodNameRetrieved", method)
+	methodNameField := zap.Any("methodNameRetrieved", method)
 	if !ok {
 		return nil, fmt.Errorf("Unable to get the method Name from the incoming request")
 	}
-	//todo, get grpc options standardized rather than doing then everytime
+	//[TODO]: get grpc options standardized rather than doing then everytime
 	passThroughURL, err := url.Parse(config.GetString(config.PassthroughEndpointKey))
 	if err != nil {
-		log.WithError(err)
+		zap.L().Error(err.Error(), methodNameField)
 		return nil, err
 	}
 	options := grpc.WithDefaultCallOptions(
@@ -81,11 +83,11 @@ func (priceType *DynamicMethodPrice) getPriceFromPricingMethod(ss grpc.ServerStr
 	if err != nil {
 		return nil, err
 	}
-	pp := &PriceInCogs{}
+	priceInCogs := &PriceInCogs{}
 
-	if err := proto.Unmarshal(responseMessage.Data, pp); err != nil {
+	if err := proto.Unmarshal(responseMessage.Data, priceInCogs); err != nil {
 		return nil, err
 	}
-	log.WithField("dynamic price received", pp.Price)
-	return big.NewInt(0).SetUint64(pp.Price), nil
+	zap.L().Info("dynamic price received", zap.Uint64("Price", priceInCogs.Price))
+	return big.NewInt(0).SetUint64(priceInCogs.Price), nil
 }

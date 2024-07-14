@@ -1,16 +1,17 @@
 package escrow
 
 import (
-	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/metrics"
-	log "github.com/sirupsen/logrus"
-	"math/big"
 )
 
 const (
@@ -102,11 +103,11 @@ func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *h
 	return err
 }
 
-func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
+func PublishChannelStats(payment handler.Payment) (grpcErr *handler.GrpcError) {
 	if !config.GetBool(config.MeteringEnabled) {
-		err = handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!")
-		log.WithError(err.Err()).Error("Error in payment channel payment handler commit")
-		return err
+		grpcErr = handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!")
+		zap.L().Error("Error in payment channel payment handler commit", zap.Error(grpcErr.Err()))
+		return grpcErr
 	}
 	paymentTransaction := payment.(*paymentTransaction)
 	channelStats := &metrics.ChannelStats{ChannelId: paymentTransaction.payment.ChannelID,
@@ -119,13 +120,13 @@ func PublishChannelStats(payment handler.Payment) (err *handler.GrpcError) {
 
 	channelStats.OrganizationID = config.GetString(config.OrganizationId)
 	channelStats.ServiceID = config.GetString(config.ServiceId)
-	log.Debugf("Payment channel payment handler is publishing channel statistics: %v", channelStats)
+	zap.L().Debug("Payment channel payment handler is publishing channel statistics", zap.Any("ChannelStats", channelStats))
 	commonStats := &metrics.CommonStats{
 		GroupID: channelStats.GroupID, UserName: paymentTransaction.Channel().Sender.Hex()}
 	status := metrics.Publish(channelStats, serviceURL, commonStats)
 
 	if !status {
-		log.WithError(fmt.Errorf("Payment channel payment handler unable to post latest off-chain Channel state on contract API End point %s", serviceURL))
+		log.Error("Payment channel payment handler unable to post latest off-chain Channel state on contract API Endpoint", zap.String("serciveURL", serviceURL))
 		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")
 	}
 	return nil

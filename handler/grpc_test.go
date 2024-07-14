@@ -77,7 +77,8 @@ func (suite *GrpcTestSuite) TestReturnCustomErrorCodeViaGrpc() {
 
 	_, err := client.Ping(context.Background(), &Input{Message: "ping"})
 
-	assert.Equal(suite.T(), err, expectedErr)
+	assert.Equal(suite.T(), status.Code(err), status.Code(expectedErr))
+	assert.Equal(suite.T(), status.Convert(err).Message(), status.Convert(expectedErr).Message())
 }
 
 func (suite *GrpcTestSuite) TestPassThroughEndPoint() {

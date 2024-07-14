@@ -6,7 +6,7 @@ import (
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/pricing"
 	"github.com/singnet/snet-daemon/token"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -68,7 +68,7 @@ func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (tra
 	if validateErr != nil {
 		return nil, paymentErrorToGrpcError(validateErr)
 	}
-	//Increment the used amount
+	// Increment the used amount
 	if err := h.service.UpdateUsage(prePaidPayment.ChannelID, price, USED_AMOUNT); err != nil {
 		return nil, paymentErrorToGrpcError(err)
 	}
@@ -98,13 +98,13 @@ func (h *PrePaidPaymentHandler) getPaymentFromContext(context *handler.GrpcStrea
 	}, nil
 }
 
-//Just logging , as we increase the usage before calling the service
-//assuming the service call will be successful
+// Just logging , as we increase the usage before calling the service
+// assuming the service call will be successful
 func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	prePaidTransaction := payment.(PrePaidTransaction)
-	log.Debugf("usage %v successfully updated and channel id: %v state is consistent",
-		prePaidTransaction.Price(),
-		prePaidTransaction.ChannelId())
+	zap.L().Debug("usage successfully updated and state of channel is consistent",
+		zap.Any("price", prePaidTransaction.Price()),
+		zap.Any("channelID", prePaidTransaction.ChannelId()))
 	return nil
 }
 
@@ -114,11 +114,12 @@ func (h *PrePaidPaymentHandler) CompleteAfterError(payment handler.Payment, resu
 	prePaidTransaction := payment.(PrePaidTransaction)
 	if err = paymentErrorToGrpcError(h.service.UpdateUsage(prePaidTransaction.ChannelId(),
 		prePaidTransaction.Price(), REFUND_AMOUNT)); err != nil {
-		log.Error(err)
-		log.Errorf("usage INCONSISTENT state on Channel id:%v , usage wrongly increased by %v",
-			prePaidTransaction.ChannelId(), prePaidTransaction.Price())
+		zap.L().Error(err.Err().Error())
+		zap.L().Error("usage INCONSISTENT state on Channel, usage wrongly increased", zap.Any("usage", prePaidTransaction.Price()),
+			zap.Any("ChannelID", prePaidTransaction.ChannelId()))
 	}
-	log.Debugf("usage:%v on channel id:%v was updated already, however the refund state has been"+
-		"adjusted accordingly", prePaidTransaction.Price(), prePaidTransaction.ChannelId())
+
+	zap.L().Debug("usage on channel id was updated already, however the refund state has been adjusted accordingly",
+		zap.Any("usage", prePaidTransaction.Price()), zap.Any("channelID", prePaidTransaction.ChannelId()))
 	return err
 }

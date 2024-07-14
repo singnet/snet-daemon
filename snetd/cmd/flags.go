@@ -2,9 +2,8 @@ package cmd
 
 import (
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"os"
+	"go.uber.org/zap"
 )
 
 // Command is an CLI command abstraction
@@ -121,10 +120,6 @@ func init() {
 	vip.BindPFlag(config.SSLKeyPathKey, serveCmdFlags.Lookup("ssl-key"))
 
 	cobra.OnInitialize(func() {
-
-		log.SetOutput(os.Stdout)
-		log.SetLevel(log.InfoLevel)
-
-		log.Info("Cobra initialized")
+		zap.L().Info("Cobra initialized")
 	})
 }

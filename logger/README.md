@@ -1,146 +1,167 @@
 # Logger configuration
 
-```snet-daemon``` uses [logrus](https://github.com/sirupsen/logrus) log
+```snet-daemon``` uses [zap](https://github.com/uber-go/zap) log
 library. Logger configuration is a set of properties started from ```log.```
 prefix. If configuration file is formatted using JSON then all logger
 configuration is one JSON object located in ```log``` field.
 
 * **log** - log configuration section
 
-  * **level** (default: info) - log level. Possible values are
-    [logrus](https://github.com/sirupsen/logrus) log levels
-    * debug
-    * info
-    * warn
-    * error
-    * fatal
-    * panic
+    * **level** (default: info) - log level. Possible values are:
+        * debug
+        * info
+        * warn
+        * error
+        * fatal
+        * panic
 
-  * **timezone** (default: UTC) - timezone to format timestamps and log
-    file names. It should be name of the time.Location, see
-    [time.LoadLocation](https://golang.org/pkg/time/#LoadLocation).
+    * **timezone** (default: UTC) - timezone to format timestamps and log
+      file names. It should be name of the time.Location, see
+      [time.LoadLocation](https://golang.org/pkg/time/#LoadLocation).
 
-  * **formatter** - set of properties with ```log.formatter.``` prefix
-    describes logger formatter configuration.
+    * **formatter** - set of properties with ```log.formatter.``` prefix
+      describes logger formatter configuration.
 
-    * **type** (default: json) - type of the log formatter. Two types are
-      supported, which correspond to ```logrus``` formatter types, see [logrus
-      Formatter](https://github.com/sirupsen/logrus#formatters)
-      * json
-      * text
+        * **type** (default: json) - type of the log formatter. Two types are
+          supported, which correspond to ```zap``` formatter types
+            * json
+            * text
 
-    * **timestamp_format** (default:  "2006-01-02T15:04:05.999999999Z07:00") -
-      timestamp format to use in log lines, standard time.Time formats are
-      supported, see [time.Time.Format](https://golang.org/pkg/time/#Time.Format)
+        * **timestamp_format** (default:  "2006-01-02T15:04:05.999999999Z07:00") -
+          timestamp format to use in log lines, standard time.Time formats are
+          supported, see [time.Time.Format](https://golang.org/pkg/time/#Time.Format)
 
-  * **output** - set of properties with ```log.output.``` prefix describes
-    logger output configuration.
+    * **output** - set of properties with ```log.output.``` prefix describes
+      logger output configuration.
 
-    * **type** (default: file) - type of the logger output. Two types are
-      supported:
-      * file -
-        [file-rotatelogs](https://github.com/lestrrat-go/file-rotatelogs)
-        output which supports log rotation
-      * stdout - os.Stdout
+        * **type** (default: file) - type of the logger output. Two types are
+          supported:
+            * file -
+              [lumberjack](https://github.com/natefinch/lumberjack)
+              output which supports log rotation
+            * stdout - os.Stdout
+            * stderr - os.Stderr
 
-    * **file_pattern** (default: ./snet-daemon.%Y%m%d.log) - log file name
-      which may include date/time patterns in ```strftime (3)``` format. Time
-      and date in file name are necessary to support log rotation.
+        * **file_pattern** (default: ./snet-daemon.%Y%m%d.log) - log file name
+          which may include date/time patterns in ```strftime (3)``` format. Time
+          and date in file name are necessary to support log rotation.
 
-    * **current_link** (default: ./snet-daemon.log) - link to the latest log
-      file.
+        * **current_link** (default: ./snet-daemon.log) - link to the latest log
+          file.
 
-    * **rotation_time_in_sec** (default: 86400 (1 day)) - number of seconds
-      before log rotation happens.
+        * **max_size_in_mb** (default: 10 Mb) - max size of current log file in megabytes.
 
-    * **max_age_in_sec** (default: 604800 (1 week)) - number of seconds since
-      last modification time before log file is removed.
+        * **max_age_in_days** (default: 7 days) - number of days since
+          last modification time before log file is removed.
 
-    * **rotation_count** (default: 0 (disabled)) - max number of rotation
-      files. When number of log files becomes greater then oldest log file is
-      removed.
+        * **rotation_count** (default: 0 (disabled)) - max number of rotation
+          files. When number of log files becomes greater then oldest log file is
+          removed.
 
-  * **hooks** (default: []) - list of names of the hooks which will be executed
-    when message with specified log level appears in log. See [logrus
-    hooks](https://github.com/sirupsen/logrus#hooks). List contains names of
-    the hooks and hook configuration can be found by name prefix.  Thus for
-    hook named ```<hook-name>``` properties will start from
-    ```log.<hook-name>.``` prefix.
+    * **hooks** (optional, default empty) - list of names of the hooks which will be executed
+      when message with specified log level appears in log. List contains names of
+      the hooks and hook configuration can be found by name prefix. Thus for
+      hook named ```<hook-name>``` properties will start from
+      ```log.<hook-name>.``` prefix.
 
-  * **```<hook-name>```** - configuration of log hook with `<hook-name>` name
+    * **```<hook-name>```** - configuration of log hook with `<hook-name>` name
 
-    * **type** (required) - Type of the hook. this type is used to find actual
-      hook implementation. Hook types supported:
-      * mail_auth - [logrus_mail](https://github.com/zbindenren/logrus_mail)
+        * **type** (required always) - Type of the hook. This type is used to find actual
+          hook implementation. Hook types supported: 
+      
+          1) `email`  
+          2) `telegram_bot` 
 
-    * **levels** (required) - list of log levels to trigger the hook. 
+        * **levels** (required always) - list of log levels to trigger the hook.
 
-    * **config** (depends on hook implementation) - set of properties with
-      ```log.<hook-name>.config``` prefix are passed to the hook implementation
-      when it is initialized. This list of properties is hook specific.
+        Next are the parameters depending on the type of hook:
 
-## logrus_mail hook config
+        #### Email hook configuration
 
-Its configuration should contain all of the properties which are required to
-call [NewMailAuthHook method](https://godoc.org/github.com/zbindenren/logrus_mail#NewMailAuthHook)
-* application_name
-* host
-* port
-* from
-* to
-* username
-* password
+        For hook type `email`. Its configuration should contain all the properties which are required to send email:
 
-Resulting log configuration using logrus_mail hook:
-```json
-  "log": {
-    ...
-    "hooks": [ "send-mail" ],
-    "send-mail": {
-      "type": "mail_auth",
-      "levels": ["Error", "Warn"],
-      "config": {
-		"application_name": "test-application-name",
-		"host": "smtp.gmail.com",
-		"port": 587,
-		"from": "from-user@gmail.com",
-		"to": "to-user@gmail.com",
-		"username": "smtp-username",
-		"password": "secret"
-	  }
-    },
-  }
-```
+        * **host** (required) - host of mail server.
+        * **port** (required) - port of mail server.
+        * **from** (required) - the mail from which the logs will be sent.
+        * **to** (required) - the mail to which the logs will be sent.
+        * **username** (required) - username is often equal to **from**.
+        * **password** (required) - password (to send from a Google account, you will need to create the special "app password").
+        * **application_name** (optional, default empty) - for smtp auth.
 
-# Default logger configuration in JSON format
+      #### Telegram bot hook configuration
+
+      For hook type `telegram_bot`:
+
+        * **telegram_api_key** (required) - api key of your telegram bot.
+        * **telegram_chat_id** (required) - the chat id to which the logs will be sent.
+        * **disable_notification** (optional, default `false`) - if `true`, the bot will send the message silently.
+
+
+## Default logger configuration in JSON format
 
 ```json
   "log": {
-    "formatter": {
-      "timestamp_format": "2006-01-02T15:04:05.999999999Z07:00",
-      "type": "text"
-    },
-    "hooks": [],
-    "level": "info",
-    "output": {
-      "current_link": "./snet-daemon.log",
-      "file_pattern": "./snet-daemon.%Y%m%d.log",
-      "max_age_in_sec": 604800,
-      "rotation_count": 0,
-      "rotation_time_in_sec": 86400,
-      "type": "file"
-    },
-    "timezone": "UTC"
-  }
+"formatter": {
+"timestamp_format": "2006-01-02T15:04:05.999999999Z07:00",
+"type": "text"
+},
+"level": "info",
+"output": {
+"current_link": "./snet-daemon.log",
+"file_pattern": "./snet-daemon.%Y%m%d.log",
+"max_age_in_days": 604800,
+"rotation_count": 0,
+"max_size_in_mb": 86400,
+"type": "file"
+},
+"timezone": "UTC"
+}
 ```
 
-# Adding new hooks implementations
+## Email hook configuration
 
-Adding new hook implementation is trivial. You should implement factory method
+
+```json
+  "log": {
+...
+"hooks": ["send-mail"],
+"send-mail": {
+"type": "email",
+"levels": ["error", "warn", "fatal"],
+"config": {
+"application_name": "test-application-name",
+"host": "smtp.gmail.com",
+"port": 587,
+"from": "from-user@gmail.com",
+"to": "to-user@gmail.com",
+"username": "from-user@gmail.com",
+"password": "secret"
+}
+},
+}
+```
+
+## Telegram bot hook configuration
+
+```
+"hooks":["tg"],
+ "tg": {
+    "telegram_api_key": "7258436601:AAFlAm8gIGIyOTEv7lb9ipHcuB7YTR9-TuR",
+    "telegram_chat_id": -4103253970,
+    "disable_notification": false,
+    "type": "telegram_bot",
+    "levels": [
+        "error",
+        "panic"
+        ]
+    },
+```
+
+## Adding new hooks implementations
+
+Adding a new hook implementation is trivial. You should implement factory method
 which inputs hook configuration as [Viper](https://godoc.org/github.com/spf13/viper#Viper)
-config and returns new instance of the Hook structure. Then register new hook
-type by calling RegisterHookType() function from init() method. 
+config and returns new instance of the Hook structure. Then register the new hook
+type by calling RegisterHookType() function from init() method.
 
-Please see "mail_auth" hook implementation as example:
-* [factory method implementation](https://github.com/singnet/snet-daemon/blob/7b897738b17a21fd105a8a69d4d6841fa5f88dbd/logger/hook.go#L106)
-* [registering new hook type](https://github.com/singnet/snet-daemon/blob/7b897738b17a21fd105a8a69d4d6841fa5f88dbd/logger/hook.go#L43)
+Please see "email" hook implementation as example in hook.go file

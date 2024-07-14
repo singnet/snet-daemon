@@ -41,9 +41,9 @@ func NewIncomeValidator(pricing *pricing.PricingStrategy) (validator IncomeValid
 }
 
 func (validator *incomeValidator) Validate(data *IncomeData) (err error) {
-//TO DO, the user request information from IncomeData needs to be passed here !!!!
-	price,err := validator.priceStrategy.GetPrice(data.GrpcContext)
-	if  err != nil {
+	//TO DO, the user request information from IncomeData needs to be passed here !!!!
+	price, err := validator.priceStrategy.GetPrice(data.GrpcContext)
+	if err != nil {
 		return err
 	}
 

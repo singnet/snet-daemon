@@ -5,20 +5,19 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/golang-collections/collections/set"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/storage"
-	"github.com/singnet/snet-daemon/utils"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/golang-collections/collections/set"
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
+	"github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/utils"
 	"github.com/spf13/viper"
-
-	"go.etcd.io/etcd/client/v3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
+	"go.uber.org/zap"
 )
 
 // EtcdClientMutex mutex struct for etcd client
@@ -57,7 +56,7 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 		return nil, err
 	}
 
-	log.WithField("PaymentChannelStorageClient", fmt.Sprintf("%+v", conf)).Info()
+	zap.L().Info("Creating new payment storage client", zap.Any("config", conf))
 
 	var etcdv3 *clientv3.Client
 
@@ -95,9 +94,10 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	}
 	return
 }
+
 func getTlsConfig() (*tls.Config, error) {
 
-	log.Debug("enabling SSL support via X509 keypair")
+	zap.L().Debug("enabling SSL support via X509 keypair")
 	cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
 
 	if err != nil {
@@ -120,15 +120,17 @@ func getTlsConfig() (*tls.Config, error) {
 // Get gets value from etcd by key
 func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 
-	log := log.WithField("func", "Get").WithField("key", key).WithField("client", client)
-
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
 	response, err := client.etcdv3.Get(ctx, key)
 
 	if err != nil {
-		log.WithError(err).Error("Unable to get value by key")
+		zap.L().Error("Unable to get value by key",
+			zap.Error(err),
+			zap.String("func", "Get"),
+			zap.String("key", key),
+			zap.Any("client", client))
 		return
 	}
 
@@ -144,8 +146,6 @@ func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 // GetByKeyPrefix gets all values which have the same key prefix
 func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, err error) {
 
-	log := log.WithField("func", "GetByKeyPrefix").WithField("key", key).WithField("client", client)
-
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
@@ -153,7 +153,11 @@ func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, err error
 	response, err := client.etcdv3.Get(ctx, key, clientv3.WithRange(keyEnd))
 
 	if err != nil {
-		log.WithError(err).Error("Unable to get value by key prefix")
+		zap.L().Error("Unable to get value by key prefix",
+			zap.Error(err),
+			zap.String("func", "Get"),
+			zap.String("key", key),
+			zap.Any("client", client))
 		return
 	}
 
@@ -167,7 +171,6 @@ func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, err error
 
 // Put puts key and value to etcd
 func (client *EtcdClient) Put(key string, value string) (err error) {
-	log := log.WithField("func", "Put").WithField("key", key).WithField("client", client)
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
@@ -175,7 +178,11 @@ func (client *EtcdClient) Put(key string, value string) (err error) {
 
 	_, err = etcdv3.Put(ctx, key, value)
 	if err != nil {
-		log.WithError(err).Error("Unable to put value by key")
+		zap.L().Error("Unable to put value by key",
+			zap.Error(err),
+			zap.String("func", "Put"),
+			zap.String("key", key),
+			zap.Any("client", client))
 	}
 
 	return err
@@ -183,7 +190,6 @@ func (client *EtcdClient) Put(key string, value string) (err error) {
 
 // Delete deletes the existing key and value from etcd
 func (client *EtcdClient) Delete(key string) error {
-	log := log.WithField("func", "Delete").WithField("key", key).WithField("client", client)
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
@@ -191,7 +197,11 @@ func (client *EtcdClient) Delete(key string) error {
 
 	_, err := etcdv3.Delete(ctx, key)
 	if err != nil {
-		log.WithError(err).Error("Unable to delete value by key")
+		zap.L().Error("Unable to delete value by key",
+			zap.Error(err),
+			zap.String("func", "Delete"),
+			zap.String("key", key),
+			zap.Any("client", client))
 	}
 
 	return err
@@ -214,7 +224,7 @@ func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue 
 		ConditionKeys:           []string{key},
 		Update: func(oldValues []storage.KeyValueData) (update []storage.KeyValueData, ok bool, err error) {
 			if oldValues[0].Present && strings.Compare(oldValues[0].Value, prevValue) == 0 {
-				return []storage.KeyValueData{storage.KeyValueData{
+				return []storage.KeyValueData{{
 					Key:   key,
 					Value: newValue,
 				}}, true, nil
@@ -227,8 +237,6 @@ func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue 
 
 // Transaction uses CAS operation to compare and set multiple key values
 func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValue) (ok bool, err error) {
-
-	log := log.WithField("func", "CompareAndSwap").WithField("client", client)
 
 	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
@@ -252,8 +260,11 @@ func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValu
 		for _, keyValue := range compare {
 			keys = append(keys, keyValue.key)
 		}
-		log = log.WithField("keys", strings.Join(keys, ", "))
-		log.WithError(err).Error("Unable to compare and swap value by keys")
+		zap.L().Error("Unable to compare and swap value by keys",
+			zap.Error(err),
+			zap.String("keys", strings.Join(keys, ", ")),
+			zap.String("func", "CompareAndSwap"),
+			zap.Any("client", client))
 		return false, err
 	}
 
@@ -269,7 +280,7 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 			if oldValues[0].Present {
 				return nil, false, nil
 			}
-			return []storage.KeyValueData{storage.KeyValueData{
+			return []storage.KeyValueData{{
 				Key:   key,
 				Value: value,
 			}}, true, nil
@@ -354,7 +365,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 
 	endtime := time.Now()
 
-	log.Debugf("etcd Transaction took %v", endtime.Sub(startime))
+	zap.L().Debug("etcd transaction time", zap.Any("time", endtime.Sub(startime)))
 	if err != nil {
 		return false, err
 	}
@@ -439,7 +450,7 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction storage.
 	txnResp, err := txn.Commit()
 
 	if err != nil {
-		log.WithError(err).Error("error in getting values")
+		zap.L().Error("error in getting values", zap.Error(err))
 		return nil, err
 	}
 	if txnResp != nil {

@@ -2,7 +2,7 @@ package escrow
 
 import (
 	"github.com/singnet/snet-daemon/storage"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // Lock is an aquired lock.
@@ -68,7 +68,7 @@ func (lock *lockType) Unlock() (err error) {
 		return
 	}
 	if !ok {
-		log.WithField("lock.name", lock.name).Error("lock is unlocked already")
+		zap.L().Error("lock is unlocked already", zap.String("lock.name", lock.name))
 	}
 	return
 }

@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/storage"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"math/big"
 	"reflect"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/storage"
+	"github.com/spf13/viper"
+	"go.uber.org/zap"
 
 	"github.com/singnet/snet-daemon/blockchain"
 )
@@ -111,16 +112,16 @@ func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Vipe
 func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	ch, ok, err := reader.readChannelFromBlockchain(key.ID)
 	if err != nil || !ok {
-		log.Debugln(err)
+		zap.L().Warn("Unsuccessful GetChannelStateFromBlockchain", zap.Error(err), zap.Bool("ok", ok))
 		return
 	}
 
 	recipientPaymentAddress := reader.recipientPaymentAddress()
 
 	if recipientPaymentAddress != ch.Recipient {
-		log.WithField("recipientPaymentAddress", recipientPaymentAddress).
-			WithField("ch.Recipient", ch.Recipient).
-			Warn("Recipient Address from service metadata not Match on what was retrieved from Channel")
+		zap.L().Warn("Recipient Address from service metadata not Match on what was retrieved from Channel",
+			zap.Any("recipientPaymentAddress", recipientPaymentAddress),
+			zap.Any("ch.Recipient", ch.Recipient))
 		return nil, false, fmt.Errorf("recipient Address from service metadata does not Match on what was retrieved from Channel")
 	}
 	return &PaymentChannelData{

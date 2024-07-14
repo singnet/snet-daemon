@@ -3,12 +3,13 @@ package etcddb
 import (
 	"context"
 	"fmt"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/storage"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/storage"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -305,7 +306,7 @@ func (suite *EtcdTestSuite) TestPutIfAbsentTransactionFailsAfterConcurrentPut() 
 
 	// then
 	ok, err = client.CompleteTransaction(transaction, []storage.KeyValueData{
-		storage.KeyValueData{
+		{
 			Key:     key,
 			Value:   "transaction-value",
 			Present: true,

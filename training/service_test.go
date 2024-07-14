@@ -4,21 +4,23 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
+	"net"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/storage"
-	log "github.com/sirupsen/logrus"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"math/big"
-	"net"
-	"testing"
-	"time"
 )
 
 var count int = 0
@@ -93,9 +95,9 @@ func (m MockServiceModelGRPCImpl) mustEmbedUnimplementedModelServer() {
 }
 
 func (m MockServiceModelGRPCImpl) CreateModel(context context.Context, request *CreateModelRequest) (*ModelDetailsResponse, error) {
-	println("In Service CreateModel")
+	zap.L().Info("In Service CreateModel")
 	count = count + 1
-	log.Debug(count)
+	zap.L().Debug("Count", zap.Int("value", count))
 	return &ModelDetailsResponse{Status: Status_CREATED,
 		ModelDetails: &ModelDetails{
 			ModelId: fmt.Sprintf("%d", count),
@@ -197,7 +199,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 			AddressList:          []string{"A1", "A2", "A3"},
 		},
 	}
-	log.Debug(suite.senderAddress.String())
+	zap.L().Debug("Sender address", zap.Any("value", suite.senderAddress.String()))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	response, err = suite.service.CreateModel(ctx, request)
@@ -252,7 +254,7 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 			IsPubliclyAccessible: false,
 		},
 	}
-	log.Debug(suite.senderAddress.String())
+	zap.L().Debug("Sender address", zap.Any("value", suite.senderAddress.String()))
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	response, err = suite.service.CreateModel(ctx, request2)
@@ -295,7 +297,7 @@ func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {
 			CurrentBlock:  1200,
 		},
 	}
-	log.Debug(suite.senderAddress.String())
+	zap.L().Debug("Sender address", zap.Any("value", suite.senderAddress.String()))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	response, err := suite.service.GetModelStatus(ctx, request)
@@ -324,9 +326,9 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		UserAddress:     suite.senderAddress.String(),
 	})
 
-	modata, _, _ := suite.service.(*ModelService).userStorage.Get(userKey)
+	modelState, _, _ := suite.service.(*ModelService).userStorage.Get(userKey)
 
-	log.Debug(modata)
+	zap.L().Debug("Model state", zap.Any("value", modelState))
 	//	assert.Equal(suite.T(), ok, true)
 	assert.Nil(suite.T(), err)
 	modelData := &ModelData{
@@ -366,7 +368,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 		ModelId:         "1",
 	})
 
-	log.Debug(data)
+	zap.L().Debug("Model data", zap.Any("value", data))
 
 	request := &UpdateModelRequest{
 		UpdateModelDetails: &ModelDetails{
@@ -479,7 +481,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UDeleteModel() {
 	response, err = suite.service.DeleteModel(ctx, request)
 	assert.NotNil(suite.T(), err)
 
-	log.Debug(suite.senderAddress.String())
+	zap.L().Debug("Sender address", zap.Any("value", suite.senderAddress.String()))
 	//valid signer
 	request.Authorization.SignerAddress = suite.senderAddress.String()
 	request.Authorization.Signature = suite.getSignature("__GetModelStatus", 1200, suite.senderPvtKy)

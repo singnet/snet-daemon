@@ -158,7 +158,7 @@ type PaymentError struct {
 
 // NewPaymentError constructs new PaymentError instance with given error code
 // and message.
-func NewPaymentError(code PaymentErrorCode, format string, msg ...interface{}) *PaymentError {
+func NewPaymentError(code PaymentErrorCode, format string, msg ...any) *PaymentError {
 	return &PaymentError{Code: code, Message: fmt.Sprintf(format, msg...)}
 }
 

@@ -2,12 +2,13 @@ package configuration_service
 
 import (
 	"bytes"
+	"math/big"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/authutils"
-	"math/big"
-	"testing"
 
 	"github.com/singnet/snet-daemon/config"
 	"github.com/stretchr/testify/assert"

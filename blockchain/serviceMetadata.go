@@ -4,17 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"strings"
+
 	"github.com/bufbuild/protocompile"
 	pproto "github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"math/big"
-	"os"
-	"strings"
 )
 
 /*
@@ -218,6 +219,7 @@ type OrganizationGroup struct {
 	Licenses       Licenses  `json:"licenses,omitempty"`
 	AddOns         []AddOns  `json:"addOns,omitempty"`
 }
+
 type Pricing struct {
 	PriceModel     string           `json:"price_model"`
 	PriceInCogs    *big.Int         `json:"price_in_cogs,omitempty"`
@@ -251,8 +253,8 @@ func ServiceMetaData() *ServiceMetadata {
 		ipfsHash := string(getServiceMetaDataUrifromRegistry())
 		metadata, err = GetServiceMetaDataFromIPFS(FormatHash(ipfsHash))
 		if err != nil {
-			log.WithError(err).
-				Panic("error on determining service metadata from file")
+
+			zap.L().Panic("error on determining service metadata from file", zap.Error(err))
 		}
 	} else {
 		metadata = &ServiceMetadata{Encoding: "proto", ServiceType: "grpc"}
@@ -277,14 +279,13 @@ func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 func getRegistryCaller() (reg *RegistryCaller) {
 	ethClient, err := GetEthereumClient()
 	if err != nil {
-		log.WithError(err).Panic("Unable to get Blockchain client ")
+		zap.L().Panic("Unable to get Blockchain client ", zap.Error(err))
 	}
 	defer ethClient.Close()
 	registryContractAddress := getRegistryAddressKey()
 	reg, err = NewRegistryCaller(registryContractAddress, ethClient.EthClient)
 	if err != nil {
-		log.WithError(err).WithField("registryContractAddress", registryContractAddress).
-			Panic("Error instantiating Registry contract for the given Contract Address")
+		zap.L().Panic("Error instantiating Registry contract for the given Contract Address", zap.Error(err), zap.Any("registryContractAddress", registryContractAddress))
 	}
 	return reg
 }
@@ -297,9 +298,9 @@ func getServiceMetaDataUrifromRegistry() []byte {
 
 	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
 	if err != nil || !serviceRegistration.Found {
-		log.WithError(err).WithField("OrganizationId", config.GetString(config.OrganizationId)).
-			WithField("ServiceId", config.GetString(config.ServiceId)).
-			Panic("Error Retrieving contract details for the Given Organization and Service Ids ")
+		zap.L().Panic("Error Retrieving contract details for the Given Organization and Service Ids ",
+			zap.String("OrganizationId", config.GetString(config.OrganizationId)),
+			zap.String("ServiceId", config.GetString(config.ServiceId)))
 	}
 
 	return serviceRegistration.MetadataURI[:]
@@ -314,7 +315,7 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 	metaData := new(ServiceMetadata)
 	err := json.Unmarshal([]byte(jsonData), &metaData)
 	if err != nil {
-		log.WithError(err).WithField("jsondata", jsonData)
+		zap.L().Error(err.Error(), zap.Any("jsondata", jsonData))
 		return nil, err
 	}
 
@@ -330,17 +331,16 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 	}
 	dynamicPriceMethodMappingJson, err := json.Marshal(metaData.DynamicPriceMethodMapping)
 	if err != nil {
-		log.Println(err)
+		zap.L().Error(err.Error())
 	}
 
-	log.Debugln("dynamicPriceMethodMappingJson: ", string(dynamicPriceMethodMappingJson))
-
+	zap.L().Debug("dynamic price method mapping", zap.String("json", string(dynamicPriceMethodMappingJson)))
 	trainingMethodsJson, err := json.Marshal(metaData.TrainingMethods)
 	if err != nil {
-		log.Println(err)
+		zap.L().Error(err.Error())
 	}
 
-	log.Debugln("trainingMethodsJson: ", string(trainingMethodsJson))
+	zap.L().Debug("Traning method", zap.String("json", string(trainingMethodsJson)))
 
 	return metaData, err
 }
@@ -364,7 +364,7 @@ func setGroup(metaData *ServiceMetadata) (err error) {
 	}
 	err = fmt.Errorf("group name %v in config is invalid, "+
 		"there was no group found with this name in the metadata", groupName)
-	log.WithError(err)
+	zap.L().Error("Error in set group", zap.Error(err))
 	return err
 }
 
@@ -379,7 +379,7 @@ func setDefaultPricing(metaData *ServiceMetadata) (err error) {
 		}
 	}
 	err = fmt.Errorf("MetaData does not have the default pricing set ")
-	log.WithError(err)
+	zap.L().Warn("Error in set default pricing", zap.Error(err))
 	return err
 }
 
@@ -485,11 +485,11 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 	}
 
 	if metaData.ServiceType == "http" && len(protoFiles) > 1 {
-		log.Fatalln("Currently daemon support only one proto file for HTTP services!")
+		zap.L().Fatal("Currently daemon support only one proto file for HTTP services!")
 	}
 
 	for _, file := range protoFiles {
-		log.Debugln("Protofile: ", file)
+		zap.L().Debug("Protofile", zap.String("file", file))
 
 		//If Dynamic pricing is enabled ,there will be mandatory checks on the service proto
 		//this is to ensure that the standards on how one defines the methods to invoke is followed
@@ -568,7 +568,7 @@ func getFileDescriptor(protoContent string) protoreflect.FileDescriptor {
 	}
 	fds, err := compiler.Compile(context.Background(), serviceProto)
 	if err != nil {
-		log.Println(err)
+		zap.L().Error(err.Error())
 	}
 	return fds.FindFileByPath(serviceProto)
 }

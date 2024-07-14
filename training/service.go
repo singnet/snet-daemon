@@ -4,19 +4,21 @@ package training
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/escrow"
-	"github.com/singnet/snet-daemon/utils"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"math/big"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/utils"
+
+	"github.com/ethereum/go-ethereum/common/math"
+	"go.uber.org/zap"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
@@ -75,7 +77,7 @@ func deferConnection(conn *grpc.ClientConn) {
 	defer func(conn *grpc.ClientConn) {
 		err := conn.Close()
 		if err != nil {
-			log.WithError(err).Errorf("error in closing Client Connection")
+			zap.L().Error("error in closing Client Connection", zap.Error(err))
 		}
 	}(conn)
 }
@@ -86,19 +88,19 @@ func getConnection(endpoint string) (conn *grpc.ClientConn) {
 
 	passthroughURL, err := url.Parse(endpoint)
 	if err != nil {
-		log.WithError(err).Panic("error parsing passthrough endpoint")
+		zap.L().Panic("error parsing passthrough endpoint", zap.Error(err))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
 		conn, err = grpc.Dial(passthroughURL.Host,
 			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), options)
 		if err != nil {
-			log.WithError(err).Panic("error dialing service")
+			zap.L().Panic("error dialing service", zap.Error(err))
 		}
 	} else {
 		conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), options)
 
 		if err != nil {
-			log.WithError(err).Panic("error dialing service")
+			zap.L().Panic("error dialing service", zap.Error(err))
 		}
 	}
 	return
@@ -115,9 +117,9 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 	data = service.getModelDataToCreate(request, response)
 	//store the model details in etcd
 	err = service.storage.Put(key, data)
-	log.Debug("Putting Model Data....")
+	zap.L().Debug("Putting Model Data....")
 	if err != nil {
-		log.WithError(err)
+		zap.L().Error(err.Error())
 		return
 	}
 	//for every accessible address in the list , store the user address and all the model Ids associated with it
@@ -126,12 +128,12 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 		userData := service.getModelUserData(key, address)
 		err = service.userStorage.Put(userKey, userData)
 		if err != nil {
-			log.WithError(err)
+			zap.L().Error(err.Error())
 			return
 		}
-		log.Debug("Putting USER Model Data....")
-		log.Debug(" USER Model key is:" + userKey.String())
-		log.Debug(" USER Model Data is:" + userData.String())
+		zap.L().Debug("Putting USER Model Data....")
+		zap.L().Debug(" USER Model key is:" + userKey.String())
+		zap.L().Debug(" USER Model Data is:" + userData.String())
 	}
 	return
 }
@@ -150,7 +152,7 @@ func (service ModelService) getModelUserData(key *ModelKey, address string) *Mod
 	//Check if there are any model Ids already associated with this user
 	modelIds := make([]string, 0)
 	userKey := getModelUserKey(key, address)
-	log.Debug(" USER Model key is:" + userKey.String())
+	zap.L().Debug(" USER Model key is:" + userKey.String())
 	data, ok, err := service.userStorage.Get(userKey)
 	if ok && err == nil && data != nil {
 		modelIds = data.ModelIds
@@ -242,6 +244,9 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 		data.Description = request.UpdateModelDetails.Description
 
 		err = service.storage.Put(key, data)
+		if err != nil {
+			zap.L().Error("Error in putting data in user storage", zap.Error(err))
+		}
 		//get the difference of all the addresses b/w old and new
 		updatedAddresses := difference(oldAddresses, latestAddresses)
 		for _, address := range updatedAddresses {
@@ -254,8 +259,9 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 				modelUserData.ModelIds = remove(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
 			}
 			err = service.userStorage.Put(modelUserKey, modelUserData)
-			log.WithError(err)
-
+			if err != nil {
+				zap.L().Error("Error in putting data in storage", zap.Error(err))
+			}
 		}
 
 	}
@@ -328,7 +334,7 @@ func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDet
 		data.Status = response.Status
 
 		if err = service.storage.Put(key, data); err != nil {
-			log.WithError(fmt.Errorf("issue with retrieving model data from storage"))
+			zap.L().Error("issue with retrieving model data from storage")
 		}
 	}
 	return
@@ -363,7 +369,7 @@ func (service ModelService) getModelDataForUpdate(request *UpdateModelRequest) (
 	ok := false
 
 	if data, ok, err = service.storage.Get(key); err != nil || !ok {
-		log.WithError(fmt.Errorf("unable to retrieve model %v data from storage", key.ModelId))
+		zap.L().Warn("unable to retrieve model data from storage", zap.String("Model Id", key.ModelId), zap.Error(err))
 	}
 	return
 }
@@ -408,7 +414,11 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 			}
 		}
 	}
-	log.Debugln("models: ", modelDetailsArray)
+
+	for _, model := range modelDetailsArray {
+		zap.L().Debug("Model", zap.String("Name", model.ModelName))
+	}
+
 	response = &AccessibleModelsResponse{
 		ListOfModels: modelDetailsArray,
 	}
@@ -452,12 +462,12 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 			fmt.Errorf("invalid request, no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
-		log.WithError(err)
+		zap.L().Error(err.Error())
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf("unable to create Model: %v", err)
 	}
 	if request.GetModelDetails().GrpcServiceName == "" || request.GetModelDetails().GrpcMethodName == "" {
-		log.WithError(err)
+		zap.L().Error("Error in getting grpc service name", zap.Error(err))
 		return &ModelDetailsResponse{Status: Status_ERRORED},
 			fmt.Errorf("invalid request, no GrpcServiceName or GrpcMethodName provided  , %v", err)
 	}
@@ -483,11 +493,11 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 	}
 
 	//store the details in etcd
-	log.Infof("Creating model based on response from CreateModel of training service")
+	zap.L().Info("Creating model based on response from CreateModel of training service")
 
 	data, err := service.createModelDetails(request, response)
 	if err != nil {
-		log.Println(err)
+		zap.L().Error(err.Error())
 		return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 	}
 	response = BuildModelResponseFrom(data, response.Status)
@@ -534,7 +544,7 @@ func (service ModelService) UpdateModelAccess(c context.Context, request *Update
 			fmt.Errorf(" Invalid request , no UpdateModelDetails provided  , %v", err)
 	}
 
-	log.Infof("Updating model based on response from UpdateModel")
+	zap.L().Info("Updating model based on response from UpdateModel")
 	if data, err := service.updateModelDetails(request, response); err == nil && data != nil {
 		response = BuildModelResponseFrom(data, data.Status)
 
@@ -569,7 +579,7 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 	defer cancel()
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.DeleteModel(ctx, request)
-		log.Infof("Deleting model based on response from DeleteModel")
+		zap.L().Info("Deleting model based on response from DeleteModel")
 		if data, err := service.deleteModelDetails(request); err == nil && data != nil {
 			response = BuildModelResponseFrom(data, response.Status)
 		} else {
@@ -608,13 +618,13 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.GetModelStatus(ctx, request)
-		log.Println("get model status: ", response)
-		log.Infof("Updating model status based on response from UpdateModel")
+		zap.L().Info("Get model status", zap.Any("response", response))
+		zap.L().Info("Updating model status based on response from UpdateModel")
 		if data, err := service.updateModelDetailsWithLatestStatus(request, response); err == nil && data != nil {
 			response = BuildModelResponseFrom(data, response.Status)
 
 		} else {
-			log.Println(err)
+			zap.L().Error(err.Error())
 			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
 		}
 

@@ -3,6 +3,13 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
 	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
@@ -16,19 +23,13 @@ import (
 	"github.com/singnet/snet-daemon/logger"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/training"
-	log "github.com/sirupsen/logrus"
 	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 )
 
 var corsOptions = []handlers.CORSOption{
@@ -44,21 +45,19 @@ var ServeCmd = &cobra.Command{
 		components := InitComponents(cmd)
 		defer components.Close()
 
-		etcdServer := components.EtcdServer()
-		if etcdServer == nil {
-			log.Info("Etcd server is disabled in the config file.")
-		}
-
-		err = logger.InitLogger(config.SubWithDefault(config.Vip(), config.LogKey))
-		if err != nil {
-			log.WithError(err).Fatal("Unable to initialize logger")
-		}
+		logger.Initialize()
 		config.LogConfig()
+
+		etcdServer := components.EtcdServer()
+
+		if etcdServer == nil {
+			zap.L().Info("Etcd server is disabled in the config file.")
+		}
 
 		var d daemon
 		d, err = newDaemon(components)
 		if err != nil {
-			log.WithError(err).Fatal("Unable to initialize daemon")
+			zap.L().Fatal("Unable to initialize daemon", zap.Error(err))
 		}
 
 		d.start()
@@ -68,7 +67,7 @@ var ServeCmd = &cobra.Command{
 		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 		<-sigChan
 
-		log.Debug("exiting")
+		zap.L().Debug("Exiting")
 	},
 }
 
@@ -135,7 +134,7 @@ func (d *daemon) start() {
 	var tlsConfig *tls.Config
 
 	if d.autoSSLDomain != "" {
-		log.Debug("enabling automatic SSL support")
+		zap.L().Debug("enabling automatic SSL support")
 		certMgr := autocert.Manager{
 			Prompt:     autocert.AcceptTOS,
 			HostPolicy: autocert.HostWhitelist(d.autoSSLDomain),
@@ -152,13 +151,13 @@ func (d *daemon) start() {
 			GetCertificate: func(c *tls.ClientHelloInfo) (*tls.Certificate, error) {
 				crt, err := certMgr.GetCertificate(c)
 				if err != nil {
-					log.WithError(err).Error("unable to fetch certificate")
+					zap.L().Error("unable to fetch certificate", zap.Error(err))
 				}
 				return crt, err
 			},
 		}
 	} else if d.sslCert != nil {
-		log.Debug("enabling SSL support via X509 keypair")
+		zap.L().Debug("enabling SSL support via X509 keypair")
 		tlsConfig = &tls.Config{
 			Certificates: []tls.Certificate{*d.sslCert},
 		}
@@ -197,38 +196,34 @@ func (d *daemon) start() {
 		grpcWebServer := grpcweb.WrapServer(d.grpcServer, grpcweb.WithCorsForRegisteredEndpointsOnly(false), grpcweb.WithOriginFunc(func(origin string) bool {
 			return true
 		}))
-
 		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			log.Println("httpHandler path: ", req.URL.Path)
-			log.Printf("input request %#v \n", req)
+			zap.L().Info("httpHandler path: ", zap.String("path", req.URL.Path))
+			zap.L().Info("input request", zap.Any("request", req))
 			resp.Header().Set("Access-Control-Allow-Origin", "*")
 			if grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req) {
 				grpcWebServer.ServeHTTP(resp, req)
-				log.Println("IsGrpcWebRequest/IsAcceptableGrpcCorsRequest")
+				zap.L().Info("IsGrpcWebRequest/IsAcceptableGrpcCorsRequest")
 				resp.Header().Set("Access-Control-Allow-Origin", "*")
 			} else {
-				if strings.Split(req.URL.Path, "/")[1] == "encoding" {
-					resp.Header().Set("Access-Control-Allow-Origin", "*")
+				switch strings.Split(req.URL.Path, "/")[1] {
+				case "encoding":
 					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
-				} else if strings.Split(req.URL.Path, "/")[1] == "heartbeat" {
-					resp.Header().Set("Access-Control-Allow-Origin", "*")
-					metrics.HeartbeatHandler(resp, req)
-				} else {
+				case "heartbeat":
+					metrics.HeartbeatHandler(resp, d.components.DaemonHeartBeat().TrainingInProto)
+				default:
 					http.NotFound(resp, req)
 				}
 			}
-			log.Println("output headers:")
-			for key, value := range resp.Header() {
-				fmt.Printf("%s value is %v\n", key, value)
+			zap.L().Info("output headers:")
+			for key, values := range resp.Header() {
+				zap.L().Info("header", zap.String("key", key), zap.Strings("value", values))
 			}
 		})
 
-		log.Debug("starting daemon")
-
 		corsOpts := cors.New(cors.Options{
-			AllowedOrigins: []string{"*"}, //you service is available and allowed for this base url
+			AllowedOrigins: []string{"*"},
 			AllowedMethods: []string{
-				http.MethodGet, //http methods for your app
+				http.MethodGet,
 				http.MethodPost,
 				http.MethodPut,
 				http.MethodPatch,
@@ -269,10 +264,11 @@ func (d *daemon) start() {
 		go http.Serve(httpL, corsOpts.Handler(httpHandler))
 		go mux.Serve()
 	} else {
-		log.Debug("starting simple HTTP daemon")
+		zap.L().Debug("starting simple HTTP daemon")
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
 	}
 
+	zap.L().Info("✅ Daemon successfully started and ready to accept requests")
 }
 
 func (d *daemon) stop() {

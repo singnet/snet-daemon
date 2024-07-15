@@ -90,8 +90,6 @@ const (
 	"max_message_size_in_mb" : 4,
 	"daemon_type": "grpc",
     "enable_dynamic_pricing":false,
-	"hdwallet_index": 0,
-	"hdwallet_mnemonic": "",
 	"allowed_user_flag" :false,
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
@@ -104,7 +102,7 @@ const (
 			"timestamp_format": "2006-01-02T15:04:05.999Z07:00"
 		},
 		"output": {
-			"type": "file",
+			"type": ["file", "stdout"],
 			"file_pattern": "./snet-daemon.%Y%m%d.log",
 			"current_link": "./snet-daemon.log",
 			"max_size_in_mb": 10,
@@ -114,10 +112,9 @@ const (
 		"hooks": []
 	},
 	"payment_channel_storage_client": {
-		"connection_timeout": "5s",
-		"request_timeout": "3s",
-		"endpoints": ["http://127.0.0.1:2379"]
-	},
+		"connection_timeout": "0s",
+		"request_timeout": "0s"
+    },
 	"payment_channel_storage_server": {
 		"id": "storage-1",
 		"scheme": "http",
@@ -137,29 +134,21 @@ const (
     "token_expiry_in_minutes": 1440,
     "model_training_enabled": false
 }`
-	MinimumConfigJson string = ` {
+	MinimumConfigJson string = `{
 	"blockchain_enabled": true,
 	"blockchain_network_selected": "sepolia",
+	"passthrough_endpoint":"YOUR_SERVICE_ENDPOINT",
+	"service_id": "YOUR_SERVICE_ID", 
+	"organization_id": "YOUR_ORG_ID",
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"passthrough_enabled": true,
-	"passthrough_endpoint":"YOUR_SERVICE_ENDPOINT",
-	"service_id": "ExampleServiceId", 
-	"organization_id": "ExampleOrganizationId",
 	"payment_channel_storage_type": "etcd",
 	"ipfs_end_point": "http://ipfs.singularitynet.io:80",
-	"log":  {
-		"level": "info",
-		"timezone": "UTC",
-		"formatter": {
-			"type": "text",
-		},
+	"log": {
 		"output": {
-			"type": "file",
+			"type": ["file", "stdout"]
 		}
-	},
-	"payment_channel_storage_client": {
-		"endpoints": ["http://127.0.0.1:2379"]
 	}}`
 )
 
@@ -232,7 +221,7 @@ func Validate() error {
 
 	// Check if the Daemon is on the latest version or not
 	if message, err := CheckVersionOfDaemon(); err != nil {
-		//In case of any error on version check , just log it
+		//In case of any error on version check, just log it
 		zap.L().Warn(err.Error())
 	} else {
 		zap.L().Info(message)

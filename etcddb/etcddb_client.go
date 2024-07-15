@@ -56,7 +56,10 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 		return nil, err
 	}
 
-	zap.L().Info("Creating new payment storage client", zap.Any("config", conf))
+	zap.L().Info("Creating new payment storage client (etcdv3)",
+		zap.String("ConnectionTimeout", conf.ConnectionTimeout.String()),
+		zap.String("RequestTimeout", conf.RequestTimeout.String()),
+		zap.Strings("Endpoints", conf.Endpoints))
 
 	var etcdv3 *clientv3.Client
 
@@ -82,9 +85,11 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 		}
 	}
 
-	session, err := concurrency.NewSession(etcdv3)
+	ctx, cancel := context.WithTimeout(context.Background(), conf.RequestTimeout)
+	defer cancel()
+	session, err := concurrency.NewSession(etcdv3, concurrency.WithContext(ctx))
 	if err != nil {
-		return
+		return nil, fmt.Errorf("can't connect to etcddb: %v", err)
 	}
 
 	client = &EtcdClient{

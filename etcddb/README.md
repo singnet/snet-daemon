@@ -14,7 +14,7 @@ There are two payment channel storage types which are currently supported by sne
 *memory* storage type is used in configuration where only one service replica is used by snet-daemon or
 for testing purposes.
 
-To run snet-daemon with several replicas set the payment_channel_storage_type is now initialized from Organizatio metadata:
+To run snet-daemon with several replicas set the payment_channel_storage_type is now initialized from Organization metadata:
 ```json
 {
   "payment_channel_storage_type": "etcd"
@@ -25,12 +25,14 @@ To run snet-daemon with several replicas set the payment_channel_storage_type is
 
 *payment_channel_storage_client* JSON map can be used to configure payment channel storage etcd client.
 
-| Field name         | Description                                   |Default Value            |
-|--------------------|-----------------------------------------------|-------------------------|
-| connection_timeout | timeout for failing to establish a connection |5 seconds                |
-| request_timeout    | per request timeout                           |3 seconds                |
-| endpoints          | list of etcd cluster endpoints (host:port)    |["http://127.0.0.1:2379"]|
+| Field name         | Description                                   | Default Value               |
+|--------------------|-----------------------------------------------|-----------------------------|
+| connection_timeout | timeout for failing to establish a connection | from org metadata           |
+| request_timeout    | per request timeout                           | from org metadata           |
+| endpoints          | list of etcd cluster endpoints (host:port)    | from org metadata           |
 
+
+**endpoints from the config are ignored and taken only from ipfs metadata**
 
 Endpoints consist of a list of URLs which points to etcd cluster servers.
 

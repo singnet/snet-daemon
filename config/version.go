@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,10 +34,12 @@ func GetBuildTime() string {
 // This function is called to see if the current daemon is on the latest version , if it is not, indicate this to the user
 // when the daemon starts.
 func CheckVersionOfDaemon() (message string, err error) {
-	latestVersionFromGit, err := GetLatestDaemonVersion()
+	var latestVersionFromGit string
+	message = "Daemon version is " + versionTag
+	latestVersionFromGit, err = GetLatestDaemonVersion()
 	if len(versionTag) > 0 && err == nil {
 		if strings.Compare(latestVersionFromGit, versionTag) != 0 {
-			message = fmt.Sprintf("There is a newer version of the Daemon %v available. You are currently on %v, please consider upgrading.", latestVersionFromGit, versionTag)
+			err = errors.New(fmt.Sprintf("There is a newer version of the Daemon %v available. You are currently on %v, please consider upgrading.", latestVersionFromGit, versionTag))
 		}
 	}
 	return message, err
@@ -45,7 +48,7 @@ func CheckVersionOfDaemon() (message string, err error) {
 func GetLatestDaemonVersion() (version string, err error) {
 	resp, err := http.Get("https://api.github.com/repos/singnet/snet-daemon/releases/latest")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error getting latest daemon version from github: %+v", err)
 	}
 	defer resp.Body.Close()
 

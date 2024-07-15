@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -116,6 +117,13 @@ func createEncoderConfig() (*zapcore.EncoderConfig, error) {
 		}
 	}
 	encoderConfig.EncodeCaller = zapcore.FullCallerEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+
+	// colorless logs for files
+	if slices.Contains(config.GetStringSlice(LogOutputTypeKey), "file") {
+		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	}
+
 	return &encoderConfig, nil
 }
 

@@ -125,7 +125,7 @@ Available Commands:
   channel     Manage operations on payment channels
   freecall    Manage operations on free call users
   help        Help about any command
-  init        Write default configuration to file
+  init        Write basic configuration to file
   init-full   Write full default configuration to file
   list        List channels, claims in progress, etc
   serve       Is the default option which starts the Daemon.

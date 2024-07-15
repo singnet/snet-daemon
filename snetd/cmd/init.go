@@ -1,11 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/singnet/snet-daemon/config"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 )
 
 var InitCmd = &cobra.Command{
@@ -16,17 +16,17 @@ var InitCmd = &cobra.Command{
 		var err error
 		var configFile = cmd.Flags().Lookup("config").Value.String()
 
-		zap.L().Info("Writing default configuration to the file", zap.String("config", configFile))
-
 		if isFileExist(configFile) {
-			zap.L().Fatal("such configFile already exists, please remove file first or rename file",
-				zap.String("configFile", configFile))
+			fmt.Println("ERROR: such configFile already exists, please remove file first or rename file:", configFile)
+			os.Exit(-1)
 		}
 
 		err = os.WriteFile(configFile, []byte(config.MinimumConfigJson), 0666)
 		if err != nil {
-			zap.L().Fatal("Cannot write configuration", zap.String("config", configFile), zap.Error(err))
+			fmt.Println("ERROR: Cannot write configuration rename file:", configFile)
+			os.Exit(-1)
 		}
+		fmt.Println("Writing basic configuration to the file:", configFile)
 	},
 }
 
@@ -38,15 +38,17 @@ var InitFullCmd = &cobra.Command{
 		var err error
 		var configFile = cmd.Flags().Lookup("config").Value.String()
 
-		zap.L().Info("Writing full configuration to the file", zap.String("config", configFile))
-
 		if isFileExist(configFile) {
-			zap.L().Fatal("such configFile already exists, please remove file first or rename file", zap.String("config", configFile))
+			fmt.Println("ERROR: such configFile already exists, please remove file first or rename file:", configFile)
+			os.Exit(-1)
 		}
 
 		err = config.WriteConfig(configFile)
 		if err != nil {
-			zap.L().Fatal("Cannot write full configuration", zap.Error(err), zap.String("config", configFile))
+			fmt.Println("ERROR: Cannot write full configuration to file:", configFile)
+			os.Exit(-1)
 		}
+
+		fmt.Println("Writing full default configuration to the file:", configFile)
 	},
 }

@@ -87,7 +87,7 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
 	if configFlag.Changed || isFileExist(configFile) {
 		err := config.LoadConfig(configFile)
 		if err != nil {
-			panic(fmt.Sprint("[CONFIG] Error reading configuration file"))
+			panic(fmt.Errorf("[CONFIG] Error reading configuration file: %v", err))
 		}
 		fmt.Println("[CONFIG] Using custom configuration file")
 	} else {

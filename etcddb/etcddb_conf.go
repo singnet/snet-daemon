@@ -31,6 +31,18 @@ func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaDa
 		Endpoints:         metaData.GetPaymentStorageEndPoints(),
 	}
 
+	confFromVip := &EtcdClientConf{}
+	subVip := config.SubWithDefault(vip, config.PaymentChannelStorageClientKey)
+	err = subVip.Unmarshal(confFromVip)
+
+	if confFromVip.RequestTimeout != 0 {
+		conf.RequestTimeout = confFromVip.RequestTimeout
+	}
+
+	if confFromVip.ConnectionTimeout != 0 {
+		conf.ConnectionTimeout = confFromVip.ConnectionTimeout
+	}
+
 	return
 }
 

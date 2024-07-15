@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Serialize(value interface{}) (slice string, err error) {
+func Serialize(value any) (slice string, err error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
 	err = e.Encode(value)
@@ -22,7 +22,7 @@ func Serialize(value interface{}) (slice string, err error) {
 	return
 }
 
-func Deserialize(slice string, value interface{}) (err error) {
+func Deserialize(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	return d.Decode(value)

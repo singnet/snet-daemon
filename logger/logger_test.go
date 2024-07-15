@@ -316,7 +316,7 @@ func TestFormatFileName(t *testing.T) {
 
 type createWriterSyncerTestCases struct {
 	name            string
-	outputType      interface{}
+	outputType      any
 	filePatternName string
 	expectedError   string
 }
@@ -381,7 +381,7 @@ func TestCreateWriterSyncer(t *testing.T) {
 
 type configTestCase struct {
 	name        string
-	config      map[string]interface{}
+	config      map[string]any
 	expectPanic bool
 	expectedLog *zap.Logger
 }
@@ -393,7 +393,7 @@ func TestInitialize(t *testing.T) {
 	testCases := []configTestCase{
 		{
 			name: "Valid config",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"log.level":                      "info",
 				"log.timezone":                   "UTC",
 				"log.formatter.type":             "json",
@@ -410,7 +410,7 @@ func TestInitialize(t *testing.T) {
 		},
 		{
 			name: "Invalid config - invalid level",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"log.level":                      "INVALID",
 				"log.timezone":                   "UTC",
 				"log.formatter.type":             "json",
@@ -426,7 +426,7 @@ func TestInitialize(t *testing.T) {
 		},
 		{
 			name: "Invalid config - invalid formatter type",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"log.level":                      "info",
 				"log.timezone":                   "UTC",
 				"log.formatter.type":             "INVALID",
@@ -442,7 +442,7 @@ func TestInitialize(t *testing.T) {
 		},
 		{
 			name: "Invalid config - invalid output type",
-			config: map[string]interface{}{
+			config: map[string]any{
 				"log.level":                      "info",
 				"log.timezone":                   "UTC",
 				"log.formatter.type":             "json",

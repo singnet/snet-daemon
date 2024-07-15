@@ -31,6 +31,10 @@ func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaDa
 		Endpoints:         metaData.GetPaymentStorageEndPoints(),
 	}
 
+	if vip == nil {
+		return
+	}
+
 	confFromVip := &EtcdClientConf{}
 	subVip := config.SubWithDefault(vip, config.PaymentChannelStorageClientKey)
 	err = subVip.Unmarshal(confFromVip)

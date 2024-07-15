@@ -34,11 +34,11 @@ func (m *serverStreamMock) SendHeader(metadata.MD) error {
 func (m *serverStreamMock) SetTrailer(metadata.MD) {
 }
 
-func (m *serverStreamMock) SendMsg(interface{}) error {
+func (m *serverStreamMock) SendMsg(any) error {
 	return errors.New("not implemented in mock")
 }
 
-func (m *serverStreamMock) RecvMsg(interface{}) error {
+func (m *serverStreamMock) RecvMsg(any) error {
 	return errors.New("not implemented in mock")
 }
 
@@ -110,13 +110,13 @@ type InterceptorsSuite struct {
 }
 
 func (suite *InterceptorsSuite) SetupSuite() {
-	suite.successHandler = func(srv interface{}, stream grpc.ServerStream) error {
+	suite.successHandler = func(srv any, stream grpc.ServerStream) error {
 		return nil
 	}
-	suite.returnErrorHandler = func(srv interface{}, stream grpc.ServerStream) error {
+	suite.returnErrorHandler = func(srv any, stream grpc.ServerStream) error {
 		return errors.New("some error")
 	}
-	suite.panicHandler = func(srv interface{}, stream grpc.ServerStream) error {
+	suite.panicHandler = func(srv any, stream grpc.ServerStream) error {
 		panic("some panic")
 	}
 	suite.defaultPaymentHandler = &paymentHandlerMock{typ: defaultPaymentHandlerType}

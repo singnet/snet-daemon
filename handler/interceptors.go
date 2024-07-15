@@ -88,7 +88,7 @@ func (context *GrpcStreamContext) String() string {
 
 // Payment represents payment handler specific data which is validated
 // and used to complete payment.
-type Payment interface{}
+type Payment any
 
 // Custom gRPC codes to return to the client
 const (
@@ -128,7 +128,7 @@ func NewGrpcError(code codes.Code, message string) *GrpcError {
 
 // NewGrpcErrorf returns new error which contains gRPC status with provided
 // code and message formed from format string and args.
-func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcError {
+func NewGrpcErrorf(code codes.Code, format string, args ...any) *GrpcError {
 	return &GrpcError{
 		Status: status.Newf(code, format, args...),
 	}
@@ -181,7 +181,7 @@ func GrpcMeteringInterceptor() grpc.StreamServerInterceptor {
 }
 
 // Monitor requests arrived and responses sent and publish these stats for Reporting
-func interceptMetering(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	var err error
 	var start time.Time
 	start = time.Now()
@@ -206,7 +206,7 @@ func interceptMetering(srv interface{}, ss grpc.ServerStream, info *grpc.StreamS
 	return nil
 }
 
-func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
 	if interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
@@ -249,7 +249,7 @@ type paymentValidationInterceptor struct {
 	paymentHandlers       map[string]PaymentHandler
 }
 
-func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
+func (interceptor *paymentValidationInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
 	wrapperStream := ss
 	// check we need to have dynamic pricing here
@@ -397,7 +397,7 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 }
 
 // NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
-func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
+func NoOpInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 	return handler(srv, ss)
 }

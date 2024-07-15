@@ -55,7 +55,7 @@ func GenXid() string {
 }
 
 // convert the payload to JSON and publish it to the serviceUrl passed
-func Publish(payload interface{}, serviceUrl string, commonStats *CommonStats) bool {
+func Publish(payload any, serviceUrl string, commonStats *CommonStats) bool {
 	jsonBytes, err := ConvertStructToJSON(payload)
 	if err != nil {
 		return false
@@ -195,7 +195,7 @@ func getTokenFromResponse(response *http.Response) (string, bool) {
 }
 
 // Generic utility to determine the size of the srtuct passed
-func GetSize(v interface{}) uint64 {
+func GetSize(v any) uint64 {
 	return memory.Sizeof(v)
 }
 

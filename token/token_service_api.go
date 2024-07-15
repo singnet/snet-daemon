@@ -1,7 +1,7 @@
 package token
 
-type PayLoad interface{}
-type CustomToken interface{}
+type PayLoad any
+type CustomToken any
 
 // Token.Manager interface is an API for creating and verifying tokens
 type Manager interface {

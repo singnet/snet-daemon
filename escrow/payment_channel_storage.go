@@ -33,10 +33,10 @@ func NewPaymentChannelStorage(atomicStorage storage.AtomicStorage) *PaymentChann
 
 }
 
-func serializeKey(key interface{}) (slice string, err error) {
+func serializeKey(key any) (slice string, err error) {
 	return fmt.Sprintf("%v", key), nil
 }
-func serialize(value interface{}) (slice string, err error) {
+func serialize(value any) (slice string, err error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
 	err = e.Encode(value)
@@ -48,7 +48,7 @@ func serialize(value interface{}) (slice string, err error) {
 	return
 }
 
-func deserialize(slice string, value interface{}) (err error) {
+func deserialize(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	err = d.Decode(value)

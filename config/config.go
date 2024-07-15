@@ -221,9 +221,10 @@ func Validate() error {
 
 	// Check if the Daemon is on the latest version or not
 	if message, err := CheckVersionOfDaemon(); err != nil {
-		//In case of any error on version check, just log it
+		// In case of any error on version check, just log it
 		zap.L().Warn(err.Error())
 	} else {
+		// Print current version of daemon
 		zap.L().Info(message)
 	}
 

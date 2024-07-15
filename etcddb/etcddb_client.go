@@ -407,7 +407,7 @@ func (client *EtcdClient) checkTxnResponse(keys []string, txnResp *clientv3.TxnR
 		}
 		latestStateArray = append(latestStateArray, latestValues...)
 	}
-	keySet.Do(func(elem interface{}) {
+	keySet.Do(func(elem any) {
 		latestStateArray = append(latestStateArray, keyValueVersion{
 			Key:     elem.(string),
 			Present: false,

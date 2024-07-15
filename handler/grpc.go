@@ -115,7 +115,7 @@ Modified from https://github.com/mwitkow/grpc-proxy/blob/67591eb23c48346a480470e
 Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-PROXY for licensing terms.
 Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
 */
-func (g grpcHandler) grpcToGRPC(srv interface{}, inStream grpc.ServerStream) error {
+func (g grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -266,7 +266,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	methodSegs := strings.Split(method, "/")
 	method = methodSegs[len(methodSegs)-1]
 
-	zap.L().Debug("Calling method", zap.String("method", method))
+	zap.L().Info("Calling method", zap.String("method", method))
 
 	f := &codec.GrpcFrame{}
 	if err := inStream.RecvMsg(f); err != nil {
@@ -340,7 +340,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	if err != nil {
 		return status.Errorf(codes.Internal, "error reading response; error: %+cred", err)
 	}
-	zap.L().Info("Getting response", zap.String("response", string(resp)))
+	zap.L().Debug("Getting response", zap.String("response", string(resp)))
 
 	protoMessage := jsonToProto(g.serviceMetaData.ProtoFile, resp, method)
 	if err = inStream.SendMsg(protoMessage); err != nil {
@@ -356,19 +356,19 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 	zap.L().Debug("Count services: ", zap.Int("value", protoFile.Services().Len()))
 
 	if protoFile.Services().Len() == 0 {
-		zap.L().Info("service in proto not found")
+		zap.L().Warn("service in proto not found")
 		return proto
 	}
 
 	service := protoFile.Services().Get(0)
 	if service == nil {
-		zap.L().Info("service in proto not found")
+		zap.L().Warn("service in proto not found")
 		return proto
 	}
 
 	method := service.Methods().ByName(protoreflect.Name(methodName))
 	if method == nil {
-		zap.L().Info("method not found")
+		zap.L().Warn("method not found in proto")
 		return proto
 	}
 	output := method.Output()
@@ -385,19 +385,19 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte) {
 
 	if protoFile.Services().Len() == 0 {
-		zap.L().Info("service in proto not found")
+		zap.L().Warn("service in proto not found")
 		return []byte("error, invalid proto file")
 	}
 
 	service := protoFile.Services().Get(0)
 	if service == nil {
-		zap.L().Info("service in proto not found")
+		zap.L().Warn("service in proto not found")
 		return []byte("error, invalid proto file")
 	}
 
 	method := service.Methods().ByName(protoreflect.Name(methodName))
 	if method == nil {
-		zap.L().Info("method not found")
+		zap.L().Warn("method not found in proto")
 		return []byte("error, invalid proto file or input request")
 	}
 
@@ -406,12 +406,12 @@ func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName st
 	msg := dynamicpb.NewMessage(input)
 	err := proto.Unmarshal(in, msg)
 	if err != nil {
-		zap.L().Error("Errog in unmarshaling", zap.Error(err))
+		zap.L().Error("Error in unmarshalling", zap.Error(err))
 		return []byte("error, invalid proto file or input request")
 	}
 	json, err = protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
-		zap.L().Error("Errog in marshaling", zap.Error(err))
+		zap.L().Error("Error in marshaling", zap.Error(err))
 		return []byte("error, invalid proto file or input request")
 	}
 	zap.L().Debug("Getting json", zap.String("json", string(json)))
@@ -419,7 +419,7 @@ func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName st
 	return json
 }
 
-func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) error {
+func (g grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -438,7 +438,7 @@ func (g grpcHandler) grpcToJSONRPC(srv interface{}, inStream grpc.ServerStream) 
 		return status.Errorf(codes.Internal, "error receiving request; error: %+v", err)
 	}
 
-	params := new(interface{})
+	params := new(any)
 
 	if err := json.Unmarshal(f.Data, params); err != nil {
 		return status.Errorf(codes.Internal, "error unmarshaling request; error: %+v", err)
@@ -525,19 +525,19 @@ func (f *WrapperServerStream) Context() context.Context {
 	return f.stream.Context()
 }
 
-func (f *WrapperServerStream) SendMsg(m interface{}) error {
+func (f *WrapperServerStream) SendMsg(m any) error {
 	return f.stream.SendMsg(m)
 }
 
-func (f *WrapperServerStream) RecvMsg(m interface{}) error {
+func (f *WrapperServerStream) RecvMsg(m any) error {
 	return f.stream.RecvMsg(m)
 }
 
-func (f *WrapperServerStream) OriginalRecvMsg() interface{} {
+func (f *WrapperServerStream) OriginalRecvMsg() any {
 	return f.recvMessage
 }
 
-func (g grpcHandler) grpcToProcess(srv interface{}, inStream grpc.ServerStream) error {
+func (g grpcHandler) grpcToProcess(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -579,7 +579,7 @@ func (g grpcHandler) grpcToProcess(srv interface{}, inStream grpc.ServerStream) 
 	return nil
 }
 
-func grpcLoopback(srv interface{}, inStream grpc.ServerStream) error {
+func grpcLoopback(srv any, inStream grpc.ServerStream) error {
 	f := &codec.GrpcFrame{}
 	if err := inStream.RecvMsg(f); err != nil {
 		return status.Errorf(codes.Internal, "error receiving request; error: %+v", err)

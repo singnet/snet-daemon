@@ -31,7 +31,7 @@ func NewFreeCallUserStorage(atomicStorage storage.AtomicStorage) *FreeCallUserSt
 	}*/
 }
 
-func serializeFreeCallKey(key interface{}) (serialized string, err error) {
+func serializeFreeCallKey(key any) (serialized string, err error) {
 	myKey := key.(*FreeCallUserKey)
 	return myKey.String(), nil
 }

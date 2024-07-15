@@ -119,7 +119,7 @@ func (h *LockingLicenseService) UpdateLicenseUsage(channelId *big.Int, serviceId
 	}
 	return nil
 }
-func getAllLicenseKeys(channelId *big.Int, serviceId string) []interface{} {
+func getAllLicenseKeys(channelId *big.Int, serviceId string) []any {
 	keys := make([]interface{}, 3)
 	for i, usageType := range []string{REFUND, PLANNED, USED} {
 		keys[i] = LicenseUsageTrackerKey{ChannelID: channelId, ServiceID: serviceId, UsageType: usageType}

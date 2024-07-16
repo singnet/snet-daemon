@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
+	"fmt"
 	"os"
+
+	"github.com/singnet/snet-daemon/config"
+	"github.com/spf13/cobra"
 )
 
 var InitCmd = &cobra.Command{
@@ -15,16 +16,17 @@ var InitCmd = &cobra.Command{
 		var err error
 		var configFile = cmd.Flags().Lookup("config").Value.String()
 
-		log.WithField("configFile", configFile).Info("Writing default configuration to the file")
-
 		if isFileExist(configFile) {
-			log.WithField("configFile", configFile).Fatal("such configFile already exists, please remove file first or rename file")
+			fmt.Println("ERROR: such configFile already exists, please remove file first or rename file:", configFile)
+			os.Exit(-1)
 		}
 
 		err = os.WriteFile(configFile, []byte(config.MinimumConfigJson), 0666)
 		if err != nil {
-			log.WithError(err).WithField("configFile", configFile).Fatal("Cannot write configuration")
+			fmt.Println("ERROR: Cannot write configuration rename file:", configFile)
+			os.Exit(-1)
 		}
+		fmt.Println("Writing basic configuration to the file:", configFile)
 	},
 }
 
@@ -36,15 +38,17 @@ var InitFullCmd = &cobra.Command{
 		var err error
 		var configFile = cmd.Flags().Lookup("config").Value.String()
 
-		log.WithField("configFile", configFile).Info("Writing full configuration to the file")
-
 		if isFileExist(configFile) {
-			log.WithField("configFile", configFile).Fatal("such configFile already exists, please remove file first or rename file")
+			fmt.Println("ERROR: such configFile already exists, please remove file first or rename file:", configFile)
+			os.Exit(-1)
 		}
 
 		err = config.WriteConfig(configFile)
 		if err != nil {
-			log.WithError(err).WithField("configFile", configFile).Fatal("Cannot write full configuration")
+			fmt.Println("ERROR: Cannot write full configuration to file:", configFile)
+			os.Exit(-1)
 		}
+
+		fmt.Println("Writing full default configuration to the file:", configFile)
 	},
 }

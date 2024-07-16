@@ -7,8 +7,9 @@ package metrics
 
 import (
 	"errors"
+
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // state of alerts configuration
@@ -29,21 +30,21 @@ type Notification struct {
 // function for sending an alert to a given endpoint
 func (alert *Notification) Send() bool {
 	if isNoAlertsConfig {
-		log.Warningf("notifications not configured")
+		zap.L().Warn("notifications not configured")
 		return false
 	}
 	serviceURL := config.GetString(config.NotificationServiceEndpoint)
 	// convert the notification struct to json
 	jsonAlert, err := ConvertStructToJSON(alert)
-	log.Infof("notification : %v", string(jsonAlert))
+	zap.L().Info("send notifiction", zap.Any("json", jsonAlert))
 	if err != nil {
-		log.WithError(err).Warningf("json conversion error : %v", err)
+		zap.L().Warn("json conversion error", zap.Error(err))
 		return false
 	} else {
 		// based on the notification success/failure
-		status := Publish(jsonAlert, serviceURL,&CommonStats{})
+		status := Publish(jsonAlert, serviceURL, &CommonStats{})
 		if !status {
-			log.Infof("unable to send notifications")
+			zap.L().Info("unable to send notifications")
 			return false
 		}
 	}

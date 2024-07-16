@@ -1,12 +1,13 @@
 package etcddb
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
+
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
@@ -37,6 +38,7 @@ func TestCustomEtcdClientConf(t *testing.T) {
 	assert.Equal(t, 5*time.Second, conf.RequestTimeout)
 	assert.Equal(t, []string{"http://127.0.0.1:2479"}, conf.Endpoints)
 }
+
 func TestCustomEtcdClientConfWithDefault(t *testing.T) {
 	var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"org_id1\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",                    \"endpoints\": [             \"http://127.0.0.1:2479\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"5s\",           \"request_timeout\": \"3s\"                 }       }     }   ] }"
 	metadata, err := blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
@@ -72,6 +74,7 @@ func TestDefaultEtcdServerConf(t *testing.T) {
 	assert.Equal(t, time.Minute, conf.StartupTimeout)
 	assert.Equal(t, "storage-data-dir-1.etcd", conf.DataDir)
 	assert.Equal(t, "info", conf.LogLevel)
+	assert.Equal(t, []string{"./etcd-server.log"}, conf.LogOutputs)
 	assert.Equal(t, false, conf.Enabled)
 
 	server, err := GetEtcdServer()
@@ -113,7 +116,8 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 			"cluster": "storage-1=http://127.0.0.1:2380",
 			"startup_timeout": "15s",
 			"data_dir": "custom-storage-data-dir-1.etcd",
-			"log_level": "warning",
+			"log_level": "warn",
+			"log_outputs": ["stderr"],
 			"enabled": true
 		}
 	}`
@@ -137,7 +141,8 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 	assert.Equal(t, "unique-token", conf.Token)
 	assert.Equal(t, 15*time.Second, conf.StartupTimeout)
 	assert.Equal(t, "custom-storage-data-dir-1.etcd", conf.DataDir)
-	assert.Equal(t, "warning", conf.LogLevel)
+	assert.Equal(t, "warn", conf.LogLevel)
+	assert.Equal(t, []string{"stderr"}, conf.LogOutputs)
 	assert.Equal(t, true, conf.Enabled)
 
 	server, err := GetEtcdServerFromVip(vip)
@@ -146,24 +151,21 @@ func TestEnabledEtcdServerConf(t *testing.T) {
 
 	err = server.Start()
 	assert.Nil(t, err)
-	defer server.Close()
 	defer removeWorkDir(t, conf.DataDir)
+	defer server.Close()
 }
 
 func readConfig(t *testing.T, configJSON string) (vip *viper.Viper) {
 	vip = viper.New()
 	config.SetDefaultFromConfig(vip, config.Vip())
-
 	err := config.ReadConfigFromJsonString(vip, configJSON)
 	assert.Nil(t, err)
 	return
 }
 
 func removeWorkDir(t *testing.T, workDir string) {
-
 	dir, err := os.Getwd()
 	assert.Nil(t, err)
-
 	err = os.RemoveAll(dir + "/" + workDir)
 	assert.Nil(t, err)
 }

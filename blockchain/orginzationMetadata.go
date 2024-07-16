@@ -3,13 +3,15 @@ package blockchain
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/ipfsutils"
-	log "github.com/sirupsen/logrus"
 	"math/big"
 	"strings"
 	"time"
+
+	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/ipfsutils"
+
+	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 )
 
 /*
@@ -81,7 +83,7 @@ type Payment struct {
 	PaymentChannelStorageClient PaymentChannelStorageClient `json:"payment_channel_storage_client"`
 }
 
-//Structure to hold the individual group details , an Organization can have multiple groups
+// Structure to hold the individual group details , an Organization can have multiple groups
 type Group struct {
 	GroupName        string   `json:"group_name"`
 	GroupID          string   `json:"group_id"`
@@ -89,29 +91,30 @@ type Group struct {
 	LicenseEndpoints []string `json:"license_server_endpoints"`
 }
 
-//Structure to hold the storage details of the payment
+// Structure to hold the storage details of the payment
 type PaymentChannelStorageClient struct {
 	ConnectionTimeout string   `json:"connection_timeout" mapstructure:"connection_timeout"`
 	RequestTimeout    string   `json:"request_timeout" mapstructure:"request_timeout"`
 	Endpoints         []string `json:"endpoints"`
 }
 
-//Construct the Organization metadata from the JSON Passed
+// Construct the Organization metadata from the JSON Passed
 func InitOrganizationMetaDataFromJson(jsonData string) (metaData *OrganizationMetaData, err error) {
 	metaData = new(OrganizationMetaData)
 	err = json.Unmarshal([]byte(jsonData), &metaData)
 	if err != nil {
-		log.WithError(err).WithField("jsondata", jsonData)
+		zap.L().Error("Error in unmarshaling metadata json", zap.Error(err), zap.Any("jsondata", jsonData))
 		return nil, err
 	}
 
 	//Check for mandatory validations
 
 	if err = setDerivedAttributes(metaData); err != nil {
-		log.WithError(err)
+		zap.L().Error("Error in setting derived atrributes", zap.Error(err))
 		return nil, err
 	}
 	if err = checkMandatoryFields(metaData); err != nil {
+		zap.L().Error("Error in check mdandatory fields", zap.Error(err))
 		return nil, err
 	}
 
@@ -141,7 +144,7 @@ func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
 	return err
 }
 
-//Determine the group this Daemon belongs to
+// Determine the group this Daemon belongs to
 func getDaemonGroup(metaData OrganizationMetaData) (group *Group, err error) {
 	groupName := config.GetString(config.DaemonGroupName)
 	for _, group := range metaData.Groups {
@@ -151,12 +154,12 @@ func getDaemonGroup(metaData OrganizationMetaData) (group *Group, err error) {
 	}
 	err = fmt.Errorf("group name %v in config is invalid, "+
 		"there was no group found with this name in the metadata", groupName)
-	log.WithError(err)
+	zap.L().Error("error in getting daemon group", zap.Error(err))
 	return nil, err
 }
 
-//Will be used to load the Organization metadata when Daemon starts
-//To be part of components
+// Will be used to load the Organization metadata when Daemon starts
+// To be part of components
 func GetOrganizationMetaData() *OrganizationMetaData {
 	var metadata *OrganizationMetaData
 	var err error
@@ -167,8 +170,7 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 		metadata = &OrganizationMetaData{daemonGroup: &Group{}}
 	}
 	if err != nil {
-		log.WithError(err).
-			Panic("error on retrieving / parsing organization metadata from block chain")
+		zap.L().Panic("error on retrieving / parsing organization metadata from block chain", zap.Error(err))
 	}
 	return metadata
 }
@@ -185,13 +187,12 @@ func getMetaDataURI() []byte {
 
 	organizationRegistered, err := reg.GetOrganizationById(nil, orgId)
 	if err != nil || !organizationRegistered.Found {
-		log.WithError(err).WithField("OrganizationId", config.GetString(config.OrganizationId)).
-			Panic("Error Retrieving contract details for the Given Organization")
+		zap.L().Panic("Error Retrieving contract details for the Given Organization", zap.String("OrganizationId", config.GetString(config.OrganizationId)))
 	}
 	return organizationRegistered.OrgMetadataURI[:]
 }
 
-//Get the Group ID the Daemon needs to associate itself to , requests belonging to a different group if will be rejected
+// Get the Group ID the Daemon needs to associate itself to , requests belonging to a different group if will be rejected
 func (metaData OrganizationMetaData) GetGroupIdString() string {
 	return metaData.daemonGroup.GroupID
 }
@@ -205,35 +206,35 @@ func (metaData OrganizationMetaData) GetLicenseEndPoints() []string {
 	return metaData.daemonGroup.LicenseEndpoints
 }
 
-//Pass the group Name and retrieve the details of the payment address/ recipient address.
+// Pass the group Name and retrieve the details of the payment address/ recipient address.
 func (metaData OrganizationMetaData) GetPaymentAddress() common.Address {
 	return metaData.recipientPaymentAddress
 }
 
-//Payment expiration threshold
+// Payment expiration threshold
 func (metaData *OrganizationMetaData) GetPaymentExpirationThreshold() *big.Int {
 	return metaData.daemonGroup.PaymentDetails.PaymentExpirationThreshold
 }
 
-//Get the End points of the Payment Storage used to update the storage state
+// Get the End points of the Payment Storage used to update the storage state
 func (metaData OrganizationMetaData) GetPaymentStorageEndPoints() []string {
 	return metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints
 }
 
-//Get the connection time out defined
+// Get the connection time out defined
 func (metaData OrganizationMetaData) GetConnectionTimeOut() (connectionTimeOut time.Duration) {
 	connectionTimeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.ConnectionTimeout)
 	if err != nil {
-		log.Errorf(err.Error())
+		zap.L().Error(err.Error())
 	}
 	return connectionTimeOut
 }
 
-//Get the Request time out defined
+// Get the Request time out defined
 func (metaData OrganizationMetaData) GetRequestTimeOut() time.Duration {
 	timeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.RequestTimeout)
 	if err != nil {
-		log.Errorf(err.Error())
+		zap.L().Error(err.Error())
 	}
 	return timeOut
 }

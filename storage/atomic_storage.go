@@ -35,7 +35,7 @@ type Transaction interface {
 	GetConditionValues() ([]KeyValueData, error)
 }
 
-//Best to change this to KeyValueData , will do this in the next commit
+// Best to change this to KeyValueData , will do this in the next commit
 type UpdateFunc func(conditionValues []KeyValueData) (update []KeyValueData, ok bool, err error)
 
 type CASRequest struct {
@@ -57,7 +57,7 @@ type PrefixedAtomicStorage struct {
 	keyPrefix string
 }
 
-//It is recommended to use this function to create a PrefixedAtomicStorage
+// It is recommended to use this function to create a PrefixedAtomicStorage
 func NewPrefixedAtomicStorage(atomicStorage AtomicStorage, prefix string) *PrefixedAtomicStorage {
 	return &PrefixedAtomicStorage{
 		delegate:  atomicStorage,
@@ -169,18 +169,18 @@ func (storage *PrefixedAtomicStorage) ExecuteTransaction(request CASRequest) (ok
 // serializes/deserializes values and keys
 type TypedAtomicStorage interface {
 	// Get returns value by key
-	Get(key interface{}) (value interface{}, ok bool, err error)
+	Get(key any) (value any, ok bool, err error)
 	// GetAll returns an array which contains all values from storage
-	GetAll() (array interface{}, err error)
+	GetAll() (array any, err error)
 	// Put puts value by key unconditionally
-	Put(key interface{}, value interface{}) (err error)
+	Put(key any, value any) (err error)
 	// PutIfAbsent puts value by key if and only if key is absent in storage
-	PutIfAbsent(key interface{}, value interface{}) (ok bool, err error)
+	PutIfAbsent(key any, value any) (ok bool, err error)
 	// CompareAndSwap puts newValue by key if and only if previous value is equal
 	// to prevValue
-	CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error)
+	CompareAndSwap(key any, prevValue any, newValue any) (ok bool, err error)
 	// Delete removes value by key
-	Delete(key interface{}) (err error)
+	Delete(key any) (err error)
 	ExecuteTransaction(request TypedCASRequest) (ok bool, err error)
 }
 
@@ -188,34 +188,34 @@ type TypedTransaction interface {
 	GetConditionValues() ([]TypedKeyValueData, error)
 }
 
-//Best to change this to KeyValueData , will do this in the next commit
+// Best to change this to KeyValueData , will do this in the next commit
 type TypedUpdateFunc func(conditionValues []TypedKeyValueData) (update []TypedKeyValueData, ok bool, err error)
 
 type TypedCASRequest struct {
 	RetryTillSuccessOrError bool
 	Update                  TypedUpdateFunc
-	ConditionKeys           []interface{} //Typed Keys
+	ConditionKeys           []any //Typed Keys
 }
 
 type TypedKeyValueData struct {
-	Key     interface{}
-	Value   interface{}
+	Key     any
+	Value   any
 	Present bool
 }
 
 // TypedAtomicStorageImpl is an implementation of TypedAtomicStorage interface
 type TypedAtomicStorageImpl struct {
 	atomicStorage     AtomicStorage
-	keySerializer     func(key interface{}) (serialized string, err error)
+	keySerializer     func(key any) (serialized string, err error)
 	keyType           reflect.Type
-	valueSerializer   func(value interface{}) (serialized string, err error)
-	valueDeserializer func(serialized string, value interface{}) (err error)
+	valueSerializer   func(value any) (serialized string, err error)
+	valueDeserializer func(serialized string, value any) (err error)
 	valueType         reflect.Type
 }
 
-func NewTypedAtomicStorageImpl(storage AtomicStorage, keySerializer func(key interface{}) (serialized string, err error),
-	keyType reflect.Type, valueSerializer func(value interface{}) (serialized string, err error),
-	valueDeserializer func(serialized string, value interface{}) (err error),
+func NewTypedAtomicStorageImpl(storage AtomicStorage, keySerializer func(key any) (serialized string, err error),
+	keyType reflect.Type, valueSerializer func(value any) (serialized string, err error),
+	valueDeserializer func(serialized string, value any) (err error),
 	valueType reflect.Type) TypedAtomicStorage {
 
 	return &TypedAtomicStorageImpl{
@@ -230,7 +230,7 @@ func NewTypedAtomicStorageImpl(storage AtomicStorage, keySerializer func(key int
 }
 
 // Get implements TypedAtomicStorage.Get
-func (storage *TypedAtomicStorageImpl) Get(key interface{}) (value interface{}, ok bool, err error) {
+func (storage *TypedAtomicStorageImpl) Get(key any) (value any, ok bool, err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -252,7 +252,7 @@ func (storage *TypedAtomicStorageImpl) Get(key interface{}) (value interface{}, 
 	return value, true, nil
 }
 
-func (storage *TypedAtomicStorageImpl) deserializeValue(valueString string) (value interface{}, err error) {
+func (storage *TypedAtomicStorageImpl) deserializeValue(valueString string) (value any, err error) {
 	value = reflect.New(storage.valueType).Interface()
 	err = storage.valueDeserializer(valueString, value)
 	if err != nil {
@@ -261,7 +261,7 @@ func (storage *TypedAtomicStorageImpl) deserializeValue(valueString string) (val
 	return value, err
 }
 
-func (storage *TypedAtomicStorageImpl) GetAll() (array interface{}, err error) {
+func (storage *TypedAtomicStorageImpl) GetAll() (array any, err error) {
 	stringValues, err := storage.atomicStorage.GetByKeyPrefix("")
 	if err != nil {
 		return
@@ -284,7 +284,7 @@ func (storage *TypedAtomicStorageImpl) GetAll() (array interface{}, err error) {
 }
 
 // Put implementor TypedAtomicStorage.Put
-func (storage *TypedAtomicStorageImpl) Put(key interface{}, value interface{}) (err error) {
+func (storage *TypedAtomicStorageImpl) Put(key any, value any) (err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -299,7 +299,7 @@ func (storage *TypedAtomicStorageImpl) Put(key interface{}, value interface{}) (
 }
 
 // PutIfAbsent implements TypedAtomicStorage.PutIfAbsent
-func (storage *TypedAtomicStorageImpl) PutIfAbsent(key interface{}, value interface{}) (ok bool, err error) {
+func (storage *TypedAtomicStorageImpl) PutIfAbsent(key any, value any) (ok bool, err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -314,7 +314,7 @@ func (storage *TypedAtomicStorageImpl) PutIfAbsent(key interface{}, value interf
 }
 
 // CompareAndSwap implements TypedAtomicStorage.CompareAndSwap
-func (storage *TypedAtomicStorageImpl) CompareAndSwap(key interface{}, prevValue interface{}, newValue interface{}) (ok bool, err error) {
+func (storage *TypedAtomicStorageImpl) CompareAndSwap(key any, prevValue any, newValue any) (ok bool, err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -333,7 +333,7 @@ func (storage *TypedAtomicStorageImpl) CompareAndSwap(key interface{}, prevValue
 	return storage.atomicStorage.CompareAndSwap(keyString, prevValueString, newValueString)
 }
 
-func (storage *TypedAtomicStorageImpl) Delete(key interface{}) (err error) {
+func (storage *TypedAtomicStorageImpl) Delete(key any) (err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {
 		return
@@ -342,7 +342,7 @@ func (storage *TypedAtomicStorageImpl) Delete(key interface{}) (err error) {
 	return storage.atomicStorage.Delete(keyString)
 }
 
-func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(conditionKeys []interface{}, keyValueData []KeyValueData) (result []TypedKeyValueData, err error) {
+func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(conditionKeys []any, keyValueData []KeyValueData) (result []TypedKeyValueData, err error) {
 	result = make([]TypedKeyValueData, len(conditionKeys))
 	for i, conditionKey := range conditionKeys {
 		conditionKeyString, err := storage.keySerializer(conditionKey)
@@ -405,7 +405,7 @@ func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASReques
 	return storage.atomicStorage.ExecuteTransaction(storageRequest)
 }
 
-func (storage *TypedAtomicStorageImpl) convertTypedKeyToString(typedKeys []interface{}) (stringKeys []string, err error) {
+func (storage *TypedAtomicStorageImpl) convertTypedKeyToString(typedKeys []any) (stringKeys []string, err error) {
 	stringKeys = make([]string, len(typedKeys))
 	for i, key := range typedKeys {
 		stringKeys[i], err = storage.keySerializer(key)

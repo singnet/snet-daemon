@@ -15,7 +15,7 @@ type LockingLicenseService struct {
 	ServiceMetaData       *blockchain.ServiceMetadata
 }
 
-//Will be used in the components to create a new instance of LicenseService
+// Will be used in the components to create a new instance of LicenseService
 func NewLicenseService(
 	detailsStorage storage.TypedAtomicStorage,
 	licenseStorage storage.TypedAtomicStorage, orgData *blockchain.OrganizationMetaData,
@@ -73,9 +73,9 @@ func (h *LockingLicenseService) UpdateLicenseForChannel(channelId *big.Int, serv
 	return h.LicenseDetailsStorage.Put(LicenseDetailsKey{ServiceID: serviceId, ChannelID: channelId}, &LicenseDetailsData{License: license})
 }
 
-//Defines the condition that needs to be met, it generates the respective typed Data when
-//conditions are satisfied, you define your own validations in here
-//It takes in the latest typed values read.
+// Defines the condition that needs to be met, it generates the respective typed Data when
+// conditions are satisfied, you define your own validations in here
+// It takes in the latest typed values read.
 type ConditionFuncForLicense func(conditionValues []storage.TypedKeyValueData,
 	incrementUsage *big.Int, channelId *big.Int, serviceId string) ([]storage.TypedKeyValueData, error)
 
@@ -119,7 +119,7 @@ func (h *LockingLicenseService) UpdateLicenseUsage(channelId *big.Int, serviceId
 	}
 	return nil
 }
-func getAllLicenseKeys(channelId *big.Int, serviceId string) []interface{} {
+func getAllLicenseKeys(channelId *big.Int, serviceId string) []any {
 	keys := make([]interface{}, 3)
 	for i, usageType := range []string{REFUND, PLANNED, USED} {
 		keys[i] = LicenseUsageTrackerKey{ChannelID: channelId, ServiceID: serviceId, UsageType: usageType}
@@ -127,8 +127,8 @@ func getAllLicenseKeys(channelId *big.Int, serviceId string) []interface{} {
 	return keys
 }
 
-//this function will be used to read typed data ,convert it in to a business structure
-//on which validations can be easily performed and return back the business structure.
+// this function will be used to read typed data ,convert it in to a business structure
+// on which validations can be easily performed and return back the business structure.
 func convertTypedDataToLicenseDataUsage(data []storage.TypedKeyValueData) (new *LicenseUsageData, err error) {
 	usageData := &LicenseUsageData{
 		Planned: &UsageInAmount{Amount: big.NewInt(0), UsageType: PLANNED},
@@ -244,7 +244,7 @@ func updateLicenseUsageData(usageData *LicenseUsageData, key LicenseUsageTracker
 			usageData.Used.SetUsage(oldUsage.Add(oldUsage, usage))
 		}
 	case PLANNED:
-		//reset the counter  , Planned Amount will be updated ONLY when the License is Purchased or Renewed
+		//reset the counter, Planned Amount will be updated ONLY when the License is Purchased or Renewed
 		{
 			usageData.Planned.SetUsage(usage)
 			usageData.Used.SetUsage(big.NewInt(0))

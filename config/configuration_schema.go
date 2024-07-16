@@ -93,7 +93,7 @@ func GetConfigurationSchema() ([]ConfigurationDetails, error) {
 }
 
 // ConvertStructToJSON converts the passed datastructure to a JSON
-func ConvertStructToJSON(payLoad interface{}) ([]byte, error) {
+func ConvertStructToJSON(payLoad any) ([]byte, error) {
 	b, err := json.Marshal(&payLoad)
 	if err != nil {
 		return nil, err

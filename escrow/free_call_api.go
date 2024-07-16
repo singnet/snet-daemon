@@ -7,21 +7,21 @@ import (
 
 // To Support Free calls
 type FreeCallPayment struct {
-	//Has the Id of the user making the call
+	// Has the ID of the user making the call
 	UserId string
-	//Service Id .
+	// Service ID
 	ServiceId string
-	//Organization Id
+	// Organization Id
 	OrganizationId string
-	//Current block number
+	// Current block number
 	CurrentBlockNumber *big.Int
 	// Signature passed
 	Signature []byte
-	//Group ID
+	// Group ID
 	GroupId string
-	//Auth Token Passed
+	// Auth Token Passed
 	AuthToken []byte
-	//Token expiration date in blocks
+	// Token expiration date in blocks
 	AuthTokenExpiryBlockNumber *big.Int
 }
 

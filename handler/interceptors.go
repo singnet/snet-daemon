@@ -2,21 +2,24 @@ package handler
 
 import (
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/ratelimit"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+
+	"math/big"
+	"strings"
+	"time"
+
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"math/big"
-	"strings"
-	"time"
 )
 
 const (
@@ -85,7 +88,7 @@ func (context *GrpcStreamContext) String() string {
 
 // Payment represents payment handler specific data which is validated
 // and used to complete payment.
-type Payment interface{}
+type Payment any
 
 // Custom gRPC codes to return to the client
 const (
@@ -125,7 +128,7 @@ func NewGrpcError(code codes.Code, message string) *GrpcError {
 
 // NewGrpcErrorf returns new error which contains gRPC status with provided
 // code and message formed from format string and args.
-func NewGrpcErrorf(code codes.Code, format string, args ...interface{}) *GrpcError {
+func NewGrpcErrorf(code codes.Code, format string, args ...any) *GrpcError {
 	return &GrpcError{
 		Status: status.Newf(code, format, args...),
 	}
@@ -178,8 +181,8 @@ func GrpcMeteringInterceptor() grpc.StreamServerInterceptor {
 }
 
 // Monitor requests arrived and responses sent and publish these stats for Reporting
-func interceptMetering(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	var e error
+func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	var err error
 	var start time.Time
 	start = time.Now()
 	//Get the method name
@@ -193,29 +196,29 @@ func interceptMetering(srv interface{}, ss grpc.ServerStream, info *grpc.StreamS
 	}
 
 	defer func() {
-		go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), e)
+		go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), err)
 	}()
-	e = handler(srv, ss)
-	if e != nil {
-		log.WithError(e)
-		return e
+	err = handler(srv, ss)
+	if err != nil {
+		zap.L().Error(err.Error())
+		return err
 	}
 	return nil
 }
 
-func (interceptor *rateLimitInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
 	if interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {
-		log.WithField("rateLimiter.Burst()", interceptor.rateLimiter.Burst()).Info("rate limit reached, too many requests to handle")
+		zap.L().Info("rate limit reached, too many requests to handle", zap.Any("rateLimiter.Burst()", interceptor.rateLimiter.Burst()))
 		return status.New(codes.ResourceExhausted, "rate limiting , too many requests to handle").Err()
 	}
-	e := handler(srv, ss)
-	if e != nil {
-		log.WithError(e)
-		return e
+	err := handler(srv, ss)
+	if err != nil {
+		zap.L().Error(err.Error())
+		return err
 	}
 	return nil
 }
@@ -230,10 +233,10 @@ func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, d
 	}
 
 	interceptor.paymentHandlers[defaultPaymentHandler.Type()] = defaultPaymentHandler
-	log.WithField("defaultPaymentType", defaultPaymentHandler.Type()).Info("Default payment handler registered")
+	zap.L().Info("Default payment handler registered", zap.Any("defaultPaymentType", defaultPaymentHandler.Type()))
 	for _, handler := range paymentHandler {
 		interceptor.paymentHandlers[handler.Type()] = handler
-		log.WithField("paymentType", handler.Type()).Info("Payment handler for type registered")
+		zap.L().Info("Payment handler for type registered", zap.Any("paymentType", handler.Type()))
 	}
 
 	return interceptor.intercept
@@ -246,7 +249,7 @@ type paymentValidationInterceptor struct {
 	paymentHandlers       map[string]PaymentHandler
 }
 
-func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
+func (interceptor *paymentValidationInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
 	wrapperStream := ss
 	// check we need to have dynamic pricing here
@@ -261,7 +264,7 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 	if err != nil {
 		return err.Err()
 	}
-	log.WithField("context", context).Debug("New gRPC call received")
+	zap.L().Debug("New gRPC call received", zap.Any("context", context))
 
 	paymentHandler, err := interceptor.getPaymentHandler(context)
 	if err != nil {
@@ -275,7 +278,7 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.WithField("panicValue", r).Warn("Service handler called panic(panicValue)")
+			zap.L().Warn("Service handler called panic(panicValue)", zap.Any("panicValue", r))
 			paymentHandler.CompleteAfterError(payment, fmt.Errorf("Service handler called panic(%v)", r))
 			panic("re-panic after payment handler error handling")
 		} else if e == nil {
@@ -293,11 +296,11 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 		}
 	}()
 
-	log.WithField("payment", payment).Debug("New payment received")
+	zap.L().Debug("New payment received", zap.Any("payment", payment))
 
 	e = handler(srv, wrapperStream)
 	if e != nil {
-		log.WithError(e).Warn("gRPC handler returned error")
+		zap.L().Warn("gRPC handler returned error", zap.Error(e))
 		return e
 	}
 
@@ -307,7 +310,7 @@ func (interceptor *paymentValidationInterceptor) intercept(srv interface{}, ss g
 func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *GrpcStreamContext, err *GrpcError) {
 	md, ok := metadata.FromIncomingContext(serverStream.Context())
 	if !ok {
-		log.WithField("info", info).Error("Invalid metadata")
+		zap.L().Error("Invalid metadata", zap.Any("info", info))
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata")
 	}
 
@@ -321,18 +324,19 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *GrpcError) {
 	paymentTypeMd, ok := context.MD[PaymentTypeHeader]
 	if !ok || len(paymentTypeMd) == 0 {
-		log.WithField("defaultPaymentHandlerType", interceptor.defaultPaymentHandler.Type()).Debug("Payment type was not set by caller, return default payment handler")
+		zap.L().Debug("Payment type was not set by caller, return default payment handler",
+			zap.String("defaultPaymentHandlerType", interceptor.defaultPaymentHandler.Type()))
 		return interceptor.defaultPaymentHandler, nil
 	}
 
 	paymentType := paymentTypeMd[0]
 	paymentHandler, ok := interceptor.paymentHandlers[paymentType]
 	if !ok {
-		log.WithField("paymentType", paymentType).Error("Unexpected payment type")
+		zap.L().Error("Unexpected payment type", zap.String("paymentType", paymentType))
 		return nil, NewGrpcErrorf(codes.InvalidArgument, "unexpected \"%v\", value: \"%v\"", PaymentTypeHeader, paymentType)
 	}
 
-	log.WithField("paymentType", paymentType).Debug("Return payment handler by type")
+	zap.L().Debug("Return payment handler by type", zap.Any("paymentType", paymentType))
 	return paymentHandler, nil
 }
 
@@ -393,7 +397,7 @@ func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 }
 
 // NoOpInterceptor is a gRPC interceptor which doesn't do payment checking.
-func NoOpInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo,
+func NoOpInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) error {
 	return handler(srv, ss)
 }

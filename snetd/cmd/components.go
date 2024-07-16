@@ -4,18 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/singnet/snet-daemon/configuration_service"
-	"github.com/singnet/snet-daemon/metrics"
-	"github.com/singnet/snet-daemon/pricing"
-	"github.com/singnet/snet-daemon/storage"
-	"github.com/singnet/snet-daemon/token"
-	"github.com/singnet/snet-daemon/training"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"google.golang.org/grpc"
 	"io"
 	"net/http"
 	"os"
@@ -23,9 +11,22 @@ import (
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/configuration_service"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/metrics"
+	"github.com/singnet/snet-daemon/pricing"
+	"github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/token"
+	"github.com/singnet/snet-daemon/training"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 type Components struct {
@@ -86,11 +87,11 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
 	if configFlag.Changed || isFileExist(configFile) {
 		err := config.LoadConfig(configFile)
 		if err != nil {
-			log.WithError(err).WithField("configFile", configFile).Panic("Error reading configuration file")
+			panic(fmt.Errorf("[CONFIG] Error reading configuration file: %v", err))
 		}
-		log.WithField("configFile", configFile).Info("Using configuration file")
+		fmt.Println("[CONFIG] Using custom configuration file")
 	} else {
-		log.Info("Configuration file is not set, using default configuration")
+		fmt.Println("[CONFIG] Configuration file is not set, using default configuration")
 	}
 }
 
@@ -118,7 +119,7 @@ func (components *Components) Blockchain() *blockchain.Processor {
 
 	processor, err := blockchain.NewProcessor(components.ServiceMetaData())
 	if err != nil {
-		log.WithError(err).Panic("unable to initialize blockchain processor")
+		zap.L().Panic("unable to initialize blockchain processor", zap.Error(err))
 	}
 
 	components.blockchain = &processor
@@ -148,7 +149,7 @@ func (components *Components) EtcdServer() *etcddb.EtcdServer {
 
 	enabled, err := etcddb.IsEtcdServerEnabled()
 	if err != nil {
-		log.WithError(err).Panic("error during etcd config parsing")
+		zap.L().Panic("error during etcd config parsing", zap.Error(err))
 	}
 	if !enabled {
 		return nil
@@ -156,12 +157,12 @@ func (components *Components) EtcdServer() *etcddb.EtcdServer {
 
 	server, err := etcddb.GetEtcdServer()
 	if err != nil {
-		log.WithError(err).Panic("error during etcd config parsing")
+		zap.L().Panic("error during etcd config parsing", zap.Error(err))
 	}
 
 	err = server.Start()
 	if err != nil {
-		log.WithError(err).Panic("error during etcd server starting")
+		zap.L().Panic("error during etcd server starting", zap.Error(err))
 	}
 
 	components.etcdServer = server
@@ -175,7 +176,7 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 
 	client, err := etcddb.NewEtcdClient(components.OrganizationMetaData())
 	if err != nil {
-		log.WithError(err).Panic("unable to create etcd client")
+		zap.L().Panic("unable to create etcd client", zap.Error(err))
 	}
 
 	components.etcdClient = client
@@ -360,16 +361,15 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcInterceptor != nil {
 		return components.grpcInterceptor
 	}
-	//Metering is now mandatory in Daemon
+	// Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
 
 		meteringUrl := config.GetString(config.MeteringEndPoint) + "/metering/verify"
 		if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
 			components.OrganizationMetaData().GetGroupIdString()); !ok {
-			log.Error(err)
-			log.WithError(err).Panic("Metering authentication failed.Please verify the configuration" +
-				" as part of service publication process")
+			zap.L().Panic("Metering authentication failed.Please verify the configuration"+
+				" as part of service publication process", zap.Error(err))
 		}
 
 		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
@@ -391,7 +391,7 @@ func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL st
 
 	req, err := http.NewRequest("GET", serviceURL, nil)
 	if err != nil {
-		log.WithField("serviceURL", serviceURL).WithError(err).Warningf("Unable to create service request to publish stats")
+		zap.L().Warn("Unable to create service request to publish stats", zap.Any("serviceURL", serviceURL))
 		return false, err
 	}
 
@@ -406,26 +406,25 @@ func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL st
 
 	response, err := client.Do(req)
 	if err != nil {
-		log.Error(err)
+		zap.L().Error(err.Error())
 		return false, err
 	}
 	return checkResponse(response)
-
 }
 
 // Check if the response received was proper
 func checkResponse(response *http.Response) (allowed bool, err error) {
 	if response == nil {
-		log.Error("Empty response received.")
+		zap.L().Error("Empty response received.")
 		return false, fmt.Errorf("Empty response received.")
 	}
 	if response.StatusCode != http.StatusOK {
-		log.Errorf("Service call failed with status code : %d ", response.StatusCode)
+		zap.L().Error("Service call failed", zap.Int("StatusCode", response.StatusCode))
 		return false, fmt.Errorf("Service call failed with status code : %d ", response.StatusCode)
 	}
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Infof("Unable to retrieve calls allowed from Body , : %s ", err.Error())
+		zap.L().Info("Unable to retrieve calls allowed from Body", zap.Error(err))
 		return false, err
 	}
 	var responseBody VerifyMeteringResponse
@@ -451,14 +450,14 @@ type VerifyMeteringResponse struct {
 func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		if config.GetBool(config.AllowedUserFlag) {
-			log.Info("Blockchain is disabled And AllowedUserFlag is enabled")
+			zap.L().Info("Blockchain is disabled And AllowedUserFlag is enabled")
 			return handler.GrpcPaymentValidationInterceptor(components.ServiceMetaData(), components.AllowedUserPaymentHandler())
 
 		}
-		log.Info("Blockchain is disabled: no payment validation")
+		zap.L().Info("Blockchain is disabled: no payment validation")
 		return handler.NoOpInterceptor
 	} else {
-		log.Info("Blockchain is enabled: instantiate payment validation interceptor")
+		zap.L().Info("Blockchain is enabled: instantiate payment validation interceptor")
 		return handler.GrpcPaymentValidationInterceptor(components.ServiceMetaData(), components.EscrowPaymentHandler(),
 			components.FreeCallPaymentHandler(), components.PrePaidPaymentHandler())
 	}
@@ -517,8 +516,15 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 	if components.daemonHeartbeat != nil {
 		return components.daemonHeartbeat
 	}
+
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
-	components.daemonHeartbeat = &metrics.DaemonHeartbeat{DaemonID: metrics.GetDaemonID(), DaemonVersion: config.GetVersionTag()}
+
+	components.daemonHeartbeat = &metrics.DaemonHeartbeat{
+		TrainingInProto: len(components.ServiceMetaData().TrainingMethods) > 0,
+		DaemonID:        metrics.GetDaemonID(),
+		DaemonVersion:   config.GetVersionTag(),
+	}
+
 	return components.daemonHeartbeat
 }
 

@@ -2,8 +2,10 @@ package blockchain
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	log "github.com/sirupsen/logrus"
+
 	"math/big"
+
+	"go.uber.org/zap"
 )
 
 type MultiPartyEscrowChannel struct {
@@ -19,15 +21,15 @@ type MultiPartyEscrowChannel struct {
 var zeroAddress = common.Address{}
 
 func (processor *Processor) MultiPartyEscrowChannel(channelID *big.Int) (channel *MultiPartyEscrowChannel, ok bool, err error) {
-	log := log.WithField("channelID", channelID)
+	channelIdField := zap.Any("channelID", channelID)
 
 	ch, err := processor.multiPartyEscrow.Channels(nil, channelID)
 	if err != nil {
-		log.WithError(err).Warn("Error while looking up for channel id in blockchain")
+		zap.L().Warn("Error while looking up for channel id in blockchain", zap.Error(err), channelIdField)
 		return nil, false, err
 	}
 	if ch.Sender == zeroAddress {
-		log.Warn("Unable to find channel id in blockchain")
+		zap.L().Warn("Unable to find channel id in blockchain", channelIdField)
 		return nil, false, nil
 	}
 
@@ -41,8 +43,7 @@ func (processor *Processor) MultiPartyEscrowChannel(channelID *big.Int) (channel
 		Signer:     ch.Signer,
 	}
 
-	log = log.WithField("channel", channel)
-	log.Debug("Channel found in blockchain")
+	zap.L().Debug("Channel found in blockchain", zap.Any("channel", channel))
 
 	return channel, true, nil
 }

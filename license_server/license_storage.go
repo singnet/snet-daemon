@@ -55,7 +55,7 @@ func (key *LicenseDetailsKey) String() string {
 	return fmt.Sprintf("{ID:%v/%v}", key.ChannelID, key.ServiceID)
 }
 
-func serializeLicenseDetailsKey(key interface{}) (serialized string, err error) {
+func serializeLicenseDetailsKey(key any) (serialized string, err error) {
 	myKey := key.(LicenseDetailsKey)
 	return myKey.String(), nil
 }
@@ -74,7 +74,7 @@ type LicenseUsageTrackerKey struct {
 	UsageType string
 }
 
-func serializeLicenseUsageTrackerKey(key interface{}) (serialized string, err error) {
+func serializeLicenseUsageTrackerKey(key any) (serialized string, err error) {
 	myKey := key.(LicenseUsageTrackerKey)
 	return myKey.String(), nil
 }
@@ -343,7 +343,7 @@ func NewLicenseDetailsStorage(atomicStorage storage.AtomicStorage) storage.Typed
 		reflect.TypeOf(LicenseDetailsData{}))
 }
 
-func serializeLicenseDetailsData(value interface{}) (slice string, err error) {
+func serializeLicenseDetailsData(value any) (slice string, err error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
 	gob.Register(&Subscription{})
@@ -362,7 +362,7 @@ func serializeLicenseDetailsData(value interface{}) (slice string, err error) {
 	slice = string(b.Bytes())
 	return
 }
-func deserializeLicenseDetailsData(slice string, value interface{}) (err error) {
+func deserializeLicenseDetailsData(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	gob.Register(&Subscription{})
 	gob.Register(&ValidityPeriod{})
@@ -376,7 +376,7 @@ func deserializeLicenseDetailsData(slice string, value interface{}) (err error) 
 	return
 }
 
-func serializeLicenseTrackerData(value interface{}) (slice string, err error) {
+func serializeLicenseTrackerData(value any) (slice string, err error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
 	gob.Register(&UsageInCalls{})
@@ -390,7 +390,7 @@ func serializeLicenseTrackerData(value interface{}) (slice string, err error) {
 	return
 }
 
-func deserializeLicenseTrackerData(slice string, value interface{}) (err error) {
+func deserializeLicenseTrackerData(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	gob.Register(&UsageInCalls{})

@@ -3,10 +3,12 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	contracts "github.com/singnet/snet-ecosystem-contracts"
-	log "github.com/sirupsen/logrus"
 	"os"
+
+	contracts "github.com/singnet/snet-ecosystem-contracts"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type NetworkSelected struct {
@@ -27,7 +29,7 @@ var networkSelected = &NetworkSelected{}
 var networkIdNameMapping string
 
 func determineNetworkSelected(data []byte) (err error) {
-	dynamicBinding := map[string]interface{}{}
+	dynamicBinding := map[string]any{}
 	networkName := GetString(BlockChainNetworkSelected)
 	if err = json.Unmarshal(data, &dynamicBinding); err != nil {
 		return err
@@ -35,16 +37,16 @@ func determineNetworkSelected(data []byte) (err error) {
 	//Get the Network Name selected in config ( snetd.config.json) , Based on this retrieve the Registry address ,
 	//Ethereum End point and Network ID mapped to
 	networkSelected.NetworkName = networkName
-	networkSelected.RegistryAddressKey = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]interface{})[RegistryAddressKey], RegistryAddressKey)
-	networkSelected.EthereumJSONRPCEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]interface{})[EthereumJsonRpcEndpointKey], EthereumJsonRpcEndpointKey)
-	networkSelected.NetworkId = fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]interface{})[NetworkId])
+	networkSelected.RegistryAddressKey = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[RegistryAddressKey], RegistryAddressKey)
+	networkSelected.EthereumJSONRPCEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[EthereumJsonRpcEndpointKey], EthereumJsonRpcEndpointKey)
+	networkSelected.NetworkId = fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]any)[NetworkId])
 
 	return err
 }
 
 // Check if the value set in the  config file, if yes, then we use it as is
 // else we derive the value from the JSON parsed
-func getDetailsFromJsonOrConfig(details interface{}, configName string) string {
+func getDetailsFromJsonOrConfig(details any, configName string) string {
 	if len(GetString(configName)) > 0 {
 		return GetString(configName)
 	}
@@ -94,7 +96,7 @@ func setRegistryAddress() (err error) {
 }
 
 func deriveDatafromJSON(data []byte) (err error) {
-	m := map[string]interface{}{}
+	m := map[string]any{}
 	err = json.Unmarshal(data, &m)
 	if err != nil {
 		return fmt.Errorf("cannot parse the registry JSON file for the network %v , the error is : %v",
@@ -105,10 +107,12 @@ func deriveDatafromJSON(data []byte) (err error) {
 		return errors.New("cannot find registry address from JSON for the selected network")
 	}
 
-	networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]interface{})["address"])
+	networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]any)["address"])
 
-	log.Infof("The Network specified is :%v, and maps to the Network Id %v, the determined Registry address is %v and block chain end point is %v",
-		GetString(BlockChainNetworkSelected), GetNetworkId(), GetRegistryAddress(), GetBlockChainEndPoint())
+	zap.L().Info("Derive data from JSON", zap.String("Network", GetString(BlockChainNetworkSelected)),
+		zap.String("NetwrokId", GetNetworkId()),
+		zap.String("RegistryAddress", GetRegistryAddress()),
+		zap.String("Blockchain endpoint", GetBlockChainEndPoint()))
 	return nil
 }
 

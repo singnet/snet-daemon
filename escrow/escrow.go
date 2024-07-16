@@ -2,7 +2,8 @@ package escrow
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
+
+	"go.uber.org/zap"
 )
 
 // lockingPaymentChannelService implements PaymentChannelService interface
@@ -49,7 +50,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
 
 	if !storageOk {
-		//Group ID check is only done for the first time , when the channel is added to storage from the block chain ,
+		// Group ID check is only done for the first time , when the channel is added to storage from the block chain ,
 		//if the channel is already present in the storage the group ID check is skipped.
 		if blockchainChannel != nil {
 			blockChainGroupID, err := h.replicaGroupID()
@@ -66,10 +67,10 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	return MergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
 }
 
-//Check if the channel belongs to the same group Id
+// Check if the channel belongs to the same group ID
 func (h *lockingPaymentChannelService) verifyGroupId(configGroupID [32]byte, blockChainGroupID [32]byte) error {
 	if blockChainGroupID != configGroupID {
-		log.WithField("configGroupId", configGroupID).Warn("Channel received belongs to another group of replicas")
+		zap.L().Warn("Channel received belongs to another group of replicas", zap.Any("configGroupId", configGroupID))
 		return fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, blockChainGroupID)
 	}
 	return nil
@@ -95,7 +96,7 @@ func (claim *claimImpl) Finish() (err error) {
 func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error) {
 	lock, ok, err := h.locker.Lock(key.String())
 	if err != nil {
-		log.WithError(err).WithField("PaymentChannelKey", key).Error("StartClaim, unable to get lock!")
+		zap.L().Error("StartClaim, unable to get lock!", zap.Any("PaymentChannelKey", key))
 		return nil, fmt.Errorf("cannot get mutex for channel: %v because of %v", key, err)
 	}
 	if !ok {
@@ -104,14 +105,15 @@ func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update
 	defer func() {
 		e := lock.Unlock()
 		if e != nil {
-			log.WithError(e).WithField("key", key).WithField("err", err).Error("Transaction is cancelled because of err, but channel cannot be unlocked. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+			zap.L().Error("Transaction is cancelled because of err, but channel cannot be unlocked. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.",
+				zap.Any("key", key),
+				zap.Error(err))
 		}
 	}()
 
 	channel, ok, err := h.storage.Get(key)
 	if err != nil {
-		log.WithError(err).WithField("channelKey", key).Error("StartClaim, unable to get channel from Storage!")
-
+		zap.L().Error("StartClaim, unable to get channel from Storage!", zap.Any("channelKey", key))
 		return
 	}
 	if !ok {
@@ -130,8 +132,9 @@ func (h *lockingPaymentChannelService) StartClaim(key *PaymentChannelKey, update
 
 	err = h.paymentStorage.Put(payment)
 	if err != nil {
-		log.WithError(err)
-		log.WithField("payment", payment).Error("Cannot write payment into payment storage. Channel storage is already updated. Payment should be handled manually.")
+		zap.L().Error("Cannot write payment into payment storage. Channel storage is already updated. Payment should be handled manually.",
+			zap.Error(err),
+			zap.Any("payment", payment))
 		return
 	}
 
@@ -190,7 +193,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 
 	lock, ok, err := h.locker.Lock(channelKey.String())
 	if err != nil {
-		log.WithError(err).WithField("channelKey", channelKey).Error("StartPaymentTransaction, unable to get lock!")
+		zap.L().Error("StartPaymentTransaction, unable to get lock!", zap.Error(err), zap.Any("channelKey", channelKey))
 		return nil, NewPaymentError(Internal, "cannot get mutex for channel: %v", channelKey)
 	}
 	if !ok {
@@ -200,18 +203,20 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 		if err != nil {
 			e := lock.Unlock()
 			if e != nil {
-				log.WithError(e).WithField("channelKey", channelKey).WithField("err", err).Error("Transaction is cancelled because of err, but channel cannot be unlocked. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+				zap.L().Error("Transaction is cancelled because of err, but channel cannot be unlocked. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.",
+					zap.Error(err),
+					zap.Any("channelKey", channelKey))
 			}
 		}
 	}(lock)
 
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
-		log.WithError(err).WithField("channelKey", channelKey).Error("StartPaymentTransaction, unable to get channel!")
+		zap.L().Error("StartPaymentTransaction, unable to get channel!", zap.Error(err), zap.Any("channelKey", channelKey))
 		return nil, NewPaymentError(Internal, "payment channel error:"+err.Error())
 	}
 	if !ok {
-		log.Warn("Payment channel not found")
+		zap.L().Warn("Payment channel not found")
 		return nil, NewPaymentError(Unauthenticated, "payment channel \"%v\" not found", channelKey)
 	}
 
@@ -232,13 +237,14 @@ func (payment *paymentTransaction) Commit() error {
 	defer func(payment *paymentTransaction) {
 		err := payment.lock.Unlock()
 		if err != nil {
-			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+			zap.L().Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.",
+				zap.Error(err), zap.Any("payment", payment))
 		} else {
-			log.Debug("Channel unlocked")
+			zap.L().Debug("Channel unlocked")
 		}
 	}(payment)
 
-	e := payment.service.storage.Put(
+	err := payment.service.storage.Put(
 		&PaymentChannelKey{ID: payment.payment.ChannelID},
 		&PaymentChannelData{
 			ChannelID:        payment.channel.ChannelID,
@@ -254,12 +260,12 @@ func (payment *paymentTransaction) Commit() error {
 			GroupID:          payment.channel.GroupID,
 		},
 	)
-	if e != nil {
-		log.WithError(e).Error("Unable to store new payment channel state")
+	if err != nil {
+		zap.L().Error("Unable to store new payment channel state", zap.Error(err))
 		return NewPaymentError(Internal, "unable to store new payment channel state")
 	}
 
-	log.Debug("Payment completed")
+	zap.L().Debug("Payment completed")
 	return nil
 }
 
@@ -267,9 +273,11 @@ func (payment *paymentTransaction) Rollback() error {
 	defer func(payment *paymentTransaction) {
 		err := payment.lock.Unlock()
 		if err != nil {
-			log.WithError(err).WithField("payment", payment).Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.")
+			zap.L().Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.",
+				zap.Error(err),
+				zap.Any("payment", payment))
 		} else {
-			log.Debug("Payment rolled back, channel unlocked")
+			zap.L().Debug("Payment rolled back, channel unlocked")
 		}
 	}(payment)
 	return nil

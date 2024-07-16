@@ -3,10 +3,11 @@ package blockchain
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	log "github.com/sirupsen/logrus"
 	"regexp"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 )
 
 // ParseSignature parses Ethereum signature.
@@ -53,10 +54,7 @@ func StringToBytes32(str string) [32]byte {
 }
 
 func RemoveSpecialCharactersfromHash(pString string) string {
-	reg, err := regexp.Compile("[^a-zA-Z0-9=]")
-	if err != nil {
-		log.Panic(err)
-	}
+	reg := regexp.MustCompile("[^a-zA-Z0-9=]")
 	return reg.ReplaceAllString(pString, "")
 }
 
@@ -64,7 +62,7 @@ func ConvertBase64Encoding(str string) ([32]byte, error) {
 	var byte32 [32]byte
 	data, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		log.WithError(err).WithField("String Passed:", str)
+		zap.L().Error(err.Error(), zap.String("String Passed", str))
 		return byte32, err
 	}
 	copy(byte32[:], data[:])
@@ -72,10 +70,10 @@ func ConvertBase64Encoding(str string) ([32]byte, error) {
 }
 
 func FormatHash(ipfsHash string) string {
-	log.WithField("metadataHash", ipfsHash).Debug("Before Formatting")
+	zap.L().Debug("Before Formatting", zap.String("metadataHash", ipfsHash))
 	ipfsHash = strings.Replace(ipfsHash, IpfsPrefix, "", -1)
 	ipfsHash = RemoveSpecialCharactersfromHash(ipfsHash)
-	log.WithField("metadataUri", ipfsHash).Debug("After Formatting")
+	zap.L().Debug("After Formatting", zap.String("metadataUri", ipfsHash))
 	return ipfsHash
 }
 

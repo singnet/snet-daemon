@@ -28,14 +28,14 @@ var FreeCallUserResetCmd = &cobra.Command{
 	},
 }
 
-//Free call user unlock command
+// Free call user unlock command
 type freeCallUserUnLockCommand struct {
 	lockStorage *storage.PrefixedAtomicStorage
 	userId      string
 	orgMetadata *blockchain.OrganizationMetaData
 }
 
-//Free call user unlock command
+// Free call user unlock command
 type freeCallUserResetCountCommand struct {
 	lockStorage *storage.PrefixedAtomicStorage
 	userStorage *escrow.FreeCallUserStorage

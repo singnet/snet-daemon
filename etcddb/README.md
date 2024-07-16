@@ -14,7 +14,7 @@ There are two payment channel storage types which are currently supported by sne
 *memory* storage type is used in configuration where only one service replica is used by snet-daemon or
 for testing purposes.
 
-To run snet-daemon with several replicas set the payment_channel_storage_type is now initialized from Organizatio metadata:
+To run snet-daemon with several replicas set the payment_channel_storage_type is now initialized from Organization metadata:
 ```json
 {
   "payment_channel_storage_type": "etcd"
@@ -25,12 +25,14 @@ To run snet-daemon with several replicas set the payment_channel_storage_type is
 
 *payment_channel_storage_client* JSON map can be used to configure payment channel storage etcd client.
 
-| Field name         | Description                                   |Default Value            |
-|--------------------|-----------------------------------------------|-------------------------|
-| connection_timeout | timeout for failing to establish a connection |5 seconds                |
-| request_timeout    | per request timeout                           |3 seconds                |
-| endpoints          | list of etcd cluster endpoints (host:port)    |["http://127.0.0.1:2379"]|
+| Field name         | Description                                   | Default Value               |
+|--------------------|-----------------------------------------------|-----------------------------|
+| connection_timeout | timeout for failing to establish a connection | from org metadata           |
+| request_timeout    | per request timeout                           | from org metadata           |
+| endpoints          | list of etcd cluster endpoints (host:port)    | from org metadata           |
 
+
+**endpoints from the config are ignored and taken only from ipfs metadata**
 
 Endpoints consist of a list of URLs which points to etcd cluster servers.
 
@@ -61,20 +63,22 @@ cluster , please go over the documentation below
 To use embedded etcd server in snet-daemon the configuration file needs to
 contain the  *payment_channel_storage_server* JSON map with fields:
 
-| Field name     | Description                                            |Default Value                  |
-|----------------|--------------------------------------------------------|-------------------------------|
-| id             | unique name of the etcd server node                    |storage-1                      |
-| schema         | URL schema used to create client and peer and urls     |http                           |
-| host           | host where the etcd server is executed                 |127.0.0.1                      |
-| client_port    | port to listen clients requests                        |2379                           |
-| peer_port      | port to listen etcd peers                              |2380                           |
-| token          | unique initial cluster token                           |unique-token                   |
-| cluster        | initial cluster configuration for bootstrapping        |storage-1=http://127.0.0.1:2380|
-| startup_timeout| time to wait that etcd server is successfully started  |1 minute                       |
-| data_dir       | directory where etcd server stores its data            |storage-data-dir-1.etcd        |
-| log_level      | etcd server logging level (error, warning, info, debug)|info                           |
-| enabled        | enable running embedded etcd server                    |true                           |
+| Field name      | Description                                             | Default Value                  |
+|-----------------|---------------------------------------------------------|--------------------------------|
+| id              | unique name of the etcd server node                     | storage-1                      |
+| schema          | URL schema used to create client and peer and urls      | http                           |
+| host            | host where the etcd server is executed                  | 127.0.0.1                      |
+| client_port     | port to listen clients requests                         | 2379                           |
+| peer_port       | port to listen etcd peers                               | 2380                           |
+| token           | unique initial cluster token                            | unique-token                   |
+| cluster         | initial cluster configuration for bootstrapping         | storage-1=http://127.0.0.1:2380|
+| startup_timeout | time to wait that etcd server is successfully started   | 1 minute                       |
+| data_dir        | directory where etcd server stores its data             | storage-data-dir-1.etcd        |
+| log_level       | etcd server logging level (error, warning, info, debug) | info                           |
+| log_outputs     | file path to append server logs to or stderr/stdout     | stderr                         |
+| enabled         | enable running embedded etcd server                     | true                           |
 
+**log_outputs can accept array**
 
 The cluster field is a comma-separated list of one or more etcd peer URLs in form of *id=host:peer_port*.
 
@@ -102,6 +106,10 @@ want to set up a local cluster , then payment_channel_storage_server.enabled con
         "id": "storage-1",
         "host" : "127.0.0.1",
         "client_port": 2379,
+        "log_level": "info",
+        "log_outputs": [
+          "./etcd-server.log"
+        ],
         "peer_port": 2380,
         "token": "unique-token",
         "cluster": "storage-1=http://127.0.0.1:2380",
@@ -115,14 +123,18 @@ Config for snet-daemon that does not run embedded etcd node:
 * *enabled* field is set to _false_
 ```json
 {
-    "payment_channel_storage_server": {
-        "id": "storage-2",
-        "host" : "127.0.0.2",
-        "client_port": 2379,
-        "peer_port": 2380,
-        "token": "unique-token",
-        "cluster": "storage-1=http://127.0.0.1:2380,storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380",
-        "enabled": false
-    }
+  "payment_channel_storage_server": {
+    "id": "storage-2",
+    "host": "127.0.0.2",
+    "client_port": 2379,
+    "peer_port": 2380,
+    "log_level": "info",
+    "log_outputs": [
+      "./etcd-server.log"
+    ],
+    "token": "unique-token",
+    "cluster": "storage-1=http://127.0.0.1:2380,storage-2=http://127.0.0.2:2380,storage-3=http://127.0.0.3:2380",
+    "enabled": false
+  }
 }
 ```

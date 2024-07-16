@@ -4,10 +4,12 @@ import (
 	"archive/tar"
 	"context"
 	"fmt"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/kubo/client/rpc"
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"io"
 	"net/http"
 	"strings"
@@ -27,19 +29,19 @@ func ReadFilesCompressed(compressedFile string) (protofiles []string, err error)
 			break
 		}
 		if err != nil {
-			log.WithError(err)
+			zap.L().Error(err.Error())
 			return nil, err
 		}
 		name := header.Name
 		switch header.Typeflag {
 		case tar.TypeDir:
-			log.WithField("Directory Name", name).Debug("Directory name ")
+			zap.L().Debug("Directory name", zap.Any("name", name))
 		case tar.TypeReg:
-			log.WithField("file Name:", name).Debug("File name ")
+			zap.L().Debug("File name", zap.Any("name", name))
 			data := make([]byte, header.Size)
 			_, err := tarReader.Read(data)
 			if err != nil && err != io.EOF {
-				log.WithError(err)
+				zap.L().Error(err.Error())
 				return nil, err
 			}
 			protofiles = append(protofiles, string(data))
@@ -50,7 +52,7 @@ func ReadFilesCompressed(compressedFile string) (protofiles []string, err error)
 				"in file",
 				name,
 			))
-			log.WithError(err)
+			zap.L().Error(err.Error())
 			return nil, err
 		}
 	}
@@ -59,33 +61,33 @@ func ReadFilesCompressed(compressedFile string) (protofiles []string, err error)
 
 func GetIpfsFile(hash string) (content string) {
 
-	log.WithField("hash", hash).Debug("Hash Used to retrieve from IPFS")
+	zap.L().Debug("Hash Used to retrieve from IPFS", zap.String("hash", hash))
 
 	ipfsClient := GetIPFSClient()
 
 	cID, err := cid.Parse(hash)
 	if err != nil {
-		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error parsing the ipfs hash")
+		zap.L().Panic("error parsing the ipfs hash", zap.String("hashFromMetaData", hash), zap.Error(err))
 	}
 
 	req := ipfsClient.Request("cat", cID.String())
 	if err != nil {
-		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error executing the cat command in ipfs")
+		zap.L().Panic("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return
 	}
 	resp, err := req.Send(context.Background())
 	defer resp.Close()
 	if err != nil {
-		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error executing the cat command in ipfs")
+		zap.L().Panic("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return
 	}
 	if resp.Error != nil {
-		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error executing the cat command in ipfs")
+		zap.L().Panic("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return
 	}
 	fileContent, err := io.ReadAll(resp.Output)
 	if err != nil {
-		log.WithError(err).WithField("hashFromMetaData", hash).Panicf("error: in Reading the meta data file %s", err)
+		zap.L().Panic("error: in Reading the meta data file", zap.Error(err), zap.String("hashFromMetaData", hash))
 		return
 	}
 
@@ -94,13 +96,15 @@ func GetIpfsFile(hash string) (content string) {
 	// Create a cid manually to check cid
 	_, c, err := cid.CidFromBytes(append(cID.Bytes(), fileContent...))
 	if err != nil {
-		log.WithError(err).WithField("hashFromMetaData", hash).Panic("error generating ipfs hash")
+		zap.L().Panic("error generating ipfs hash", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return
 	}
 
 	// To test if two cid's are equivalent, be sure to use the 'Equals' method:
 	if !c.Equals(cID) {
-		log.WithError(err).WithField("hashFromIPFSContent", c.String()).Panicf("IPFS hash verification failed. Generated hash doesnt match with expected hash %s", hash)
+		zap.L().Panic("IPFS hash verification failed. Generated hash doesnt match with expected hash",
+			zap.String("expectedHash", hash),
+			zap.String("hashFromIPFSContent", c.String()))
 	}
 
 	return string(fileContent)
@@ -112,7 +116,7 @@ func GetIPFSClient() *rpc.HttpApi {
 	}
 	ifpsClient, err := rpc.NewURLApiWithClient(config.GetString(config.IpfsEndPoint), &httpClient)
 	if err != nil {
-		log.WithError(err).Panicf("Connection failed to IPFS: %s", config.GetString(config.IpfsEndPoint))
+		zap.L().Panic("Connection failed to IPFS", zap.String("IPFS", config.GetString(config.IpfsEndPoint)), zap.Error(err))
 	}
 	return ifpsClient
 }

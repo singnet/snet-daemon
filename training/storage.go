@@ -104,7 +104,7 @@ type ModelData struct {
 	UpdatedDate         string
 }
 
-func serializeModelKey(key interface{}) (serialized string, err error) {
+func serializeModelKey(key any) (serialized string, err error) {
 	myKey := key.(*ModelKey)
 	return myKey.String(), nil
 }
@@ -137,7 +137,7 @@ func (storage *ModelStorage) CompareAndSwap(key *ModelKey, prevState *ModelData,
 	newState *ModelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }
-func serializeModelUserKey(key interface{}) (serialized string, err error) {
+func serializeModelUserKey(key any) (serialized string, err error) {
 	myKey := key.(*ModelUserKey)
 	return myKey.String(), nil
 }

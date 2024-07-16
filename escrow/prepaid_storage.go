@@ -15,13 +15,13 @@ type PrePaidPayment struct {
 	AuthToken      string
 }
 
-//Used when the Request comes in
+// Used when the Request comes in
 func (payment *PrePaidPayment) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v}", payment.ChannelID, payment.OrganizationId, payment.GroupId)
 }
 
-//Kept the bare minimum here , other details like group and sender address of this channel can
-//always be retrieved from BlockChain
+// Kept the bare minimum here , other details like group and sender address of this channel can
+// always be retrieved from BlockChain
 type PrePaidData struct {
 	Amount *big.Int
 }
@@ -44,7 +44,7 @@ const (
 	REFUND_AMOUNT  string = "R"
 )
 
-//This will ony be used for doing any business checks
+// This will ony be used for doing any business checks
 type PrePaidUsageData struct {
 	ChannelID       *big.Int
 	PlannedAmount   *big.Int
@@ -80,7 +80,7 @@ func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 	}
 }
 
-func serializePrePaidKey(key interface{}) (serialized string, err error) {
+func serializePrePaidKey(key any) (serialized string, err error) {
 	myKey := key.(PrePaidDataKey)
 	return myKey.String(), nil
 }

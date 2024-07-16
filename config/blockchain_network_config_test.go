@@ -83,7 +83,7 @@ func Test_SetBlockChainNetworkDetails(t *testing.T) {
 
 func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 
-	dynamicBinding := map[string]interface{}{}
+	dynamicBinding := map[string]any{}
 	data := []byte(defaultBlockChainNetworkConfig)
 	json.Unmarshal(data, &dynamicBinding)
 
@@ -97,7 +97,7 @@ func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getDetailsFromJsonOrConfig(dynamicBinding[tt.network].(map[string]interface{})[tt.name], tt.name); got != tt.want {
+			if got := getDetailsFromJsonOrConfig(dynamicBinding[tt.network].(map[string]any)[tt.name], tt.name); got != tt.want {
 				t.Errorf("getDetailsFromJsonOrConfig() = %v, want %v", got, tt.want)
 			}
 		})

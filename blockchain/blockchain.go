@@ -5,14 +5,15 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
-	"math/big"
+	"go.uber.org/zap"
 )
 
 var (
@@ -98,7 +99,7 @@ func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
 	// unmarshaling the response currently. See https://github.com/ethereum/go-ethereum/issues/3230
 	var currentBlockHex string
 	if err = processor.rawClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
-		log.WithError(err).Error("error determining current block")
+		zap.L().Error("error determining current block", zap.Error(err))
 		return nil, fmt.Errorf("error determining current block: %v", err)
 	}
 

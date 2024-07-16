@@ -78,9 +78,9 @@ const jsonConfigString = `
 }`
 
 func assertConfigIsEqualToJsonConfigString(t *testing.T, config *viper.Viper) {
-	assert.Equal(t, map[string]interface{}{"field": "value"}, config.Get("object"))
+	assert.Equal(t, map[string]any{"field": "value"}, config.Get("object"))
 	assert.Equal(t, "value", config.Get("object.field"))
-	assert.Equal(t, []interface{}{"item-1", "item-2"}, config.Get("array"))
+	assert.Equal(t, []any{"item-1", "item-2"}, config.Get("array"))
 	assert.Equal(t, "string-value", config.Get("string-key"))
 	assert.Equal(t, 42, config.GetInt("int-key"))
 }

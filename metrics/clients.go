@@ -9,13 +9,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/singnet/snet-daemon/config"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type Response struct {
@@ -28,7 +29,7 @@ func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResp
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(serviceUrl, grpc.WithInsecure())
 	if err != nil {
-		log.WithError(err).Warningf("unable to connect to grpc endpoint: %v", err)
+		zap.L().Warn("unable to connect to grpc endpoint", zap.Error(err))
 		return grpc_health_v1.HealthCheckResponse_NOT_SERVING, err
 	}
 	defer conn.Close()
@@ -40,7 +41,7 @@ func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResp
 	req := grpc_health_v1.HealthCheckRequest{Service: config.GetString(config.ServiceId)}
 	resp, err := client.Check(ctx, &req)
 	if err != nil {
-		log.WithError(err).Warningf("error in calling the heartbeat service : %v", err)
+		zap.L().Warn("error in calling the heartbeat service", zap.Error(err))
 		return grpc_health_v1.HealthCheckResponse_UNKNOWN, err
 	}
 	return resp.Status, nil
@@ -50,11 +51,11 @@ func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResp
 func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	response, err := http.Get(serviceURL)
 	if err != nil {
-		log.WithError(err).Infof("the service request failed with an error: %v", err)
+		zap.L().Info("the service request failed with an error", zap.Error(err))
 		return nil, err
 	}
 	if response.StatusCode != http.StatusOK {
-		log.Warningf("wrong status code: %d", response.StatusCode)
+		zap.L().Warn("wrong status code", zap.Int("StatusCode", response.StatusCode))
 		return nil, errors.New("unexpected error with the service")
 	}
 	// Read the response
@@ -63,7 +64,7 @@ func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	if string(serviceHeartbeat) == "" {
 		return nil, errors.New("empty service response")
 	}
-	log.Infof("response received : %v", serviceHeartbeat)
+	zap.L().Info("response received", zap.Any("response", serviceHeartbeat))
 	return serviceHeartbeat, nil
 }
 
@@ -72,7 +73,7 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	//Send the Daemon ID and the Network ID to register the Daemon
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(buildPayLoadForServiceRegistration()))
 	if err != nil {
-		log.WithError(err).Infof("unable to create register service request : %v", err)
+		zap.L().Info("unable to create register service request", zap.Error(err))
 		return false
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -82,18 +83,18 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		log.WithError(err).Infof("unable to reach registration service : %v", err)
+		zap.L().Info("unable to reach registration service", zap.Error(err))
 		return false
 	}
 	// process the response and set the Authorization token
 	daemonAuthorizationToken, status = getTokenFromResponse(response)
-	log.Debugf("daemonAuthorizationToken %v", daemonAuthorizationToken)
+	zap.L().Debug("daemon authorization token", zap.Any("value", daemonAuthorizationToken))
 	return
 }
 
 func buildPayLoadForServiceRegistration() []byte {
 	payload := &RegisterDaemonPayload{DaemonID: GetDaemonID()}
 	body, _ := ConvertStructToJSON(payload)
-	log.Debugf("buildPayLoadForServiceRegistration() %v", string(body))
+	zap.L().Debug("build payload for service registration", zap.Binary("body", body))
 	return body
 }

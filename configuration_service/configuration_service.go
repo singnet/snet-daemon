@@ -4,15 +4,18 @@ package configuration_service
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
+	"go.uber.org/zap"
+
 	"math/big"
 	"sort"
 	"strings"
+
+	"golang.org/x/net/context"
 )
 
 type ConfigurationService struct {
@@ -111,7 +114,7 @@ func (service ConfigurationService) authenticate(prefix string, auth *CallerAuth
 
 	signerFromMessage, err := authutils.GetSignerAddressFromMessage(service.getMessageBytes(prefix, auth.CurrentBlock), auth.GetSignature())
 	if err != nil {
-		log.Error(err)
+		zap.L().Error(err.Error())
 		return err
 	}
 	//Check if the Signature is Valid and Signed accordingly

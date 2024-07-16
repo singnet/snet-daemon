@@ -33,9 +33,9 @@ func (h *lockingPrepaidService) GetUsage(key PrePaidDataKey) (data *PrePaidData,
 
 }
 
-//Defines the condition that needs to be met, it generates the respective typed Data when
-//conditions are satisfied, you define your own validations in here
-//It takes in the latest typed values read.
+// Defines the condition that needs to be met, it generates the respective typed Data when
+// conditions are satisfied, you define your own validations in here
+// It takes in the latest typed values read.
 type ConditionFunc func(conditionValues []storage.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) ([]storage.TypedKeyValueData, error)
 
 func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *big.Int, updateUsageType string) (err error) {
@@ -78,16 +78,16 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 	}
 	return nil
 }
-func getAllKeys(channelId *big.Int) []interface{} {
-	keys := make([]interface{}, 3)
+func getAllKeys(channelId *big.Int) []any {
+	keys := make([]any, 3)
 	for i, usageType := range []string{REFUND_AMOUNT, PLANNED_AMOUNT, USED_AMOUNT} {
 		keys[i] = PrePaidDataKey{ChannelID: channelId, UsageType: usageType}
 	}
 	return keys
 }
 
-//this function will be used to read typed data ,convert it in to a business structure
-//on which validations can be easily performed and return back the business structure.
+// this function will be used to read typed data ,convert it in to a business structure
+// on which validations can be easily performed and return back the business structure.
 func convertTypedDataToPrePaidUsage(data []storage.TypedKeyValueData) (new *PrePaidUsageData, err error) {
 	usageData := &PrePaidUsageData{PlannedAmount: big.NewInt(0),
 		UsedAmount: big.NewInt(0), RefundAmount: big.NewInt(0)}

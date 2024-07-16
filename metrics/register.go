@@ -8,8 +8,9 @@ package metrics
 import (
 	"crypto/sha256"
 	"encoding/hex"
+
 	"github.com/singnet/snet-daemon/config"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 /*
@@ -20,7 +21,7 @@ Post beta, this ID will be used to enable Token based authentication for accessi
 
 // generates DaemonID nad returns i.e. DaemonID = HASH (Org Name, Service Name, daemon endpoint)
 func GetDaemonID() string {
-	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + daemonGroupId  + config.GetRegistryAddress()
+	rawID := config.GetString(config.OrganizationId) + config.GetString(config.ServiceId) + daemonGroupId + config.GetRegistryAddress()
 	//get hash of the string id combination
 	hasher := sha256.New()
 	hasher.Write([]byte(rawID))
@@ -55,9 +56,9 @@ func RegisterDaemon(serviceURL string) bool {
 	// call the service and get the result
 	status = callRegisterService(daemonID, serviceURL)
 	if !status {
-		log.Infof("Daemon unable to register with the monitoring service. ")
+		zap.L().Info("Daemon unable to register with the monitoring service.")
 	} else {
-		log.Infof("Daemon successfully registered with the monitoring service. ")
+		zap.L().Info("Daemon successfully registered with the monitoring service.")
 	}
 	return status
 }

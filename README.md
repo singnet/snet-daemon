@@ -1,8 +1,9 @@
-# snet-daemon
+# SingularityNET Daemon
 
 [![Coverage Status](https://coveralls.io/repos/github/singnet/snet-daemon/badge.svg)](https://coveralls.io/github/singnet/snet-daemon)
 
-SingularityNET Daemon
+Users interested in deploying SingularityNET services should use this daemon
+
 The daemon is the adapter with which an otherwise SingularityNET-unaware service implementation can be exposed to the
 SingularityNET platform. It is designed to be deployed as a sidecar proxy alongside the service on a given host.
 The daemon abstracts the blockchain components away from the clients.
@@ -14,13 +15,13 @@ are then passed to the service after validation by the daemon.
 
 Gets the latest channel state of the Channel updated in ETCD by the daemons of the same group and then increments the
 nonce of the channel.
-It then sends and ON-Chain transaction to claim funds.The daemons continue their work independently without any
+It then sends and ON-Chain transaction to claim funds. The daemons continue their work independently without any
 confirmation from the treasurer on the blockchain.
 
-## Usage (without compiling)
+## Releases
 
-Users interested in deploying SingularityNET services using SingularityNET
-Daemon should install the appropriate [binary from releases](https://github.com/singnet/snet-daemon/releases).
+**Usage without compiling:**
+Precompiled binaries are published with each [release](https://github.com/singnet/snet-daemon/releases).
 
 ## Development
 
@@ -28,8 +29,8 @@ These instructions are intended to facilitate the development and testing of Sin
 
 ### Prerequisites and dependencies
 
-* [Go 1.21+](https://golang.org/dl/)
-* [Protoc v25.0+](https://github.com/protocolbuffers/protobuf/releases)
+* [Go 1.22+](https://golang.org/dl/)
+* [Protoc 25.0+](https://github.com/protocolbuffers/protobuf/releases)
 
 **Protoc (libprotoc), golang and $GOPATH/bin should be in environment variables.**
 
@@ -79,7 +80,7 @@ $ ./build/snetd-linux-amd64 init-full
 If you want to build snetd for several platforms, run `./scripts/build-all <version>` instead
 of `./scripts/build`.
 
-You can edit the script to choose a specific platforms, but by default it will build for Linux, OSX, and Windows.
+You can edit the script to choose the specific platforms, but by default it will build for Linux, OSX, and Windows.
 
 #### Run Daemon
 
@@ -124,7 +125,7 @@ Available Commands:
   channel     Manage operations on payment channels
   freecall    Manage operations on free call users
   help        Help about any command
-  init        Write default configuration to file
+  init        Write basic configuration to file
   init-full   Write full default configuration to file
   list        List channels, claims in progress, etc
   serve       Is the default option which starts the Daemon.
@@ -141,6 +142,10 @@ Use "snetd [command] --help" for more information about a command.
 
 ```bash
 $ ./scripts/test
+``` 
+or
+```bash
+$ go test ./...
 ```
 
 ### Configuration
@@ -154,15 +159,19 @@ also supported via [Viper](https://github.com/spf13/viper). Use `snet init-full`
 command to save configuration file with default values. Following
 configuration properties can be set using configuration file.
 
+#### Blockchain network config
+
+You can update the registry address or ethereum_json_rpc_endpoint in `resources/blockchain_network_config.json` before ./scripts/build.
+
 #### Main properties
 
 These properties you should usually change before starting daemon for the first
 time.
 
-* **blockchain_network_selected**  (required)
+* **blockchain_network_selected** (required)
   Name of the network to be used for Daemon possible values are one of (goerli, sepolia, main, local).
   Daemon will automatically read the Registry address associated with this network For local network ( you can also
-  specify the registry address manually),see the blockchain_network_config.json
+  specify the registry address manually), see the blockchain_network_config.json
 
 * **daemon_end_point** (required;) -
   Defines the ip and the port on which the daemon listens to.
@@ -177,14 +186,9 @@ time.
   infura api
   key secret.
 
-* **ipfs_end_point** (optional; default `"http://localhost:5002/"`) -
-  endpoint of IPFS instance to get [service configuration
-  metadata][service-configuration-metadata]
-
 * **organization_id** (required) -
   Id of the organization to search for [service configuration
   metadata][service-configuration-metadata].
-
 
 * **service_id** (required) -
   Id of the service to search for [service configuration
@@ -202,10 +206,9 @@ time.
 * **executable_path** (required if `service_type` == `executable`) -
   path to executable to expose as a service.
 
-
-#### Blockchain network config
-
-You can update the registry address or ethereum_json_rpc_endpoint in `resources/blockchain_network_config.json`
+* **ipfs_end_point** (optional; default `"http://ipfs.singularitynet.io:80"`) -
+  endpoint of IPFS instance to get [service configuration
+  metadata][service-configuration-metadata]
 
 #### Other properties
 
@@ -214,16 +217,17 @@ This options are less frequently needed.
 * **service_credentials** (optional, for service_type http only):
   Array of credentials, example:
 
-```
-"service_credentials": [
-    {"key": "example_body_param", "value": 12345,"location": "body"},
-    {"key": "X-API-Key", "value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39", "location": "header"}
-  ],
-```
+  ```
+  "service_credentials": [
+      {"key": "example_body_param", "value": 12345,"location": "body"},
+      {"key": "X-API-Key", "value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39", "location": "header"}
+    ],
+  ```
 
-Location can be: query, header or body. Query and header values must be string.
+  Location can be: query, header or body. Query and header values must be string.
 
-* **allowed_users_flag** (optional;default:`false`) - You may need to protect the service provider 's service in test
+
+* **allowed_user_flag** (optional;default:`false`) - You may need to protect the service provider 's service in test
   environment from being called by anyone, only Authorized users can make calls , when this flag is defined in the
   config, you can enforce this behaviour.You cannot set this flag to true
   in mainnet.  
@@ -231,11 +235,25 @@ Location can be: query, header or body. Query and header values must be string.
   In which case it becomes mandatory to define the configuration `allowed_users`,
 
 * **allowed_user_addresses** (optional;) - List of selected user addresses who can make requests to Daemon
-  Is Applicable only when you have `allowed_users_flag set` to true.
+  Is Applicable only when you have `allowed_user_flag` set to true.
 
-* **authentication_address** (required if `You need to update Daemon configurations remotely`)
-  Contains the Authentication address that will be used to validate all requests to update Daemon configuration remotely
-  through a user interface ( Operator UI)
+* **authentication_addresses** (required if `You need to update Daemon configurations remotely`)
+  Contains the Authentication addresses
+  that will be used to validate all requests to update Daemon configuration remotely
+  through a user interface (Operator UI)
+
+* **free_calls_users**
+
+  You can set a separate number of allowed free calls for
+  certain users of the marketplace
+
+  ```json
+  "free_calls_users": {
+      "johndoe@gmail.com": 500,
+      "snet@test.com": 100,
+      "me@email.com": 150
+  },
+  ```
 
 * **auto_ssl_domain** (optional; default: `""`) -  
   domain name for which the daemon should automatically acquire SSL certs
@@ -250,9 +268,8 @@ Location can be: query, header or body. Query and header values must be string.
 * **burst_size** (optional; default: Infinite) -
   see [rate limiting configuration](./ratelimit/README.md)
 
-
-* **daemon_group_name** (optional ,default: `"default_group"`) -
-  This parameter defines the group the daemon belongs to .
+* **daemon_group_name** (optional, default: `"default_group"`) -
+  This parameter defines the group the daemon belongs to.
   The group helps determine the recipient address for payments.
   [service configuration
   metadata][service-configuration-metadata].
@@ -261,9 +278,9 @@ Location can be: query, header or body. Query and header values must be string.
   see [logger configuration](./logger/README.md)
 
 * **max_message_size_in_mb** (optional; default: `4`) -
-  The default value set is to 4 (units are in MB ), this is used to configure the max size in MB of the message received
+  The default value set is to 4 (units are in MB), this is used to configure the max size in MB of the message received
   by the Daemon.
-  In case of Large messages , it is recommended to use streaming than setting a very high value on this configuration.
+  In case of Large messages, it is recommended to use streaming than setting a very high value on this configuration.
   It is not recommended to set the value more than 4GB
   `Please make sure your grpc version > 1.25`
 
@@ -290,11 +307,11 @@ Location can be: query, header or body. Query and header values must be string.
   see [etcd server configuration](./etcddb#etcd-server-configuration)
 
 * **pvt_key_for_metering** (optional;only applies if `metering_enabled` is set to true)
-  This is used for authentication between daemon and the metering service in the context publishing stats , Even the
-  latest Channel Status is published , this way the offline channel state balance can also be tracked.
-  Daemon will send a signature signed by this private key , metering service will already have the public key
+  This is used for authentication between daemon and the metering service in the context publishing stats, Even the
+  latest Channel Status is published, this way the offline channel state balance can also be tracked.
+  Daemon will send a signature signed by this private key, metering service will already have the public key
   corresponding
-  to this Daemon ,metering service will ensure that the signer it receives matches the public key configured at its end.
+  to this Daemon, metering service will ensure that the signer it receives matches the public key configured at its end.
   This is mandatory only when metering is enabled.
 
 
@@ -305,7 +322,7 @@ Location can be: query, header or body. Query and header values must be string.
 * **registry_address_key** (Optional) -
   Ethereum address of the Registry contract instance.This is auto determined if not specified based on the
   blockchain_network_selected
-  If a value is specified , it will be used and no attempt will be made to auto determine the registry address.
+  If a value is specified, it will be used and no attempt will be made to auto determine the registry address.
 
 
 * **alerts_email** (optional; default: `""`) - It must be a valid email. if it is empty, then it is considered as alerts
@@ -326,7 +343,7 @@ Location can be: query, header or body. Query and header values must be string.
 
 * **is_curation_in_progress** (optional; default: `false`) - You may need to protect the service provider 's service in
   test environment from being called by anyone, only Authorized users can make calls , when this flag is set to true,
-  you can enforce this behaviour.Also see `curation_address_for_validation`
+  you can enforce this behaviour. Also see `curation_address_for_validation`
 
 * **token_expiry_in_minutes** (optional; default: `1440` minutes ~24hrs) - This is the default expiry time for a JWT
   token issued.
@@ -350,10 +367,6 @@ Location can be: query, header or body. Query and header values must be string.
 | `ssl_key`                    | `SNET_SSL_KEY`                    | `--ssl-key`           |
 
 [service-configuration-metadata]: https://github.com/singnet/wiki/blob/master/multiPartyEscrowContract/MPEServiceMetadata.md
-
-## Release
-
-Precompiled binaries are published with each [release](https://github.com/singnet/snet-daemon/releases).
 
 ## Versioning
 

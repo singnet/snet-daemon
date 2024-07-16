@@ -6,13 +6,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
+	"math/big"
+
 	"github.com/singnet/snet-daemon/authutils"
 	"github.com/singnet/snet-daemon/blockchain"
-	log "github.com/sirupsen/logrus"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
-	"math/big"
 )
 
 // PaymentChannelStateService is an implementation of PaymentChannelStateServiceServer gRPC interface
@@ -79,10 +81,9 @@ In this case, the server can only make us believe that we have more money in the
 That means that one possible attack via unspent_amount is to make us believe that we have less tokens than we truly have,
 and therefore reject future calls (or force us to call channelAddFunds).*/
 func (service *PaymentChannelStateService) GetChannelState(context context.Context, request *ChannelStateRequest) (reply *ChannelStateReply, err error) {
-	log.WithFields(log.Fields{
-		"context": context,
-		"request": request,
-	}).Debug("GetChannelState called")
+	zap.L().Debug("GetChannelState called",
+		zap.Any("context", context),
+		zap.Any("request", request))
 
 	channelID := bytesToBigInt(request.GetChannelId())
 	// signature verification
@@ -117,7 +118,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	// check if nonce matches with blockchain or not
 	nonceEqual, err := service.StorageNonceMatchesWithBlockchainNonce(channel)
 	if err != nil {
-		log.WithError(err).Infof("payment data not available in payment storage.")
+		zap.L().Info("payment data not available in payment storage.", zap.Error(err))
 		return nil, err
 
 	} else if !nonceEqual {
@@ -126,12 +127,12 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		paymentID := PaymentID(channel.ChannelID, (&big.Int{}).Sub(channel.Nonce, big.NewInt(1)))
 		payment, ok, err := service.paymentStorage.Get(paymentID)
 		if err != nil {
-			log.WithError(err).Errorf("Error trying unable to extract old payment from storage")
+			zap.L().Error("Error trying unable to extract old payment from storage", zap.Error(err))
 			return nil, err
 		}
 		if !ok {
 
-			log.Errorf("old payment is not found in storage, nevertheless local channel nonce is not equal to the blockchain one, channel: %v", channelID)
+			zap.L().Error("old payment is not found in storage, nevertheless local channel nonce is not equal to the blockchain one", zap.Any("ChannelID", channelID))
 			return nil, errors.New("channel has different nonce in local storage and blockchain and old payment is not found in storage")
 		}
 		return &ChannelStateReply{

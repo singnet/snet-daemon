@@ -22,19 +22,19 @@ configuration is one JSON object located in ```log``` field.
     * **formatter** - set of properties with ```log.formatter.``` prefix
       describes logger formatter configuration.
 
-        * **type** (default: json) - type of the log formatter. Two types are
-          supported, which correspond to ```zap``` formatter types
+        * **type** (default: text) - type of the log formatter. Two types are
+          supported, which correspond to ```zap``` formatter types:
             * json
             * text
 
-        * **timestamp_format** (default:  "2006-01-02T15:04:05.999999999Z07:00") -
+        * **timestamp_format** (default:  "2006-01-02T15:04:05.999Z07:00") -
           timestamp format to use in log lines, standard time.Time formats are
           supported, see [time.Time.Format](https://golang.org/pkg/time/#Time.Format)
 
     * **output** - set of properties with ```log.output.``` prefix describes
       logger output configuration.
 
-        * **type** (default: file) - type of the logger output. You can also specify the file and stdout at the same time using array (examples below). Types are
+        * **type** (default: file & stdout) - type of the logger output. You can specify one or several values at the same time by using an array [(examples are provided below)](#examples). Types are
           supported:
             * file -
               [lumberjack](https://github.com/natefinch/lumberjack)

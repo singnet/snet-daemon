@@ -22,19 +22,19 @@ configuration is one JSON object located in ```log``` field.
     * **formatter** - set of properties with ```log.formatter.``` prefix
       describes logger formatter configuration.
 
-        * **type** (default: json) - type of the log formatter. Two types are
-          supported, which correspond to ```zap``` formatter types
+        * **type** (default: text) - type of the log formatter. Two types are
+          supported, which correspond to ```zap``` formatter types:
             * json
             * text
 
-        * **timestamp_format** (default:  "2006-01-02T15:04:05.999999999Z07:00") -
+        * **timestamp_format** (default:  "2006-01-02T15:04:05.999Z07:00") -
           timestamp format to use in log lines, standard time.Time formats are
           supported, see [time.Time.Format](https://golang.org/pkg/time/#Time.Format)
 
     * **output** - set of properties with ```log.output.``` prefix describes
       logger output configuration.
 
-        * **type** (default: file) - type of the logger output. Two types are
+        * **type** (default: file & stdout) - type of the logger output. You can specify one or several values at the same time by using an array [(examples are provided below)](#examples). Types are
           supported:
             * file -
               [lumberjack](https://github.com/natefinch/lumberjack)
@@ -88,80 +88,85 @@ configuration is one JSON object located in ```log``` field.
         * **password** (required) - password (to send from a Google account, you will need to create the special "app password").
         * **application_name** (optional, default empty) - for smtp auth.
 
-      #### Telegram bot hook configuration
+        #### Telegram bot hook configuration
 
-      For hook type `telegram_bot`:
+        For hook type `telegram_bot`:
 
         * **telegram_api_key** (required) - api key of your telegram bot.
         * **telegram_chat_id** (required) - the chat id to which the logs will be sent.
         * **disable_notification** (optional, default `false`) - if `true`, the bot will send the message silently.
 
+## Examples
 
-## Default logger configuration in JSON format
+### Simple configuration with logs output both to the console and to a file in JSON format
 
 ```json
-  "log": {
-"formatter": {
-"timestamp_format": "2006-01-02T15:04:05.999999999Z07:00",
-"type": "text"
+"log": {
+   "formatter": {
+      "type": "json"
+   },
+   "output": {
+      "type": ["file", "stdout"]
+   },
+}
+```
+
+### Logger configuration with text format in file
+
+```json
+"log": {
+   "formatter": {
+   "timestamp_format": "2006-01-02T15:04:05.999Z07:00",
+   "type": "text"
 },
 "level": "info",
 "output": {
-"current_link": "./snet-daemon.log",
-"file_pattern": "./snet-daemon.%Y%m%d.log",
-"max_age_in_days": 604800,
-"rotation_count": 0,
-"max_size_in_mb": 86400,
-"type": "file"
+   "current_link": "./snet-daemon.log",
+   "file_pattern": "./snet-daemon.%Y%m%d.log",
+   "max_age_in_days": 1,
+   "rotation_count": 0,
+   "max_size_in_mb": 300,
+   "type": "file"
 },
 "timezone": "UTC"
 }
 ```
 
-## Email hook configuration
-
+### Email hook configuration
 
 ```json
   "log": {
-...
-"hooks": ["send-mail"],
-"send-mail": {
-"type": "email",
-"levels": ["error", "warn", "fatal"],
-"config": {
-"application_name": "test-application-name",
-"host": "smtp.gmail.com",
-"port": 587,
-"from": "from-user@gmail.com",
-"to": "to-user@gmail.com",
-"username": "from-user@gmail.com",
-"password": "secret"
-}
-},
+   "hooks": ["send-mail"],
+   "send-mail": {
+      "type": "email",
+      "levels": ["error", "warn", "fatal", "panic"],
+      "application_name": "test-application-name",
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "from": "from-user@gmail.com",
+      "to": "to-user@gmail.com",
+      "username": "from-user@gmail.com",
+      "password": "secret"
+   },
 }
 ```
 
-## Telegram bot hook configuration
+### Telegram bot hook configuration
 
-```
-"hooks":["tg"],
- "tg": {
-    "telegram_api_key": "7258436601:AAFlAm8gIGIyOTEv7lb9ipHcuB7YTR9-TuR",
-    "telegram_chat_id": -4103253970,
-    "disable_notification": false,
-    "type": "telegram_bot",
-    "levels": [
-        "error",
-        "panic"
-        ]
+```json
+"log": {
+   "hooks":["tg"],
+   "tg": {
+      "telegram_api_key": "7258436601:AAFlAm8gIGIyOTEv7lb9ipHcuB7YTR9-TuR",
+      "telegram_chat_id": -4103253970,
+      "disable_notification": false,
+      "type": "telegram_bot",
+      "levels": [ "fatal", "panic"]
     },
+}
 ```
 
-## Adding new hooks implementations
+### Adding new hooks implementations
 
-Adding a new hook implementation is trivial. You should implement factory method
-which inputs hook configuration as [Viper](https://godoc.org/github.com/spf13/viper#Viper)
-config and returns new instance of the Hook structure. Then register the new hook
-type by calling RegisterHookType() function from init() method.
-
-Please see "email" hook implementation as example in hook.go file
+Adding a new hook implementation is trivial. You should implement interface hook with method `call`  which inputs `entry zapcore.Entry`. Also you need impelement init method which inputs configuration as [Viper](https://godoc.org/github.com/spf13/viper#Viper) config and returns new instance of the Hook structure. Then register the new hook
+type by calling RegisterHookType() function from init() method. Please see "email" hook implementation as example in hook.go file.

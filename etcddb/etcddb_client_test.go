@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/magiconair/properties/assert"
-	_ "github.com/singnet/snet-daemon/fix-proto"
 	"github.com/singnet/snet-daemon/utils"
 )
 

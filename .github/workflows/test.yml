@@ -1,23 +1,26 @@
 name: tests
 on:
-  # push:
-  #   branches: [ "master" ]
+  push:
+    branches: [ "dev" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "dev" ]
   workflow_dispatch:
 
+env:
+  GOLANG_PROTOBUF_REGISTRATION_CONFLICT: ignore
+
 jobs:
-    run_tests:
-      runs-on: ubuntu-latest
-      steps:
-      
+  run_tests:
+    runs-on: ubuntu-latest
+    steps:
+
       - name: clone repo
         uses: actions/checkout@v3
-        
+
       - name: download and install
         uses: actions/setup-go@v5
         with:
-              go-version: '1.22.2'
+          go-version: '1.22.5'
 
       - name: protobuff install
         run: |

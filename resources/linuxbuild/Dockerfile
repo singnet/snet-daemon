@@ -1,15 +1,11 @@
-FROM golang:latest
-WORKDIR /
-RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-RUN curl -sL https://deb.nodesource.com/setup_8.x -o nodesource_setup.sh
-RUN chmod 755 nodesource_setup.sh
-RUN bash nodesource_setup.sh
-RUN apt-get install -y nodejs
-RUN apt-get install -y protobuf-compiler libprotobuf-dev
-RUN go get -u github.com/golang/protobuf/protoc-gen-go
-RUN mkdir -p /go/src/github.com/singnet
-WORKDIR /go/src/github.com/singnet
-RUN git clone https://github.com/singnet/snet-daemon.git
-WORKDIR /go/src/github.com/singnet/snet-daemon
-RUN ./scripts/install
-RUN ./scripts/build linux amd64
+FROM golang:alpine
+RUN apk update && apk add --no-cache make protobuf-dev git bash
+SHELL ["/bin/bash", "-c"]
+RUN mkdir -p /snet-daemon
+WORKDIR /snet-daemon
+RUN git clone --single-branch --branch dev https://github.com/semyon-dev/snet-daemon.git .
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+RUN go generate ./...
+RUN chmod +x ./scripts/build
+RUN ./scripts/build linux amd64 dev

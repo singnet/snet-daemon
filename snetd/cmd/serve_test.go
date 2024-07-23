@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/singnet/snet-daemon/config"
-	_ "github.com/singnet/snet-daemon/fix-proto"
 	"github.com/stretchr/testify/assert"
 )
 

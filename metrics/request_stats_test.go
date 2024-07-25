@@ -20,7 +20,7 @@ func TestCreateRequestStat(t *testing.T) {
 	commonStat.ClientType = "snet-cli"
 	commonStat.UserDetails = "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
 	commonStat.UserAgent = "python/cli"
-	commonStat.ChannelId =  "2"
+	commonStat.ChannelId = "2"
 	request := createRequestStat(commonStat)
 	assert.Equal(t, request.RequestID, commonStat.ID)
 	assert.Equal(t, request.GroupID, daemonGroupId)

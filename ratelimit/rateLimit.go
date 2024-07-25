@@ -21,7 +21,6 @@ func NewRateLimiter() rate.Limiter {
 
 func getLimit() rate.Limit {
 
-
 	ratePerMin, err := strconv.ParseFloat(config.GetString(config.RateLimitPerMinute), 32)
 	if err != nil {
 		return rate.Inf

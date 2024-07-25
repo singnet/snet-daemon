@@ -1,4 +1,4 @@
-// authutils package provides functions for all authentication and singature validation related operations
+// authutils package provides functions for all authentication and signature validation related operations
 package authutils
 
 import (

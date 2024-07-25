@@ -92,7 +92,7 @@ type Payment any
 
 // Custom gRPC codes to return to the client
 const (
-	// IncorrectNonce is returned to client when payment recieved contains
+	// IncorrectNonce is returned to client when payment received contains
 	// incorrect nonce value. Client may use PaymentChannelStateService to get
 	// latest channel state and correct nonce value.
 	IncorrectNonce codes.Code = 1000

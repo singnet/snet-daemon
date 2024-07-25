@@ -103,18 +103,18 @@ func InitOrganizationMetaDataFromJson(jsonData string) (metaData *OrganizationMe
 	metaData = new(OrganizationMetaData)
 	err = json.Unmarshal([]byte(jsonData), &metaData)
 	if err != nil {
-		zap.L().Error("Error in unmarshaling metadata json", zap.Error(err), zap.Any("jsondata", jsonData))
+		zap.L().Error("Error in unmarshalling metadata json", zap.Error(err), zap.Any("jsondata", jsonData))
 		return nil, err
 	}
 
-	//Check for mandatory validations
+	// Check for mandatory validations
 
 	if err = setDerivedAttributes(metaData); err != nil {
-		zap.L().Error("Error in setting derived atrributes", zap.Error(err))
+		zap.L().Error("Error in setting derived attributes", zap.Error(err))
 		return nil, err
 	}
 	if err = checkMandatoryFields(metaData); err != nil {
-		zap.L().Error("Error in check mdandatory fields", zap.Error(err))
+		zap.L().Error("Error in check mandatory fields", zap.Error(err))
 		return nil, err
 	}
 
@@ -126,7 +126,7 @@ func checkMandatoryFields(metaData *OrganizationMetaData) (err error) {
 		err = fmt.Errorf("Mandatory field : ETCD Client Endpoints are mising for the Group %v ", metaData.daemonGroup.GroupName)
 	}
 	if &metaData.recipientPaymentAddress == nil {
-		err = fmt.Errorf("Mandatory field : Recepient Address is missing for the Group %v ", metaData.daemonGroup.GroupName)
+		err = fmt.Errorf("Mandatory field : Recipient Address is missing for the Group %v ", metaData.daemonGroup.GroupName)
 	}
 	return
 }

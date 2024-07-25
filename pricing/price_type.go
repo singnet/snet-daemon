@@ -11,7 +11,7 @@ const (
 	DYNAMIC_PRICING      = "dynamic_pricing"
 )
 
-//Based on the request passed, a particular strategy will be picked up for processing
+// Based on the request passed, a particular strategy will be picked up for processing
 type PriceType interface {
 
 	//Based on the user input determine how will the price be determined

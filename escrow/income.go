@@ -19,11 +19,11 @@ type IncomeData struct {
 	GrpcContext *handler.GrpcStreamContext
 }
 
-// IncomeValidator uses pricing information to check that call was payed
+// IncomeValidator uses pricing information to check that call was paid
 // correctly by channel sender. This interface can be implemented differently
-// depending on pricing policy. For instance one can verify that call is payed
+// depending on pricing policy. For instance one can verify that call is paid
 // according to invoice. Each RPC method can have different price and so on. To
-// implement this strategies additional information from gRPC context can be
+// implement these strategies additional information from gRPC context can be
 // required. In such case it should be added into handler.GrpcStreamContext.
 type IncomeValidator interface {
 	// Validate returns nil if validation is successful or correct PaymentError
@@ -41,7 +41,6 @@ func NewIncomeValidator(pricing *pricing.PricingStrategy) (validator IncomeValid
 }
 
 func (validator *incomeValidator) Validate(data *IncomeData) (err error) {
-	//TO DO, the user request information from IncomeData needs to be passed here !!!!
 	price, err := validator.priceStrategy.GetPrice(data.GrpcContext)
 	if err != nil {
 		return err

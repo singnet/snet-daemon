@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	timeFormat="2006-01-02 15:04:05.999999999"
+	timeFormat = "2006-01-02 15:04:05.999999999"
 )
+
 type CommonStats struct {
 	ID                  string
 	ServiceMethod       string
@@ -31,14 +32,15 @@ type CommonStats struct {
 }
 
 type ChannelStats struct {
-	OrganizationID      string
-	ServiceID           string
-	GroupID             string
-	AuthorizedAmount    *big.Int
-	FullAmount          *big.Int
-	ChannelId           *big.Int
-	Nonce               *big.Int
+	OrganizationID   string
+	ServiceID        string
+	GroupID          string
+	AuthorizedAmount *big.Int
+	FullAmount       *big.Int
+	ChannelId        *big.Int
+	Nonce            *big.Int
 }
+
 func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 	commonStats := &CommonStats{
 		ID:                  GenXid(),
@@ -53,7 +55,7 @@ func BuildCommonStats(receivedTime time.Time, methodName string) *CommonStats {
 
 }
 
-//Response stats that will be captured and published
+// Response stats that will be captured and published
 type ResponseStats struct {
 	Type                       string `json:"type"`
 	RegistryAddressKey         string `json:"registry_address_key"`
@@ -85,15 +87,15 @@ type ResponseStats struct {
 	UserAddress                string `json:"user_address"`
 }
 
-//Publish response received as a payload for reporting /metrics analysis
-//If there is an error in the response received from the service, then send out a notification as well.
+// Publish response received as a payload for reporting /metrics analysis
+// If there is an error in the response received from the service, then send out a notification as well.
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
-	return Publish(response, config.GetString(config.MeteringEndPoint) + "/metering/usage",commonStats)
+	return Publish(response, config.GetString(config.MeteringEndPoint)+"/metering/usage", commonStats)
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {
-	currentTime :=  time.Now().UTC().Format(timeFormat)
+	currentTime := time.Now().UTC().Format(timeFormat)
 
 	response := &ResponseStats{
 		Type:                       "response",
@@ -114,21 +116,23 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 		UserDetails:                commonStat.UserDetails,
 		UserAgent:                  commonStat.UserAgent,
 		ChannelId:                  commonStat.ChannelId,
-		UserName:commonStat.UserName,
-		StartTime:commonStat.RequestReceivedTime,
-		EndTime:currentTime,
-		Status:getStatus(err),
-		UsageValue:1,
-		UsageType:"apicall",
-		Operation:"read",
-		PaymentMode:commonStat.PaymentMode,
-		UserAddress:commonStat.UserAddress,
+		UserName:                   commonStat.UserName,
+		StartTime:                  commonStat.RequestReceivedTime,
+		EndTime:                    currentTime,
+		Status:                     getStatus(err),
+		UsageValue:                 1,
+		UsageType:                  "apicall",
+		Operation:                  "read",
+		PaymentMode:                commonStat.PaymentMode,
+		UserAddress:                commonStat.UserAddress,
 	}
 	return response
 }
 
 func getStatus(err error) string {
-	if err != nil {return "failed"}
+	if err != nil {
+		return "failed"
+	}
 	return "success"
 }
 

@@ -222,8 +222,8 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 			// first message sent by the client and pass this on the regular service call
 			//This is done to be able to make calls to support regular Service call + Dynamic pricing call
 			if i == 0 {
-				//todo we need to think through to determine price for every call on stream calls
-				//will be handled when we support streaming and pricing across all clients in snet-platform
+				// todo we need to think through to determine price for every call on stream calls
+				// will be handled when we support streaming and pricing across all clients in snet-platform
 				if wrappedStream, ok := src.(*WrapperServerStream); ok {
 					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
 				} else if err := src.RecvMsg(f); err != nil {

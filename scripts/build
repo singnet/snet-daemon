@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -ex
+# for debug:
+# set -ex
 
 PARENT_PATH="$(dirname "$(cd "$("dirname" "$0")"; pwd -P)")"
 
@@ -19,9 +20,14 @@ networkJson=$(<resources/blockchain_network_config.json)
  # removing unnecessary symbols
 networkJson=$(echo "$networkJson" | tr -d '\t\n\r')
 
+# print network config
+echo "Network config passed to daemon:"
+echo "$networkJson"
+
  # the name of the binary file
 buildname="snetd"-$1-$2-$3
 
+# get git hash
 githash=$(git rev-parse HEAD)
 
 # add .exe for windows
@@ -39,5 +45,7 @@ GOOS=$1 GOARCH=$2 go build -ldflags "
 popd
 
 # https://protobuf.dev/reference/go/faq/#namespace-conflict
+
+echo "✅  The daemon has been successfully compiled to build/$buildname"
 
 

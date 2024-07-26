@@ -17,26 +17,34 @@ passthrough for making API calls to the service.The daemon is the endpoint a cli
 are then passed to the service after validation by the daemon.
 
 # Table of contents
+
 1. [Install and use](#use)
 2. [Configuration](#configuration)
     1. [Main properties](#main_properties)
     2. [Additional properties](#other_properties)
-3. [Channel Claim and other commands](#commands) 
+3. [Channel Claim and other commands](#commands)
 4. [Build and development](#build)
 
 ## Install and use <a name="use"></a>
 
-Precompiled binaries are published with each release, download [from releases page](https://github.com/singnet/snet-daemon/releases) or use terminal:
+Precompiled binaries are published with each release,
+download [from releases page](https://github.com/singnet/snet-daemon/releases) or use terminal:
+
 ```bash
 curl -LJO https://github.com/singnet/snet-daemon/releases/download/v5.1.4/snetd-linux-amd64-v5.1.4
 chmod +x snetd-linux-amd64-v5.1.4 
 ```
+
 #### Generate basic config file
+
 For most users, a simple config is enough:
+
 ```bash
 ./snetd-linux-amd64-v5.1.4 init 
 ```
-This command will generate a file `snetd.config.json` in which you will need to change [some parameters](#main_properties).
+
+This command will generate a file `snetd.config.json` in which you will need to
+change [some parameters](#main_properties).
 
 #### Generate default full config file
 
@@ -49,7 +57,9 @@ This command will generate a file `snetd.config.json` in which you will need to 
 ```bash
 ./snetd-linux-amd64-v5.1.4
 ```
+
 Specifying the path to the config using the '-c' argument:
+
 ```bash
 ./snetd-linux-amd64-v5.1.4 -c name_of_config.json
 ```
@@ -83,7 +93,8 @@ time.
   Based on the network selected blockchain_network_selected the end point is auto determined
   Example `"https://sepolia.infura.io/v3"` for sepolia testnet.
 
-* **blockchain_provider_api_key** (optional, default: `""`) - basic header authorization key for blockchain providers. Tested with
+* **blockchain_provider_api_key** (optional, default: `""`) - basic header authorization key for blockchain providers.
+  Tested with
   [infura api key secret](https://docs.infura.io/dashboard/secure-an-api/api-key-secret).
 
 * **organization_id** (required) -
@@ -272,7 +283,8 @@ confirmation from the treasurer on the blockchain.
 
 **Claim funds from the channel**
 
-Refer to the link below on an end to end [Example of MPE](https://github.com/singnet/wiki/tree/master/multiPartyEscrowContract/front-to-back-examples)
+Refer to the link below on an end to
+end [Example of MPE](https://github.com/singnet/wiki/tree/master/multiPartyEscrowContract/front-to-back-examples)
 At the moment treasurer server is a part of snet-daemon command line interface.
 
 ```bash
@@ -305,7 +317,7 @@ Flags:
 Use "snetd [command] --help" for more information about a command.
 ```
 
-## Build & Development <a name="build"></a> 
+## Build & Development <a name="build"></a>
 
 These instructions are intended to facilitate the development and testing of SingularityNET Daemon.
 
@@ -325,23 +337,39 @@ git clone git@github.com:singnet/snet-daemon.git
 cd snet-daemon
 ```
 
-* Install dependencies and generate bindings
+**Install dependencies and generate bindings**
+
+Bash
 
 ```bash
-./scripts/install
+./scripts/install_deps
 ```
 
-* Build snet-daemon. Please note using ldflags, the latest tagged version, sha1 revision and the build time are set as
-  part of the build. You need to pass the version as shown in the example below:
+PowerShell
+
+```powershell
+./scripts/install_deps.ps1
+```
+
+**Build snet-daemon**. Please note using ldflags, the latest tagged version, sha1 revision and the build time are set as
+part of the build. You need to pass the version as shown in the example below:
 
 ```bash
 ./scripts/build <linux/windows/darwin> <amd64/arm/arm64> <version>
 ```
- 
-Example:
+
+**Examples**
+
+Bash:
 
 ```bash
 ./scripts/build linux amd64 v5.1.4
+```
+
+Powershell:
+
+```powershell
+./scripts/build.ps1 linux amd64 v5.1.4
 ```
 
 The final binaries will be in the `/build` folder.
@@ -351,14 +379,17 @@ The final binaries will be in the `/build` folder.
 If you want to build daemon for several platforms, run `./scripts/build-all <version>` instead
 of `./scripts/build`.
 
-You can edit the script to choose the specific platforms, but by default it will build for Linux, Darwin (OSX), and Windows.
+You can edit the script to choose the specific platforms, but by default it will build for Linux, Darwin (OSX), and
+Windows.
 
 #### Unit Testing
 
 ```bash
 ./scripts/test
 ``` 
+
 or
+
 ```bash
 go test ./...
 ```

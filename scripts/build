@@ -35,7 +35,7 @@ if [ "$1" == "windows" ]
   then buildname+=".exe"
 fi
 
-GOOS=$1 GOARCH=$2 go build -ldflags "
+CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -ldflags "
 -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore
 -X github.com/singnet/snet-daemon/config.sha1Revision=$githash
 -X github.com/singnet/snet-daemon/config.versionTag=$3

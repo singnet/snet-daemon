@@ -321,7 +321,11 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 
 	base.RawQuery = params.Encode()
-	zap.L().Debug("Calling URL", zap.String("Url", base.String()))
+	zap.L().Debug("Calling http service",
+		zap.String("url", base.String()),
+		zap.String("body", string(jsonBody)),
+		zap.String("method", "POST"))
+
 	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonBody))
 	httpReq.Header = headers
 	if err != nil {
@@ -372,7 +376,7 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 		return proto
 	}
 	output := method.Output()
-	zap.L().Debug("output of calling method", zap.Any("method", output.FullName()))
+	zap.L().Debug("output msg descriptor", zap.Any("fullname", output.FullName()))
 	proto = dynamicpb.NewMessage(output)
 	err := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}.Unmarshal(json, proto)
 	if err != nil {

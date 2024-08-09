@@ -55,7 +55,7 @@ if ($GOOS -eq "windows")
 }
 
 # build with Go
-$Env:GOOS = $GOOS; $Env:GOARCH = $GOARCH; go build -ldflags "
+$Env:CGO_ENABLED = 0; $Env:GOOS = $GOOS; $Env:GOARCH = $GOARCH; go build -ldflags "
 -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore
 -X github.com/singnet/snet-daemon/config.sha1Revision=$GitHash
 -X github.com/singnet/snet-daemon/config.versionTag=$Version

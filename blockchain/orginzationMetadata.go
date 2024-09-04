@@ -114,7 +114,7 @@ func InitOrganizationMetaDataFromJson(jsonData string) (metaData *OrganizationMe
 		return nil, err
 	}
 	if err = checkMandatoryFields(metaData); err != nil {
-		zap.L().Error("Error in check mdandatory fields", zap.Error(err))
+		zap.L().Error("Error in check mandatory fields", zap.Error(err))
 		return nil, err
 	}
 
@@ -125,10 +125,10 @@ func checkMandatoryFields(metaData *OrganizationMetaData) (err error) {
 	if metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints == nil {
 		err = fmt.Errorf("Mandatory field : ETCD Client Endpoints are mising for the Group %v ", metaData.daemonGroup.GroupName)
 	}
-	if &metaData.recipientPaymentAddress == nil {
+	if metaData.recipientPaymentAddress == (common.Address{}) {
 		err = fmt.Errorf("Mandatory field : Recepient Address is missing for the Group %v ", metaData.daemonGroup.GroupName)
 	}
-	return
+	return err
 }
 
 func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
@@ -187,7 +187,7 @@ func getMetaDataURI() []byte {
 
 	organizationRegistered, err := reg.GetOrganizationById(nil, orgId)
 	if err != nil || !organizationRegistered.Found {
-		zap.L().Panic("Error Retrieving contract details for the Given Organization", zap.String("OrganizationId", config.GetString(config.OrganizationId)))
+		zap.L().Panic("Error Retrieving contract details for the Given Organization", zap.String("OrganizationId", config.GetString(config.OrganizationId)), zap.Error(err))
 	}
 	return organizationRegistered.OrgMetadataURI[:]
 }

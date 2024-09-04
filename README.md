@@ -182,9 +182,7 @@ time.
   Based on the network selected blockchain_network_selected the end point is auto determined
   Example `"https://sepolia.infura.io/v3"` for sepolia testnet.
 
-* **blockchain_provider_api_key** (optional) - basic header authorization key for blockchain providers. Tested with
-  infura api
-  key secret.
+* **blockchain_provider_api_key** (optional) - basic header authorization key for blockchain providers. Tested with infura api key secret.
 
 * **organization_id** (required) -
   Id of the organization to search for [service configuration

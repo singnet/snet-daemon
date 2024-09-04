@@ -100,6 +100,15 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	return
 }
 
+func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
+	etcdClient, err := NewEtcdClientFromVip(config.Vip(), metadata)
+	if err != nil {
+		return nil, err
+	}
+	zap.L().Info("Successful reconnet to new etcd endpoints", zap.Strings("New enpoints", metadata.GetPaymentStorageEndPoints()))
+	return etcdClient, nil
+}
+
 func getTlsConfig() (*tls.Config, error) {
 
 	zap.L().Debug("enabling SSL support via X509 keypair")

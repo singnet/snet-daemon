@@ -3,10 +3,12 @@ package blockchain
 import (
 	"context"
 	"encoding/base64"
+
+	"github.com/singnet/snet-daemon/config"
+
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	"github.com/singnet/snet-daemon/config"
 )
 
 type EthereumClient struct {
@@ -19,21 +21,31 @@ func basicAuth(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-func GetEthereumClient() (*EthereumClient, error) {
+func GetEthereumClient() (*EthereumClient, *EthereumClient, error) {
 
-	ethereumClient := new(EthereumClient)
-	if client, err := rpc.DialOptions(context.Background(),
-		config.GetBlockChainEndPoint(),
-		rpc.WithHeader("Authorization", "Basic "+basicAuth("", config.GetString(config.BlockchainProviderApiKey)))); err != nil {
-		return nil, errors.Wrap(err, "error creating RPC client")
-	} else {
-		ethereumClient.RawClient = client
-		ethereumClient.EthClient = ethclient.NewClient(client)
+	ethereumHttpClient := new(EthereumClient)
+	ethereumWsClient := new(EthereumClient)
+	httpClient, err := rpc.DialOptions(context.Background(),
+		config.GetBlockChainHTTPEndPoint(),
+		rpc.WithHeader("Authorization", "Basic "+basicAuth("", config.GetString(config.BlockchainProviderApiKey))))
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error creating RPC client")
 	}
 
-	return ethereumClient, nil
+	ethereumHttpClient.RawClient = httpClient
+	ethereumHttpClient.EthClient = ethclient.NewClient(httpClient)
+	wsClient, err := rpc.DialOptions(context.Background(), config.GetBlockChainWSEndPoint())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error creating RPC WebSocket client")
+	}
+
+	ethereumWsClient.RawClient = wsClient
+	ethereumWsClient.EthClient = ethclient.NewClient(wsClient)
+
+	return ethereumHttpClient, ethereumWsClient, nil
 
 }
+
 func (ethereumClient *EthereumClient) Close() {
 	if ethereumClient != nil {
 		ethereumClient.EthClient.Close()

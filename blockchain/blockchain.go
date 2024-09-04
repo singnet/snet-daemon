@@ -29,8 +29,10 @@ type jobInfo struct {
 
 type Processor struct {
 	enabled                 bool
-	ethClient               *ethclient.Client
-	rawClient               *rpc.Client
+	ethHttpClient           *ethclient.Client
+	rawHttpClient           *rpc.Client
+	ethWSClient             *ethclient.Client
+	rawWSClient             *rpc.Client
 	sigHasher               func([]byte) []byte
 	privateKey              *ecdsa.PrivateKey
 	address                 string
@@ -55,11 +57,13 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 
 	// Setup ethereum client
 
-	if ethclients, err := GetEthereumClient(); err != nil {
+	if ethHttpClients, ethWSClients, err := GetEthereumClient(); err != nil {
 		return p, errors.Wrap(err, "error creating RPC client")
 	} else {
-		p.rawClient = ethclients.RawClient
-		p.ethClient = ethclients.EthClient
+		p.rawHttpClient = ethHttpClients.RawClient
+		p.ethHttpClient = ethHttpClients.EthClient
+		p.rawWSClient = ethWSClients.RawClient
+		p.ethWSClient = ethWSClients.EthClient
 	}
 
 	// TODO: if address is not in config, try to load it using network
@@ -68,7 +72,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 
 	p.escrowContractAddress = metadata.GetMpeAddress()
 
-	if mpe, err := NewMultiPartyEscrow(p.escrowContractAddress, p.ethClient); err != nil {
+	if mpe, err := NewMultiPartyEscrow(p.escrowContractAddress, p.ethHttpClient); err != nil {
 		return p, errors.Wrap(err, "error instantiating MultiPartyEscrow contract")
 	} else {
 		p.multiPartyEscrow = mpe
@@ -94,11 +98,19 @@ func (processor *Processor) MultiPartyEscrow() *MultiPartyEscrow {
 	return processor.multiPartyEscrow
 }
 
+func (processor *Processor) GetEthHttpClient() *ethclient.Client {
+	return processor.ethHttpClient
+}
+
+func (processor *Processor) GetEthWSClient() *ethclient.Client {
+	return processor.ethWSClient
+}
+
 func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
 	// We have to do a raw call because the standard method of ethClient.HeaderByNumber(ctx, nil) errors on
 	// unmarshaling the response currently. See https://github.com/ethereum/go-ethereum/issues/3230
 	var currentBlockHex string
-	if err = processor.rawClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
+	if err = processor.rawHttpClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
 		zap.L().Error("error determining current block", zap.Error(err))
 		return nil, fmt.Errorf("error determining current block: %v", err)
 	}
@@ -114,6 +126,8 @@ func (processor *Processor) HasIdentity() bool {
 }
 
 func (processor *Processor) Close() {
-	processor.ethClient.Close()
-	processor.rawClient.Close()
+	processor.ethHttpClient.Close()
+	processor.rawHttpClient.Close()
+	processor.ethWSClient.Close()
+	processor.rawWSClient.Close()
 }

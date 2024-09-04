@@ -38,3 +38,6 @@ storage-*
 *log
 data.etcd/
 
+# vscode
+.vscode
+

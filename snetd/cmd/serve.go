@@ -17,6 +17,7 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
+	"github.com/singnet/snet-daemon/contract_event_listener"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
@@ -59,6 +60,14 @@ var ServeCmd = &cobra.Command{
 		if err != nil {
 			zap.L().Fatal("Unable to initialize daemon", zap.Error(err))
 		}
+
+		contractEventLister := contract_event_listener.ContractEventListener{
+			BlockchainProcessor:         &d.blockProc,
+			EventSignature:              contract_event_listener.UpdateMetadataUriEventSignature,
+			CurrentOrganizationMetaData: components.OrganizationMetaData(),
+			CurrentEtcdClient:           components.EtcdClient(),
+		}
+		go contractEventLister.ListenOrganizationMetadataChanging()
 
 		d.start()
 		defer d.stop()

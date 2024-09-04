@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
@@ -81,4 +82,20 @@ func ToChecksumAddress(hexAddress string) string {
 	address := common.HexToAddress(hexAddress)
 	mixedAddress := common.NewMixedcaseAddress(address)
 	return mixedAddress.Address().String()
+}
+
+func StringToHex(str string) string {
+	hexStr := hex.EncodeToString([]byte(str))
+
+	// Pad the result to 32 bytes (64 hex characters)
+	paddedHexStr := hexStr + "0000000000000000000000000000000000000000000000000000000000000000"[len(hexStr):]
+
+	// Add the 0x prefix to indicate that it's a hexadecimal value
+	result := "0x" + paddedHexStr
+	return result
+}
+
+func StringToHash(str string) common.Hash {
+	hexStr := StringToHex(str)
+	return common.HexToHash(hexStr)
 }

@@ -21,29 +21,47 @@ func basicAuth(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-func GetEthereumClient() (*EthereumClient, *EthereumClient, error) {
+func CreateEthereumClients() (*EthereumClient, *EthereumClient, error) {
+	ethereumHttpClient, err := CreateHTTPEthereumClient()
+	if err != nil {
+		return nil, nil, err
+	}
 
+	ethereumWsClient, err := CreateWSEthereumClient()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ethereumHttpClient, ethereumWsClient, nil
+}
+
+func CreateHTTPEthereumClient() (*EthereumClient, error) {
 	ethereumHttpClient := new(EthereumClient)
-	ethereumWsClient := new(EthereumClient)
-	httpClient, err := rpc.DialOptions(context.Background(),
+	httpClient, err := rpc.DialOptions(
+		context.Background(),
 		config.GetBlockChainHTTPEndPoint(),
 		rpc.WithHeader("Authorization", "Basic "+basicAuth("", config.GetString(config.BlockchainProviderApiKey))))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error creating RPC client")
+		return nil, errors.Wrap(err, "error creating RPC client")
 	}
 
 	ethereumHttpClient.RawClient = httpClient
 	ethereumHttpClient.EthClient = ethclient.NewClient(httpClient)
-	wsClient, err := rpc.DialOptions(context.Background(), config.GetBlockChainWSEndPoint())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "error creating RPC WebSocket client")
-	}
+	return ethereumHttpClient, nil
+}
 
+func CreateWSEthereumClient() (*EthereumClient, error) {
+	ethereumWsClient := new(EthereumClient)
+	wsClient, err := rpc.DialOptions(
+		context.Background(),
+		config.GetBlockChainWSEndPoint(),
+		rpc.WithHeader("Authorization", "Basic "+basicAuth("", config.GetString(config.BlockchainProviderApiKey))))
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating RPC WebSocket client")
+	}
 	ethereumWsClient.RawClient = wsClient
 	ethereumWsClient.EthClient = ethclient.NewClient(wsClient)
-
-	return ethereumHttpClient, ethereumWsClient, nil
-
+	return ethereumWsClient, nil
 }
 
 func (ethereumClient *EthereumClient) Close() {

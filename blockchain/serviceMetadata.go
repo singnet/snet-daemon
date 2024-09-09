@@ -278,7 +278,7 @@ func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 }
 
 func getRegistryCaller() (reg *RegistryCaller) {
-	ethHttpClient, _, err := GetEthereumClient()
+	ethHttpClient, err := CreateHTTPEthereumClient()
 	if err != nil {
 		zap.L().Panic("Unable to get Blockchain client ", zap.Error(err))
 	}
@@ -294,6 +294,15 @@ func getRegistryCaller() (reg *RegistryCaller) {
 func GetRegistryCaller(ethHttpClient *ethclient.Client) *RegistryCaller {
 	registryContractAddress := getRegistryAddressKey()
 	reg, err := NewRegistryCaller(registryContractAddress, ethHttpClient)
+	if err != nil {
+		zap.L().Panic("Error instantiating Registry contract for the given Contract Address", zap.Error(err), zap.Any("registryContractAddress", registryContractAddress))
+	}
+	return reg
+}
+
+func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
+	registryContractAddress := getRegistryAddressKey()
+	reg, err := NewRegistryFilterer(registryContractAddress, ethWsClient)
 	if err != nil {
 		zap.L().Panic("Error instantiating Registry contract for the given Contract Address", zap.Error(err), zap.Any("registryContractAddress", registryContractAddress))
 	}

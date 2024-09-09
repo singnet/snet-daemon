@@ -109,7 +109,7 @@ func CheckIfTokenHasExpired(expiredBlock *big.Int) error {
 
 // Get the current block number from on chain
 func CurrentBlock() (*big.Int, error) {
-	if ethHttpClient, _, err := blockchain.GetEthereumClient(); err != nil {
+	if ethHttpClient, _, err := blockchain.CreateEthereumClients(); err != nil {
 		return nil, err
 	} else {
 		defer ethHttpClient.RawClient.Close()

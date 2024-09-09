@@ -7,6 +7,7 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 // EtcdClientConf config
@@ -16,6 +17,7 @@ import (
 type EtcdClientConf struct {
 	ConnectionTimeout time.Duration `json:"connection_timeout" mapstructure:"connection_timeout"`
 	RequestTimeout    time.Duration `json:"request_timeout" mapstructure:"request_timeout"`
+	HotReload         bool          `json:"hot_reload" mapstructure:"hot_reload"`
 	Endpoints         []string
 }
 
@@ -28,6 +30,7 @@ func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaDa
 	conf = &EtcdClientConf{
 		ConnectionTimeout: metaData.GetConnectionTimeOut(),
 		RequestTimeout:    metaData.GetRequestTimeOut(),
+		HotReload:         true,
 		Endpoints:         metaData.GetPaymentStorageEndPoints(),
 	}
 
@@ -47,6 +50,8 @@ func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaDa
 		conf.ConnectionTimeout = confFromVip.ConnectionTimeout
 	}
 
+	conf.HotReload = confFromVip.HotReload
+	zap.L().Info("Etcd client hot reload", zap.Bool("enable", conf.HotReload))
 	return
 }
 

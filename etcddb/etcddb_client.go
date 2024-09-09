@@ -35,11 +35,12 @@ func (mutex *EtcdClientMutex) Unlock(ctx context.Context) (err error) {
 	return mutex.mutex.Unlock(ctx)
 }
 
-// EtcdClient struct has some useful methods to wolrk with etcd client
+// EtcdClient struct has some useful methods to work with etcd client
 type EtcdClient struct {
-	timeout time.Duration
-	session *concurrency.Session
-	etcdv3  *clientv3.Client
+	hotReaload bool
+	timeout    time.Duration
+	session    *concurrency.Session
+	etcdv3     *clientv3.Client
 }
 
 // NewEtcdClient create new etcd storage client.
@@ -93,9 +94,10 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	}
 
 	client = &EtcdClient{
-		timeout: conf.RequestTimeout,
-		session: session,
-		etcdv3:  etcdv3,
+		hotReaload: conf.HotReload,
+		timeout:    conf.RequestTimeout,
+		session:    session,
+		etcdv3:     etcdv3,
 	}
 	return
 }
@@ -476,6 +478,10 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction storage.
 	}
 
 	return transaction, nil
+}
+
+func (client *EtcdClient) IsHotReloadEnabled() bool {
+	return client.hotReaload
 }
 
 type keyValueVersion struct {

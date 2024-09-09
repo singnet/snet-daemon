@@ -57,7 +57,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 
 	// Setup ethereum client
 
-	if ethHttpClients, ethWSClients, err := GetEthereumClient(); err != nil {
+	if ethHttpClients, ethWSClients, err := CreateEthereumClients(); err != nil {
 		return p, errors.Wrap(err, "error creating RPC client")
 	} else {
 		p.rawHttpClient = ethHttpClients.RawClient
@@ -84,6 +84,23 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	}
 
 	return p, nil
+}
+
+func (processor *Processor) ReconnectToWsClient() error {
+	processor.ethWSClient.Close()
+	processor.rawHttpClient.Close()
+
+	zap.L().Debug("Try to reconnect to websocket client")
+
+	newEthWSClients, err := CreateWSEthereumClient()
+	if err != nil {
+		return err
+	}
+
+	processor.ethWSClient = newEthWSClients.EthClient
+	processor.rawWSClient = newEthWSClients.RawClient
+
+	return nil
 }
 
 func (processor *Processor) Enabled() (enabled bool) {

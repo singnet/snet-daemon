@@ -1,4 +1,4 @@
-package contract_event_listener
+package contractlistener
 
 import (
 	"context"
@@ -7,29 +7,27 @@ import (
 	"github.com/singnet/snet-daemon/etcddb"
 	"github.com/singnet/snet-daemon/utils"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
 func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
-	query := ethereum.FilterQuery{
-		Addresses: []common.Address{
-			common.HexToAddress(contractAddress),
-		},
-		Topics: [][]common.Hash{
-			{
-				common.HexToHash(string(UpdateMetadataUriEventSignature)),
-				blockchain.StringToHash(l.CurrentOrganizationMetaData.OrgID),
-			},
-		},
+	zap.L().Info("Starting contract event listener for organization metedata changing")
+
+	watchOpts := &bind.WatchOpts{
+		Start:   nil,
+		Context: context.Background(),
 	}
 
 	ethWSClient := l.BlockchainProcessor.GetEthWSClient()
 
-	logs := make(chan types.Log)
-	sub, err := ethWSClient.SubscribeFilterLogs(context.Background(), query, logs)
+	registryFilterer := blockchain.GetRegistryFilterer(ethWSClient)
+	orgIdFilter := blockchain.MakeTopicFilterer(l.CurrentOrganizationMetaData.OrgID)
+
+	eventContractChannel := make(chan *blockchain.RegistryOrganizationModified)
+	sub, err := registryFilterer.WatchOrganizationModified(watchOpts, eventContractChannel, orgIdFilter)
+
 	if err != nil {
 		zap.L().Fatal("Failed to subscribe to logs", zap.Error(err))
 	}
@@ -38,7 +36,21 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 		select {
 		case err := <-sub.Err():
 			zap.L().Error("Subscription error: ", zap.Error(err))
-		case logData := <-logs:
+			if websocket.IsCloseError(
+				err,
+				websocket.CloseNormalClosure,
+				websocket.CloseAbnormalClosure,
+				websocket.CloseGoingAway,
+				websocket.CloseServiceRestart,
+				websocket.CloseTryAgainLater,
+				websocket.CloseTLSHandshake,
+			) {
+				err = l.BlockchainProcessor.ReconnectToWsClient()
+				if err != nil {
+					zap.L().Error("Error in reconnecting to websockets", zap.Error(err))
+				}
+			}
+		case logData := <-eventContractChannel:
 			zap.L().Debug("Log received", zap.Any("value", logData))
 
 			// Get metaDataUri from smart contract and organizationMetaData from IPFS
@@ -46,7 +58,6 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 			zap.L().Info("Get new organization metadata", zap.Any("value", newOrganizationMetaData))
 
 			if !utils.CompareSlices(l.CurrentOrganizationMetaData.GetPaymentStorageEndPoints(), newOrganizationMetaData.GetPaymentStorageEndPoints()) {
-				// mutex
 				l.CurrentEtcdClient.Close()
 				newEtcdbClient, err := etcddb.Reconnect(newOrganizationMetaData)
 				if err != nil {

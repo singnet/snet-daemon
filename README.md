@@ -1,6 +1,7 @@
 # SingularityNET Daemon
 
-[![Coverage Status](https://coveralls.io/repos/github/singnet/snet-daemon/badge.svg)](https://coveralls.io/github/singnet/snet-daemon)
+![ci/cd build](https://github.com/singnet/snet-daemon/actions/workflows/build.yml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/singnet/snet-daemon/badge.svg?branch=master)](https://coveralls.io/github/singnet/snet-daemon?branch=master)
 
 Users interested in deploying SingularityNET services should use this daemon
 
@@ -11,169 +12,65 @@ The SNET Daemon interacts with the Multi Party Escrow to facilitate authorizatio
 passthrough for making API calls to the service.The daemon is the endpoint a client will submit requests to, and they
 are then passed to the service after validation by the daemon.
 
-## Channel Claim command
+# Table of contents
+1. [Install and use](#use)
+2. [Configuration](#configuration)
+    1. [Main properties](#main_properties)
+    2. [Additional properties](#other_properties)
+3. [Channel Claim and other commands](#commands) 
+4. [Build and development](#build)
 
-Gets the latest channel state of the Channel updated in ETCD by the daemons of the same group and then increments the
-nonce of the channel.
-It then sends and ON-Chain transaction to claim funds. The daemons continue their work independently without any
-confirmation from the treasurer on the blockchain.
+## Install and use <a name="use"></a>
 
-## Releases
+Precompiled binaries are published with each release, download [from releases page](https://github.com/singnet/snet-daemon/releases) or use terminal:
+```bash
+curl -LJO https://github.com/singnet/snet-daemon/releases/download/v5.1.4/snetd-linux-amd64-v5.1.4
+chmod +x snetd-linux-amd64-v5.1.4 
+```
+#### Generate basic config file
+For most users, a simple config is enough:
+```bash
+./snetd-linux-amd64-v5.1.4 init 
+```
+This command will generate a file `snetd.config.json` in which you will need to change [some parameters](#main_properties).
 
-**Usage without compiling:**
-Precompiled binaries are published with each [release](https://github.com/singnet/snet-daemon/releases).
-
-## Development
-
-These instructions are intended to facilitate the development and testing of SingularityNET Daemon.
-
-### Prerequisites and dependencies
-
-* [Go 1.22+](https://golang.org/dl/)
-* [Protoc 25.0+](https://github.com/protocolbuffers/protobuf/releases)
-
-**Protoc (libprotoc), golang and $GOPATH/bin should be in environment variables.**
-
-### Installing
-
-* Clone the git repository (for example $GOPATH/src/github.com/singnet/)
+#### Generate default full config file
 
 ```bash
-$ git clone git@github.com:singnet/snet-daemon.git
-$ cd snet-daemon
+./snetd-linux-amd64-v5.1.4 init-full
 ```
-
-* Install dependencies and generate bindings
-
-```bash
-$ ./scripts/install
-```
-
-* Build snet-daemon. Please note using ldflags, the latest tagged version , sha1 revision and the build time are set as
-  part of the build.
-  You need to pass the version as shown in the example below
-
-```bash
-$ ./scripts/build <linux/windows/darwin> <amd64/arm/arm64> <version>
-```
-
-Example:
-
-```bash
-$ ./scripts/build linux amd64 v5.1.2
-```
-
-#### Generate default minimum config file for snet-daemon
-
-```bash
-$ ./build/snetd-linux-amd64 init 
-```
-
-#### Generate default full config file for snet-daemon
-
-```bash
-$ ./build/snetd-linux-amd64 init-full
-```
-
-#### Multi-compiling
-
-If you want to build snetd for several platforms, run `./scripts/build-all <version>` instead
-of `./scripts/build`.
-
-You can edit the script to choose the specific platforms, but by default it will build for Linux, OSX, and Windows.
 
 #### Run Daemon
 
 ```bash
-$ ../build/snetd-linux-amd64
+./snetd-linux-amd64-v5.1.4
+```
+Specifying the path to the config using the '-c' argument:
+```bash
+./snetd-linux-amd64-v5.1.4 -c name_of_config.json
 ```
 
-### Signatures in Daemon
-
-[Payment](/escrow/README.md).
-[Configuration](/configuration_service/README.md).
-
-### Main commands
-
-* Start ```snet-daemon```
-
-```bash
-$ ./snetd-linux-amd64
-```
-
-* Claim funds from the channel
-
-  Refer to the link below on an end to
-  end [Example of MPE](https://github.com/singnet/wiki/blob/master/multiPartyEscrowContract/MPE_fronttoback_example1.md)
-
-  At the moment treasurer server is a part of snet-daemon command line interface.
-
-```bash
-$ ./snetd-linux-amd64 claim --channel-id 0
-
-```
-
-* Full list of commands, use --help to get more information.
-
-```bash
-$ ./build/snetd-linux-amd64 --help
-Usage:
-  snetd [flags]
-  snetd [command]
-
-Available Commands:
-  channel     Manage operations on payment channels
-  freecall    Manage operations on free call users
-  help        Help about any command
-  init        Write basic configuration to file
-  init-full   Write full default configuration to file
-  list        List channels, claims in progress, etc
-  serve       Is the default option which starts the Daemon.
-  version     List the current version of the Daemon.
-
-Flags:
-  -c, --config string   config file (default "snetd.config.json")
-  -h, --help            help for snetd
-
-Use "snetd [command] --help" for more information about a command.
-```
-
-* Unit Testing
-
-```bash
-$ ./scripts/test
-``` 
-or
-```bash
-$ go test ./...
-```
-
-### Configuration
+## Configuration <a name="configuration"></a>
 
 Configuration file is a main source of the configuration. Some properties
 can be set via environment variables or command line parameters see [table
-below](#environment-variables-and-cli-parameters). Use `--config`
-parameter with any command to set configuration file name. By default daemon
+below](#table_conf). Use `--config` parameter with any command to set configuration file name. By default daemon
 use configuration file in JSON format `snetd.config.json` but other formats are
-also supported via [Viper](https://github.com/spf13/viper). Use `snet init-full`
+also supported via [Viper](https://github.com/spf13/viper). Use `init-full` or `init`
 command to save configuration file with default values. Following
 configuration properties can be set using configuration file.
 
-#### Blockchain network config
-
-You can update the registry address or ethereum_json_rpc_endpoint in `resources/blockchain_network_config.json` before ./scripts/build.
-
-#### Main properties
+### Main properties <a name="main_properties"></a>
 
 These properties you should usually change before starting daemon for the first
 time.
 
-* **blockchain_network_selected** (required)
+* **blockchain_network_selected** (required, default `"sepolia"`)
   Name of the network to be used for Daemon possible values are one of (goerli, sepolia, main, local).
   Daemon will automatically read the Registry address associated with this network For local network ( you can also
   specify the registry address manually), see the blockchain_network_config.json
 
-* **daemon_end_point** (required;) -
+* **daemon_end_point** (required, default `"127.0.0.1:8080"`) -
   Defines the ip and the port on which the daemon listens to.
   format is :`<host>:<port>`.
 
@@ -182,7 +79,8 @@ time.
   Based on the network selected blockchain_network_selected the end point is auto determined
   Example `"https://sepolia.infura.io/v3"` for sepolia testnet.
 
-* **blockchain_provider_api_key** (optional) - basic header authorization key for blockchain providers. Tested with infura api key secret.
+* **blockchain_provider_api_key** (optional, default: `""`) - basic header authorization key for blockchain providers. Tested with
+  [infura api key secret](https://docs.infura.io/dashboard/secure-an-api/api-key-secret).
 
 * **organization_id** (required) -
   Id of the organization to search for [service configuration
@@ -208,11 +106,11 @@ time.
   endpoint of IPFS instance to get [service configuration
   metadata][service-configuration-metadata]
 
-#### Other properties
+### Other properties <a name="other_properties"></a>
 
 This options are less frequently needed.
 
-* **service_credentials** (optional, for service_type http only):
+* **service_credentials** (optional, for `"service_type":"http"` only):
   Array of credentials, example:
 
   ```
@@ -221,18 +119,16 @@ This options are less frequently needed.
       {"key": "X-API-Key", "value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39", "location": "header"}
     ],
   ```
-
   Location can be: query, header or body. Query and header values must be string.
 
-
-* **allowed_user_flag** (optional;default:`false`) - You may need to protect the service provider 's service in test
+* **allowed_user_flag** (optional; default:`false`) - You may need to protect the service provider 's service in test
   environment from being called by anyone, only Authorized users can make calls , when this flag is defined in the
   config, you can enforce this behaviour.You cannot set this flag to true
   in mainnet.  
   This config is applicable only when you have the value to true.
   In which case it becomes mandatory to define the configuration `allowed_users`,
 
-* **allowed_user_addresses** (optional;) - List of selected user addresses who can make requests to Daemon
+* **allowed_user_addresses** (optional) - List of selected user addresses who can make requests to Daemon
   Is Applicable only when you have `allowed_user_flag` set to true.
 
 * **authentication_addresses** (required if `You need to update Daemon configurations remotely`)
@@ -312,16 +208,13 @@ This options are less frequently needed.
   to this Daemon, metering service will ensure that the signer it receives matches the public key configured at its end.
   This is mandatory only when metering is enabled.
 
-
 * **rate_limit_per_minute** (optional; default: `Infinity`) -
   see [rate limiting configuration](./ratelimit/README.md)
-
 
 * **registry_address_key** (Optional) -
   Ethereum address of the Registry contract instance.This is auto determined if not specified based on the
   blockchain_network_selected
   If a value is specified, it will be used and no attempt will be made to auto determine the registry address.
-
 
 * **alerts_email** (optional; default: `""`) - It must be a valid email. if it is empty, then it is considered as alerts
   disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
@@ -349,7 +242,7 @@ This options are less frequently needed.
 * **token_secret_key** (optional;) - This is the secret key used to sign a JWT token , please do add this in your
   configuration to make your tokens a lot more secure.
 
-#### Environment variables and CLI parameters
+#### Environment variables and CLI parameters <a name="table_conf"></a>
 
 | config file key              | environment variable name         | flag                  |
 |------------------------------|-----------------------------------|-----------------------|
@@ -365,6 +258,114 @@ This options are less frequently needed.
 | `ssl_key`                    | `SNET_SSL_KEY`                    | `--ssl-key`           |
 
 [service-configuration-metadata]: https://github.com/singnet/wiki/blob/master/multiPartyEscrowContract/MPEServiceMetadata.md
+
+## Channel Claim and other commands <a name="commands"></a>
+
+Gets the latest channel state of the Channel updated in ETCD by the daemons of the same group and then increments the
+nonce of the channel.
+It then sends and ON-Chain transaction to claim funds. The daemons continue their work independently without any
+confirmation from the treasurer on the blockchain.
+
+**Claim funds from the channel**
+
+Refer to the link below on an end to end [Example of MPE](https://github.com/singnet/wiki/tree/master/multiPartyEscrowContract/front-to-back-examples)
+At the moment treasurer server is a part of snet-daemon command line interface.
+
+```bash
+./snetd-linux-amd64-v5.1.4 claim --channel-id 0
+```
+
+**Full list of commands, use --help to get more information:**
+
+```bash
+./snetd-linux-amd64-v5.1.4 --help
+
+Usage:
+  snetd [flags]
+  snetd [command]
+
+Available Commands:
+  channel     Manage operations on payment channels
+  freecall    Manage operations on free call users
+  help        Help about any command
+  init        Write basic configuration to file
+  init-full   Write full default configuration to file
+  list        List channels, claims in progress, etc
+  serve       Is the default option which starts the Daemon.
+  version     List the current version of the Daemon.
+
+Flags:
+  -c, --config string   config file (default "snetd.config.json")
+  -h, --help            help for snetd
+
+Use "snetd [command] --help" for more information about a command.
+```
+
+## Build & Development <a name="build"></a> 
+
+These instructions are intended to facilitate the development and testing of SingularityNET Daemon.
+
+### Prerequisites and dependencies
+
+* [Go 1.22+](https://golang.org/dl/)
+* [Protoc 25.0+](https://github.com/protocolbuffers/protobuf/releases)
+
+**Protoc (libprotoc), golang and $GOPATH/bin are recommended to be in environment variables.**
+
+### Installing
+
+* Clone the git repository (for example $GOPATH/src/github.com/singnet/)
+
+```bash
+git clone git@github.com:singnet/snet-daemon.git
+cd snet-daemon
+```
+
+* Install dependencies and generate bindings
+
+```bash
+./scripts/install
+```
+
+* Build snet-daemon. Please note using ldflags, the latest tagged version, sha1 revision and the build time are set as
+  part of the build. You need to pass the version as shown in the example below:
+
+```bash
+./scripts/build <linux/windows/darwin> <amd64/arm/arm64> <version>
+```
+ 
+Example:
+
+```bash
+./scripts/build linux amd64 v5.1.4
+```
+
+The final binaries will be in the `/build` folder.
+
+#### Multi-compiling
+
+If you want to build daemon for several platforms, run `./scripts/build-all <version>` instead
+of `./scripts/build`.
+
+You can edit the script to choose the specific platforms, but by default it will build for Linux, Darwin (OSX), and Windows.
+
+#### Unit Testing
+
+```bash
+./scripts/test
+``` 
+or
+```bash
+go test ./...
+```
+
+### Blockchain network config
+
+You can edit `ethereum_json_rpc_endpoint` in `resources/blockchain_network_config.json` before ./scripts/build.
+
+### Signatures in Daemon
+
+* [Payment Signatures](/escrow/README.md).
 
 ## Versioning
 

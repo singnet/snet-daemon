@@ -3,7 +3,6 @@ package utils
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -66,14 +65,4 @@ func CompareSlices[T comparable](s1, s2 []T) bool {
 		}
 	}
 	return true
-}
-
-func ConvertHTTPToWS(url string) (string, error) {
-	if strings.HasPrefix(url, "https://") {
-		return strings.Replace(url, "https://", "wss://", 1), nil
-	} else if strings.HasPrefix(url, "http://") {
-		return strings.Replace(url, "http://", "ws://", 1), nil
-	} else {
-		return "", errors.New("invalid URL scheme. URL must start with 'http://' or 'https://'")
-	}
 }

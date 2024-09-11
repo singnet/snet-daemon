@@ -59,7 +59,7 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 			newOrganizationMetaData := blockchain.GetOrganizationMetaData()
 			zap.L().Info("Get new organization metadata", zap.Any("value", newOrganizationMetaData))
 
-			if slices.Compare(l.CurrentOrganizationMetaData.GetPaymentStorageEndPoints(), newOrganizationMetaData.GetPaymentStorageEndPoints()) > 0 {
+			if slices.Compare(l.CurrentOrganizationMetaData.GetPaymentStorageEndPoints(), newOrganizationMetaData.GetPaymentStorageEndPoints()) != 0 {
 				l.CurrentEtcdClient.Close()
 				newEtcdbClient, err := etcddb.Reconnect(newOrganizationMetaData)
 				if err != nil {

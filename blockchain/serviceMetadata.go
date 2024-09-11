@@ -291,15 +291,6 @@ func getRegistryCaller() (reg *RegistryCaller) {
 	return reg
 }
 
-func GetRegistryCaller(ethHttpClient *ethclient.Client) *RegistryCaller {
-	registryContractAddress := getRegistryAddressKey()
-	reg, err := NewRegistryCaller(registryContractAddress, ethHttpClient)
-	if err != nil {
-		zap.L().Panic("Error instantiating Registry contract for the given Contract Address", zap.Error(err), zap.Any("registryContractAddress", registryContractAddress))
-	}
-	return reg
-}
-
 func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
 	registryContractAddress := getRegistryAddressKey()
 	reg, err := NewRegistryFilterer(registryContractAddress, ethWsClient)

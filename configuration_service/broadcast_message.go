@@ -10,7 +10,7 @@ type MessageBroadcaster struct {
 	trigger     chan int
 	quit        chan int
 	subscribers []chan int
-	//This will be used to make sure , we dont interfere with other threads
+	//This will be used to make sure, we don't interfere with other threads
 	mutex sync.Mutex
 }
 
@@ -35,17 +35,16 @@ func (broadcast *MessageBroadcaster) NewSubscriber() chan int {
 	return ch
 }
 
-// Once a message is received, pass it down to all the subscribers
+// Publish - Once a message is received, pass it down to all the subscribers
 func (broadcast *MessageBroadcaster) Publish() {
 	for {
-		//Wait for the message to trigger the broadcast
+		// Wait for the message to trigger the broadcast
 		msg := <-broadcast.trigger
 		broadcast.mutex.Lock()
-		defer broadcast.mutex.Unlock()
 		for _, subscriber := range broadcast.subscribers {
-			//Now broad the message to all the subscribers.
+			// Now broad the message to all the subscribers.
 			subscriber <- msg
 		}
-
+		broadcast.mutex.Unlock()
 	}
 }

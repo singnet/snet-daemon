@@ -101,7 +101,6 @@ func sendRequest(json []byte, serviceURL string, commonStats *CommonStats) (*htt
 	SignMessageForMetering(req, commonStats)
 
 	return client.Do(req)
-
 }
 
 func SignMessageForMetering(req *http.Request, commonStats *CommonStats) {

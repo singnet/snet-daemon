@@ -98,7 +98,6 @@ If an error is encountered , then we return back whatever was successful and sto
 and return the error that was encountered.
 */
 func (service *ProviderControlService) StartClaimForMultipleChannels(ctx context.Context, request *StartMultipleClaimRequest) (reply *PaymentsListReply, err error) {
-
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
 		return nil, err
 	}
@@ -148,13 +147,10 @@ func (service *ProviderControlService) verifySignerForStartClaimForMultipleChann
 
 func getBytesOfChannelIds(request *StartMultipleClaimRequest) []byte {
 	channelIds := make([]uint64, 0)
-	for _, channelId := range request.GetChannelIds() {
-		channelIds = append(channelIds, channelId)
-	}
+	channelIds = append(channelIds, request.GetChannelIds()...)
 	//sort the channel Ids
 	Uint64s(channelIds)
 	channelIdInBytes := make([]byte, 0)
-
 	for index, channelId := range channelIds {
 		if index == 0 {
 			channelIdInBytes = bytes.Join([][]byte{

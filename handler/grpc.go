@@ -10,21 +10,22 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/codec"
-	"github.com/singnet/snet-daemon/config"
-
 	"github.com/gorilla/rpc/v2/json2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
+
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/codec"
+	"github.com/singnet/snet-daemon/config"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
@@ -89,20 +90,19 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	return nil
 }
 
-func (h grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
+func (g grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
 	passthroughURL, err := url.Parse(endpoint)
 	if err != nil {
 		zap.L().Panic("error parsing passthrough endpoint", zap.Error(err))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
-		conn, err = grpc.Dial(passthroughURL.Host,
-			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), h.options)
+		conn, err = grpc.NewClient(passthroughURL.Host,
+			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), g.options)
 		if err != nil {
 			zap.L().Panic("error dialing service", zap.Error(err))
 		}
 	} else {
-		conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
-
+		conn, err = grpc.NewClient(passthroughURL.Host, grpc.WithTransportCredentials(insecure.NewCredentials()), g.options)
 		if err != nil {
 			zap.L().Panic("error dialing service", zap.Error(err))
 		}
@@ -230,7 +230,6 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 					ret <- err
 					break
 				}
-
 			} else if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
 				break
@@ -387,7 +386,6 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 }
 
 func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte) {
-
 	if protoFile.Services().Len() == 0 {
 		zap.L().Warn("service in proto not found")
 		return []byte("error, invalid proto file")

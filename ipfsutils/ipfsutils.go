@@ -23,7 +23,7 @@ func ReadFilesCompressed(compressedFile string) (protofiles []string, err error)
 	f := strings.NewReader(compressedFile)
 	tarReader := tar.NewReader(f)
 	protofiles = make([]string, 0)
-	for true {
+	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
 			break
@@ -67,27 +67,28 @@ func GetIpfsFile(hash string) (content string) {
 
 	cID, err := cid.Parse(hash)
 	if err != nil {
-		zap.L().Panic("error parsing the ipfs hash", zap.String("hashFromMetaData", hash), zap.Error(err))
+		zap.L().Fatal("error parsing the ipfs hash", zap.String("hashFromMetaData", hash), zap.Error(err))
 	}
 
 	req := ipfsClient.Request("cat", cID.String())
 	if err != nil {
-		zap.L().Panic("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
+		zap.L().Fatal("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return
 	}
 	resp, err := req.Send(context.Background())
-	defer resp.Close()
 	if err != nil {
-		zap.L().Panic("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
+		zap.L().Fatal("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return
 	}
+	defer resp.Close()
+
 	if resp.Error != nil {
-		zap.L().Panic("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
+		zap.L().Fatal("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return
 	}
 	fileContent, err := io.ReadAll(resp.Output)
 	if err != nil {
-		zap.L().Panic("error: in Reading the meta data file", zap.Error(err), zap.String("hashFromMetaData", hash))
+		zap.L().Fatal("error: in Reading the meta data file", zap.Error(err), zap.String("hashFromMetaData", hash))
 		return
 	}
 
@@ -96,13 +97,13 @@ func GetIpfsFile(hash string) (content string) {
 	// Create a cid manually to check cid
 	_, c, err := cid.CidFromBytes(append(cID.Bytes(), fileContent...))
 	if err != nil {
-		zap.L().Panic("error generating ipfs hash", zap.String("hashFromMetaData", hash), zap.Error(err))
+		zap.L().Fatal("error generating ipfs hash", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return
 	}
 
 	// To test if two cid's are equivalent, be sure to use the 'Equals' method:
 	if !c.Equals(cID) {
-		zap.L().Panic("IPFS hash verification failed. Generated hash doesnt match with expected hash",
+		zap.L().Fatal("IPFS hash verification failed. Generated hash doesnt match with expected hash",
 			zap.String("expectedHash", hash),
 			zap.String("hashFromIPFSContent", c.String()))
 	}

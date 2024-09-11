@@ -108,10 +108,10 @@ func (storage *MemoryStorage) Clear() (err error) {
 	return
 }
 
-func (memStorage *MemoryStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
+func (storage *MemoryStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
 	conditionKeyValues := make([]KeyValueData, len(conditionKeys))
 	for i, key := range conditionKeys {
-		value, ok, err := memStorage.Get(key)
+		value, ok, err := storage.Get(key)
 		if err != nil {
 			return nil, err
 		} else if !ok {
@@ -119,7 +119,6 @@ func (memStorage *MemoryStorage) StartTransaction(conditionKeys []string) (trans
 		} else {
 			conditionKeyValues[i] = KeyValueData{Key: key, Value: value, Present: true}
 		}
-
 	}
 	transaction = &memoryStorageTransaction{ConditionKeys: conditionKeys, ConditionValues: conditionKeyValues}
 	return transaction, nil
@@ -165,9 +164,8 @@ func (storage *MemoryStorage) CompleteTransaction(transaction Transaction, updat
 	return true, nil
 }
 
-func (client *MemoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
-
-	transaction, err := client.StartTransaction(request.ConditionKeys)
+func (storage *MemoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
+	transaction, err := storage.StartTransaction(request.ConditionKeys)
 	if err != nil {
 		return false, err
 	}
@@ -180,7 +178,7 @@ func (client *MemoryStorage) ExecuteTransaction(request CASRequest) (ok bool, er
 		if err != nil {
 			return false, err
 		}
-		ok, err = client.CompleteTransaction(transaction, newvalues)
+		ok, err = storage.CompleteTransaction(transaction, newvalues)
 		if err != nil {
 			return false, err
 		}
@@ -191,6 +189,7 @@ func (client *MemoryStorage) ExecuteTransaction(request CASRequest) (ok bool, er
 			continue
 		}
 	}
+	// TODO: refactor this
 	return true, nil
 }
 

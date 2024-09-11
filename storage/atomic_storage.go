@@ -217,7 +217,6 @@ func NewTypedAtomicStorageImpl(storage AtomicStorage, keySerializer func(key any
 	keyType reflect.Type, valueSerializer func(value any) (serialized string, err error),
 	valueDeserializer func(serialized string, value any) (err error),
 	valueType reflect.Type) TypedAtomicStorage {
-
 	return &TypedAtomicStorageImpl{
 		atomicStorage:     storage,
 		keySerializer:     keySerializer,
@@ -226,7 +225,6 @@ func NewTypedAtomicStorageImpl(storage AtomicStorage, keySerializer func(key any
 		valueDeserializer: valueDeserializer,
 		valueType:         valueType,
 	}
-
 }
 
 // Get implements TypedAtomicStorage.Get
@@ -268,7 +266,7 @@ func (storage *TypedAtomicStorageImpl) GetAll() (array any, err error) {
 	}
 
 	values := reflect.MakeSlice(
-		reflect.SliceOf(reflect.PtrTo(storage.valueType)),
+		reflect.SliceOf(reflect.PointerTo(storage.valueType)),
 		0, len(stringValues))
 
 	for _, stringValue := range stringValues {
@@ -380,7 +378,6 @@ func findKeyValueByKey(keyValueData []KeyValueData, key string) (keyValueString 
 }
 
 func (storage *TypedAtomicStorageImpl) ExecuteTransaction(request TypedCASRequest) (ok bool, err error) {
-
 	updateFunction := func(conditionValues []KeyValueData) (update []KeyValueData, ok bool, err error) {
 		typedValues, err := storage.convertKeyValueDataToTyped(request.ConditionKeys, conditionValues)
 		if err != nil {

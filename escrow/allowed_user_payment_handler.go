@@ -17,7 +17,7 @@ func AllowedUserPaymentHandler() handler.PaymentHandler {
 	}
 }
 
-//clients should be oblivious to this handler
+// clients should be oblivious to this handler
 func (h *allowedUserPaymentHandler) Type() (typ string) {
 	return EscrowPaymentType
 }

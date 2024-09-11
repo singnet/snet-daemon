@@ -354,13 +354,10 @@ func serializeLicenseDetailsData(value any) (slice string, err error) {
 	gob.Register(&ServiceMethodCostDetails{})
 
 	err = e.Encode(value)
-
 	if err != nil {
 		return
 	}
-
-	slice = string(b.Bytes())
-	return
+	return b.String(), err
 }
 func deserializeLicenseDetailsData(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
@@ -386,8 +383,7 @@ func serializeLicenseTrackerData(value any) (slice string, err error) {
 		return
 	}
 
-	slice = string(b.Bytes())
-	return
+	return b.String(), err
 }
 
 func deserializeLicenseTrackerData(slice string, value any) (err error) {

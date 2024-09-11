@@ -35,7 +35,7 @@ func (mutex *EtcdClientMutex) Unlock(ctx context.Context) (err error) {
 	return mutex.mutex.Unlock(ctx)
 }
 
-// EtcdClient struct has some useful methods to wolrk with etcd client
+// EtcdClient struct has some useful methods to work with an etcd client
 type EtcdClient struct {
 	timeout time.Duration
 	session *concurrency.Session
@@ -64,25 +64,25 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	var etcdv3 *clientv3.Client
 
 	if utils.CheckIfHttps(metaData.GetPaymentStorageEndPoints()) {
-		if tlsConfig, err := getTlsConfig(); err == nil {
-			etcdv3, err = clientv3.New(clientv3.Config{
-				Endpoints:   metaData.GetPaymentStorageEndPoints(),
-				DialTimeout: conf.ConnectionTimeout,
-				TLS:         tlsConfig,
-			})
-		} else {
-			return nil, err
-		}
-
-	} else {
-		//Regular http call
-		etcdv3, err = clientv3.New(clientv3.Config{
-			Endpoints:   metaData.GetPaymentStorageEndPoints(),
-			DialTimeout: conf.ConnectionTimeout,
-		})
+		tlsConfig, err := getTlsConfig()
 		if err != nil {
 			return nil, err
 		}
+		etcdv3, err = clientv3.New(clientv3.Config{
+			Endpoints:   conf.Endpoints,
+			DialTimeout: conf.ConnectionTimeout,
+			TLS:         tlsConfig,
+		})
+	} else {
+		// Regular http call
+		etcdv3, err = clientv3.New(clientv3.Config{
+			Endpoints:   conf.Endpoints,
+			DialTimeout: conf.ConnectionTimeout,
+		})
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), conf.RequestTimeout)
@@ -101,7 +101,6 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 }
 
 func getTlsConfig() (*tls.Config, error) {
-
 	zap.L().Debug("enabling SSL support via X509 keypair")
 	cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
 
@@ -119,12 +118,10 @@ func getTlsConfig() (*tls.Config, error) {
 		RootCAs:      caCertPool,
 	}
 	return tlsConfig, nil
-
 }
 
 // Get gets value from etcd by key
 func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
-
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 

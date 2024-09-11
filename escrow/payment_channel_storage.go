@@ -44,8 +44,7 @@ func serialize(value any) (slice string, err error) {
 		return
 	}
 
-	slice = string(b.Bytes())
-	return
+	return b.String(), err
 }
 
 func deserialize(slice string, value any) (err error) {

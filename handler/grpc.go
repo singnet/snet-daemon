@@ -10,21 +10,22 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/codec"
-	"github.com/singnet/snet-daemon/config"
-
 	"github.com/gorilla/rpc/v2/json2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
+
+	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/codec"
+	"github.com/singnet/snet-daemon/config"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
@@ -89,20 +90,19 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	return nil
 }
 
-func (h grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
+func (g grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
 	passthroughURL, err := url.Parse(endpoint)
 	if err != nil {
 		zap.L().Panic("error parsing passthrough endpoint", zap.Error(err))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
-		conn, err = grpc.Dial(passthroughURL.Host,
-			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), h.options)
+		conn, err = grpc.NewClient(passthroughURL.Host,
+			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), g.options)
 		if err != nil {
 			zap.L().Panic("error dialing service", zap.Error(err))
 		}
 	} else {
-		conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), h.options)
-
+		conn, err = grpc.NewClient(passthroughURL.Host, grpc.WithTransportCredentials(insecure.NewCredentials()), g.options)
 		if err != nil {
 			zap.L().Panic("error dialing service", zap.Error(err))
 		}
@@ -222,15 +222,14 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 			// first message sent by the client and pass this on the regular service call
 			//This is done to be able to make calls to support regular Service call + Dynamic pricing call
 			if i == 0 {
-				//todo we need to think through to determine price for every call on stream calls
-				//will be handled when we support streaming and pricing across all clients in snet-platform
+				// todo we need to think through to determine price for every call on stream calls
+				// will be handled when we support streaming and pricing across all clients in snet-platform
 				if wrappedStream, ok := src.(*WrapperServerStream); ok {
 					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
 				} else if err := src.RecvMsg(f); err != nil {
 					ret <- err
 					break
 				}
-
 			} else if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
 				break
@@ -321,7 +320,11 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 
 	base.RawQuery = params.Encode()
-	zap.L().Debug("Calling URL", zap.String("Url", base.String()))
+	zap.L().Debug("Calling http service",
+		zap.String("url", base.String()),
+		zap.String("body", string(jsonBody)),
+		zap.String("method", "POST"))
+
 	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonBody))
 	httpReq.Header = headers
 	if err != nil {
@@ -372,7 +375,7 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 		return proto
 	}
 	output := method.Output()
-	zap.L().Debug("output of calling method", zap.Any("method", output.FullName()))
+	zap.L().Debug("output msg descriptor", zap.Any("fullname", output.FullName()))
 	proto = dynamicpb.NewMessage(output)
 	err := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}.Unmarshal(json, proto)
 	if err != nil {
@@ -383,7 +386,6 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 }
 
 func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte) {
-
 	if protoFile.Services().Len() == 0 {
 		zap.L().Warn("service in proto not found")
 		return []byte("error, invalid proto file")

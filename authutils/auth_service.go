@@ -1,4 +1,4 @@
-// authutils package provides functions for all authentication and singature validation related operations
+// Package authutils provides functions for all authentication and signature validation related operations
 package authutils
 
 import (
@@ -67,21 +67,21 @@ func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Addr
 	return &keyOwnerAddress, nil
 }
 
-// Verify the signature done by given singer or not
-// returns nil if signer indeed sign the message and singature proves it, if not throws an error
+// VerifySigner Verify the signature done by given singer or not
+// returns nil if signer indeed sign the message and signature proves it, if not throws an error
 func VerifySigner(message []byte, signature []byte, signer common.Address) error {
 	signerFromMessage, err := GetSignerAddressFromMessage(message, signature)
 	if err != nil {
-		zap.L().Error("Gering error from getSignerAddressFromMessage", zap.Error(err))
+		zap.L().Error("error from getSignerAddressFromMessage", zap.Error(err))
 		return err
 	}
 	if signerFromMessage.String() == signer.String() {
 		return nil
 	}
-	return fmt.Errorf("Incorrect signer.")
+	return fmt.Errorf("incorrect signer")
 }
 
-// Check if the block number passed is not more +- 5 from the latest block number on chain
+// CompareWithLatestBlockNumber Check if the block number passed is not more +- 5 from the latest block number on chain
 func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	latestBlockNumber, err := CurrentBlock()
 	if err != nil {
@@ -94,7 +94,7 @@ func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	return nil
 }
 
-// Check if the block number ( date on which the token was issued is not more than 1 month)
+// CheckIfTokenHasExpired Check if the block number ( date on which the token was issued is not more than 1 month)
 func CheckIfTokenHasExpired(expiredBlock *big.Int) error {
 	currentBlockNumber, err := CurrentBlock()
 	if err != nil {
@@ -107,7 +107,7 @@ func CheckIfTokenHasExpired(expiredBlock *big.Int) error {
 	return nil
 }
 
-// Get the current block number from on chain
+// CurrentBlock Get the current block number from on chain
 func CurrentBlock() (*big.Int, error) {
 	if ethClient, err := blockchain.GetEthereumClient(); err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func CurrentBlock() (*big.Int, error) {
 	}
 }
 
-// Check if the payment address/signer passed matches to what is present in the metadata
+// VerifyAddress Check if the payment address/signer passed matches to what is present in the metadata
 func VerifyAddress(address common.Address, otherAddress common.Address) error {
 	isSameAddress := otherAddress == address
 	if !isSameAddress {

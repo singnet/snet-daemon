@@ -34,7 +34,7 @@ type PrePaidPaymentHandler struct {
 
 func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (err error) {
 	//Validate the token
-	return validator.tokenManager.VerifyToken(string(payment.AuthToken), payment.ChannelID)
+	return validator.tokenManager.VerifyToken(payment.AuthToken, payment.ChannelID)
 }
 
 // NewPaymentHandler returns new MultiPartyEscrow contract payment handler.

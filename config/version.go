@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -39,7 +38,7 @@ func CheckVersionOfDaemon() (message string, err error) {
 	latestVersionFromGit, err = GetLatestDaemonVersion()
 	if len(versionTag) > 0 && err == nil {
 		if strings.Compare(latestVersionFromGit, versionTag) != 0 {
-			err = errors.New(fmt.Sprintf("There is a newer version of the Daemon %v available. You are currently on %v, please consider upgrading.", latestVersionFromGit, versionTag))
+			err = fmt.Errorf("there is a newer version of the Daemon %v available. You are currently on %v, please consider upgrading", latestVersionFromGit, versionTag)
 		}
 	}
 	return message, err

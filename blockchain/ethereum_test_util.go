@@ -3,12 +3,12 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -19,7 +19,7 @@ type SimulatedEthereumEnvironment struct {
 	ClientPrivateKey        *ecdsa.PrivateKey
 	ServerWallet            *bind.TransactOpts
 	ServerPrivateKey        *ecdsa.PrivateKey
-	Backend                 *backends.SimulatedBackend
+	Backend                 *simulated.Backend
 	SingularityNetToken     *SingularityNetToken
 	MultiPartyEscrowAddress common.Address
 	MultiPartyEscrow        *MultiPartyEscrow
@@ -63,40 +63,48 @@ func (env *SimulatedEthereumEnvironment) Commit() *SimulatedEthereumEnvironment 
 }
 
 func GetSimulatedEthereumEnvironment() (env SimulatedEthereumEnvironment) {
-	env.SingnetPrivateKey, env.SingnetWallet = getTestWallet()
-	env.ClientPrivateKey, env.ClientWallet = getTestWallet()
-	env.ServerPrivateKey, env.ServerWallet = getTestWallet()
+	var chainID = big.NewInt(11155111)
+	env.SingnetPrivateKey, env.SingnetWallet, _ = getTestWallet(chainID)
+	env.ClientPrivateKey, env.ClientWallet, _ = getTestWallet(chainID)
+	env.ServerPrivateKey, env.ServerWallet, _ = getTestWallet(chainID)
 
-	alloc := map[common.Address]core.GenesisAccount{
+	alloc := map[common.Address]types.Account{
 		env.SingnetWallet.From: {Balance: big.NewInt(1000000000000)},
 		env.ClientWallet.From:  {Balance: big.NewInt(1000000000000)},
 		env.ServerWallet.From:  {Balance: big.NewInt(10000000)},
 	}
 
-	env.Backend = backends.NewSimulatedBackend(alloc, 0)
+	b := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(0))
+
+	env.Backend = b
 	deployContracts(&env)
 
 	return
 }
 
-func getTestWallet() (privateKey *ecdsa.PrivateKey, wallet *bind.TransactOpts) {
-	privateKey, err := crypto.GenerateKey()
+func getTestWallet(chainID *big.Int) (privateKey *ecdsa.PrivateKey, wallet *bind.TransactOpts, err error) {
+	privateKey, err = crypto.GenerateKey()
 	if err != nil {
 		panic(fmt.Sprintf("Unable to generate private key, error: %v", err))
 	}
 
-	return privateKey, bind.NewKeyedTransactor(privateKey)
+	wallet, err = bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return privateKey, wallet, err
 }
 
 func deployContracts(env *SimulatedEthereumEnvironment) {
-	tokenAddress, _, token, err := DeploySingularityNetToken(EstimateGas(env.SingnetWallet), env.Backend, "SingularityNet Token", "AGI")
+	tokenAddress, _, token, err := DeploySingularityNetToken(EstimateGas(env.SingnetWallet), env.Backend.Client(), "SingularityNet Token", "AGI")
 	if err != nil {
 		panic(fmt.Sprintf("Unable to deploy SingularityNetToken contract, error: %v", err))
 	}
 	env.Backend.Commit()
 	env.SingularityNetToken = token
 
-	mpeAddress, _, mpe, err := DeployMultiPartyEscrow(EstimateGas(env.SingnetWallet), env.Backend, tokenAddress)
+	mpeAddress, _, mpe, err := DeployMultiPartyEscrow(EstimateGas(env.SingnetWallet), env.Backend.Client(), tokenAddress)
 	if err != nil {
 		panic(fmt.Sprintf("Unable to deploy MultiPartyEscrow contract, error: %v", err))
 	}

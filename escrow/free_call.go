@@ -150,7 +150,7 @@ func (transaction *freeCallTransaction) Commit() error {
 	return nil
 }
 
-func (payment *freeCallTransaction) Rollback() error {
+func (transaction *freeCallTransaction) Rollback() error {
 	defer func(payment *freeCallTransaction) {
 		err := payment.lock.Unlock()
 		if err != nil {
@@ -159,6 +159,6 @@ func (payment *freeCallTransaction) Rollback() error {
 		} else {
 			zap.L().Debug("Free call Payment rolled back, free call user unlocked")
 		}
-	}(payment)
+	}(transaction)
 	return nil
 }

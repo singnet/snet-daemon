@@ -27,7 +27,7 @@ type paymentChannelPaymentHandler struct {
 	incomeValidator    IncomeValidator
 }
 
-// NewPaymentHandler retuns new MultiPartyEscrow contract payment handler.
+// NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewPaymentHandler(
 	service PaymentChannelService,
 	processor *blockchain.Processor,

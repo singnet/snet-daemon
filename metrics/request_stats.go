@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-//Request stats that will be captured
+// Request stats that will be captured
 type RequestStats struct {
 	Type                       string `json:"type"`
 	RegistryAddressKey         string `json:"registry_address_key"`
@@ -25,8 +25,6 @@ type RequestStats struct {
 	UserAgent                  string `json:"user_agent"`
 	ChannelId                  string `json:"channel_id"`
 }
-
-
 
 func (request *RequestStats) setDataFromContext(md metadata.MD) {
 	request.InputDataSize = strconv.FormatUint(GetSize(md), 10)

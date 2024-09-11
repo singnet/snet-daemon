@@ -5,15 +5,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// Lock is an aquired lock.
+// Lock is an acquired lock.
 type Lock interface {
 	// Unlock frees lock
 	Unlock() (err error)
 }
 
-// Locker is an interface to aquire lock
+// Locker is an interface to acquire lock
 type Locker interface {
-	// Lock aquires and returns lock. ok is false if lock cannot be aquired.
+	// Lock acquires and returns lock. ok is false if lock cannot be acquired.
 	Lock(name string) (lock Lock, ok bool, err error)
 }
 

@@ -10,19 +10,21 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/gorilla/handlers"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/pkg/errors"
-	"github.com/rs/cors"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
+	contractListener "github.com/singnet/snet-daemon/contract_event_listener"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/training"
+
+	"github.com/gorilla/handlers"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"github.com/pkg/errors"
+	"github.com/rs/cors"
 	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -62,6 +64,18 @@ var ServeCmd = &cobra.Command{
 
 		d.start()
 		defer d.stop()
+
+		// Check if the payment storage client is etcd by verifying if d.components.etcdClient exists.
+		// If etcdClient is not nil and hot reload is enabled, initialize a ContractEventListener
+		// to listen for changes in the organization metadata.
+		if d.components.etcdClient != nil && d.components.etcdClient.IsHotReloadEnabled() {
+			contractEventLister := contractListener.ContractEventListener{
+				BlockchainProcessor:         &d.blockProc,
+				CurrentOrganizationMetaData: components.OrganizationMetaData(),
+				CurrentEtcdClient:           components.EtcdClient(),
+			}
+			go contractEventLister.ListenOrganizationMetadataChanging()
+		}
 
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)

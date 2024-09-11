@@ -35,7 +35,7 @@ func createRequestStat(commonStat *CommonStats) *RequestStats {
 	request := &RequestStats{
 		Type:                       "request",
 		RegistryAddressKey:         config.GetRegistryAddress(),
-		EthereumJsonRpcEndpointKey: config.GetBlockChainEndPoint(),
+		EthereumJsonRpcEndpointKey: config.GetBlockChainHTTPEndPoint(),
 		RequestID:                  commonStat.ID,
 		GroupID:                    commonStat.GroupID,
 		DaemonEndPoint:             commonStat.DaemonEndPoint,

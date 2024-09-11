@@ -1,12 +1,13 @@
 package metrics
 
 import (
-	"github.com/singnet/snet-daemon/config"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"math/big"
 	"strconv"
 	"time"
+
+	"github.com/singnet/snet-daemon/config"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -100,7 +101,7 @@ func createResponseStats(commonStat *CommonStats, duration time.Duration, err er
 	response := &ResponseStats{
 		Type:                       "response",
 		RegistryAddressKey:         config.GetRegistryAddress(),
-		EthereumJsonRpcEndpointKey: config.GetBlockChainEndPoint(),
+		EthereumJsonRpcEndpointKey: config.GetBlockChainHTTPEndPoint(),
 		RequestID:                  commonStat.ID,
 		ResponseTime:               strconv.FormatFloat(duration.Seconds(), 'f', 4, 64),
 		GroupID:                    daemonGroupId,

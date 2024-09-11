@@ -11,6 +11,7 @@ import (
 	"github.com/bufbuild/protocompile"
 	pproto "github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/ipfsutils"
@@ -277,13 +278,22 @@ func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 }
 
 func getRegistryCaller() (reg *RegistryCaller) {
-	ethClient, err := GetEthereumClient()
+	ethHttpClient, err := CreateHTTPEthereumClient()
 	if err != nil {
 		zap.L().Panic("Unable to get Blockchain client ", zap.Error(err))
 	}
-	defer ethClient.Close()
+	defer ethHttpClient.Close()
 	registryContractAddress := getRegistryAddressKey()
-	reg, err = NewRegistryCaller(registryContractAddress, ethClient.EthClient)
+	reg, err = NewRegistryCaller(registryContractAddress, ethHttpClient.EthClient)
+	if err != nil {
+		zap.L().Panic("Error instantiating Registry contract for the given Contract Address", zap.Error(err), zap.Any("registryContractAddress", registryContractAddress))
+	}
+	return reg
+}
+
+func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
+	registryContractAddress := getRegistryAddressKey()
+	reg, err := NewRegistryFilterer(registryContractAddress, ethWsClient)
 	if err != nil {
 		zap.L().Panic("Error instantiating Registry contract for the given Contract Address", zap.Error(err), zap.Any("registryContractAddress", registryContractAddress))
 	}

@@ -81,3 +81,21 @@ func ToChecksumAddress(hexAddress string) string {
 	mixedAddress := common.NewMixedcaseAddress(address)
 	return mixedAddress.Address().String()
 }
+
+/*
+MakeTopicFilterer is used to generate a filter for querying Ethereum logs or contract events.
+Ethereum topics (such as for events) are 32-byte fixed-size values (common for hashing
+in Ethereum logs). This function takes a string parameter, converts it into a 32-byte array,
+and returns it in a slice. This allows developers to create filters when looking for
+specific events or log entries based on the topic.
+*/
+func MakeTopicFilterer(param string) [][32]byte {
+	// Create a 32-byte array
+	var param32Byte [32]byte
+
+	// Convert the string to a byte slice and copy up to 32 bytes
+	copy(param32Byte[:], []byte(param)[:min(len(param), 32)])
+
+	// Return the filter with a single element (the 32-byte array)
+	return [][32]byte{param32Byte}
+}

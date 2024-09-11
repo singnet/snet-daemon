@@ -16,31 +16,35 @@ func TestGetNetworkId(t *testing.T) {
 var defaultBlockChainNetworkConfig = `
 {
   "local": {
-    "ethereum_json_rpc_endpoint": "http://localhost:8545",
-    "network_id": "42",
+    "ethereum_json_rpc_http_endpoint": "http://localhost:8545",
+	"ethereum_json_rpc_ws_endpoint": "ws://localhost:443",
+	"network_id": "42",
     "registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2"
   },
   "main": {
-    "ethereum_json_rpc_endpoint": "https://mainnet.infura.io/v3",
+    "ethereum_json_rpc_http_endpoint": "https://mainnet.infura.io/v3",
+	"ethereum_json_rpc_ws_endpoint": "wss://mainnet.infura.io/v3",
     "network_id": "1"
   },
   "goerli": {
-    "ethereum_json_rpc_endpoint": "https://goerli.infura.io/v3",
+    "ethereum_json_rpc_http_endpoint": "https://goerli.infura.io/v3",
+	"ethereum_json_rpc_ws_endpoint": "wss://goerli.infura.io/v3",
     "network_id": "5"
   },
   "sepolia": {
-    "ethereum_json_rpc_endpoint": "https://sepolia.infura.io/v3",
+    "ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3",
+	"ethereum_json_rpc_ws_endpoint": "wss://sepolia.infura.io/v3",
     "network_id": "11155111"
   }
 }`
 
 func TestGetBlockChainEndPoint(t *testing.T) {
 	Vip().Set(BlockChainNetworkSelected, "local")
-	determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
-
-	assert.Matches(t, GetBlockChainEndPoint(), GetString(BlockChainNetworkSelected))
+	err := determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
+	assert.Equal(t, err, nil)
+	assert.Matches(t, GetBlockChainHTTPEndPoint(), GetString(BlockChainNetworkSelected))
+	assert.Matches(t, GetBlockChainWSEndPoint(), GetString(BlockChainNetworkSelected))
 	assert2.NotEqual(t, GetNetworkId(), nil)
-
 }
 
 func TestGetRegistryAddress(t *testing.T) {
@@ -92,7 +96,7 @@ func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 		want    string
 		network string
 	}{
-		{EthereumJsonRpcEndpointKey, "https://sepolia.infura.io/v3", "sepolia"},
+		{EthereumJsonRpcHTTPEndpointKey, "https://sepolia.infura.io/v3", "sepolia"},
 		{RegistryAddressKey, "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2", "local"},
 	}
 	for _, tt := range tests {

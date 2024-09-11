@@ -13,10 +13,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.uber.org/zap"
-
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 const (
@@ -113,7 +112,8 @@ const (
 	},
 	"payment_channel_storage_client": {
 		"connection_timeout": "0s",
-		"request_timeout": "0s"
+		"request_timeout": "0s",
+		"hot_reload": true
     },
 	"payment_channel_storage_server": {
 		"id": "storage-1",

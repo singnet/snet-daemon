@@ -2,10 +2,10 @@ package contractlistener
 
 import (
 	"context"
+	"slices"
 
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/etcddb"
-	"github.com/singnet/snet-daemon/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/gorilla/websocket"
@@ -35,19 +35,21 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 	for {
 		select {
 		case err := <-sub.Err():
-			zap.L().Error("Subscription error: ", zap.Error(err))
-			if websocket.IsCloseError(
-				err,
-				websocket.CloseNormalClosure,
-				websocket.CloseAbnormalClosure,
-				websocket.CloseGoingAway,
-				websocket.CloseServiceRestart,
-				websocket.CloseTryAgainLater,
-				websocket.CloseTLSHandshake,
-			) {
-				err = l.BlockchainProcessor.ReconnectToWsClient()
-				if err != nil {
-					zap.L().Error("Error in reconnecting to websockets", zap.Error(err))
+			if err != nil {
+				zap.L().Error("Subscription error: ", zap.Error(err))
+				if websocket.IsCloseError(
+					err,
+					websocket.CloseNormalClosure,
+					websocket.CloseAbnormalClosure,
+					websocket.CloseGoingAway,
+					websocket.CloseServiceRestart,
+					websocket.CloseTryAgainLater,
+					websocket.CloseTLSHandshake,
+				) {
+					err = l.BlockchainProcessor.ReconnectToWsClient()
+					if err != nil {
+						zap.L().Error("Error in reconnecting to websockets", zap.Error(err))
+					}
 				}
 			}
 		case logData := <-eventContractChannel:
@@ -57,7 +59,7 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 			newOrganizationMetaData := blockchain.GetOrganizationMetaData()
 			zap.L().Info("Get new organization metadata", zap.Any("value", newOrganizationMetaData))
 
-			if !utils.CompareSlices(l.CurrentOrganizationMetaData.GetPaymentStorageEndPoints(), newOrganizationMetaData.GetPaymentStorageEndPoints()) {
+			if slices.Compare(l.CurrentOrganizationMetaData.GetPaymentStorageEndPoints(), newOrganizationMetaData.GetPaymentStorageEndPoints()) > 0 {
 				l.CurrentEtcdClient.Close()
 				newEtcdbClient, err := etcddb.Reconnect(newOrganizationMetaData)
 				if err != nil {

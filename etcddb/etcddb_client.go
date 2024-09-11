@@ -107,7 +107,7 @@ func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	zap.L().Info("Successful reconnet to new etcd endpoints", zap.Strings("New enpoints", metadata.GetPaymentStorageEndPoints()))
+	zap.L().Info("Successful reconnet to new etcd endpoints", zap.Strings("New endpoints", metadata.GetPaymentStorageEndPoints()))
 	return etcdClient, nil
 }
 

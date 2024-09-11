@@ -13,7 +13,7 @@ The daemon is the adapter with which an otherwise SingularityNET-unaware service
 SingularityNET platform. It is designed to be deployed as a sidecar proxy alongside the service on a given host.
 The daemon abstracts the blockchain components away from the clients.
 The SNET Daemon interacts with the Multi Party Escrow to facilitate authorization and payment for services and acts as a
-passthrough for making API calls to the service.The daemon is the endpoint a client will submit requests to, and they
+passthrough for making API calls to the service. The daemon is the endpoint a client will submit requests to, and they
 are then passed to the service after validation by the daemon.
 
 # Table of contents

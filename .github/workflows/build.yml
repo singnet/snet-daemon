@@ -1,43 +1,44 @@
 name: build
 on:
   push:
-    branches: [ "master" ]
-  # pull_request:
-  #   branches: [ "master" ]
+    branches: [ "master", "dev" ]
+  pull_request:
+    branches: [ "dev" ]
   workflow_dispatch:
 
+env:
+  GOLANG_PROTOBUF_REGISTRATION_CONFLICT: ignore
+
 jobs:
-    run_build:
-      runs-on: ubuntu-latest
-      steps:
-      
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
       - name: clone repo
         uses: actions/checkout@v3
-        
+
       - name: download and install
         uses: actions/setup-go@v5
         with:
-              go-version: '1.22.2'
+          go-version: '1.22.5'
 
-      - name: protobuff install
-        run: |
-          sudo apt update
-          sudo apt install protobuf-compiler
+      - name: install protoc (protobuf)
+        uses: arduino/setup-protoc@v3
+        with:
+          version: v27.2
+          include-pre-releases: false
 
-      - name: go_ins_1
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - name: chmod +x
+        run: chmod +x ./scripts/install_deps && chmod +x ./scripts/build
 
-      - name: go_ins_2
-        run: go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - name: install dependencies
+        run: ./scripts/install_deps
 
-      - name: generate
-        run: go generate ./...
+      - name: build linux
+        run: ./scripts/build linux amd64 dev
 
-      - name: check version
-        run: go version
+      - name: build darwin
+        run: ./scripts/build darwin amd64 dev
 
-      - name: check folder
-        run: ls
-
-      - name: do build
-        run: go build snetd/main.go
+      - name: build windows
+        run: ./scripts/build windows amd64 dev

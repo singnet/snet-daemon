@@ -4,6 +4,7 @@ package training
 import (
 	"bytes"
 	"fmt"
+	"google.golang.org/grpc/credentials/insecure"
 	"math/big"
 	"net/url"
 	"strings"
@@ -91,13 +92,13 @@ func getConnection(endpoint string) (conn *grpc.ClientConn) {
 		zap.L().Panic("error parsing passthrough endpoint", zap.Error(err))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
-		conn, err = grpc.Dial(passthroughURL.Host,
+		conn, err = grpc.NewClient(passthroughURL.Host,
 			grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")), options)
 		if err != nil {
 			zap.L().Panic("error dialing service", zap.Error(err))
 		}
 	} else {
-		conn, err = grpc.Dial(passthroughURL.Host, grpc.WithInsecure(), options)
+		conn, err = grpc.NewClient(passthroughURL.Host, grpc.WithTransportCredentials(insecure.NewCredentials()), options)
 
 		if err != nil {
 			zap.L().Panic("error dialing service", zap.Error(err))
@@ -176,6 +177,9 @@ func (service ModelService) deleteUserModelDetails(key *ModelKey, data *ModelDat
 		if data, ok, err := service.userStorage.Get(userKey); ok && err == nil && data != nil {
 			data.ModelIds = remove(data.ModelIds, key.ModelId)
 			err = service.userStorage.Put(userKey, data)
+			if err != nil {
+				zap.L().Error(err.Error())
+			}
 		}
 	}
 	return
@@ -225,7 +229,7 @@ func (service ModelService) updateModelDetails(request *UpdateModelRequest, resp
 	key := service.getModelKeyToUpdate(request)
 	oldAddresses := make([]string, 0)
 	var latestAddresses []string
-	//by default add the creator to the Authorized list of Address
+	// by default add the creator to the Authorized list of Address
 	if request.UpdateModelDetails.AddressList != nil || len(request.UpdateModelDetails.AddressList) > 0 {
 		latestAddresses = request.UpdateModelDetails.AddressList
 	}

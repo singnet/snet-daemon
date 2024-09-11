@@ -17,7 +17,7 @@ func TestCreateResponseStats(t *testing.T) {
 	commonStat.UserAgent = "python/cli"
 	commonStat.ChannelId = "1"
 	commonStat.PaymentMode = "freecall"
-	commonStat.UserAddress="0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
+	commonStat.UserAddress = "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
 	response := createResponseStats(commonStat, time.Duration(1234566000), nil)
 	assert.Equal(t, response.RequestID, commonStat.ID)
 	assert.Equal(t, response.Version, commonStat.Version)
@@ -56,38 +56,36 @@ func TestJsonCreated(t *testing.T) {
 	fmt.Println(zone, offset)
 	payload := &ResponseStats{
 
-		Type:"grpc",
-		ChannelId:"123",
+		Type:      "grpc",
+		ChannelId: "123",
 
-		RegistryAddressKey:"",
-		EthereumJsonRpcEndpointKey:"",
-		RequestID:"",
-		OrganizationID:config.GetString(config.OrganizationId),
-		GroupID:"",
-		ServiceMethod:"",
-		ResponseSentTime:"",
-		RequestReceivedTime:"",
-		ResponseTime:"",
-		ResponseCode:"",
-		ErrorMessage:"",
-		Version:"",
-		ClientType:"",
-		UserDetails:"",
-		UserAgent:"",
-		UserName:"whateverDappPasses",
-		Operation:"",
-		UsageType:"",
-		Status:"",
-		StartTime:"",
-		EndTime:"",
-		UsageValue:1,
-		TimeZone:zone,
-
-
+		RegistryAddressKey:         "",
+		EthereumJsonRpcEndpointKey: "",
+		RequestID:                  "",
+		OrganizationID:             config.GetString(config.OrganizationId),
+		GroupID:                    "",
+		ServiceMethod:              "",
+		ResponseSentTime:           "",
+		RequestReceivedTime:        "",
+		ResponseTime:               "",
+		ResponseCode:               "",
+		ErrorMessage:               "",
+		Version:                    "",
+		ClientType:                 "",
+		UserDetails:                "",
+		UserAgent:                  "",
+		UserName:                   "whateverDappPasses",
+		Operation:                  "",
+		UsageType:                  "",
+		Status:                     "",
+		StartTime:                  "",
+		EndTime:                    "",
+		UsageValue:                 1,
+		TimeZone:                   zone,
 	}
 	jsonBytes, err := ConvertStructToJSON(payload)
-	assert.NotNil(t,jsonBytes)
-	assert.Contains(t,string(jsonBytes),"whateverDappPasses")
-	assert.Nil(t,err)
+	assert.NotNil(t, jsonBytes)
+	assert.Contains(t, string(jsonBytes), "whateverDappPasses")
+	assert.Nil(t, err)
 
 }

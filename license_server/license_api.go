@@ -22,7 +22,7 @@ type LicenseTransaction interface {
 	Rollback() error
 }
 
-//this is used to track the license Usage
+// this is used to track the license Usage
 type licenseUsageTrackerTransactionImpl struct {
 	channelId *big.Int
 	usage     Usage

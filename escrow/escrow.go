@@ -50,8 +50,8 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
 
 	if !storageOk {
-		// Group ID check is only done for the first time , when the channel is added to storage from the block chain ,
-		//if the channel is already present in the storage the group ID check is skipped.
+		// Group ID check is only done for the first time, when the channel is added to storage from the blockchain,
+		// if the channel is already present in the storage the group ID check is skipped.
 		if blockchainChannel != nil {
 			blockChainGroupID, err := h.replicaGroupID()
 			if err = h.verifyGroupId(blockChainGroupID, blockchainChannel.GroupID); err != nil {

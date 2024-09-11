@@ -21,10 +21,9 @@ type EtcdClientConf struct {
 	Endpoints         []string
 }
 
-// GetEtcdClientConf gets EtcdServerConf from viper
+// GetEtcdClientConf returns EtcdClientConf from viper and ipfs metadata
 // The DefaultEtcdClientConf is used in case the PAYMENT_CHANNEL_STORAGE_CLIENT field
-// is not set in the configuration file
-// Left Vip, just in case we need to read something from configuration in the future
+// if ConnectionTimeout or RequestTimeout are set in the config, they will be taken from there
 func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaData) (conf *EtcdClientConf, err error) {
 
 	conf = &EtcdClientConf{

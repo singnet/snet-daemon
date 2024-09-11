@@ -1,9 +1,10 @@
-// authutils package provides functions for all authentication and singature validation related operations
+// authutils package provides functions for all authentication and signature validation related operations
 package authutils
 
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/singnet/snet-daemon/config"
 	"github.com/stretchr/testify/assert"
@@ -28,9 +29,8 @@ func TestCheckAllowedBlockDifferenceForToken(t *testing.T) {
 	currentBlockNum, _ := CurrentBlock()
 	err := CheckIfTokenHasExpired(currentBlockNum.Sub(currentBlockNum, big.NewInt(20000)))
 	assert.Equal(t, err.Error(), "authentication failed as the Free Call Token passed has expired")
-
+	time.Sleep(250 * time.Millisecond) // because of HTTP 429 Too Many Requests
 	currentBlockNum, _ = CurrentBlock()
 	err = CheckIfTokenHasExpired(currentBlockNum.Add(currentBlockNum, big.NewInt(20)))
 	assert.Equal(t, nil, err)
-
 }

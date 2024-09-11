@@ -38,15 +38,15 @@ const (
 func getAuthenticationAddress() []common.Address {
 	users := config.Vip().GetStringSlice(config.AuthenticationAddresses)
 	userAddress := make([]common.Address, 0)
-	if users == nil || len(users) == 0 {
+	if len(users) == 0 {
 		return userAddress
 	}
 	for _, user := range users {
 		if !common.IsHexAddress(user) {
-			fmt.Errorf("%v is not a valid hex address", user)
-		} else {
-			userAddress = append(userAddress, common.BytesToAddress(common.FromHex(user)))
+			zap.L().Warn("not a valid hex address in config."+config.AuthenticationAddresses, zap.String("address", user))
+			continue
 		}
+		userAddress = append(userAddress, common.BytesToAddress(common.FromHex(user)))
 	}
 	return userAddress
 }

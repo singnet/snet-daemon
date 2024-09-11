@@ -254,12 +254,12 @@ func ServiceMetaData() *ServiceMetadata {
 		ipfsHash := string(getServiceMetaDataUrifromRegistry())
 		metadata, err = GetServiceMetaDataFromIPFS(FormatHash(ipfsHash))
 		if err != nil {
-
 			zap.L().Panic("error on determining service metadata from file", zap.Error(err))
 		}
 	} else {
 		metadata = &ServiceMetadata{Encoding: "proto", ServiceType: "grpc"}
 	}
+	zap.L().Debug("service_type: " + metadata.GetServiceType())
 	return metadata
 }
 
@@ -501,7 +501,7 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 	for _, file := range protoFiles {
 		zap.L().Debug("Protofile", zap.String("file", file))
 
-		//If Dynamic pricing is enabled ,there will be mandatory checks on the service proto
+		// If Dynamic pricing is enabled, there will be mandatory checks on the service proto
 		//this is to ensure that the standards on how one defines the methods to invoke is followed
 		if config.GetBool(config.EnableDynamicPricing) {
 			if srvProto, err := parseServiceProto(file); err != nil {

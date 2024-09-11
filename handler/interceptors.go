@@ -92,7 +92,7 @@ type Payment any
 
 // Custom gRPC codes to return to the client
 const (
-	// IncorrectNonce is returned to client when payment recieved contains
+	// IncorrectNonce is returned to client when payment received contains
 	// incorrect nonce value. Client may use PaymentChannelStateService to get
 	// latest channel state and correct nonce value.
 	IncorrectNonce codes.Code = 1000
@@ -161,7 +161,7 @@ type rateLimitInterceptor struct {
 
 func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaster) grpc.StreamServerInterceptor {
 	interceptor := &rateLimitInterceptor{
-		rateLimiter:                   ratelimit.NewRateLimiter(),
+		rateLimiter:                   *ratelimit.NewRateLimiter(),
 		messageBroadcaster:            broadcast,
 		processRequest:                configuration_service.START_PROCESSING_ANY_REQUEST,
 		requestProcessingNotification: broadcast.NewSubscriber(),
@@ -182,8 +182,10 @@ func GrpcMeteringInterceptor() grpc.StreamServerInterceptor {
 
 // Monitor requests arrived and responses sent and publish these stats for Reporting
 func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	var err error
-	var start time.Time
+	var (
+		err   error
+		start time.Time
+	)
 	start = time.Now()
 	//Get the method name
 	methodName, _ := grpc.MethodFromServerStream(ss)
@@ -196,7 +198,7 @@ func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInf
 	}
 
 	defer func() {
-		go metrics.PublishResponseStats(commonStats, time.Now().Sub(start), err)
+		go metrics.PublishResponseStats(commonStats, time.Since(start), err)
 	}()
 	err = handler(srv, ss)
 	if err != nil {

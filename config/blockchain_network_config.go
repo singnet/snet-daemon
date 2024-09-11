@@ -80,8 +80,7 @@ func GetRegistryAddress() string {
 
 // Read the Registry address from JSON file passed
 func setRegistryAddress() (err error) {
-
-	//if address is already set in the config file and has been initialized , then skip the setting process
+	//if the address is already set in the config file and has been initialized, then skip the setting process
 	if len(networkSelected.RegistryAddressKey) > 0 {
 		return
 	}
@@ -134,7 +133,6 @@ func ReadFromFile(filename string) ([]byte, error) {
 		}
 	}
 	return file, nil
-
 }
 
 // Read from the blockchain network config json

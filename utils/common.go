@@ -18,7 +18,7 @@ func Serialize(value any) (slice string, err error) {
 		return
 	}
 
-	slice = string(b.Bytes())
+	slice = b.String()
 	return
 }
 

@@ -31,12 +31,11 @@ func Test_getLeafNodeKey(t *testing.T) {
 }
 
 func TestGetSchemaConfiguration(t *testing.T) {
-	schemaDetails,err := GetConfigurationSchema()
-	for _,element := range schemaDetails {
-		if (element.Name == "blockchain_network_selected") {
-			assert.Equal(t,element.DefaultValue,"local")
+	schemaDetails, err := GetConfigurationSchema()
+	for _, element := range schemaDetails {
+		if element.Name == "blockchain_network_selected" {
+			assert.Equal(t, element.DefaultValue, "local")
 		}
 	}
-	assert.Nil(t,err)
+	assert.Nil(t, err)
 }
-

@@ -135,7 +135,7 @@ func newDaemon(components *Components) (daemon, error) {
 	if sslKey := config.GetString(config.SSLKeyPathKey); sslKey != "" {
 		cert, err := tls.LoadX509KeyPair(config.GetString(config.SSLCertPathKey), sslKey)
 		if err != nil {
-			return d, errors.Wrap(err, "unable to load specifiec SSL X509 keypair")
+			return d, errors.Wrap(err, "unable to load specific SSL X509 keypair")
 		}
 		d.sslCert = &cert
 	}
@@ -211,13 +211,11 @@ func (d *daemon) start() {
 			return true
 		}))
 		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			zap.L().Info("httpHandler path: ", zap.String("path", req.URL.Path))
-			zap.L().Info("input request", zap.Any("request", req))
+			zap.L().Info("http request: ", zap.String("path", req.URL.Path), zap.String("method", req.Method))
 			resp.Header().Set("Access-Control-Allow-Origin", "*")
 			if grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req) {
+				zap.L().Debug("GrpcWebRequest/IsAcceptableGrpcCorsRequest")
 				grpcWebServer.ServeHTTP(resp, req)
-				zap.L().Info("IsGrpcWebRequest/IsAcceptableGrpcCorsRequest")
-				resp.Header().Set("Access-Control-Allow-Origin", "*")
 			} else {
 				switch strings.Split(req.URL.Path, "/")[1] {
 				case "encoding":
@@ -228,9 +226,9 @@ func (d *daemon) start() {
 					http.NotFound(resp, req)
 				}
 			}
-			zap.L().Info("output headers:")
+			zap.L().Debug("output headers:")
 			for key, values := range resp.Header() {
-				zap.L().Info("header", zap.String("key", key), zap.Strings("value", values))
+				zap.L().Debug("header", zap.String("key", key), zap.Strings("value", values))
 			}
 		})
 

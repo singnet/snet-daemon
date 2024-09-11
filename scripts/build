@@ -1,26 +1,51 @@
 #!/bin/bash
 
-set -ex
+# for debug:
+# set -ex
 
-PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+PARENT_PATH="$(dirname "$(cd "$("dirname" "$0")"; pwd -P)")"
 
 if [ $# -lt 3 ]
   then
     echo "arguments expected are of the form <OS> <PLATFORM> and <VERSION> for the build script , as an example: '/scripts/build linux amd64 v5.1.5'"
     exit 1
 fi
-pushd $PARENT_PATH
+pushd "$PARENT_PATH"
 mkdir -p build
 now=$(date +'%Y-%m-%d_%T')
 
-networkJson=$(cat resources/blockchain_network_config.json | tr -d '\t\n\r')
-buildname=$1-$2-$3
-githash=`git rev-parse HEAD`
+# reading blockchain config
+networkJson=$(<resources/blockchain_network_config.json)
 
-if [ $1 == "windows" ]
+ # removing unnecessary symbols
+networkJson=$(echo "$networkJson" | tr -d '\t\n\r')
+
+# print network config
+echo "Network config passed to daemon:"
+echo "$networkJson"
+
+ # the name of the binary file
+buildname="snetd"-$1-$2-$3
+
+# get git hash
+githash=$(git rev-parse HEAD)
+
+# add .exe for windows
+if [ "$1" == "windows" ]
   then buildname+=".exe"
 fi
 
-GOOS=$1 GOARCH=$2 go build -ldflags "-X github.com/singnet/snet-daemon/config.sha1Revision=$githash -X github.com/singnet/snet-daemon/config.versionTag=$3 -X github.com/singnet/snet-daemon/config.buildTime=$now -X 'github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson'" -o build/snetd-$buildname snetd/main.go
+CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -ldflags "
+-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore
+-X github.com/singnet/snet-daemon/config.sha1Revision=$githash
+-X github.com/singnet/snet-daemon/config.versionTag=$3
+-X github.com/singnet/snet-daemon/config.buildTime=$now
+-X 'github.com/singnet/snet-daemon/config.networkIdNameMapping=$networkJson'
+" -o build/"$buildname" snetd/main.go
 popd
+
+# https://protobuf.dev/reference/go/faq/#namespace-conflict
+
+echo "✅  The daemon has been successfully compiled to build/$buildname"
+
 

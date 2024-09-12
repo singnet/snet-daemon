@@ -50,3 +50,6 @@ data.etcd/
 # vscode
 .vscode
 
+# asdf
+.tool-versions
+

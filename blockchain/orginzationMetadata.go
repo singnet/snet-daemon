@@ -127,7 +127,7 @@ func checkMandatoryFields(metaData *OrganizationMetaData) (err error) {
 	}
 
 	if metaData.recipientPaymentAddress == (common.Address{}) {
-		err = fmt.Errorf("Mandatory field : Recepient Address is missing for the Group %v ", metaData.daemonGroup.GroupName)
+		err = fmt.Errorf("Mandatory field : Recipient Address is missing for the Group %v ", metaData.daemonGroup.GroupName)
 	}
 	return err
 }

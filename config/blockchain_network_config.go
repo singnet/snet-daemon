@@ -116,7 +116,7 @@ func deriveDatafromJSON(data []byte) (err error) {
 	networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]any)["address"])
 
 	zap.L().Info("Derive data from JSON", zap.String("Network", GetString(BlockChainNetworkSelected)),
-		zap.String("Netwrok id", GetNetworkId()),
+		zap.String("Network id", GetNetworkId()),
 		zap.String("Registry address", GetRegistryAddress()),
 		zap.String("Blockchain http endpoint", GetBlockChainHTTPEndPoint()),
 		zap.String("Blockchain ws endpoint", GetBlockChainWSEndPoint()),

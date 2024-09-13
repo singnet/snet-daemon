@@ -130,6 +130,7 @@ func (g grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 	}
 
 	outCtx, outCancel := context.WithCancel(inCtx)
+	defer outCancel()
 	outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
 	isModelTraining := g.serviceMetaData.IsModelTraining(method)
 	outStream, err := g.GrpcConn(isModelTraining).NewStream(outCtx, grpcDesc, method, grpc.CallContentSubtype(g.enc))

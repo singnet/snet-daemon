@@ -17,11 +17,13 @@ linters:
     - misspell
     - unconvert
     - typecheck
+    - errcheck
     #    - unused
     - staticcheck
     - bidichk
     - durationcheck
-    - exportloopref
+    - goconst
+    - noctx
     - whitespace
     - revive # only certain checks enabled
 

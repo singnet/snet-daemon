@@ -154,7 +154,7 @@ func (d *daemon) start() {
 		mutex:    new(sync.Mutex),
 	}
 
-	go certReloader.Listen()
+	certReloader.Listen()
 
 	if d.autoSSLDomain != "" {
 		zap.L().Debug("enabling automatic SSL support")

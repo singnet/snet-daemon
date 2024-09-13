@@ -330,7 +330,7 @@ These instructions are intended to facilitate the development and testing of Sin
 
 ### Installing
 
-* Clone the git repository (for example $GOPATH/src/github.com/singnet/)
+* Clone the git repository (for example, $GOPATH/src/github.com/singnet/)
 
 ```bash
 git clone git@github.com:singnet/snet-daemon.git
@@ -393,6 +393,11 @@ or
 ```bash
 go test ./...
 ```
+
+### Fixing errors
+
+If daemon panic with `panic: proto: file "record.proto" is already registered` 
+you should set environment var `GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn`
 
 ### Blockchain network config
 

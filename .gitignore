@@ -42,10 +42,11 @@ data.etcd/
 
 # certs and keys
 *.pem
+*.crt
+*.key
 
 # logs
 *.log
-
 
 # vscode
 .vscode

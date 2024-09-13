@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/singnet/snet-daemon/blockchain"
@@ -147,6 +148,14 @@ func (d *daemon) start() {
 
 	var tlsConfig *tls.Config
 
+	certReloader := CertReloader{
+		CertFile: config.GetString(config.SSLCertPathKey),
+		KeyFile:  config.GetString(config.SSLKeyPathKey),
+		mutex:    new(sync.Mutex),
+	}
+
+	go certReloader.Listen()
+
 	if d.autoSSLDomain != "" {
 		zap.L().Debug("enabling automatic SSL support")
 		certMgr := autocert.Manager{
@@ -173,6 +182,9 @@ func (d *daemon) start() {
 	} else if d.sslCert != nil {
 		zap.L().Debug("enabling SSL support via X509 keypair")
 		tlsConfig = &tls.Config{
+			GetCertificate: func(c *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				return certReloader.GetCertificate(), nil
+			},
 			Certificates: []tls.Certificate{*d.sslCert},
 		}
 	}

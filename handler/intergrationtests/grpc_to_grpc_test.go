@@ -1,4 +1,4 @@
-//go: go:generate protoc grpc_stream_test.proto --go-grpc_out=. --go_out=.
+//go:generate protoc grpc_stream_test.proto --go-grpc_out=. --go_out=.
 
 package intergrationtests
 

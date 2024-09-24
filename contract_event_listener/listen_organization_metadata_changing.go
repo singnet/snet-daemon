@@ -13,7 +13,7 @@ import (
 )
 
 func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
-	zap.L().Info("Starting contract event listener for organization metedata changing")
+	zap.L().Info("Starting contract event listener for organization metadata changing")
 
 	watchOpts := &bind.WatchOpts{
 		Start:   nil,

@@ -118,10 +118,10 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 	recipientPaymentAddress := reader.recipientPaymentAddress()
 
 	if recipientPaymentAddress != ch.Recipient {
-		zap.L().Warn("Recipient Address from service metadata not Match on what was retrieved from Channel",
+		zap.L().Warn("Recipient Address from org metadata not Match on what was retrieved from Channel",
 			zap.Any("recipientPaymentAddress", recipientPaymentAddress),
 			zap.Any("ch.Recipient", ch.Recipient))
-		return nil, false, fmt.Errorf("recipient Address from service metadata does not Match on what was retrieved from Channel")
+		return nil, false, fmt.Errorf("recipient Address from org metadata does not Match on what was retrieved from Channel")
 	}
 	return &PaymentChannelData{
 		ChannelID:        key.ID,

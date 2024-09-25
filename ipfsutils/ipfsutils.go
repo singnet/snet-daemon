@@ -35,9 +35,9 @@ func ReadFilesCompressed(compressedFile string) (protofiles []string, err error)
 		name := header.Name
 		switch header.Typeflag {
 		case tar.TypeDir:
-			zap.L().Debug("Directory name", zap.Any("name", name))
+			zap.L().Debug("Directory name", zap.String("name", name))
 		case tar.TypeReg:
-			zap.L().Debug("File name", zap.Any("name", name))
+			zap.L().Debug("File name", zap.String("name", name))
 			data := make([]byte, header.Size)
 			_, err := tarReader.Read(data)
 			if err != nil && err != io.EOF {

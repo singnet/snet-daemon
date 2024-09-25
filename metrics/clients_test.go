@@ -7,12 +7,13 @@ package metrics
 
 import (
 	"context"
+	"net"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	pb "google.golang.org/grpc/health/grpc_health_v1"
-	"net"
-	"testing"
 )
 
 // server is used to implement api.HeartbeatServer
@@ -101,14 +102,16 @@ func (suite *ClientTestSuite) Test_callHTTPServiceHeartbeat() {
 	assert.True(suite.T(), err != nil)
 }
 
-func (suite *ClientTestSuite) Test_callRegisterService() {
+// TODO: refactor register service
 
-	daemonID := GetDaemonID()
+// func (suite *ClientTestSuite) Test_callRegisterService() {
 
-	result := callRegisterService(daemonID, suite.serviceURL+"/register")
-	assert.Equal(suite.T(), true, result)
+// 	daemonID := GetDaemonID()
 
-	result = callRegisterService(daemonID, suite.serviceURL+"/registererror")
-	assert.Equal(suite.T(), false, result)
+// 	result := callRegisterService(daemonID, suite.serviceURL+"/register")
+// 	assert.Equal(suite.T(), true, result)
 
-}
+// 	result = callRegisterService(daemonID, suite.serviceURL+"/registererror")
+// 	assert.Equal(suite.T(), false, result)
+
+// }

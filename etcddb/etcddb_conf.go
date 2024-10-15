@@ -7,6 +7,7 @@ import (
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 // EtcdClientConf config
@@ -16,18 +17,19 @@ import (
 type EtcdClientConf struct {
 	ConnectionTimeout time.Duration `json:"connection_timeout" mapstructure:"connection_timeout"`
 	RequestTimeout    time.Duration `json:"request_timeout" mapstructure:"request_timeout"`
+	HotReload         bool          `json:"hot_reload" mapstructure:"hot_reload"`
 	Endpoints         []string
 }
 
-// GetEtcdClientConf gets EtcdServerConf from viper
+// GetEtcdClientConf returns EtcdClientConf from viper and ipfs metadata
 // The DefaultEtcdClientConf is used in case the PAYMENT_CHANNEL_STORAGE_CLIENT field
-// is not set in the configuration file
-// Left Vip, just in case we need to read something from configuration in the future
+// if ConnectionTimeout or RequestTimeout are set in the config, they will be taken from there
 func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaData) (conf *EtcdClientConf, err error) {
 
 	conf = &EtcdClientConf{
 		ConnectionTimeout: metaData.GetConnectionTimeOut(),
 		RequestTimeout:    metaData.GetRequestTimeOut(),
+		HotReload:         true,
 		Endpoints:         metaData.GetPaymentStorageEndPoints(),
 	}
 
@@ -47,6 +49,8 @@ func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaDa
 		conf.ConnectionTimeout = confFromVip.ConnectionTimeout
 	}
 
+	conf.HotReload = confFromVip.HotReload
+	zap.L().Info("Etcd client hot reload", zap.Bool("enable", conf.HotReload))
 	return
 }
 

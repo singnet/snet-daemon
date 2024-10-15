@@ -163,19 +163,20 @@ func (suite *BlockchainChannelReaderSuite) TestGetChannelState() {
 	assert.Equal(suite.T(), suite.channel(), channel)
 }
 
-func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipeintAddress() {
+func (suite *BlockchainChannelReaderSuite) TestGetChannelStateIncorrectRecipientAddress() {
 	reader := suite.reader
 
 	reader.recipientPaymentAddress = func() common.Address { return crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey) }
 	channel, ok, err := reader.GetChannelStateFromBlockchain(suite.channelKey())
-	assert.Equal(suite.T(), errors.New("recipient Address from service metadata does not Match on what was retrieved from Channel"), err)
+	assert.Equal(suite.T(), errors.New("recipient Address from org metadata does not Match on what was retrieved from Channel"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
 }
 
 func (suite *PaymentChannelStorageSuite) TestNewPaymentChannelStorage() {
 	mpeStorage := storage.NewPrefixedAtomicStorage(storage.NewPrefixedAtomicStorage(suite.memoryStorage, "path1"), "path2")
-	mpeStorage.Put("key1", "value1")
+	err := mpeStorage.Put("key1", "value1")
+	assert.Nil(suite.T(), err)
 	value, _, _ := mpeStorage.Get("key1")
 	assert.Equal(suite.T(), value, "value1")
 	values, err := suite.memoryStorage.GetByKeyPrefix("path1")

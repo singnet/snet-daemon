@@ -101,7 +101,6 @@ func sendRequest(json []byte, serviceURL string, commonStats *CommonStats) (*htt
 	SignMessageForMetering(req, commonStats)
 
 	return client.Do(req)
-
 }
 
 func SignMessageForMetering(req *http.Request, commonStats *CommonStats) {
@@ -178,6 +177,7 @@ func getTokenFromResponse(response *http.Response) (string, bool) {
 		zap.L().Warn("Empty response received.")
 		return "", false
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		zap.L().Warn("Service call failed", zap.Int("StatusCode", response.StatusCode))
 		return "", false
@@ -188,9 +188,12 @@ func getTokenFromResponse(response *http.Response) (string, bool) {
 		return "", false
 	}
 	var data TokenGenerated
-	json.Unmarshal(body, &data)
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		zap.L().Error("Can't unmarshal TokenGenerated", zap.Error(err))
+		return "", false
+	}
 	//close the body
-	defer response.Body.Close()
 	return data.Data.Token, true
 }
 

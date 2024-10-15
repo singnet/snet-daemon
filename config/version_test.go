@@ -57,7 +57,7 @@ func TestCheckVersionOfDaemon(t *testing.T) {
 	versionTag = "v5.1.2"
 	message, err := CheckVersionOfDaemon()
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "There is a newer version of the Daemon")
+	assert.Contains(t, err.Error(), "there is a newer version of the Daemon")
 
 	versionTag, _ = GetLatestDaemonVersion()
 	message, err = CheckVersionOfDaemon()

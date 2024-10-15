@@ -8,21 +8,24 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
-	"github.com/gorilla/handlers"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/pkg/errors"
-	"github.com/rs/cors"
 	"github.com/singnet/snet-daemon/blockchain"
 	"github.com/singnet/snet-daemon/config"
 	"github.com/singnet/snet-daemon/configuration_service"
+	contractListener "github.com/singnet/snet-daemon/contract_event_listener"
 	"github.com/singnet/snet-daemon/escrow"
 	"github.com/singnet/snet-daemon/handler"
 	"github.com/singnet/snet-daemon/handler/httphandler"
 	"github.com/singnet/snet-daemon/logger"
 	"github.com/singnet/snet-daemon/metrics"
 	"github.com/singnet/snet-daemon/training"
+
+	"github.com/gorilla/handlers"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"github.com/pkg/errors"
+	"github.com/rs/cors"
 	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -62,6 +65,18 @@ var ServeCmd = &cobra.Command{
 
 		d.start()
 		defer d.stop()
+
+		// Check if the payment storage client is etcd by verifying if d.components.etcdClient exists.
+		// If etcdClient is not nil and hot reload is enabled, initialize a ContractEventListener
+		// to listen for changes in the organization metadata.
+		if d.components.etcdClient != nil && d.components.etcdClient.IsHotReloadEnabled() {
+			contractEventLister := contractListener.ContractEventListener{
+				BlockchainProcessor:         &d.blockProc,
+				CurrentOrganizationMetaData: components.OrganizationMetaData(),
+				CurrentEtcdClient:           components.EtcdClient(),
+			}
+			go contractEventLister.ListenOrganizationMetadataChanging()
+		}
 
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
@@ -121,7 +136,7 @@ func newDaemon(components *Components) (daemon, error) {
 	if sslKey := config.GetString(config.SSLKeyPathKey); sslKey != "" {
 		cert, err := tls.LoadX509KeyPair(config.GetString(config.SSLCertPathKey), sslKey)
 		if err != nil {
-			return d, errors.Wrap(err, "unable to load specifiec SSL X509 keypair")
+			return d, errors.Wrap(err, "unable to load specific SSL X509 keypair")
 		}
 		d.sslCert = &cert
 	}
@@ -132,6 +147,19 @@ func newDaemon(components *Components) (daemon, error) {
 func (d *daemon) start() {
 
 	var tlsConfig *tls.Config
+	var certReloader *CertReloader
+
+	if config.GetString(config.SSLCertPathKey) != "" {
+		certReloader = &CertReloader{
+			CertFile: config.GetString(config.SSLCertPathKey),
+			KeyFile:  config.GetString(config.SSLKeyPathKey),
+			mutex:    new(sync.Mutex),
+		}
+	}
+
+	if certReloader != nil {
+		certReloader.Listen()
+	}
 
 	if d.autoSSLDomain != "" {
 		zap.L().Debug("enabling automatic SSL support")
@@ -159,6 +187,9 @@ func (d *daemon) start() {
 	} else if d.sslCert != nil {
 		zap.L().Debug("enabling SSL support via X509 keypair")
 		tlsConfig = &tls.Config{
+			GetCertificate: func(c *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				return certReloader.GetCertificate(), nil
+			},
 			Certificates: []tls.Certificate{*d.sslCert},
 		}
 	}
@@ -197,13 +228,11 @@ func (d *daemon) start() {
 			return true
 		}))
 		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			zap.L().Info("httpHandler path: ", zap.String("path", req.URL.Path))
-			zap.L().Info("input request", zap.Any("request", req))
+			zap.L().Info("http request: ", zap.String("path", req.URL.Path), zap.String("method", req.Method))
 			resp.Header().Set("Access-Control-Allow-Origin", "*")
 			if grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req) {
+				zap.L().Debug("GrpcWebRequest/IsAcceptableGrpcCorsRequest")
 				grpcWebServer.ServeHTTP(resp, req)
-				zap.L().Info("IsGrpcWebRequest/IsAcceptableGrpcCorsRequest")
-				resp.Header().Set("Access-Control-Allow-Origin", "*")
 			} else {
 				switch strings.Split(req.URL.Path, "/")[1] {
 				case "encoding":
@@ -214,9 +243,9 @@ func (d *daemon) start() {
 					http.NotFound(resp, req)
 				}
 			}
-			zap.L().Info("output headers:")
+			zap.L().Debug("output headers:")
 			for key, values := range resp.Header() {
-				zap.L().Info("header", zap.String("key", key), zap.Strings("value", values))
+				zap.L().Debug("header", zap.String("key", key), zap.Strings("value", values))
 			}
 		})
 

@@ -5,15 +5,18 @@
     "registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2"
   },
   "main": {
-    "ethereum_json_rpc_endpoint": "https://mainnet.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+    "ethereum_json_rpc_http_endpoint": "https://mainnet.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+    "ethereum_json_rpc_ws_endpoint": "wss://mainnet.infura.io/ws/v3/09027f4a13e841d48dbfefc67e7685d5",
     "network_id": "1"
   },
   "goerli": {
-    "ethereum_json_rpc_endpoint": "https://goerli.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+    "ethereum_json_rpc_http_endpoint": "https://goerli.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+    "ethereum_json_rpc_ws_endpoint": "wss://goerli.infura.io/ws/v3/09027f4a13e841d48dbfefc67e7685d5",
     "network_id": "5"
   },
   "sepolia": {
-    "ethereum_json_rpc_endpoint": "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+    "ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+    "ethereum_json_rpc_ws_endpoint": "wss://sepolia.infura.io/ws/v3/09027f4a13e841d48dbfefc67e7685d5",
     "network_id": "11155111"
   }
 }

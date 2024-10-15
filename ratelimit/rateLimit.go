@@ -8,19 +8,18 @@ import (
 	"time"
 )
 
-func NewRateLimiter() rate.Limiter {
-	//Please note that the burst size is ignored when getLimit() returns rate is infinity
-	//By Default set the maximum value possible for the Burst Size ( assuming rate was defined ,but burst was not defined)
+func NewRateLimiter() *rate.Limiter {
+	// Please note that the burst size is ignored when getLimit() returns rate is infinity
+	// By Default set the maximum value possible for the Burst Size
+	// (assuming rate was defined, but burst was not defined)
 	burstSize := config.GetInt(config.BurstSize)
 	if burstSize == 0 {
 		burstSize = math.MaxInt32
 	}
-	limiter := rate.NewLimiter(getLimit(), burstSize)
-	return *limiter
+	return rate.NewLimiter(getLimit(), burstSize)
 }
 
 func getLimit() rate.Limit {
-
 
 	ratePerMin, err := strconv.ParseFloat(config.GetString(config.RateLimitPerMinute), 32)
 	if err != nil {

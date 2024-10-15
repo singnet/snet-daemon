@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-//Request stats that will be captured
+// Request stats that will be captured
 type RequestStats struct {
 	Type                       string `json:"type"`
 	RegistryAddressKey         string `json:"registry_address_key"`
@@ -26,8 +26,6 @@ type RequestStats struct {
 	ChannelId                  string `json:"channel_id"`
 }
 
-
-
 func (request *RequestStats) setDataFromContext(md metadata.MD) {
 	request.InputDataSize = strconv.FormatUint(GetSize(md), 10)
 
@@ -37,7 +35,7 @@ func createRequestStat(commonStat *CommonStats) *RequestStats {
 	request := &RequestStats{
 		Type:                       "request",
 		RegistryAddressKey:         config.GetRegistryAddress(),
-		EthereumJsonRpcEndpointKey: config.GetBlockChainEndPoint(),
+		EthereumJsonRpcEndpointKey: config.GetBlockChainHTTPEndPoint(),
 		RequestID:                  commonStat.ID,
 		GroupID:                    commonStat.GroupID,
 		DaemonEndPoint:             commonStat.DaemonEndPoint,

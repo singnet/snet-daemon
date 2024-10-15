@@ -87,7 +87,6 @@ func GetConfigurationSchema() ([]ConfigurationDetails, error) {
 			_ = json.Unmarshal(configurationDetailsJSON, configDetails)
 			allConfigurations = append(allConfigurations, *configDetails)
 		}
-
 	}
 	return allConfigurations, nil
 }

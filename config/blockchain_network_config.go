@@ -12,17 +12,19 @@ import (
 )
 
 type NetworkSelected struct {
-	NetworkName             string
-	EthereumJSONRPCEndpoint string
-	NetworkId               string
-	RegistryAddressKey      string
+	NetworkName                 string
+	EthereumJSONRPCHTTPEndpoint string
+	EthereumJSONRPCWSEndpoint   string
+	NetworkId                   string
+	RegistryAddressKey          string
 }
 
 const (
-	BlockChainNetworkFileName  = "resources/blockchain_network_config.json"
-	EthereumJsonRpcEndpointKey = "ethereum_json_rpc_endpoint"
-	NetworkId                  = "network_id"
-	RegistryAddressKey         = "registry_address_key"
+	BlockChainNetworkFileName      = "resources/blockchain_network_config.json"
+	EthereumJsonRpcHTTPEndpointKey = "ethereum_json_rpc_http_endpoint"
+	EthereumJsonRpcWSEndpointKey   = "ethereum_json_rpc_ws_endpoint"
+	NetworkId                      = "network_id"
+	RegistryAddressKey             = "registry_address_key"
 )
 
 var networkSelected = &NetworkSelected{}
@@ -38,7 +40,8 @@ func determineNetworkSelected(data []byte) (err error) {
 	//Ethereum End point and Network ID mapped to
 	networkSelected.NetworkName = networkName
 	networkSelected.RegistryAddressKey = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[RegistryAddressKey], RegistryAddressKey)
-	networkSelected.EthereumJSONRPCEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[EthereumJsonRpcEndpointKey], EthereumJsonRpcEndpointKey)
+	networkSelected.EthereumJSONRPCHTTPEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[EthereumJsonRpcHTTPEndpointKey], EthereumJsonRpcHTTPEndpointKey)
+	networkSelected.EthereumJSONRPCWSEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[EthereumJsonRpcWSEndpointKey], EthereumJsonRpcWSEndpointKey)
 	networkSelected.NetworkId = fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]any)[NetworkId])
 
 	return err
@@ -61,9 +64,13 @@ func GetNetworkId() string {
 	return networkSelected.NetworkId
 }
 
-// Get the block chain end point associated with the Network selected
-func GetBlockChainEndPoint() string {
-	return networkSelected.EthereumJSONRPCEndpoint
+// Get the blockchain endpoint associated with the Network selected
+func GetBlockChainHTTPEndPoint() string {
+	return networkSelected.EthereumJSONRPCHTTPEndpoint
+}
+
+func GetBlockChainWSEndPoint() string {
+	return networkSelected.EthereumJSONRPCWSEndpoint
 }
 
 // Get the Registry address of the contract
@@ -73,8 +80,7 @@ func GetRegistryAddress() string {
 
 // Read the Registry address from JSON file passed
 func setRegistryAddress() (err error) {
-
-	//if address is already set in the config file and has been initialized , then skip the setting process
+	//if the address is already set in the config file and has been initialized, then skip the setting process
 	if len(networkSelected.RegistryAddressKey) > 0 {
 		return
 	}
@@ -110,9 +116,11 @@ func deriveDatafromJSON(data []byte) (err error) {
 	networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]any)["address"])
 
 	zap.L().Info("Derive data from JSON", zap.String("Network", GetString(BlockChainNetworkSelected)),
-		zap.String("NetwrokId", GetNetworkId()),
-		zap.String("RegistryAddress", GetRegistryAddress()),
-		zap.String("Blockchain endpoint", GetBlockChainEndPoint()))
+		zap.String("Network id", GetNetworkId()),
+		zap.String("Registry address", GetRegistryAddress()),
+		zap.String("Blockchain http endpoint", GetBlockChainHTTPEndPoint()),
+		zap.String("Blockchain ws endpoint", GetBlockChainWSEndPoint()),
+	)
 	return nil
 }
 
@@ -125,7 +133,6 @@ func ReadFromFile(filename string) ([]byte, error) {
 		}
 	}
 	return file, nil
-
 }
 
 // Read from the blockchain network config json

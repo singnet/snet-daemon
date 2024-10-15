@@ -13,10 +13,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.uber.org/zap"
-
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 const (
@@ -113,7 +112,8 @@ const (
 	},
 	"payment_channel_storage_client": {
 		"connection_timeout": "0s",
-		"request_timeout": "0s"
+		"request_timeout": "0s",
+		"hot_reload": true
     },
 	"payment_channel_storage_server": {
 		"id": "storage-1",
@@ -406,11 +406,11 @@ func ValidateEmail(email string) bool {
 }
 
 func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error {
-
 	passthroughURL, err := url.Parse(passthroughEndpoint)
 	if err != nil || passthroughURL.Host == "" {
 		return errors.New("passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.")
 	}
+
 	daemonHost, daemonPort, err := net.SplitHostPort(daemonEndpoint)
 	if err != nil {
 		return errors.New("couldn't split host:post of daemon endpoint")
@@ -443,7 +443,7 @@ func IsAllowedUser(address *common.Address) bool {
 // Set the list of allowed users
 func SetAllowedUsers() (err error) {
 	users := vip.GetStringSlice(AllowedUserAddresses)
-	if users == nil || len(users) == 0 {
+	if len(users) == 0 {
 		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only these users can make calls", AllowedUserAddresses)
 	}
 	userAddress = make([]common.Address, len(users))

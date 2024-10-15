@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"google.golang.org/grpc/credentials/insecure"
 	"io"
 	"net/http"
 	"time"
@@ -27,7 +28,7 @@ type Response struct {
 // Calls a gRPC endpoint for heartbeat (gRPC Client)
 func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(serviceUrl, grpc.WithInsecure())
+	conn, err := grpc.NewClient(serviceUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		zap.L().Warn("unable to connect to grpc endpoint", zap.Error(err))
 		return grpc_health_v1.HealthCheckResponse_NOT_SERVING, err

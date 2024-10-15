@@ -77,8 +77,8 @@ func (suite *TokenServiceTestSuite) SetupSuite() {
 	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPvtKy.PublicKey)
 	suite.receiverAddress = crypto.PubkeyToAddress(suite.receiverPvtKy.PublicKey)
 	orgJson := strings.Replace(testJsonOrgGroupData, "0x671276c61943A35D5F230d076bDFd91B0c47bF09", suite.receiverAddress.Hex(), -1)
-	suite.orgMetaData, _ = blockchain.InitOrganizationMetaDataFromJson(orgJson)
-	suite.serviceMetaData, _ = blockchain.InitServiceMetaDataFromJson(testJsonData)
+	suite.orgMetaData, _ = blockchain.InitOrganizationMetaDataFromJson([]byte(orgJson))
+	suite.serviceMetaData, _ = blockchain.InitServiceMetaDataFromJson([]byte(testJsonData))
 	println("suite.orgMetaData.GetPaymentAddress().Hex() " + suite.orgMetaData.GetPaymentAddress().Hex())
 	println("suite.receiverAddress.Hex()" + suite.receiverAddress.Hex())
 

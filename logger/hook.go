@@ -165,7 +165,6 @@ func newTelegramBotHook(config *viper.Viper) (hook, error) {
 }
 
 func (t telegramBotHook) call(entry zapcore.Entry) error {
-
 	msg := "⚠️Daemon hook⚠️\r\n" +
 		"\r\nOrgID: " + config.GetString(config.OrganizationId) +
 		"\r\nServiceID: " + config.GetString(config.ServiceId) +

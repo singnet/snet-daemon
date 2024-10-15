@@ -3,9 +3,6 @@ package blockchain
 import (
 	"encoding/base64"
 	"fmt"
-	"regexp"
-	"strings"
-
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -43,19 +40,13 @@ func HexToBytes(str string) []byte {
 
 // HexToAddress converts hex string to Ethreum address.
 func HexToAddress(str string) common.Address {
-	return common.Address(common.BytesToAddress(HexToBytes(str)))
+	return common.BytesToAddress(HexToBytes(str))
 }
 
 func StringToBytes32(str string) [32]byte {
-
 	var byte32 [32]byte
-	copy(byte32[:], []byte(str))
+	copy(byte32[:], str)
 	return byte32
-}
-
-func RemoveSpecialCharactersfromHash(pString string) string {
-	reg := regexp.MustCompile("[^a-zA-Z0-9=]")
-	return reg.ReplaceAllString(pString, "")
 }
 
 func ConvertBase64Encoding(str string) ([32]byte, error) {
@@ -69,16 +60,26 @@ func ConvertBase64Encoding(str string) ([32]byte, error) {
 	return byte32, nil
 }
 
-func FormatHash(ipfsHash string) string {
-	zap.L().Debug("Before Formatting", zap.String("metadataHash", ipfsHash))
-	ipfsHash = strings.Replace(ipfsHash, IpfsPrefix, "", -1)
-	ipfsHash = RemoveSpecialCharactersfromHash(ipfsHash)
-	zap.L().Debug("After Formatting", zap.String("metadataUri", ipfsHash))
-	return ipfsHash
-}
-
 func ToChecksumAddress(hexAddress string) string {
 	address := common.HexToAddress(hexAddress)
 	mixedAddress := common.NewMixedcaseAddress(address)
 	return mixedAddress.Address().String()
+}
+
+/*
+MakeTopicFilterer is used to generate a filter for querying Ethereum logs or contract events.
+Ethereum topics (such as for events) are 32-byte fixed-size values (common for hashing
+in Ethereum logs). This function takes a string parameter, converts it into a 32-byte array,
+and returns it in a slice. This allows developers to create filters when looking for
+specific events or log entries based on the topic.
+*/
+func MakeTopicFilterer(param string) [][32]byte {
+	// Create a 32-byte array
+	var param32Byte [32]byte
+
+	// Convert the string to a byte slice and copy up to 32 bytes
+	copy(param32Byte[:], []byte(param)[:min(len(param), 32)])
+
+	// Return the filter with a single element (the 32-byte array)
+	return [][32]byte{param32Byte}
 }

@@ -21,7 +21,7 @@ func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
 	return &httpHandler{
 		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),
 		passthroughEndpoint: config.GetString(config.PassthroughEndpointKey),
-		rateLimiter:         ratelimit.NewRateLimiter(),
+		rateLimiter:         *ratelimit.NewRateLimiter(),
 	}
 }
 
@@ -29,7 +29,7 @@ func (h *httpHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	resp.Header().Set("Access-Control-Allow-Origin", "*")
 	log.Printf("ServeHTTP: %#v \n", req)
 	if h.passthroughEnabled {
-		if h.rateLimiter.Allow() == false {
+		if !h.rateLimiter.Allow() {
 			http.Error(resp, http.StatusText(429), http.StatusTooManyRequests)
 			return
 		}

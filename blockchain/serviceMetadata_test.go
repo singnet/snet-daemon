@@ -18,7 +18,7 @@ var testJsonData = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"en
 
 func TestAllGetterMethods(t *testing.T) {
 	fmt.Println(testJsonData)
-	metaData, err := InitServiceMetaDataFromJson(testJsonData)
+	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
 	assert.Equal(t, err, nil)
 
 	assert.Equal(t, metaData.GetVersion(), 1)
@@ -37,7 +37,7 @@ func TestAllGetterMethods(t *testing.T) {
 
 func TestSubscription(t *testing.T) {
 	fmt.Println(testJsonData)
-	metaData, err := InitServiceMetaDataFromJson(testJsonData)
+	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
 	assert.Equal(t, err, nil)
 	assert.Equal(t, 12, metaData.GetFreeCallsAllowed())
 	assert.Equal(t, metaData.GetLicenses().Subscriptions.Type, "Subscription")
@@ -50,7 +50,7 @@ func TestSubscription(t *testing.T) {
 
 func TestTiers(t *testing.T) {
 	fmt.Println(testJsonData)
-	metaData, err := InitServiceMetaDataFromJson(testJsonData)
+	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
 	assert.Equal(t, err, nil)
 
 	assert.Equal(t, metaData.GetLicenses().Tiers[0].Type, "Tier")
@@ -60,17 +60,17 @@ func TestTiers(t *testing.T) {
 }
 func TestInitServiceMetaDataFromJson(t *testing.T) {
 	//Parse Bad JSON
-	_, err := InitServiceMetaDataFromJson(strings.Replace(testJsonData, "{", "", 1))
+	_, err := InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "{", "", 1)))
 	if err != nil {
 		assert.Equal(t, err.Error(), "invalid character ':' after top-level value")
 	}
 
 	//Parse Bad JSON
-	_, err = InitServiceMetaDataFromJson(strings.Replace(testJsonData, "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F", "", 1))
+	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F", "", 1)))
 	if err != nil {
 		assert.Equal(t, err.Error(), "MetaData does not have 'free_call_signer_address defined correctly")
 	}
-	_, err = InitServiceMetaDataFromJson(strings.Replace(testJsonData, "default_pricing", "dummy", 1))
+	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "default_pricing", "dummy", 1)))
 	if err != nil {
 		assert.Equal(t, err.Error(), "MetaData does not have the default pricing set ")
 	}

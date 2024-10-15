@@ -35,11 +35,12 @@ func (mutex *EtcdClientMutex) Unlock(ctx context.Context) (err error) {
 	return mutex.mutex.Unlock(ctx)
 }
 
-// EtcdClient struct has some useful methods to wolrk with etcd client
+// EtcdClient struct has some useful methods to work with an etcd client
 type EtcdClient struct {
-	timeout time.Duration
-	session *concurrency.Session
-	etcdv3  *clientv3.Client
+	hotReaload bool
+	timeout    time.Duration
+	session    *concurrency.Session
+	etcdv3     *clientv3.Client
 }
 
 // NewEtcdClient create new etcd storage client.
@@ -64,25 +65,26 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	var etcdv3 *clientv3.Client
 
 	if utils.CheckIfHttps(metaData.GetPaymentStorageEndPoints()) {
-		if tlsConfig, err := getTlsConfig(); err == nil {
-			etcdv3, err = clientv3.New(clientv3.Config{
-				Endpoints:   metaData.GetPaymentStorageEndPoints(),
-				DialTimeout: conf.ConnectionTimeout,
-				TLS:         tlsConfig,
-			})
-		} else {
-			return nil, err
-		}
-
-	} else {
-		//Regular http call
-		etcdv3, err = clientv3.New(clientv3.Config{
-			Endpoints:   metaData.GetPaymentStorageEndPoints(),
-			DialTimeout: conf.ConnectionTimeout,
-		})
+		var tlsConfig *tls.Config
+		tlsConfig, err = getTlsConfig()
 		if err != nil {
 			return nil, err
 		}
+		etcdv3, err = clientv3.New(clientv3.Config{
+			Endpoints:   conf.Endpoints,
+			DialTimeout: conf.ConnectionTimeout,
+			TLS:         tlsConfig,
+		})
+	} else {
+		// Regular http call
+		etcdv3, err = clientv3.New(clientv3.Config{
+			Endpoints:   conf.Endpoints,
+			DialTimeout: conf.ConnectionTimeout,
+		})
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), conf.RequestTimeout)
@@ -93,15 +95,24 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	}
 
 	client = &EtcdClient{
-		timeout: conf.RequestTimeout,
-		session: session,
-		etcdv3:  etcdv3,
+		hotReaload: conf.HotReload,
+		timeout:    conf.RequestTimeout,
+		session:    session,
+		etcdv3:     etcdv3,
 	}
 	return
 }
 
-func getTlsConfig() (*tls.Config, error) {
+func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
+	etcdClient, err := NewEtcdClientFromVip(config.Vip(), metadata)
+	if err != nil {
+		return nil, err
+	}
+	zap.L().Info("Successful reconnect to new etcd endpoints", zap.Strings("New endpoints", metadata.GetPaymentStorageEndPoints()))
+	return etcdClient, nil
+}
 
+func getTlsConfig() (*tls.Config, error) {
 	zap.L().Debug("enabling SSL support via X509 keypair")
 	cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
 
@@ -119,12 +130,10 @@ func getTlsConfig() (*tls.Config, error) {
 		RootCAs:      caCertPool,
 	}
 	return tlsConfig, nil
-
 }
 
 // Get gets value from etcd by key
 func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
-
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
@@ -467,6 +476,10 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction storage.
 	}
 
 	return transaction, nil
+}
+
+func (client *EtcdClient) IsHotReloadEnabled() bool {
+	return client.hotReaload
 }
 
 type keyValueVersion struct {

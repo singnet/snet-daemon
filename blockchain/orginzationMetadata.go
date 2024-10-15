@@ -98,23 +98,22 @@ type PaymentChannelStorageClient struct {
 	Endpoints         []string `json:"endpoints"`
 }
 
-// Construct the Organization metadata from the JSON Passed
-func InitOrganizationMetaDataFromJson(jsonData string) (metaData *OrganizationMetaData, err error) {
+// InitOrganizationMetaDataFromJson Construct the Organization metadata from the JSON Passed
+func InitOrganizationMetaDataFromJson(jsonData []byte) (metaData *OrganizationMetaData, err error) {
 	metaData = new(OrganizationMetaData)
-	err = json.Unmarshal([]byte(jsonData), &metaData)
+	err = json.Unmarshal(jsonData, &metaData)
 	if err != nil {
-		zap.L().Error("Error in unmarshaling metadata json", zap.Error(err), zap.Any("jsondata", jsonData))
+		zap.L().Error("Error in unmarshalling metadata json", zap.Error(err), zap.Any("jsondata", jsonData))
 		return nil, err
 	}
 
-	//Check for mandatory validations
-
+	// Check for mandatory validations
 	if err = setDerivedAttributes(metaData); err != nil {
-		zap.L().Error("Error in setting derived atrributes", zap.Error(err))
+		zap.L().Error("Error in setting derived attributes", zap.Error(err))
 		return nil, err
 	}
 	if err = checkMandatoryFields(metaData); err != nil {
-		zap.L().Error("Error in check mdandatory fields", zap.Error(err))
+		zap.L().Error("Error in check mandatory fields", zap.Error(err))
 		return nil, err
 	}
 
@@ -125,10 +124,11 @@ func checkMandatoryFields(metaData *OrganizationMetaData) (err error) {
 	if metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints == nil {
 		err = fmt.Errorf("Mandatory field : ETCD Client Endpoints are mising for the Group %v ", metaData.daemonGroup.GroupName)
 	}
-	if &metaData.recipientPaymentAddress == nil {
-		err = fmt.Errorf("Mandatory field : Recepient Address is missing for the Group %v ", metaData.daemonGroup.GroupName)
+
+	if metaData.recipientPaymentAddress == (common.Address{}) {
+		err = fmt.Errorf("Mandatory field : Recipient Address is missing for the Group %v ", metaData.daemonGroup.GroupName)
 	}
-	return
+	return err
 }
 
 func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
@@ -165,7 +165,7 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 	var err error
 	if config.GetBool(config.BlockchainEnabledKey) {
 		ipfsHash := string(getMetaDataURI())
-		metadata, err = GetOrganizationMetaDataFromIPFS(FormatHash(ipfsHash))
+		metadata, err = GetOrganizationMetaDataFromIPFS(ipfsHash)
 	} else {
 		metadata = &OrganizationMetaData{daemonGroup: &Group{}}
 	}
@@ -176,7 +176,10 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 }
 
 func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error) {
-	jsondata := ipfsutils.GetIpfsFile(hash)
+	jsondata, err := ipfsutils.ReadFile(hash)
+	if err != nil {
+		return nil, err
+	}
 	return InitOrganizationMetaDataFromJson(jsondata)
 }
 
@@ -187,7 +190,7 @@ func getMetaDataURI() []byte {
 
 	organizationRegistered, err := reg.GetOrganizationById(nil, orgId)
 	if err != nil || !organizationRegistered.Found {
-		zap.L().Panic("Error Retrieving contract details for the Given Organization", zap.String("OrganizationId", config.GetString(config.OrganizationId)))
+		zap.L().Panic("Error Retrieving contract details for the Given Organization", zap.String("OrganizationId", config.GetString(config.OrganizationId)), zap.Error(err))
 	}
 	return organizationRegistered.OrgMetadataURI[:]
 }

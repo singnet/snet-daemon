@@ -1,7 +1,7 @@
 name: tests
 on:
   push:
-    branches: [ "dev" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master", "dev" ]
   workflow_dispatch:
@@ -10,7 +10,7 @@ env:
   GOLANG_PROTOBUF_REGISTRATION_CONFLICT: ignore
 
 jobs:
-  tests:
+  run_tests:
     runs-on: ubuntu-latest
     steps:
       - name: clone repo

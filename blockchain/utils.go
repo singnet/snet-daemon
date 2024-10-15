@@ -3,9 +3,6 @@ package blockchain
 import (
 	"encoding/base64"
 	"fmt"
-	"regexp"
-	"strings"
-
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -52,11 +49,6 @@ func StringToBytes32(str string) [32]byte {
 	return byte32
 }
 
-func RemoveSpecialCharactersfromHash(pString string) string {
-	reg := regexp.MustCompile("[^a-zA-Z0-9=]")
-	return reg.ReplaceAllString(pString, "")
-}
-
 func ConvertBase64Encoding(str string) ([32]byte, error) {
 	var byte32 [32]byte
 	data, err := base64.StdEncoding.DecodeString(str)
@@ -66,14 +58,6 @@ func ConvertBase64Encoding(str string) ([32]byte, error) {
 	}
 	copy(byte32[:], data[:])
 	return byte32, nil
-}
-
-func FormatHash(ipfsHash string) string {
-	zap.L().Debug("Before Formatting", zap.String("metadataHash", ipfsHash))
-	ipfsHash = strings.Replace(ipfsHash, IpfsPrefix, "", -1)
-	ipfsHash = RemoveSpecialCharactersfromHash(ipfsHash)
-	zap.L().Debug("After Formatting", zap.String("metadataUri", ipfsHash))
-	return ipfsHash
 }
 
 func ToChecksumAddress(hexAddress string) string {

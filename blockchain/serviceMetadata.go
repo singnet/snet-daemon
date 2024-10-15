@@ -143,18 +143,18 @@ import (
 	}
 */
 const (
-	IpfsPrefix   = "ipfs://"
 	serviceProto = "service.proto"
 )
 
 type ServiceMetadata struct {
-	Version       int                 `json:"version"`
-	DisplayName   string              `json:"display_name"`
-	Encoding      string              `json:"encoding"`
-	ServiceType   string              `json:"service_type"`
-	Groups        []OrganizationGroup `json:"groups"`
-	ModelIpfsHash string              `json:"model_ipfs_hash"`
-	MpeAddress    string              `json:"mpe_address"`
+	Version          int                 `json:"version"`
+	DisplayName      string              `json:"display_name"`
+	Encoding         string              `json:"encoding"`
+	ServiceType      string              `json:"service_type"`
+	Groups           []OrganizationGroup `json:"groups"`
+	ModelIpfsHash    string              `json:"model_ipfs_hash"`
+	ServiceApiSource string              `json:"service_api_source"`
+	MpeAddress       string              `json:"mpe_address"`
 
 	multiPartyEscrowAddress common.Address
 	defaultPricing          Pricing
@@ -196,6 +196,7 @@ type Subscriptions struct {
 	IsActive     string         `json:"isActive"`
 	Subscription []Subscription `json:"subscription"`
 }
+
 type Tier struct {
 	Type            string      `json:"type"`
 	PlanName        string      `json:"planName"`
@@ -205,6 +206,7 @@ type Tier struct {
 	DetailsURL      string      `json:"detailsUrl"`
 	IsActive        string      `json:"isActive"`
 }
+
 type Licenses struct {
 	Subscriptions Subscriptions `json:"subscriptions,omitempty"`
 	Tiers         []Tier        `json:"tiers"`
@@ -252,7 +254,7 @@ func ServiceMetaData() *ServiceMetadata {
 	var err error
 	if config.GetBool(config.BlockchainEnabledKey) {
 		ipfsHash := string(getServiceMetaDataUrifromRegistry())
-		metadata, err = GetServiceMetaDataFromIPFS(FormatHash(ipfsHash))
+		metadata, err = GetServiceMetaDataFromIPFS(ipfsHash)
 		if err != nil {
 			zap.L().Panic("error on determining service metadata from file", zap.Error(err))
 		}
@@ -268,9 +270,7 @@ func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read file: %v", filename)
 	}
-	strJson := string(file)
-	metadata, err := InitServiceMetaDataFromJson(strJson)
-
+	metadata, err := InitServiceMetaDataFromJson(file)
 	if err != nil {
 		return nil, fmt.Errorf("error reading local file service_metadata.json ")
 	}
@@ -317,13 +317,16 @@ func getServiceMetaDataUrifromRegistry() []byte {
 }
 
 func GetServiceMetaDataFromIPFS(hash string) (*ServiceMetadata, error) {
-	jsondata := ipfsutils.GetIpfsFile(hash)
+	jsondata, err := ipfsutils.ReadFile(hash)
+	if err != nil {
+		return nil, err
+	}
 	return InitServiceMetaDataFromJson(jsondata)
 }
 
-func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
+func InitServiceMetaDataFromJson(jsonData []byte) (*ServiceMetadata, error) {
 	metaData := new(ServiceMetadata)
-	err := json.Unmarshal([]byte(jsonData), &metaData)
+	err := json.Unmarshal(jsonData, &metaData)
 	if err != nil {
 		zap.L().Error(err.Error(), zap.Any("jsondata", jsonData))
 		return nil, err
@@ -350,7 +353,7 @@ func InitServiceMetaDataFromJson(jsonData string) (*ServiceMetadata, error) {
 		zap.L().Error(err.Error())
 	}
 
-	zap.L().Debug("Traning method", zap.String("json", string(trainingMethodsJson)))
+	zap.L().Debug("Training method", zap.String("json", string(trainingMethodsJson)))
 
 	return metaData, err
 }
@@ -488,8 +491,22 @@ func isElementInArray(a string, list []string) bool {
 func setServiceProto(metaData *ServiceMetadata) (err error) {
 	metaData.DynamicPriceMethodMapping = make(map[string]string, 0)
 	metaData.TrainingMethods = make([]string, 0)
-	//This is to handler the scenario where there could be multiple protos associated with the service proto
-	protoFiles, err := ipfsutils.ReadFilesCompressed(ipfsutils.GetIpfsFile(metaData.ModelIpfsHash))
+	var rawFile []byte
+
+	// for backwards compatibility
+	if metaData.ModelIpfsHash != "" {
+		rawFile, err = ipfsutils.GetIpfsFile(metaData.ServiceApiSource)
+	}
+
+	if metaData.ServiceApiSource != "" {
+		rawFile, err = ipfsutils.ReadFile(metaData.ServiceApiSource)
+	}
+
+	if err != nil {
+		zap.L().Error("Error in retrieving file from filecoin/ipfs", zap.Error(err))
+	}
+
+	protoFiles, err := ipfsutils.ReadFilesCompressed(rawFile)
 	if err != nil {
 		return err
 	}

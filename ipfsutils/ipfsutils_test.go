@@ -27,8 +27,9 @@ func (suite *IpfsUtilsTestSuite) BeforeTest() {
 func (suite *IpfsUtilsTestSuite) TestReadFiles() {
 	// For testing purposes, a hash is used from the calculator service.
 	hash := "QmeyrQkEyba8dd4rc3jrLd5pEwsxHutfH2RvsSaeSMqTtQ"
-	data := GetIpfsFile(hash)
+	data, err := GetIpfsFile(hash)
 	assert.NotNil(suite.T(), data)
+	assert.Nil(suite.T(), err)
 
 	protoFiles, err := ReadFilesCompressed(data)
 

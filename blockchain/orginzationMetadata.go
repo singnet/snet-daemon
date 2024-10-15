@@ -98,17 +98,16 @@ type PaymentChannelStorageClient struct {
 	Endpoints         []string `json:"endpoints"`
 }
 
-// Construct the Organization metadata from the JSON Passed
-func InitOrganizationMetaDataFromJson(jsonData string) (metaData *OrganizationMetaData, err error) {
+// InitOrganizationMetaDataFromJson Construct the Organization metadata from the JSON Passed
+func InitOrganizationMetaDataFromJson(jsonData []byte) (metaData *OrganizationMetaData, err error) {
 	metaData = new(OrganizationMetaData)
-	err = json.Unmarshal([]byte(jsonData), &metaData)
+	err = json.Unmarshal(jsonData, &metaData)
 	if err != nil {
 		zap.L().Error("Error in unmarshalling metadata json", zap.Error(err), zap.Any("jsondata", jsonData))
 		return nil, err
 	}
 
 	// Check for mandatory validations
-
 	if err = setDerivedAttributes(metaData); err != nil {
 		zap.L().Error("Error in setting derived attributes", zap.Error(err))
 		return nil, err
@@ -166,7 +165,7 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 	var err error
 	if config.GetBool(config.BlockchainEnabledKey) {
 		ipfsHash := string(getMetaDataURI())
-		metadata, err = GetOrganizationMetaDataFromIPFS(FormatHash(ipfsHash))
+		metadata, err = GetOrganizationMetaDataFromIPFS(ipfsHash)
 	} else {
 		metadata = &OrganizationMetaData{daemonGroup: &Group{}}
 	}
@@ -177,7 +176,10 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 }
 
 func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error) {
-	jsondata := ipfsutils.GetIpfsFile(hash)
+	jsondata, err := ipfsutils.ReadFile(hash)
+	if err != nil {
+		return nil, err
+	}
 	return InitOrganizationMetaDataFromJson(jsondata)
 }
 

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package handler;
+
+option go_package = "../intergrationtests";
+
+service ExampleStreamingService {
+    rpc Stream(stream InStream) returns (stream OutStream) {}
+}
+
+message InStream {
+    string message = 1;
+}
+
+message OutStream {
+    string message = 1;
+}

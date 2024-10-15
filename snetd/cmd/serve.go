@@ -147,14 +147,19 @@ func newDaemon(components *Components) (daemon, error) {
 func (d *daemon) start() {
 
 	var tlsConfig *tls.Config
+	var certReloader *CertReloader
 
-	certReloader := CertReloader{
-		CertFile: config.GetString(config.SSLCertPathKey),
-		KeyFile:  config.GetString(config.SSLKeyPathKey),
-		mutex:    new(sync.Mutex),
+	if config.GetString(config.SSLCertPathKey) != "" {
+		certReloader = &CertReloader{
+			CertFile: config.GetString(config.SSLCertPathKey),
+			KeyFile:  config.GetString(config.SSLKeyPathKey),
+			mutex:    new(sync.Mutex),
+		}
 	}
 
-	certReloader.Listen()
+	if certReloader != nil {
+		certReloader.Listen()
+	}
 
 	if d.autoSSLDomain != "" {
 		zap.L().Debug("enabling automatic SSL support")

@@ -30,7 +30,7 @@ func (suite *FreeCallServiceSuite) FreeCallUserData() *FreeCallUserData {
 }
 
 func (suite *FreeCallServiceSuite) SetupSuite() {
-	metadata, err := blockchain.InitServiceMetaDataFromJson(testJsonData)
+	metadata, err := blockchain.InitServiceMetaDataFromJson([]byte(testJsonData))
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 	suite.metadata = metadata
 	suite.memoryStorage = storage.NewMemStorage()

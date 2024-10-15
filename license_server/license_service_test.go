@@ -23,13 +23,14 @@ type LicenseServiceTestSuite struct {
 
 func (suite *LicenseServiceTestSuite) SetupSuite() {
 	suite.channelID = big.NewInt(1)
-	suite.orgMetaData, _ = blockchain.InitOrganizationMetaDataFromJson(testJsonOrgGroupData)
+	suite.orgMetaData, _ = blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgGroupData))
 	suite.servMetaData, _ = blockchain.ReadServiceMetaDataFromLocalFile("../service_metadata.json")
 	suite.licenseDetailsStorage = NewLicenseDetailsStorage(storage.NewMemStorage())
 	suite.licenseUsageStorage = NewLicenseUsageTrackerStorage(storage.NewMemStorage())
 	suite.service = NewLicenseService(suite.licenseDetailsStorage, suite.licenseUsageStorage, suite.orgMetaData,
 		suite.servMetaData)
 }
+
 func TestTokenServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(LicenseServiceTestSuite))
 }
@@ -41,5 +42,4 @@ func (suite *LicenseServiceTestSuite) TestCreateLicense() {
 	usage, ok, err := suite.service.GetLicenseUsage(LicenseUsageTrackerKey{ChannelID: suite.channelID, ServiceID: "serviceId1", UsageType: PLANNED})
 	assert.True(suite.T(), ok)
 	assert.Equal(suite.T(), usage.Usage.GetUsage(), big.NewInt(100))
-
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # for debug:
-# set -ex
+#set -ex
 
 PARENT_PATH="$(dirname "$(cd "$("dirname" "$0")"; pwd -P)")"
 

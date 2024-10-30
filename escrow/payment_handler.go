@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
@@ -105,8 +104,8 @@ func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *h
 
 func PublishChannelStats(payment handler.Payment) (grpcErr *handler.GrpcError) {
 	if !config.GetBool(config.MeteringEnabled) {
-		grpcErr = handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!")
-		zap.L().Error("Error in payment channel payment handler commit", zap.Error(grpcErr.Err()))
+		grpcErr = handler.NewGrpcErrorf(codes.Internal, "Can't post latest offline channel state as metering is disabled!")
+		zap.L().Warn("Can't post latest offline channel state as metering is disabled!", zap.Error(grpcErr.Err()))
 		return grpcErr
 	}
 	paymentTransaction := payment.(*paymentTransaction)
@@ -116,17 +115,16 @@ func PublishChannelStats(payment handler.Payment) (grpcErr *handler.GrpcError) {
 		Nonce:            paymentTransaction.Channel().Nonce,
 		GroupID:          blockchain.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
 	}
-	serviceURL := config.GetString(config.MeteringEndPoint) + "/contract-api/channel/" + channelStats.ChannelId.String() + "/balance"
+	meteringURL := config.GetString(config.MeteringEndPoint) + "/contract-api/channel/" + channelStats.ChannelId.String() + "/balance"
 
 	channelStats.OrganizationID = config.GetString(config.OrganizationId)
 	channelStats.ServiceID = config.GetString(config.ServiceId)
 	zap.L().Debug("Payment channel payment handler is publishing channel statistics", zap.Any("ChannelStats", channelStats))
 	commonStats := &metrics.CommonStats{
 		GroupID: channelStats.GroupID, UserName: paymentTransaction.Channel().Sender.Hex()}
-	status := metrics.Publish(channelStats, serviceURL, commonStats)
-
+	status := metrics.Publish(channelStats, meteringURL, commonStats)
 	if !status {
-		log.Error("Payment channel payment handler unable to post latest off-chain Channel state on contract API Endpoint", zap.String("serciveURL", serviceURL))
+		zap.L().Warn("Payment handler unable to post latest off-chain Channel state on contract API Endpoint for metering", zap.String("meteringURL", meteringURL))
 		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")
 	}
 	return nil

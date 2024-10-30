@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/configuration_service"
-	"github.com/singnet/snet-daemon/metrics"
-	"github.com/singnet/snet-daemon/ratelimit"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v5/configuration_service"
+	"github.com/singnet/snet-daemon/v5/metrics"
+	"github.com/singnet/snet-daemon/v5/ratelimit"
 	"go.uber.org/zap"
 
 	"math/big"

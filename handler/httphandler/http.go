@@ -1,14 +1,14 @@
 package httphandler
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/ratelimit"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/ratelimit"
 	"golang.org/x/time/rate"
 	"io"
 	"log"
 	"net/http"
 
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 )
 
 type httpHandler struct {

@@ -1,8 +1,8 @@
 package contractlistener
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/etcddb"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/etcddb"
 )
 
 type EventSignature string

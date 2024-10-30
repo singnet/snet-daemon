@@ -8,11 +8,11 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/v5/storage"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 )
 
 // PaymentChannelStorage is a storage for PaymentChannelData by

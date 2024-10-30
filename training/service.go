@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/escrow"
-	"github.com/singnet/snet-daemon/utils"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v5/escrow"
+	"github.com/singnet/snet-daemon/v5/utils"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"go.uber.org/zap"

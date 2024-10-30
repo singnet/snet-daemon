@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"github.com/magiconair/properties/assert"
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 	"google.golang.org/grpc/metadata"
 	"testing"
 	"time"

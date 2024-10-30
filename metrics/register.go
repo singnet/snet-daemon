@@ -9,7 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 	"go.uber.org/zap"
 )
 

@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/singnet/snet-daemon/authutils"
-	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/v5/authutils"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"

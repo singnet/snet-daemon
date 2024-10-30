@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/v5/storage"
 	"math/big"
 	"reflect"
 	"strings"

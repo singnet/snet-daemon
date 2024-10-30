@@ -1,4 +1,4 @@
-module github.com/singnet/snet-daemon
+module github.com/singnet/snet-daemon/v5
 
 go 1.23
 

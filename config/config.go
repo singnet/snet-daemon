@@ -446,7 +446,7 @@ func SetAllowedUsers() (err error) {
 	if len(users) == 0 {
 		return fmt.Errorf("a valid Address needs to be specified for the config %v to ensure that, only these users can make calls", AllowedUserAddresses)
 	}
-	userAddress = make([]common.Address, len(users))
+	userAddress = make([]common.Address, 0, len(users))
 	for _, user := range users {
 		if !common.IsHexAddress(user) {
 			err = fmt.Errorf("%v is not a valid hex address", user)

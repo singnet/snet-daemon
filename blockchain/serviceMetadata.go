@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/ipfsutils"
+	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v5/ipfsutils"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )

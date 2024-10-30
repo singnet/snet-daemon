@@ -1,9 +1,9 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v5/handler"
 )
 
 const (

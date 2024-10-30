@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/magiconair/properties/assert"
-	"github.com/singnet/snet-daemon/utils"
+	"github.com/singnet/snet-daemon/v5/utils"
 )
 
 func Test_checkIfHttps(t *testing.T) {

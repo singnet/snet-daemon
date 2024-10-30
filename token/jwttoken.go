@@ -3,8 +3,8 @@ package token
 import (
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/config"
 	"strings"
 	"time"
 )

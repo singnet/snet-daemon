@@ -1,7 +1,7 @@
 package pricing
 
 import (
-	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"

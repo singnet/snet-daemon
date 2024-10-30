@@ -6,9 +6,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/authutils"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/authutils"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/config"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"

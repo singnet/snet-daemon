@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

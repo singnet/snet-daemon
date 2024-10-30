@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/singnet/snet-daemon/config"
-	"github.com/singnet/snet-daemon/ipfsutils"
+	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v5/ipfsutils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"

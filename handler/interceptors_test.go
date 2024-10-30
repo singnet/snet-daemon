@@ -3,7 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
-	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 	"math/big"
 	"testing"
 

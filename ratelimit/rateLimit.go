@@ -1,7 +1,7 @@
 package ratelimit
 
 import (
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 	"golang.org/x/time/rate"
 	"math"
 	"strconv"

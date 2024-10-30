@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/authutils"
-	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/v5/authutils"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 
 	"go.uber.org/zap"
 	"golang.org/x/net/context"

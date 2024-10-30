@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/singnet/snet-daemon/authutils"
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/authutils"
+	"github.com/singnet/snet-daemon/v5/config"
 
 	"github.com/OneOfOne/go-utils/memory"
 	"github.com/ethereum/go-ethereum/common"

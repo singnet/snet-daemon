@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/authutils"
+	"github.com/singnet/snet-daemon/v5/authutils"
 	"go.uber.org/zap"
 )
 

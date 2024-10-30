@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/singnet/snet-daemon/escrow"
+	"github.com/singnet/snet-daemon/v5/escrow"
 )
 
 // ListClaimsCmd shows list of channels from shared storage

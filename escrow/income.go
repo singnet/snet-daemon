@@ -1,10 +1,10 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/pricing"
+	"github.com/singnet/snet-daemon/v5/pricing"
 	"math/big"
 
-	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/v5/handler"
 )
 
 // IncomeData is used to pass information to the pricing validation system.

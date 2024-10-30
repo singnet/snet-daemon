@@ -23,9 +23,9 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/codec"
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/codec"
+	"github.com/singnet/snet-daemon/v5/config"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}

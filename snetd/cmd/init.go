@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/spf13/cobra"
 )
 

@@ -69,7 +69,10 @@ func StartMockGrpcService() {
 		grpcServer := grpc.NewServer()
 		pb.RegisterHealthServer(grpcServer, &clientImplHeartBeat{})
 		ch <- 0
-		grpcServer.Serve(lis)
+		err = grpcServer.Serve(lis)
+		if err != nil {
+			panic(err)
+		}
 	}()
 	_ = <-ch
 }
@@ -80,10 +83,10 @@ func (suite *ClientTestSuite) Test_callgRPCServiceHeartbeat() {
 
 	serviceURL := "localhost" + testPort
 	heartbeat, err := callgRPCServiceHeartbeat(serviceURL)
-	assert.False(suite.T(), err != nil)
+	assert.Equal(suite.T(), nil, err)
 
 	assert.NotEqual(suite.T(), `{}`, string(heartbeat), "Service Heartbeat must not be empty.")
-	assert.Equal(suite.T(), heartbeat.String(), pb.HealthCheckResponse_SERVING.String())
+	assert.Equal(suite.T(), pb.HealthCheckResponse_SERVING.String(), heartbeat.String())
 
 	serviceURL = "localhost:26000"
 	heartbeat, err = callgRPCServiceHeartbeat(serviceURL)

@@ -8,11 +8,11 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/v5/storage"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/singnet/snet-daemon/blockchain"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 )
 
 // PaymentChannelStorage is a storage for PaymentChannelData by
@@ -119,8 +119,8 @@ func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *Paymen
 
 	if recipientPaymentAddress != ch.Recipient {
 		zap.L().Warn("Recipient Address from org metadata not Match on what was retrieved from Channel",
-			zap.Any("recipientPaymentAddress", recipientPaymentAddress),
-			zap.Any("ch.Recipient", ch.Recipient))
+			zap.String("recipientPaymentAddress", recipientPaymentAddress.Hex()),
+			zap.String("ch.Recipient", ch.Recipient.Hex()))
 		return nil, false, fmt.Errorf("recipient Address from org metadata does not Match on what was retrieved from Channel")
 	}
 	return &PaymentChannelData{

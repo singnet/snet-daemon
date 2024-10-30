@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 	"go.uber.org/zap"
 
 	"net/http"

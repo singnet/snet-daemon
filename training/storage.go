@@ -2,8 +2,8 @@ package training
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/storage"
-	"github.com/singnet/snet-daemon/utils"
+	"github.com/singnet/snet-daemon/v5/storage"
+	"github.com/singnet/snet-daemon/v5/utils"
 	"reflect"
 )
 

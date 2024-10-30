@@ -2,8 +2,8 @@ package license_server
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/storage"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/storage"
 	"math/big"
 	"strings"
 )

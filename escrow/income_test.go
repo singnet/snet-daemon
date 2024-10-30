@@ -2,9 +2,9 @@ package escrow
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/handler"
-	"github.com/singnet/snet-daemon/pricing"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v5/pricing"
 	"math/big"
 	"testing"
 

@@ -1,15 +1,15 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 	"math/big"
 	"reflect"
 	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/blockchain"
-	"github.com/singnet/snet-daemon/handler"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/handler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc/codes"
@@ -154,7 +154,7 @@ func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
 		wantErr   *handler.GrpcError
 		setupFunc func()
 	}{
-		{name: "", wantErr: handler.NewGrpcErrorf(codes.Internal, "Cannot post latest offline channel state as metering is disabled !!"), setupFunc: func() {
+		{name: "", wantErr: handler.NewGrpcErrorf(codes.Internal, "Can't post latest offline channel state as metering is disabled!"), setupFunc: func() {
 		}},
 
 		{name: "", wantErr: nil, setupFunc: func() {

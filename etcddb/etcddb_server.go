@@ -3,7 +3,7 @@ package etcddb
 import (
 	"errors"
 	"fmt"
-	"github.com/singnet/snet-daemon/config"
+	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/spf13/viper"
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.uber.org/zap"

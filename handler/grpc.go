@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/singnet/snet-daemon/v5/errs"
 	"io"
 	"net/http"
 	"net/url"
@@ -39,7 +42,7 @@ type grpcHandler struct {
 	modelTrainingEndpoint string
 	executable            string
 	serviceMetaData       *blockchain.ServiceMetadata
-	serviceCredentials    []serviceCredential
+	serviceCredentials    serviceCredentials
 }
 
 func (g grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
@@ -78,10 +81,14 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	case "jsonrpc":
 		return h.grpcToJSONRPC
 	case "http":
-		h.serviceCredentials = []serviceCredential{}
+		h.serviceCredentials = serviceCredentials{}
 		err := config.Vip().UnmarshalKey(config.ServiceCredentialsKey, &h.serviceCredentials)
 		if err != nil {
-			zap.L().Panic("invalid config", zap.Error(err))
+			zap.L().Fatal("invalid config", zap.Error(fmt.Errorf("%v%v", err, errs.ErrDescURL(errs.InvalidServiceCredentials))))
+		}
+		err = h.serviceCredentials.validate()
+		if err != nil {
+			zap.L().Fatal("invalid config", zap.Error(fmt.Errorf("%v%v", err, errs.ErrDescURL(errs.InvalidServiceCredentials))))
 		}
 		return h.grpcToHTTP
 	case "process":
@@ -90,10 +97,24 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	return nil
 }
 
+func (srvCreds serviceCredentials) validate() error {
+	if len(srvCreds) > 0 {
+		for _, v := range srvCreds {
+			if v.Location != body && v.Location != header && v.Location != query {
+				return fmt.Errorf("invalid service_credentials: location should be body, header or query")
+			}
+			if v.Key == "" {
+				return fmt.Errorf("invalid service_credentials: key can't be empty")
+			}
+		}
+	}
+	return nil
+}
+
 func (g grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
 	passthroughURL, err := url.Parse(endpoint)
 	if err != nil {
-		zap.L().Panic("error parsing passthrough endpoint", zap.Error(err))
+		zap.L().Fatal(fmt.Sprintf("can't parse endpoint %v", errs.ErrDescURL(errs.InvalidConfig)), zap.String("endpoint", endpoint))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
 		conn, err = grpc.NewClient(passthroughURL.Host,
@@ -101,13 +122,13 @@ func (g grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
 		if err != nil {
 			zap.L().Panic("error dialing service", zap.Error(err))
 		}
-	} else {
-		conn, err = grpc.NewClient(passthroughURL.Host, grpc.WithTransportCredentials(insecure.NewCredentials()), g.options)
-		if err != nil {
-			zap.L().Panic("error dialing service", zap.Error(err))
-		}
+		return conn
 	}
-	return
+	conn, err = grpc.NewClient(passthroughURL.Host, grpc.WithTransportCredentials(insecure.NewCredentials()), g.options)
+	if err != nil {
+		zap.L().Panic("error dialing service", zap.Error(err))
+	}
+	return conn
 }
 
 /*
@@ -117,14 +138,12 @@ Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See
 */
 func (g grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
-
 	if !ok {
 		return status.Errorf(codes.Internal, "could not determine method from server stream")
 	}
 
 	inCtx := inStream.Context()
 	md, ok := metadata.FromIncomingContext(inCtx)
-
 	if !ok {
 		return status.Errorf(codes.Internal, "could not get metadata from incoming context")
 	}
@@ -135,7 +154,7 @@ func (g grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 	isModelTraining := g.serviceMetaData.IsModelTraining(method)
 	outStream, err := g.GrpcConn(isModelTraining).NewStream(outCtx, grpcDesc, method, grpc.CallContentSubtype(g.enc))
 	if err != nil {
-		return err
+		return status.Errorf(codes.Internal, "can't connect to service %v%v", err, errs.ErrDescURL(errs.ServiceUnavailable))
 	}
 
 	s2cErrChan := forwardServerToClient(inStream, outStream)
@@ -147,14 +166,17 @@ func (g grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 			if s2cErr == io.EOF {
 				// this is the happy case where the sender has encountered io.EOF, and won't be sending anymore./
 				// the clientStream>inStream may continue pumping though.
-				outStream.CloseSend()
+				errCloseSend := outStream.CloseSend()
+				if errCloseSend != nil {
+					zap.L().Debug("failed close outStream", zap.Error(err))
+				}
 				break
 			} else {
 				// however, we may have gotten a receive error (stream disconnected, a read error etc) in which case we need
 				// to cancel the clientStream to the backend, let all of its goroutines be freed up by the CancelFunc and
 				// exit with an error to the stack
 				outCancel()
-				return status.Errorf(codes.Internal, "failed proxying s2c: %v", s2cErr)
+				return status.Errorf(codes.Internal, "failed proxying s2c: %v%s", s2cErr, errs.ErrDescURL(errs.ServiceUnavailable))
 			}
 		case c2sErr := <-c2sErrChan:
 			// This happens when the clientStream has nothing else to offer (io.EOF), returned a gRPC error. In those two
@@ -256,9 +278,10 @@ type serviceCredential struct {
 	Location httpLocation `json:"location"`
 }
 
+type serviceCredentials []serviceCredential
+
 func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
-
 	if !ok {
 		return status.Errorf(codes.Internal, "could not determine method from server stream")
 	}
@@ -270,18 +293,22 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 
 	f := &codec.GrpcFrame{}
 	if err := inStream.RecvMsg(f); err != nil {
-		zap.L().Error(err.Error())
-		return status.Errorf(codes.Internal, "error receiving request; error: %+cred", err)
+		zap.L().Error(fmt.Sprintf("error receiving grpc msg: %v%v", err, errs.ErrDescURL(errs.ReceiveMsgError)))
+		return status.Errorf(codes.Internal, "error receiving grpc msg: %v%v", err, errs.ErrDescURL(errs.ReceiveMsgError))
 	}
 
 	// convert proto msg to json
-	jsonBody := protoToJson(g.serviceMetaData.ProtoFile, f.Data, method)
+	jsonBody, err := protoToJson(g.serviceMetaData.ProtoFile, f.Data, method)
+	if err != nil {
+		return status.Errorf(codes.Internal, "protoToJson error: %+v", errs.ErrDescURL(errs.InvalidProto))
+	}
 
-	zap.L().Debug("Proto to json", zap.String("json", string(jsonBody)))
+	zap.L().Debug("Proto to json result", zap.String("json", string(jsonBody)))
 
 	base, err := url.Parse(g.passthroughEndpoint)
 	if err != nil {
 		zap.L().Error("can't parse passthroughEndpoint", zap.Error(err))
+		return status.Errorf(codes.Internal, "can't parse passthrough_endpoint %v%v", err, errs.ErrDescURL(errs.InvalidConfig))
 	}
 
 	base.Path += method // method from proto should be the same as http handler path
@@ -329,112 +356,111 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonBody))
 	httpReq.Header = headers
 	if err != nil {
-		return status.Errorf(codes.Internal, "error creating http request; error: %+cred", err)
+		return status.Errorf(codes.Internal, "error creating http request: %+v%v", err, errs.ErrDescURL(errs.HTTPRequestBuildError))
 	}
 
 	httpReq.Header.Set("content-type", "application/json")
 
 	httpResp, err := http.DefaultClient.Do(httpReq)
-
 	if err != nil {
-		return status.Errorf(codes.Internal, "error executing http call; error: %+cred", err)
+		return status.Errorf(codes.Internal, "error executing HTTP service: %+v%v", err, errs.ErrDescURL(errs.ServiceUnavailable))
 	}
-
 	resp, err := io.ReadAll(httpResp.Body)
 	if err != nil {
-		return status.Errorf(codes.Internal, "error reading response; error: %+cred", err)
+		return status.Errorf(codes.Internal, "error reading response from HTTP service: %+v%v", err, errs.ErrDescURL(errs.ServiceUnavailable))
 	}
-	zap.L().Debug("Getting response", zap.String("response", string(resp)))
+	zap.L().Debug("Response from HTTP service", zap.String("response", string(resp)))
 
-	protoMessage := jsonToProto(g.serviceMetaData.ProtoFile, resp, method)
+	protoMessage, errMarshal := jsonToProto(g.serviceMetaData.ProtoFile, resp, method)
+	if errMarshal != nil {
+		return status.Errorf(codes.Internal, "jsonToProto error: %+v%v", errMarshal, errs.ErrDescURL(errs.InvalidProto))
+	}
+
 	if err = inStream.SendMsg(protoMessage); err != nil {
-		return status.Errorf(codes.Internal, "error sending response; error: %+cred", err)
+		return status.Errorf(codes.Internal, "error sending response from HTTP service: %+v", err)
 	}
 
 	return nil
 }
 
-func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName string) (proto proto.Message) {
+func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName string) (proto proto.Message, err error) {
 
 	zap.L().Debug("Processing file", zap.String("fileName", string(protoFile.Name())))
-	zap.L().Debug("Count services: ", zap.Int("value", protoFile.Services().Len()))
+	zap.L().Debug("Count services in proto: ", zap.Int("value", protoFile.Services().Len()))
 
 	if protoFile.Services().Len() == 0 {
 		zap.L().Warn("service in proto not found")
-		return proto
+		return proto, errors.New("services in proto not found")
 	}
 
 	service := protoFile.Services().Get(0)
 	if service == nil {
 		zap.L().Warn("service in proto not found")
-		return proto
+		return proto, errors.New("services in proto not found")
 	}
 
 	method := service.Methods().ByName(protoreflect.Name(methodName))
 	if method == nil {
 		zap.L().Warn("method not found in proto")
-		return proto
-	}
-	output := method.Output()
-	zap.L().Debug("output msg descriptor", zap.Any("fullname", output.FullName()))
-	proto = dynamicpb.NewMessage(output)
-	err := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}.Unmarshal(json, proto)
-	if err != nil {
-		zap.L().Error("Can't unmarshal jsonToProto", zap.Error(err))
+		return proto, fmt.Errorf("method %v in proto not found", methodName)
 	}
 
-	return proto
+	output := method.Output()
+	zap.L().Debug("output msg descriptor", zap.String("fullname", string(output.FullName())))
+	proto = dynamicpb.NewMessage(output)
+	err = protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}.Unmarshal(json, proto)
+	if err != nil {
+		zap.L().Error("can't unmarshal json to proto", zap.Error(err))
+		return proto, fmt.Errorf("invalid proto, can't convert json to proto msg: %+v", err)
+	}
+
+	return proto, nil
 }
 
-func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte) {
+func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte, err error) {
 	if protoFile.Services().Len() == 0 {
 		zap.L().Warn("service in proto not found")
-		return []byte("error, invalid proto file")
+		return []byte("error, invalid proto file"), errors.New("services in proto not found")
 	}
 
 	service := protoFile.Services().Get(0)
 	if service == nil {
 		zap.L().Warn("service in proto not found")
-		return []byte("error, invalid proto file")
+		return []byte("error, invalid proto file"), errors.New("services in proto not found")
 	}
 
 	method := service.Methods().ByName(protoreflect.Name(methodName))
 	if method == nil {
 		zap.L().Warn("method not found in proto")
-		return []byte("error, invalid proto file or input request")
+		return []byte("error, method in proto not found"), errors.New("method in proto not found")
 	}
 
 	input := method.Input()
 	zap.L().Debug("Input fullname method", zap.Any("value", input.FullName()))
 	msg := dynamicpb.NewMessage(input)
-	err := proto.Unmarshal(in, msg)
+	err = proto.Unmarshal(in, msg)
 	if err != nil {
 		zap.L().Error("Error in unmarshalling", zap.Error(err))
-		return []byte("error, invalid proto file or input request")
+		return []byte("error, invalid proto file or input request"), fmt.Errorf("error in unmarshaling proto to json: %+v", err)
 	}
 	json, err = protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
 		zap.L().Error("Error in marshaling", zap.Error(err))
-		return []byte("error, invalid proto file or input request")
+		return []byte("error, invalid proto file or input request"), fmt.Errorf("error in marshaling proto to json: %+v", err)
 	}
-	zap.L().Debug("Getting json", zap.String("json", string(json)))
+	zap.L().Debug("ProtoToJson result:", zap.String("json", string(json)))
 
-	return json
+	return json, nil
 }
 
 func (g grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
-
 	if !ok {
 		return status.Errorf(codes.Internal, "could not determine method from server stream")
 	}
 
 	methodSegs := strings.Split(method, "/")
 	method = methodSegs[len(methodSegs)-1]
-
-	if !ok {
-		return status.Errorf(codes.Internal, "could not get metadata from incoming context")
-	}
 
 	f := &codec.GrpcFrame{}
 	if err := inStream.RecvMsg(f); err != nil {
@@ -454,7 +480,6 @@ func (g grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 	}
 
 	httpReq, err := http.NewRequest("POST", g.passthroughEndpoint, bytes.NewBuffer(jsonRPCReq))
-
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request; error: %+v", err)
 	}

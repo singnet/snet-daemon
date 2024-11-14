@@ -200,6 +200,7 @@ func Validate() error {
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
 	case "http":
+		zap.L().Warn("daemon type http is not for production mode, be careful")
 	default:
 		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)
 	}

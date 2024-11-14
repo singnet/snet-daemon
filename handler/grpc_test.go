@@ -94,3 +94,44 @@ func (suite *GrpcTestSuite) TestPassThroughEndPoint() {
 	passthroughURL, err = url.Parse("http://somedomain")
 	assert.Equal(suite.T(), passthroughURL.Scheme, "http")
 }
+
+func TestHttpCredentials(t *testing.T) {
+	var creds = []serviceCredentials{
+		{serviceCredential{
+			Key:      "api-key",
+			Value:    "123abc",
+			Location: "query",
+		}},
+		{serviceCredential{
+			Key:      "X-Api-Key",
+			Value:    "123abc",
+			Location: "header",
+		}},
+	}
+
+	for _, v := range creds {
+		assert.Nil(t, v.validate())
+	}
+
+	var invalidCreds = []serviceCredentials{
+		{serviceCredential{
+			Key:      "api-key",
+			Value:    "123abc",
+			Location: "from",
+		}},
+		{serviceCredential{
+			Key:      "X-Api-Key",
+			Value:    "123abc",
+			Location: "",
+		}},
+		{serviceCredential{
+			Key:      "",
+			Value:    "123abc",
+			Location: "header",
+		}},
+	}
+
+	for _, v := range invalidCreds {
+		assert.NotNil(t, v.validate())
+	}
+}

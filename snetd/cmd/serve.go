@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/singnet/snet-daemon/v5/errs"
 	"net"
 	"net/http"
 	"os"
@@ -60,7 +61,7 @@ var ServeCmd = &cobra.Command{
 		var d daemon
 		d, err = newDaemon(components)
 		if err != nil {
-			zap.L().Fatal("Unable to initialize daemon", zap.Error(err))
+			zap.L().Fatal("Unable to initialize daemon"+errs.ErrDescURL(errs.InvalidConfig), zap.Error(err))
 		}
 
 		d.start()

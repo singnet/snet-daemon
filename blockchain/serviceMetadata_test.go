@@ -3,6 +3,7 @@ package blockchain
 import (
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"testing"
 
@@ -58,6 +59,7 @@ func TestTiers(t *testing.T) {
 	assert.Equal(t, metaData.GetLicenses().Tiers[0].Range[0].DiscountInPercentage,
 		1.0)
 }
+
 func TestInitServiceMetaDataFromJson(t *testing.T) {
 	//Parse Bad JSON
 	_, err := InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "{", "", 1)))
@@ -68,7 +70,7 @@ func TestInitServiceMetaDataFromJson(t *testing.T) {
 	//Parse Bad JSON
 	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F", "", 1)))
 	if err != nil {
-		assert.Equal(t, err.Error(), "MetaData does not have 'free_call_signer_address defined correctly")
+		assert.Contains(t, err.Error(), "MetaData does not have 'free_call_signer_address defined correctly")
 	}
 	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "default_pricing", "dummy", 1)))
 	if err != nil {
@@ -84,11 +86,10 @@ func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
 }
 
 func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
-	assert.Panics(t, func() { getServiceMetaDataUrifromRegistry() })
+	assert.Panics(t, func() { getServiceMetaDataURIfromRegistry() })
 	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
-	assert.Panics(t, func() { getServiceMetaDataUrifromRegistry() })
-
+	assert.Panics(t, func() { getServiceMetaDataURIfromRegistry() })
 }
 
 func Test_setDefaultPricing(t *testing.T) {
@@ -112,7 +113,7 @@ func TestServiceMetadata_parseServiceProto(t *testing.T) {
 	assert.NotNil(t, priceMethodMap)
 	assert.NotNil(t, trainingMethods)
 	dynamicPriceMethod, ok := priceMethodMap["/example_service.Calculator/add"]
-	isTrainingMethod := isElementInArray("/example_service.Calculator/train_add", trainingMethods)
+	isTrainingMethod := slices.Contains(trainingMethods, "/example_service.Calculator/train_add")
 	assert.Equal(t, dynamicPriceMethod, "/example_service.Calculator/dynamic_pricing_add")
 	assert.True(t, ok, "true")
 	assert.True(t, isTrainingMethod)

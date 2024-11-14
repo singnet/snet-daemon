@@ -13,7 +13,7 @@ import (
 )
 
 func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
-	zap.L().Info("Starting contract event listener for organization metadata changing")
+	zap.L().Debug("Starting contract event listener for organization metadata changing")
 
 	watchOpts := &bind.WatchOpts{
 		Start:   nil,
@@ -29,7 +29,7 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 	sub, err := registryFilterer.WatchOrganizationModified(watchOpts, eventContractChannel, orgIdFilter)
 
 	if err != nil {
-		zap.L().Fatal("Failed to subscribe to logs", zap.Error(err))
+		zap.L().Error("Failed to subscribe to logs", zap.Error(err))
 	}
 
 	for {

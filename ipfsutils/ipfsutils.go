@@ -52,8 +52,6 @@ func GetIpfsFile(hash string) (content []byte, err error) {
 		return nil, err
 	}
 
-	// log.WithField("hash", hash).WithField("blob", string(fileContent)).Debug("Blob of IPFS file with hash")
-
 	// Create a cid manually to check cid
 	_, c, err := cid.CidFromBytes(append(cID.Bytes(), fileContent...))
 	if err != nil {

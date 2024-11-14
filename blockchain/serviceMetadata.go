@@ -164,7 +164,7 @@ type ServiceMetadata struct {
 	freeCallSignerAddress     common.Address
 	isfreeCallAllowed         bool
 	freeCallsAllowed          int
-	DynamicPriceMethodMapping map[string]string           `json:"dynamicpricing"`
+	DynamicPriceMethodMapping map[string]string           `json:"dynamic_pricing"`
 	TrainingMethods           []string                    `json:"training_methods"`
 	ProtoFile                 protoreflect.FileDescriptor `json:"-"`
 }
@@ -495,7 +495,7 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 
 	// for backwards compatibility
 	if metaData.ModelIpfsHash != "" {
-		rawFile, err = ipfsutils.GetIpfsFile(metaData.ServiceApiSource)
+		rawFile, err = ipfsutils.GetIpfsFile(metaData.ModelIpfsHash)
 	}
 
 	if metaData.ServiceApiSource != "" {

@@ -228,25 +228,22 @@ func (d *daemon) start() {
 			return true
 		}))
 		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			zap.L().Info("http request: ", zap.String("path", req.URL.Path), zap.String("method", req.Method))
+			isGrpcWebReq := grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req)
+			zap.L().Info("http request", zap.Bool("isGrpcWebRequest", isGrpcWebReq), zap.String("path", req.URL.Path), zap.String("method", req.Method))
 			resp.Header().Set("Access-Control-Allow-Origin", "*")
-			if grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req) {
-				zap.L().Debug("GrpcWebRequest/IsAcceptableGrpcCorsRequest")
+			if isGrpcWebReq {
 				grpcWebServer.ServeHTTP(resp, req)
 			} else {
 				switch strings.Split(req.URL.Path, "/")[1] {
 				case "encoding":
 					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
 				case "heartbeat":
-					metrics.HeartbeatHandler(resp, d.components.DaemonHeartBeat().TrainingInProto)
+					metrics.HeartbeatHandler(resp, d.components.DaemonHeartBeat().TrainingInProto, d.components.DaemonHeartBeat().TrainingMethods, d.components.DaemonHeartBeat().DynamicPricing)
 				default:
 					http.NotFound(resp, req)
 				}
 			}
-			zap.L().Debug("output headers:")
-			for key, values := range resp.Header() {
-				zap.L().Debug("header", zap.String("key", key), zap.Strings("value", values))
-			}
+			zap.L().Debug("http headers", zap.Any("headers", resp.Header()))
 		})
 
 		corsOpts := cors.New(cors.Options{

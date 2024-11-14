@@ -118,9 +118,8 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 	data = service.getModelDataToCreate(request, response)
 	//store the model details in etcd
 	err = service.storage.Put(key, data)
-	zap.L().Debug("Putting Model Data....")
 	if err != nil {
-		zap.L().Error(err.Error())
+		zap.L().Error("can't put model in etcd", zap.Error(err))
 		return
 	}
 	//for every accessible address in the list , store the user address and all the model Ids associated with it
@@ -132,9 +131,7 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 			zap.L().Error(err.Error())
 			return
 		}
-		zap.L().Debug("Putting USER Model Data....")
-		zap.L().Debug(" USER Model key is:" + userKey.String())
-		zap.L().Debug(" USER Model Data is:" + userData.String())
+		zap.L().Debug("creating training model", zap.String("userKey", userKey.String()), zap.String("userData", userData.String()))
 	}
 	return
 }
@@ -153,7 +150,7 @@ func (service ModelService) getModelUserData(key *ModelKey, address string) *Mod
 	//Check if there are any model Ids already associated with this user
 	modelIds := make([]string, 0)
 	userKey := getModelUserKey(key, address)
-	zap.L().Debug(" USER Model key is:" + userKey.String())
+	zap.L().Debug("user model key is" + userKey.String())
 	data, ok, err := service.userStorage.Get(userKey)
 	if ok && err == nil && data != nil {
 		modelIds = data.ModelIds

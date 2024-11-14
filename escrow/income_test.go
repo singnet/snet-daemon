@@ -55,7 +55,6 @@ func TestIncomeValidate(t *testing.T) {
 	err = incomeValidator.Validate(&IncomeData{Income: income})
 	msg = fmt.Sprintf("income %s does not equal to price %s", income, price)
 	assert.Equal(t, NewPaymentError(Unauthenticated, msg), err)
-
 }
 
 type MockPriceErrorType struct {

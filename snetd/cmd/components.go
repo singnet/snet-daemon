@@ -522,6 +522,8 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 
 	components.daemonHeartbeat = &metrics.DaemonHeartbeat{
 		TrainingInProto: len(components.ServiceMetaData().TrainingMethods) > 0,
+		TrainingMethods: components.ServiceMetaData().TrainingMethods,
+		DynamicPricing:  components.ServiceMetaData().DynamicPriceMethodMapping,
 		DaemonID:        metrics.GetDaemonID(),
 		DaemonVersion:   config.GetVersionTag(),
 	}

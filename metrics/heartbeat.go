@@ -51,6 +51,8 @@ type DaemonHeartbeat struct {
 	DaemonVersion            string            `json:"daemonVersion"`
 	TrainingEnabled          bool              `json:"trainingEnabled"`
 	TrainingInProto          bool              `json:"trainingInProto"`
+	TrainingMethods          []string          `json:"trainingMethods"`
+	DynamicPricing           map[string]string `json:"dynamicPricing"`
 	BlockchainEnabled        bool              `json:"blockchainEnabled"`
 	BlockchainNetwork        string            `json:"blockchainNetwork"`
 	StorageClientCertDetails StorageClientCert `json:"storageClientCertDetails"`
@@ -113,7 +115,7 @@ func getStorageCertificateDetails() (cert StorageClientCert) {
 }
 
 // prepares the heartbeat, which includes calling to underlying service DAemon is serving
-func GetHeartbeat(serviceURL string, serviceType string, serviceID string, trainingInProto bool) (heartbeat DaemonHeartbeat, err error) {
+func GetHeartbeat(serviceURL string, serviceType string, serviceID string, trainingInProto bool, trainingMethods []string, dynamicPricing map[string]string) (heartbeat DaemonHeartbeat, err error) {
 	heartbeat = DaemonHeartbeat{
 		GetDaemonID(),
 		strconv.FormatInt(getEpochTime(), 10),
@@ -122,6 +124,8 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string, train
 		config.GetVersionTag(),
 		config.GetBool(config.ModelTrainingEnabled),
 		trainingInProto,
+		trainingMethods,
+		dynamicPricing,
 		config.GetBool(config.BlockchainEnabledKey),
 		config.GetString(config.BlockChainNetworkSelected),
 		getStorageCertificateDetails()}
@@ -163,12 +167,12 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string, train
 
 // Heartbeat request handler function : upon request it will hit the service for status and
 // wraps the results in daemons heartbeat
-func HeartbeatHandler(rw http.ResponseWriter, trainingInProto bool) {
+func HeartbeatHandler(rw http.ResponseWriter, trainingInProto bool, trainingMethods []string, dynamicPricing map[string]string) {
 	// read the heartbeat service type and corresponding URL
 	serviceType := config.GetString(config.ServiceHeartbeatType)
 	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
 	serviceID := config.GetString(config.ServiceId)
-	heartbeat, _ := GetHeartbeat(serviceURL, serviceType, serviceID, trainingInProto)
+	heartbeat, _ := GetHeartbeat(serviceURL, serviceType, serviceID, trainingInProto, trainingMethods, dynamicPricing)
 	err := json.NewEncoder(rw).Encode(heartbeat)
 	if err != nil {
 		zap.L().Info("Failed to write heartbeat message.", zap.Error(err))
@@ -179,7 +183,7 @@ func HeartbeatHandler(rw http.ResponseWriter, trainingInProto bool) {
 func (service *DaemonHeartbeat) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 
 	heartbeat, err := GetHeartbeat(config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
-		config.GetString(config.ServiceId), service.TrainingInProto)
+		config.GetString(config.ServiceId), service.TrainingInProto, service.TrainingMethods, service.DynamicPricing)
 
 	if strings.Compare(heartbeat.Status, Online.String()) == 0 {
 		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil

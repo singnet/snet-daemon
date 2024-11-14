@@ -98,7 +98,7 @@ func (suite *HeartBeatTestSuite) TestHeartbeatHandler() {
 	// Creating a ResponseRecorder to record the response.
 	response := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		HeartbeatHandler(writer, true)
+		HeartbeatHandler(writer, true, nil, nil)
 	})
 
 	// Since it is basic http handler, we can call ServeHTTP method directly and pass request and response.
@@ -131,7 +131,7 @@ func (suite *HeartBeatTestSuite) Test_GetHeartbeat() {
 	serviceType := "http"
 	serviveID := "SERVICE001"
 
-	dHeartbeat, _ := GetHeartbeat(serviceURL, serviceType, serviveID, false)
+	dHeartbeat, _ := GetHeartbeat(serviceURL, serviceType, serviveID, false, nil, nil)
 	assert.NotNil(suite.T(), dHeartbeat, "heartbeat must not be nil")
 
 	assert.Equal(suite.T(), dHeartbeat.Status, Online.String(), "Invalid State")
@@ -152,11 +152,12 @@ func (suite *HeartBeatTestSuite) Test_GetHeartbeat() {
 	// check with some timeout URL
 	serviceURL = "http://localhost:1234"
 	SetNoHeartbeatURLState(false)
-	dHeartbeat2, _ := GetHeartbeat(serviceURL, serviceType, serviveID, false)
+	dHeartbeat2, _ := GetHeartbeat(serviceURL, serviceType, serviveID, true, nil, nil)
 	assert.NotNil(suite.T(), dHeartbeat2, "heartbeat must not be nil")
 
 	assert.Equal(suite.T(), dHeartbeat2.Status, Warning.String(), "Invalid State")
 	assert.NotEqual(suite.T(), dHeartbeat2.Status, Online.String(), "Invalid State")
+	assert.True(suite.T(), dHeartbeat2.TrainingInProto)
 
 	assert.NotEqual(suite.T(), dHeartbeat2.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
 	assert.Equal(suite.T(), dHeartbeat2.ServiceHeartbeat, `{"serviceID":"SERVICE001","status":"NOT_SERVING"}`,

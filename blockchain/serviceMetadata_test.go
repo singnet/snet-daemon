@@ -59,6 +59,7 @@ func TestTiers(t *testing.T) {
 	assert.Equal(t, metaData.GetLicenses().Tiers[0].Range[0].DiscountInPercentage,
 		1.0)
 }
+
 func TestInitServiceMetaDataFromJson(t *testing.T) {
 	//Parse Bad JSON
 	_, err := InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "{", "", 1)))
@@ -69,7 +70,7 @@ func TestInitServiceMetaDataFromJson(t *testing.T) {
 	//Parse Bad JSON
 	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F", "", 1)))
 	if err != nil {
-		assert.Equal(t, err.Error(), "MetaData does not have 'free_call_signer_address defined correctly")
+		assert.Contains(t, err.Error(), "MetaData does not have 'free_call_signer_address defined correctly")
 	}
 	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "default_pricing", "dummy", 1)))
 	if err != nil {

@@ -3,6 +3,7 @@ package blockchain
 import (
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"testing"
 
@@ -84,11 +85,10 @@ func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
 }
 
 func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
-	assert.Panics(t, func() { getServiceMetaDataUrifromRegistry() })
+	assert.Panics(t, func() { getServiceMetaDataURIfromRegistry() })
 	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
-	assert.Panics(t, func() { getServiceMetaDataUrifromRegistry() })
-
+	assert.Panics(t, func() { getServiceMetaDataURIfromRegistry() })
 }
 
 func Test_setDefaultPricing(t *testing.T) {
@@ -112,7 +112,7 @@ func TestServiceMetadata_parseServiceProto(t *testing.T) {
 	assert.NotNil(t, priceMethodMap)
 	assert.NotNil(t, trainingMethods)
 	dynamicPriceMethod, ok := priceMethodMap["/example_service.Calculator/add"]
-	isTrainingMethod := isElementInArray("/example_service.Calculator/train_add", trainingMethods)
+	isTrainingMethod := slices.Contains(trainingMethods, "/example_service.Calculator/train_add")
 	assert.Equal(t, dynamicPriceMethod, "/example_service.Calculator/dynamic_pricing_add")
 	assert.True(t, ok, "true")
 	assert.True(t, isTrainingMethod)

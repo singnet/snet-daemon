@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/singnet/snet-daemon/v5/errs"
 	"math/big"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/bufbuild/protocompile"
@@ -253,15 +255,15 @@ func ServiceMetaData() *ServiceMetadata {
 	var metadata *ServiceMetadata
 	var err error
 	if config.GetBool(config.BlockchainEnabledKey) {
-		ipfsHash := string(getServiceMetaDataUrifromRegistry())
+		ipfsHash := string(getServiceMetaDataURIfromRegistry())
 		metadata, err = GetServiceMetaDataFromIPFS(ipfsHash)
 		if err != nil {
-			zap.L().Panic("error on determining service metadata from file", zap.Error(err))
+			zap.L().Panic("error on determining service metadata from file"+errs.ErrDescURL(errs.InvalidMetadata), zap.Error(err))
 		}
 	} else {
 		metadata = &ServiceMetadata{Encoding: "proto", ServiceType: "grpc"}
 	}
-	zap.L().Debug("service_type: " + metadata.GetServiceType())
+	zap.L().Debug("service type: " + metadata.GetServiceType())
 	return metadata
 }
 
@@ -300,7 +302,7 @@ func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
 	return reg
 }
 
-func getServiceMetaDataUrifromRegistry() []byte {
+func getServiceMetaDataURIfromRegistry() []byte {
 	reg := getRegistryCaller()
 
 	orgId := StringToBytes32(config.GetString(config.OrganizationId))
@@ -408,7 +410,7 @@ func setFreeCallData(metaData *ServiceMetadata) error {
 		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
 		//If the signer address is not a valid address, then return back an error
 		if !common.IsHexAddress(metaData.defaultGroup.FreeCallSigner) {
-			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly")
+			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly" + errs.ErrDescURL(errs.InvalidMetadata))
 		}
 		metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
 	}
@@ -453,10 +455,10 @@ func (metaData *ServiceMetadata) GetLicenses() Licenses {
 
 // methodFullName , ex "/example_service.Calculator/add"
 func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullName string) (pricingMethod string, isDynamicPricingEligible bool) {
-	//Check if Method Level Options are defined , for the given Service and method,
-	//If Defined check if its in the format supported , then return the full method Name
+	// Check if Method Level Options are defined, for the given Service and method,
+	// If Defined check if it's in the format supported, then return the full method Name
 	// i.e /package.service/method format , this will be directly fed in to the grpc called to made to
-	//determine dynamic pricing
+	// determine dynamic pricing
 	if !config.GetBool(config.EnableDynamicPricing) {
 		return
 	}
@@ -469,23 +471,12 @@ func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullNam
 	return
 }
 
-// methodFullName , ex "/example_service.Calculator/add"
+// IsModelTraining methodFullName , ex "/example_service.Calculator/add"
 func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useModelTrainingEndPoint bool) {
-
 	if !config.GetBool(config.ModelTrainingEnabled) {
 		return false
 	}
-	useModelTrainingEndPoint = isElementInArray(methodFullName, metaData.TrainingMethods)
-	return
-}
-
-func isElementInArray(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(metaData.TrainingMethods, methodFullName)
 }
 
 func setServiceProto(metaData *ServiceMetadata) (err error) {
@@ -495,7 +486,7 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 
 	// for backwards compatibility
 	if metaData.ModelIpfsHash != "" {
-		rawFile, err = ipfsutils.GetIpfsFile(metaData.ServiceApiSource)
+		rawFile, err = ipfsutils.GetIpfsFile(metaData.ModelIpfsHash)
 	}
 
 	if metaData.ServiceApiSource != "" {
@@ -594,8 +585,8 @@ func getFileDescriptor(protoContent string) protoreflect.FileDescriptor {
 		SourceInfoMode: protocompile.SourceInfoStandard,
 	}
 	fds, err := compiler.Compile(context.Background(), serviceProto)
-	if err != nil {
-		zap.L().Error(err.Error())
+	if err != nil || fds == nil {
+		zap.L().Fatal("failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
 	}
 	return fds.FindFileByPath(serviceProto)
 }

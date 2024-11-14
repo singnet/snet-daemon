@@ -12,6 +12,7 @@ import (
 	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/configuration_service"
+	"github.com/singnet/snet-daemon/v5/errs"
 	"github.com/singnet/snet-daemon/v5/escrow"
 	"github.com/singnet/snet-daemon/v5/etcddb"
 	"github.com/singnet/snet-daemon/v5/handler"
@@ -87,7 +88,7 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
 	if configFlag.Changed || isFileExist(configFile) {
 		err := config.LoadConfig(configFile)
 		if err != nil {
-			panic(fmt.Errorf("[CONFIG] Error reading configuration file: %v", err))
+			panic(fmt.Sprintf("[CONFIG] Error reading configuration file: %v%s", err, errs.ErrDescURL(errs.InvalidConfig)))
 		}
 		fmt.Println("[CONFIG] Using custom configuration file")
 	} else {
@@ -200,7 +201,7 @@ func (components *Components) LockerStorage() *storage.PrefixedAtomicStorage {
 }
 
 /*
-create new PrefixedStorage using /<network_name> as a prefix, use this storage as base for other storages
+AtomicStorage - create new PrefixedStorage using /<network_name> as a prefix, use this storage as base for other storages
 (i.e. return it from GetAtomicStorage of components.go);
 this guarantees that storages for different networks never intersect
 */

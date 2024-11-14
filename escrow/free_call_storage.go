@@ -35,6 +35,7 @@ func serializeFreeCallKey(key any) (serialized string, err error) {
 	myKey := key.(*FreeCallUserKey)
 	return myKey.String(), nil
 }
+
 func (storage *FreeCallUserStorage) Get(key *FreeCallUserKey) (state *FreeCallUserData, ok bool, err error) {
 	value, ok, err := storage.delegate.Get(key)
 	if err != nil || !ok {

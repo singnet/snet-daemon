@@ -27,11 +27,11 @@ const (
 	// Supported types are: "escrow".
 	// Note: "job" Payment type is deprecated
 	PaymentTypeHeader = "snet-payment-type"
-	//Client that calls the Daemon ( example can be "snet-cli","snet-dapp","snet-sdk")
+	// Client that calls the Daemon ( example can be "snet-cli","snet-dapp","snet-sdk")
 	ClientTypeHeader = "snet-client-type"
-	//Value is a user address , example "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
+	// Value is a user address , example "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
 	UserInfoHeader = "snet-user-info"
-	//User Agent details set in on the server stream info
+	// User Agent details set in on the server stream info
 	UserAgentHeader = "user-agent"
 	// PaymentChannelIDHeader is a MultiPartyEscrow contract payment channel
 	// id. Value is a string containing a decimal number.
@@ -281,7 +281,7 @@ func (interceptor *paymentValidationInterceptor) intercept(srv any, ss grpc.Serv
 	defer func() {
 		if r := recover(); r != nil {
 			zap.L().Warn("Service handler called panic(panicValue)", zap.Any("panicValue", r))
-			paymentHandler.CompleteAfterError(payment, fmt.Errorf("Service handler called panic(%v)", r))
+			paymentHandler.CompleteAfterError(payment, fmt.Errorf("service handler called panic(%v)", r))
 			panic("re-panic after payment handler error handling")
 		} else if e == nil {
 			err = paymentHandler.Complete(payment)

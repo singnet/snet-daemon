@@ -85,13 +85,11 @@ func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
 }
 
 func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
+	config.Validate()
 	_, err := getServiceMetaDataURIfromRegistry()
 	assert.NotNil(t, err)
-	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Vip().Set(config.ServiceId, "semyon_dev")
 	config.Vip().Set(config.OrganizationId, "semyon_dev")
-	err = config.Validate()
-	assert.Nil(t, err)
 	_, err = getServiceMetaDataURIfromRegistry()
 	assert.Nil(t, err)
 }

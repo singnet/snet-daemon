@@ -280,7 +280,6 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 	assert.Nil(suite.T(), err)
 	fmt.Println(response2)
 	assert.Equal(suite.T(), len(response2.ListOfModels) > 1, true)
-
 }
 
 func (suite *ModelServiceTestSuite) TestModelService_GetModelStatus() {

@@ -3,6 +3,7 @@ package blockchain
 import (
 	"context"
 	"encoding/base64"
+	"go.uber.org/zap"
 
 	"github.com/singnet/snet-daemon/v5/config"
 
@@ -42,6 +43,7 @@ func CreateHTTPEthereumClient() (*EthereumClient, error) {
 		config.GetBlockChainHTTPEndPoint(),
 		rpc.WithHeader("Authorization", "Basic "+basicAuth("", config.GetString(config.BlockchainProviderApiKey))))
 	if err != nil {
+		zap.L().Error("Error creating ethereum client", zap.Error(err), zap.String("endpoint", config.GetBlockChainHTTPEndPoint()))
 		return nil, errors.Wrap(err, "error creating RPC client")
 	}
 

@@ -443,8 +443,18 @@ func (client *EtcdClient) getState(keySet *set.Set, getResp *clientv3.GetRespons
 
 // Close closes etcd client
 func (client *EtcdClient) Close() {
-	defer client.session.Close()
-	defer client.etcdv3.Close()
+	defer func(etcdv3 *clientv3.Client) {
+		err := etcdv3.Close()
+		if err != nil {
+			zap.L().Error("close etcd client failed", zap.Error(err))
+		}
+	}(client.etcdv3)
+	defer func(session *concurrency.Session) {
+		err := session.Close()
+		if err != nil {
+			zap.L().Error("close session failed", zap.Error(err))
+		}
+	}(client.session)
 }
 
 func (client *EtcdClient) StartTransaction(keys []string) (_transaction storage.Transaction, err error) {

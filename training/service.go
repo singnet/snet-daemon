@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"math/big"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -117,6 +118,7 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 	key := service.getModelKeyToCreate(request, response)
 	data = service.getModelDataToCreate(request, response)
 	//store the model details in etcd
+	zap.L().Debug("createModelDetails", zap.Any("key", key))
 	err = service.storage.Put(key, data)
 	if err != nil {
 		zap.L().Error("can't put model in etcd", zap.Error(err))
@@ -126,9 +128,10 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 	for _, address := range data.AuthorizedAddresses {
 		userKey := getModelUserKey(key, address)
 		userData := service.getModelUserData(key, address)
+		zap.L().Debug("createModelDetails", zap.Any("userKey", userKey))
 		err = service.userStorage.Put(userKey, userData)
 		if err != nil {
-			zap.L().Error(err.Error())
+			zap.L().Error("can't put in user storage", zap.Error(err))
 			return
 		}
 		zap.L().Debug("creating training model", zap.String("userKey", userKey.String()), zap.String("userData", userData.String()))
@@ -154,6 +157,9 @@ func (service ModelService) getModelUserData(key *ModelKey, address string) *Mod
 	data, ok, err := service.userStorage.Get(userKey)
 	if ok && err == nil && data != nil {
 		modelIds = data.ModelIds
+	}
+	if err != nil {
+		zap.L().Error("can't get model data from etcd", zap.Error(err))
 	}
 	modelIds = append(modelIds, key.ModelId)
 	return &ModelUserData{
@@ -314,7 +320,7 @@ func (service ModelService) verifySignerHasAccessToTheModel(serviceName string, 
 	}
 	data, ok, err := service.userStorage.Get(key)
 	if ok && err == nil {
-		if !isValuePresent(modelId, data.ModelIds) {
+		if !slices.Contains(data.ModelIds, modelId) {
 			return fmt.Errorf("user %v, does not have access to model Id %v", address, modelId)
 		}
 	}
@@ -331,12 +337,14 @@ func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDet
 		ModelId:         request.ModelDetails.ModelId,
 	}
 	ok := false
+	zap.L().Debug("updateModelDetailsWithLatestStatus: ", zap.Any("key", key))
 	if data, ok, err = service.storage.Get(key); err == nil && ok {
 		data.Status = response.Status
-
 		if err = service.storage.Put(key, data); err != nil {
-			zap.L().Error("issue with retrieving model data from storage")
+			zap.L().Error("issue with retrieving model data from storage", zap.Error(err))
 		}
+	} else {
+		zap.L().Error("can't get model data from etcd", zap.Error(err))
 	}
 	return
 }
@@ -378,15 +386,15 @@ func (service ModelService) getModelDataForUpdate(request *UpdateModelRequest) (
 func (service ModelService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (response *AccessibleModelsResponse, err error) {
 	if request == nil || request.Authorization == nil {
 		return &AccessibleModelsResponse{},
-			fmt.Errorf(" Invalid request , no Authorization provided ")
+			fmt.Errorf("Invalid request , no Authorization provided ")
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
 		return &AccessibleModelsResponse{},
-			fmt.Errorf(" Unable to access model , %v", err)
+			fmt.Errorf("Unable to access model, %v", err)
 	}
 	if request.GetGrpcMethodName() == "" || request.GetGrpcServiceName() == "" {
 		return &AccessibleModelsResponse{},
-			fmt.Errorf(" Invalid request, no GrpcMethodName or GrpcServiceName provided")
+			fmt.Errorf("Invalid request, no GrpcMethodName or GrpcServiceName provided")
 	}
 
 	key := &ModelUserKey{
@@ -505,6 +513,7 @@ func (service ModelService) CreateModel(c context.Context, request *CreateModelR
 	deferConnection(conn)
 	return
 }
+
 func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsResponse {
 	return &ModelDetailsResponse{
 		Status: status,
@@ -513,7 +522,7 @@ func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsRespons
 			GrpcMethodName:       data.GRPCMethodName,
 			GrpcServiceName:      data.GRPCServiceName,
 			Description:          data.Description,
-			IsPubliclyAccessible: false,
+			IsPubliclyAccessible: data.IsPublic,
 			AddressList:          data.AuthorizedAddresses,
 			TrainingDataLink:     data.TrainingLink,
 			ModelName:            data.ModelName,
@@ -576,14 +585,18 @@ func (service ModelService) DeleteModel(c context.Context, request *UpdateModelR
 			fmt.Errorf(" Invalid request: UpdateModelDetails are empty")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.DeleteModel(ctx, request)
-		zap.L().Info("Deleting model based on response from DeleteModel")
+		if response == nil || err != nil {
+			zap.L().Error("error in invoking DeleteModel, service-provider should realize it", zap.Error(err))
+			return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking DeleteModel, service-provider should realize it")
+		}
 		if data, err := service.deleteModelDetails(request); err == nil && data != nil {
 			response = BuildModelResponseFrom(data, response.Status)
 		} else {
+			zap.L().Error("issue with deleting ModelId in storage", zap.Error(err))
 			return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)
 		}
 		deferConnection(conn)
@@ -598,40 +611,44 @@ func (service ModelService) GetModelStatus(c context.Context, request *ModelDeta
 	err error) {
 	if request == nil || request.Authorization == nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Invalid request, no Authorization provided  , %v", err)
+			fmt.Errorf("invalid request, no Authorization provided  , %v", err)
 	}
 	if err = service.verifySignature(request.Authorization); err != nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Unable to access model , %v", err)
+			fmt.Errorf("unable to access model , %v", err)
 	}
 	if err = service.verifySignerHasAccessToTheModel(request.ModelDetails.GrpcServiceName,
 		request.ModelDetails.GrpcMethodName, request.ModelDetails.ModelId, request.Authorization.SignerAddress); err != nil {
 		return &ModelDetailsResponse{},
-			fmt.Errorf(" Unable to access model , %v", err)
+			fmt.Errorf("unable to access model , %v", err)
 	}
 	if request.ModelDetails == nil {
 		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Invalid request: ModelDetails can't be empty")
+			fmt.Errorf("invalid request: ModelDetails can't be empty")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*200)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer cancel()
 
 	if conn, client, err := service.getServiceClient(); err == nil {
 		response, err = client.GetModelStatus(ctx, request)
-		zap.L().Info("Get model status", zap.Any("response", response))
-		zap.L().Info("Updating model status based on response from UpdateModel")
-		if data, err := service.updateModelDetailsWithLatestStatus(request, response); err == nil && data != nil {
-			response = BuildModelResponseFrom(data, response.Status)
-
-		} else {
-			zap.L().Error(err.Error())
-			return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
+		if response == nil || err != nil {
+			zap.L().Error("error in invoking GetModelStatus, service-provider should realize it", zap.Error(err))
+			return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking GetModelStatus, service-provider should realize it")
 		}
-
+		zap.L().Info("[GetModelStatus] response from service-provider", zap.Any("response", response))
+		zap.L().Info("[GetModelStatus] updating model status based on response from UpdateModel")
+		data, err := service.updateModelDetailsWithLatestStatus(request, response)
+		zap.L().Debug("[GetModelStatus] data that be returned to client", zap.Any("data", data))
+		if err == nil && data != nil {
+			response = BuildModelResponseFrom(data, response.Status)
+		} else {
+			zap.L().Error("[GetModelStatus] BuildModelResponseFrom error", zap.Error(err))
+			return response, fmt.Errorf("[GetModelStatus] issue with storing Model Id in the Daemon Storage %v", err)
+		}
 		deferConnection(conn)
 	} else {
-		return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking service for Model Training")
+		return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("[GetModelStatus] error in invoking service for Model Training")
 	}
 	return
 }

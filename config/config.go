@@ -78,7 +78,7 @@ const (
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"payment_channel_storage_type": "etcd",
-	"ipfs_end_point": "http://ipfs.singularitynet.io:80", 
+	"ipfs_end_point": "https://ipfs.singularitynet.io:443", 
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/", 
 	"ipfs_timeout" : 30,
 	"passthrough_enabled": true,
@@ -146,7 +146,7 @@ const (
 	"daemon_group_name":"default_group",
 	"passthrough_enabled": true,
 	"payment_channel_storage_type": "etcd",
-	"ipfs_end_point": "http://ipfs.singularitynet.io:80",
+	"ipfs_end_point": "https://ipfs.singularitynet.io:443",
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/",
 	"log": {
 		"output": {

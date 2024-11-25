@@ -240,9 +240,7 @@ func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, d
 		interceptor.paymentHandlers[handler.Type()] = handler
 		zap.L().Info("Payment handler for type registered", zap.Any("paymentType", handler.Type()))
 	}
-
 	return interceptor.intercept
-
 }
 
 type paymentValidationInterceptor struct {

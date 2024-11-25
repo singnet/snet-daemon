@@ -254,14 +254,20 @@ func (metaData ServiceMetadata) GetDefaultPricing() Pricing {
 func ServiceMetaData() *ServiceMetadata {
 	var metadata *ServiceMetadata
 	var err error
-	if config.GetBool(config.BlockchainEnabledKey) {
-		ipfsHash := string(getServiceMetaDataURIfromRegistry())
-		metadata, err = GetServiceMetaDataFromIPFS(ipfsHash)
-		if err != nil {
-			zap.L().Panic("error on determining service metadata from file"+errs.ErrDescURL(errs.InvalidMetadata), zap.Error(err))
-		}
-	} else {
+	var ipfsHash []byte
+	if !config.GetBool(config.BlockchainEnabledKey) {
 		metadata = &ServiceMetadata{Encoding: "proto", ServiceType: "grpc"}
+		return metadata
+	}
+	ipfsHash, err = getServiceMetaDataURIfromRegistry()
+	if err != nil {
+		zap.L().Fatal("error retrieving contract details for the given organization and service ids"+errs.ErrDescURL(errs.InvalidConfig),
+			zap.String("OrganizationId", config.GetString(config.OrganizationId)),
+			zap.String("ServiceId", config.GetString(config.ServiceId)))
+	}
+	metadata, err = GetServiceMetaDataFromIPFS(string(ipfsHash))
+	if err != nil {
+		zap.L().Panic("error on determining service metadata from file"+errs.ErrDescURL(errs.InvalidMetadata), zap.Error(err))
 	}
 	zap.L().Debug("service type: " + metadata.GetServiceType())
 	return metadata
@@ -302,7 +308,7 @@ func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
 	return reg
 }
 
-func getServiceMetaDataURIfromRegistry() []byte {
+func getServiceMetaDataURIfromRegistry() ([]byte, error) {
 	reg := getRegistryCaller()
 
 	orgId := StringToBytes32(config.GetString(config.OrganizationId))
@@ -310,12 +316,10 @@ func getServiceMetaDataURIfromRegistry() []byte {
 
 	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
 	if err != nil || !serviceRegistration.Found {
-		zap.L().Panic("Error Retrieving contract details for the Given Organization and Service Ids ",
-			zap.String("OrganizationId", config.GetString(config.OrganizationId)),
-			zap.String("ServiceId", config.GetString(config.ServiceId)))
+		return nil, fmt.Errorf("error retrieving contract details for the given organization and service ids")
 	}
 
-	return serviceRegistration.MetadataURI[:]
+	return serviceRegistration.MetadataURI[:], nil
 }
 
 func GetServiceMetaDataFromIPFS(hash string) (*ServiceMetadata, error) {
@@ -355,7 +359,7 @@ func InitServiceMetaDataFromJson(jsonData []byte) (*ServiceMetadata, error) {
 		zap.L().Error(err.Error())
 	}
 
-	zap.L().Debug("Training method", zap.String("json", string(trainingMethodsJson)))
+	zap.L().Debug("Training methods", zap.String("json", string(trainingMethodsJson)))
 
 	return metaData, err
 }
@@ -511,7 +515,7 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 
 		// If Dynamic pricing is enabled, there will be mandatory checks on the service proto
 		//this is to ensure that the standards on how one defines the methods to invoke is followed
-		if config.GetBool(config.EnableDynamicPricing) {
+		if config.GetBool(config.EnableDynamicPricing) || config.GetBool(config.ModelTrainingEnabled) {
 			if srvProto, err := parseServiceProto(file); err != nil {
 				return err
 			} else {

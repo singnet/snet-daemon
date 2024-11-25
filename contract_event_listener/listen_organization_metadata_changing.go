@@ -36,7 +36,7 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 		select {
 		case err := <-sub.Err():
 			if err != nil {
-				zap.L().Error("Subscription error: ", zap.Error(err))
+				zap.L().Warn("Subscription error: ", zap.Error(err))
 				if websocket.IsCloseError(
 					err,
 					websocket.CloseNormalClosure,

@@ -124,9 +124,8 @@ func CurrentBlock() (*big.Int, error) {
 
 // VerifyAddress Check if the payment address/signer passed matches to what is present in the metadata
 func VerifyAddress(address common.Address, otherAddress common.Address) error {
-	isSameAddress := otherAddress == address
-	if !isSameAddress {
-		return fmt.Errorf("the  Address: %s  does not match to what has been expected / registered", blockchain.AddressToHex(&address))
+	if otherAddress != address {
+		return fmt.Errorf("the address: %s does not match to what has been expected / registered", blockchain.AddressToHex(&address))
 	}
 	return nil
 }

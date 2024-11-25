@@ -33,7 +33,6 @@ func TestAllGetterMethods(t *testing.T) {
 	assert.True(t, metaData.IsFreeCallAllowed())
 	assert.Equal(t, 12, metaData.GetFreeCallsAllowed())
 	assert.Equal(t, metaData.GetLicenses().Subscriptions.Type, "Subscription")
-
 }
 
 func TestSubscription(t *testing.T) {
@@ -86,10 +85,15 @@ func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
 }
 
 func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
-	assert.Panics(t, func() { getServiceMetaDataURIfromRegistry() })
+	_, err := getServiceMetaDataURIfromRegistry()
+	assert.NotNil(t, err)
 	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
-	config.Validate()
-	assert.Panics(t, func() { getServiceMetaDataURIfromRegistry() })
+	config.Vip().Set(config.ServiceId, "semyon_dev")
+	config.Vip().Set(config.OrganizationId, "semyon_dev")
+	err = config.Validate()
+	assert.Nil(t, err)
+	_, err = getServiceMetaDataURIfromRegistry()
+	assert.Nil(t, err)
 }
 
 func Test_setDefaultPricing(t *testing.T) {

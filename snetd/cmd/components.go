@@ -453,7 +453,6 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 		if config.GetBool(config.AllowedUserFlag) {
 			zap.L().Info("Blockchain is disabled And AllowedUserFlag is enabled")
 			return handler.GrpcPaymentValidationInterceptor(components.ServiceMetaData(), components.AllowedUserPaymentHandler())
-
 		}
 		zap.L().Info("Blockchain is disabled: no payment validation")
 		return handler.NoOpInterceptor

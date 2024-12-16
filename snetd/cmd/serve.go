@@ -215,7 +215,7 @@ func (d *daemon) start() {
 		escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
 		escrow.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
 		escrow.RegisterTokenServiceServer(d.grpcServer, d.components.TokenService())
-		training.RegisterModelServer(d.grpcServer, d.components.ModelService())
+		training.RegisterDaemonServer(d.grpcServer, d.components.TrainingService())
 		grpc_health_v1.RegisterHealthServer(d.grpcServer, d.components.DaemonHeartBeat())
 		configuration_service.RegisterConfigurationServiceServer(d.grpcServer, d.components.ConfigurationService())
 		mux := cmux.New(d.lis)

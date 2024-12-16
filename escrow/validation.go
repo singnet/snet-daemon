@@ -67,7 +67,6 @@ func (validator *FreeCallPaymentValidator) Validate(payment *FreeCallPayment) (e
 	}
 
 	return nil
-
 }
 
 // ChannelPaymentValidator validates payment using payment channel state.

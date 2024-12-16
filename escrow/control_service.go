@@ -392,7 +392,7 @@ func (service *ProviderControlService) removeClaimedPayments() error {
 		if !ok || err != nil {
 			return err
 		}
-		//Compare the state of this payment in progress with what is available in block chain
+		//Compare the state of this payment in progress with what is available in blockchain
 		if blockChainChannel.Nonce.Cmp(payment.ChannelNonce) > 0 {
 			//if the Nonce on this block chain is higher than that of the Payment,
 			//means that the payment has been completed , hence update the etcd state with this

@@ -131,7 +131,6 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 			return nil, err
 		}
 		if !ok {
-
 			zap.L().Error("old payment is not found in storage, nevertheless local channel nonce is not equal to the blockchain one", zap.Any("ChannelID", channelID))
 			return nil, errors.New("channel has different nonce in local storage and blockchain and old payment is not found in storage")
 		}

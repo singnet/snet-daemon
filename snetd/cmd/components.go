@@ -60,7 +60,7 @@ type Components struct {
 	freeCallLockerStorage      *storage.PrefixedAtomicStorage
 	tokenManager               token.Manager
 	tokenService               *escrow.TokenService
-	modelService               training.ModelServer
+	trainingService            training.DaemonServer
 	modelUserStorage           *training.ModelUserStorage
 	modelStorage               *training.ModelStorage
 }
@@ -576,18 +576,18 @@ func (components *Components) ModelStorage() *training.ModelStorage {
 	return components.modelStorage
 }
 
-func (components *Components) ModelService() training.ModelServer {
-	if components.modelService != nil {
-		return components.modelService
+func (components *Components) TrainingService() training.DaemonServer {
+	if components.trainingService != nil {
+		return components.trainingService
 	}
 	if !config.GetBool(config.BlockchainEnabledKey) {
-		components.modelService = &training.NoModelSupportService{}
-		return components.modelService
+		components.trainingService = training.NoTrainingService{}
+		return components.trainingService
 	}
 
-	components.modelService = training.NewModelService(components.PaymentChannelService(), components.ServiceMetaData(),
+	components.trainingService = training.NewTrainingService(components.PaymentChannelService(), components.ServiceMetaData(),
 		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage())
-	return components.modelService
+	return components.trainingService
 }
 
 func (components *Components) TokenManager() token.Manager {

@@ -298,7 +298,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 
 	// convert proto msg to json
-	jsonBody, err := protoToJson(g.serviceMetaData.ProtoFile, f.Data, method)
+	jsonBody, err := protoToJson(g.serviceMetaData.ProtoDescriptors[0], f.Data, method)
 	if err != nil {
 		return status.Errorf(codes.Internal, "protoToJson error: %+v", errs.ErrDescURL(errs.InvalidProto))
 	}
@@ -371,7 +371,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 	zap.L().Debug("Response from HTTP service", zap.String("response", string(resp)))
 
-	protoMessage, errMarshal := jsonToProto(g.serviceMetaData.ProtoFile, resp, method)
+	protoMessage, errMarshal := jsonToProto(g.serviceMetaData.ProtoDescriptors[0], resp, method)
 	if errMarshal != nil {
 		return status.Errorf(codes.Internal, "jsonToProto error: %+v%v", errMarshal, errs.ErrDescURL(errs.InvalidProto))
 	}
@@ -418,6 +418,7 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 }
 
 func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte, err error) {
+
 	if protoFile.Services().Len() == 0 {
 		zap.L().Warn("service in proto not found")
 		return []byte("error, invalid proto file"), errors.New("services in proto not found")

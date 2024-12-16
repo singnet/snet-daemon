@@ -42,6 +42,7 @@ type ModelServiceTestSuite struct {
 func TestModelServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(ModelServiceTestSuite))
 }
+
 func (suite *ModelServiceTestSuite) getGRPCServerAndServe() {
 	config.Vip().Set(config.ModelMaintenanceEndPoint, "http://localhost:2222")
 	config.Vip().Set(config.ModelTrainingEndpoint, "http://localhost:2222")
@@ -61,6 +62,7 @@ func (suite *ModelServiceTestSuite) getGRPCServerAndServe() {
 
 	_ = <-ch
 }
+
 func (suite *ModelServiceTestSuite) SetupSuite() {
 	suite.serviceNotImplemented = NewModelService(nil, nil, nil, nil, nil)
 	config.Vip().Set(config.ModelMaintenanceEndPoint, "localhost:2222")
@@ -74,7 +76,7 @@ func (suite *ModelServiceTestSuite) SetupSuite() {
 
 	orgMetaData, _ := blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgGroupData))
 	serviceMetaData, _ := blockchain.InitServiceMetaDataFromJson([]byte(testJsonData))
-	suite.service = NewModelService(nil, serviceMetaData, orgMetaData,
+	suite.service = NewTrainingService(nil, serviceMetaData, orgMetaData,
 		NewModelStorage(storage.NewMemStorage()), NewUerModelStorage(storage.NewMemStorage()))
 	suite.senderPvtKy, _ = crypto.GenerateKey()
 	suite.senderAddress = crypto.PubkeyToAddress(suite.senderPvtKy.PublicKey)
@@ -125,10 +127,10 @@ func (m MockServiceModelGRPCImpl) GetModelStatus(context context.Context, reques
 		}}, nil
 }
 
-func (m MockServiceModelGRPCImpl) GetAllModels(context context.Context, request *AccessibleModelsRequest) (*AccessibleModelsResponse, error) {
-	//Ideally client should take a list of all models and update the status of each and send back a response
-	return &AccessibleModelsResponse{}, nil
-}
+//func (m MockServiceModelGRPCImpl) GetAllModels(context context.Context, request *AccessibleModelsRequest) (*AccessibleModelsResponse, error) {
+//	//Ideally client should take a list of all models and update the status of each and send back a response
+//	return &AccessibleModelsResponse{}, nil
+//}
 
 func (suite *ModelServiceTestSuite) TearDownSuite() {
 	suite.server.GracefulStop()

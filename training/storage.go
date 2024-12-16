@@ -10,6 +10,7 @@ import (
 type ModelStorage struct {
 	delegate storage.TypedAtomicStorage
 }
+
 type ModelUserStorage struct {
 	delegate storage.TypedAtomicStorage
 }
@@ -33,49 +34,49 @@ func NewModelStorage(atomicStorage storage.AtomicStorage) *ModelStorage {
 }
 
 type ModelUserKey struct {
-	OrganizationId  string
-	ServiceId       string
-	GroupId         string
-	GRPCMethodName  string
-	GRPCServiceName string
-	UserAddress     string
+	OrganizationId string
+	ServiceId      string
+	GroupId        string
+	//GRPCMethodName  string
+	//GRPCServiceName string
+	UserAddress string
 }
 
 func (key *ModelUserKey) String() string {
-	return fmt.Sprintf("{ID:%v|%v|%v|%v|%v|%v}", key.OrganizationId,
-		key.ServiceId, key.GroupId, key.GRPCServiceName, key.GRPCMethodName, key.UserAddress)
+	return fmt.Sprintf("{ID:%v|%v|%v|%v}", key.OrganizationId,
+		key.ServiceId, key.GroupId, key.UserAddress)
 }
 
 // ModelUserData maintain the list of all modelIds for a given user address
 type ModelUserData struct {
 	ModelIds []string
 	//the below are only for display purposes
-	OrganizationId  string
-	ServiceId       string
-	GroupId         string
-	GRPCMethodName  string
-	GRPCServiceName string
-	UserAddress     string
+	OrganizationId string
+	ServiceId      string
+	GroupId        string
+	//GRPCMethodName  string
+	//GRPCServiceName string
+	UserAddress string
 }
 
 func (data *ModelUserData) String() string {
-	return fmt.Sprintf("{DATA:%v|%v|%v|%v|%v|%v|%v}",
+	return fmt.Sprintf("{DATA:%v|%v|%v|%v|%v}",
 		data.OrganizationId,
-		data.ServiceId, data.GroupId, data.GRPCMethodName, data.GRPCServiceName, data.UserAddress, data.ModelIds)
+		data.ServiceId, data.GroupId, data.UserAddress, data.ModelIds)
 }
 
 type ModelKey struct {
-	OrganizationId  string
-	ServiceId       string
-	GroupId         string
-	GRPCMethodName  string
-	GRPCServiceName string
-	ModelId         string
+	OrganizationId string
+	ServiceId      string
+	GroupId        string
+	//GRPCMethodName  string
+	//GRPCServiceName string
+	ModelId string
 }
 
 func (key *ModelKey) String() string {
-	return fmt.Sprintf("{ID:%v|%v|%v|%v|%v|%v}", key.OrganizationId,
-		key.ServiceId, key.GroupId, key.GRPCServiceName, key.GRPCMethodName, key.ModelId)
+	return fmt.Sprintf("{ID:%v|%v|%v|%v}", key.OrganizationId,
+		key.ServiceId, key.GroupId, key.ModelId)
 }
 
 func (data *ModelData) String() string {
@@ -108,6 +109,7 @@ func serializeModelKey(key any) (serialized string, err error) {
 	myKey := key.(*ModelKey)
 	return myKey.String(), nil
 }
+
 func (storage *ModelStorage) Get(key *ModelKey) (state *ModelData, ok bool, err error) {
 	value, ok, err := storage.delegate.Get(key)
 	if err != nil || !ok {

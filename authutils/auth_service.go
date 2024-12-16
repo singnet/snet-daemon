@@ -8,11 +8,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/v5/blockchain"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +24,18 @@ import (
 const (
 	AllowedBlockChainDifference = 5
 )
+
+func VerifySigner(message []byte, signature []byte, signer common.Address) error {
+	derivedSigner, err := GetSignerAddressFromMessage(message, signature)
+	if err != nil {
+		zap.L().Error(err.Error())
+		return err
+	}
+	if err = VerifyAddress(*derivedSigner, signer); err != nil {
+		return err
+	}
+	return nil
+}
 
 func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
 	messageFieldLog := zap.String("message", blockchain.BytesToBase64(message))
@@ -69,17 +81,17 @@ func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Addr
 
 // VerifySigner Verify the signature done by given singer or not
 // returns nil if signer indeed sign the message and signature proves it, if not throws an error
-func VerifySigner(message []byte, signature []byte, signer common.Address) error {
-	signerFromMessage, err := GetSignerAddressFromMessage(message, signature)
-	if err != nil {
-		zap.L().Error("error from getSignerAddressFromMessage", zap.Error(err))
-		return err
-	}
-	if signerFromMessage.String() == signer.String() {
-		return nil
-	}
-	return fmt.Errorf("incorrect signer")
-}
+//func VerifySigner(message []byte, signature []byte, signer common.Address) error {
+//	signerFromMessage, err := GetSignerAddressFromMessage(message, signature)
+//	if err != nil {
+//		zap.L().Error("error from getSignerAddressFromMessage", zap.Error(err))
+//		return err
+//	}
+//	if signerFromMessage.String() == signer.String() {
+//		return nil
+//	}
+//	return fmt.Errorf("incorrect signer")
+//}
 
 // CompareWithLatestBlockNumber Check if the block number passed is not more +- 5 from the latest block number on chain
 func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {

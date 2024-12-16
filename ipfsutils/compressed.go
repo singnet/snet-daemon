@@ -11,10 +11,10 @@ import (
 // ReadFilesCompressed - read all files which have been compressed, there can be more than one file
 // We need to start reading the proto files associated with the service.
 // proto files are compressed and stored as modelipfsHash
-func ReadFilesCompressed(compressedFile []byte) (protofiles []string, err error) {
+func ReadFilesCompressed(compressedFile []byte) (protos map[string]string, err error) {
 	f := bytes.NewReader(compressedFile)
 	tarReader := tar.NewReader(f)
-	protofiles = make([]string, 0)
+	protos = make(map[string]string)
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -36,7 +36,7 @@ func ReadFilesCompressed(compressedFile []byte) (protofiles []string, err error)
 				zap.L().Error(err.Error())
 				return nil, err
 			}
-			protofiles = append(protofiles, string(data))
+			protos[name] = string(data)
 		default:
 			err = fmt.Errorf(fmt.Sprintf("%s : %c %s %s\n",
 				"Unknown file Type ",
@@ -48,5 +48,5 @@ func ReadFilesCompressed(compressedFile []byte) (protofiles []string, err error)
 			return nil, err
 		}
 	}
-	return protofiles, nil
+	return protos, nil
 }

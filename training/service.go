@@ -1,24 +1,30 @@
-//go:generate protoc -I . ./training.proto --go-grpc_out=. --go_out=.
+//go:generate protoc -I . ./training_v2.proto --go-grpc_out=. --go_out=.
+//go:generate protoc -I . ./training_daemon.proto --go-grpc_out=. --go_out=.
+
 package training
 
 import (
-	"bytes"
+	"context"
 	"fmt"
+	"github.com/bufbuild/protocompile"
+	"github.com/bufbuild/protocompile/linker"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/errs"
 	"google.golang.org/grpc/credentials/insecure"
-	"math/big"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"maps"
 	"net/url"
 	"slices"
 	"strings"
 	"time"
 
-	"github.com/singnet/snet-daemon/v5/blockchain"
+	_ "embed"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/escrow"
-	"github.com/singnet/snet-daemon/v5/utils"
-
-	"github.com/ethereum/go-ethereum/common/math"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -27,8 +33,13 @@ const (
 	DateFormat = "02-01-2006"
 )
 
-type IService interface {
-}
+//go:embed training_v2.proto
+var TrainingProtoEmbeded string
+
+//type IService interface {
+//}
+
+// ModelService this is remote AI service provider
 type ModelService struct {
 	serviceMetaData      *blockchain.ServiceMetadata
 	organizationMetaData *blockchain.OrganizationMetaData
@@ -38,43 +49,114 @@ type ModelService struct {
 	serviceUrl           string
 }
 
-func (service ModelService) mustEmbedUnimplementedModelServer() {
-	//TODO implement me
+type DaemonService struct {
+	serviceMetaData      *blockchain.ServiceMetadata
+	organizationMetaData *blockchain.OrganizationMetaData
+	channelService       escrow.PaymentChannelService
+	storage              *ModelStorage
+	userStorage          *ModelUserStorage
+	serviceUrl           string
+	trainingMetadata     *TrainingMetadata
+	methodsMetadata      map[string]*MethodMetadata
+}
+
+func (ds *DaemonService) CreateModel(c context.Context, request *NewModelRequest) (*ModelResponse, error) {
+
+	if request == nil || request.Authorization == nil {
+		return &ModelResponse{Status: Status_ERRORED},
+			fmt.Errorf("invalid request, no authorization provided")
+	}
+
+	if err := ds.verifySignature(request.Authorization); err != nil {
+		zap.L().Error("unable to create model", zap.Error(err))
+		return &ModelResponse{Status: Status_ERRORED},
+			fmt.Errorf("unable to create model: %v", err)
+	}
+
+	if request.GetModel().GrpcServiceName == "" || request.GetModel().GrpcMethodName == "" {
+		zap.L().Error("invalid request, no grpc_method_name or grpc_service_name provided")
+		return &ModelResponse{Status: Status_ERRORED},
+			fmt.Errorf("invalid request, no grpc_service_name or grpc_method_name provided")
+	}
+
+	request.Model.ServiceId = config.GetString(config.ServiceId)
+	request.Model.OrganizationId = config.GetString(config.OrganizationId)
+	request.Model.GroupId = config.GetString(config.DaemonGroupName)
+
+	// make a call to the client
+	// if the response is successful, store details in etcd
+	// send back the response to the client
+	conn, client, err := ds.getServiceClient()
+	deferConnection(conn)
+	if err != nil {
+		return &ModelResponse{Status: Status_ERRORED},
+			fmt.Errorf("error in invoking service for Model Training %v", err)
+	}
+
+	responseModelID, errClient := client.CreateModel(c, request.Model)
+	if errClient != nil {
+		return &ModelResponse{Status: Status_ERRORED},
+			fmt.Errorf("error in invoking service for Model Training %v", errClient)
+	}
+
+	if responseModelID == nil {
+		return &ModelResponse{Status: Status_ERRORED},
+			fmt.Errorf("error in invoking service for model training: service return empty response")
+	}
+
+	if responseModelID.ModelId == "" {
+		return &ModelResponse{Status: Status_ERRORED},
+			fmt.Errorf("error in invoking service for model training: service return empty modelID")
+	}
+
+	//store the details in etcd
+	zap.L().Info("Creating model based on response from CreateModel of training service")
+
+	data, err := ds.createModelDetails(request, responseModelID)
+	if err != nil {
+		zap.L().Error(err.Error())
+		return nil, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
+	}
+	modelResponse := BuildModelResponse(data, Status_CREATED)
+	return modelResponse, err
+}
+
+func (ds *DaemonService) ValidateModelPrice(ctx context.Context, request *AuthValidateRequest) (*PriceInBaseUnit, error) {
 	panic("implement me")
 }
 
-type NoModelSupportService struct {
-}
-
-func (n NoModelSupportService) mustEmbedUnimplementedModelServer() {
-	//TODO implement me
+func (ds *DaemonService) UploadAndValidate(server Daemon_UploadAndValidateServer) error {
 	panic("implement me")
 }
 
-func (n NoModelSupportService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (*AccessibleModelsResponse, error) {
-	return &AccessibleModelsResponse{},
-		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+func (ds *DaemonService) ValidateModel(ctx context.Context, request *AuthValidateRequest) (*StatusResponse, error) {
+	panic("implement me")
 }
 
-func (n NoModelSupportService) CreateModel(c context.Context, request *CreateModelRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERRORED},
-		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+func (ds *DaemonService) TrainModelPrice(ctx context.Context, request *CommonRequest) (*PriceInBaseUnit, error) {
+	panic("implement me")
 }
 
-func (n NoModelSupportService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERRORED},
-		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+func (ds *DaemonService) TrainModel(ctx context.Context, request *CommonRequest) (*StatusResponse, error) {
+	panic("implement me")
 }
 
-func (n NoModelSupportService) DeleteModel(c context.Context, request *UpdateModelRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERRORED},
-		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+func (ds *DaemonService) GetTrainingMetadata(ctx context.Context, empty *emptypb.Empty) (*TrainingMetadata, error) {
+	return ds.trainingMetadata, nil
 }
 
-func (n NoModelSupportService) GetModelStatus(c context.Context, id *ModelDetailsRequest) (*ModelDetailsResponse, error) {
-	return &ModelDetailsResponse{Status: Status_ERRORED},
-		fmt.Errorf("service end point is not defined or is invalid for training , please contact the AI developer")
+func (ds *DaemonService) UpdateModel(ctx context.Context, request *UpdateModelRequest) (*ModelResponse, error) {
+	panic("implement me")
 }
+
+func (ds *DaemonService) GetMethodMetadata(ctx context.Context, request *MethodMetadataRequest) (*MethodMetadata, error) {
+	if request.GetModelId() != "" {
+		// TODO get from etcd
+	}
+	key := request.GrpcServiceName + request.GrpcMethodName
+	return ds.methodsMetadata[key], nil
+}
+
 func deferConnection(conn *grpc.ClientConn) {
 	defer func(conn *grpc.ClientConn) {
 		err := conn.Close()
@@ -83,6 +165,7 @@ func deferConnection(conn *grpc.ClientConn) {
 		}
 	}(conn)
 }
+
 func getConnection(endpoint string) (conn *grpc.ClientConn) {
 	options := grpc.WithDefaultCallOptions(
 		grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
@@ -108,28 +191,28 @@ func getConnection(endpoint string) (conn *grpc.ClientConn) {
 	return
 }
 
-func (service ModelService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
-	conn = getConnection(service.serviceUrl)
+func (ds *DaemonService) getServiceClient() (conn *grpc.ClientConn, client ModelClient, err error) {
+	conn = getConnection(ds.serviceUrl)
 	client = NewModelClient(conn)
 	return
 }
 
-func (service ModelService) createModelDetails(request *CreateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
-	key := service.getModelKeyToCreate(request, response)
-	data = service.getModelDataToCreate(request, response)
+func (ds *DaemonService) createModelDetails(request *NewModelRequest, response *ModelID) (data *ModelData, err error) {
+	key := ds.buildModelKey(response.ModelId)
+	data = ds.getModelDataToCreate(request, response)
 	//store the model details in etcd
 	zap.L().Debug("createModelDetails", zap.Any("key", key))
-	err = service.storage.Put(key, data)
+	err = ds.storage.Put(key, data)
 	if err != nil {
 		zap.L().Error("can't put model in etcd", zap.Error(err))
 		return
 	}
-	//for every accessible address in the list , store the user address and all the model Ids associated with it
+	//for every accessible address in the list, store the user address and all the model Ids associated with it
 	for _, address := range data.AuthorizedAddresses {
 		userKey := getModelUserKey(key, address)
-		userData := service.getModelUserData(key, address)
+		userData := ds.getModelUserData(key, address)
 		zap.L().Debug("createModelDetails", zap.Any("userKey", userKey))
-		err = service.userStorage.Put(userKey, userData)
+		err = ds.userStorage.Put(userKey, userData)
 		if err != nil {
 			zap.L().Error("can't put in user storage", zap.Error(err))
 			return
@@ -138,23 +221,24 @@ func (service ModelService) createModelDetails(request *CreateModelRequest, resp
 	}
 	return
 }
+
 func getModelUserKey(key *ModelKey, address string) *ModelUserKey {
 	return &ModelUserKey{
-		OrganizationId:  key.OrganizationId,
-		ServiceId:       key.ServiceId,
-		GroupId:         key.GroupId,
-		GRPCMethodName:  key.GRPCMethodName,
-		GRPCServiceName: key.GRPCServiceName,
-		UserAddress:     address,
+		OrganizationId: key.OrganizationId,
+		ServiceId:      key.ServiceId,
+		GroupId:        key.GroupId,
+		//GRPCMethodName:  key.GRPCMethodName,
+		//GRPCServiceName: key.GRPCServiceName,
+		UserAddress: address,
 	}
 }
 
-func (service ModelService) getModelUserData(key *ModelKey, address string) *ModelUserData {
+func (ds *DaemonService) getModelUserData(key *ModelKey, address string) *ModelUserData {
 	//Check if there are any model Ids already associated with this user
 	modelIds := make([]string, 0)
 	userKey := getModelUserKey(key, address)
 	zap.L().Debug("user model key is" + userKey.String())
-	data, ok, err := service.userStorage.Get(userKey)
+	data, ok, err := ds.userStorage.Get(userKey)
 	if ok && err == nil && data != nil {
 		modelIds = data.ModelIds
 	}
@@ -163,23 +247,22 @@ func (service ModelService) getModelUserData(key *ModelKey, address string) *Mod
 	}
 	modelIds = append(modelIds, key.ModelId)
 	return &ModelUserData{
-		OrganizationId:  key.OrganizationId,
-		ServiceId:       key.ServiceId,
-		GroupId:         key.GroupId,
-		GRPCMethodName:  key.GRPCMethodName,
-		GRPCServiceName: key.GRPCServiceName,
-		UserAddress:     address,
-		ModelIds:        modelIds,
+		OrganizationId: key.OrganizationId,
+		ServiceId:      key.ServiceId,
+		GroupId:        key.GroupId,
+		//GRPCMethodName:  key.GRPCMethodName,
+		//GRPCServiceName: key.GRPCServiceName,
+		UserAddress: address,
+		ModelIds:    modelIds,
 	}
 }
 
-func (service ModelService) deleteUserModelDetails(key *ModelKey, data *ModelData) (err error) {
-
+func (ds DaemonService) deleteUserModelDetails(key *ModelKey, data *ModelData) (err error) {
 	for _, address := range data.AuthorizedAddresses {
 		userKey := getModelUserKey(key, address)
-		if data, ok, err := service.userStorage.Get(userKey); ok && err == nil && data != nil {
+		if data, ok, err := ds.userStorage.Get(userKey); ok && err == nil && data != nil {
 			data.ModelIds = remove(data.ModelIds, key.ModelId)
-			err = service.userStorage.Put(userKey, data)
+			err = ds.userStorage.Put(userKey, data)
 			if err != nil {
 				zap.L().Error(err.Error())
 			}
@@ -188,137 +271,96 @@ func (service ModelService) deleteUserModelDetails(key *ModelKey, data *ModelDat
 	return
 }
 
-func remove(s []string, r string) []string {
-	for i, v := range s {
-		if v == r {
-			return append(s[:i], s[i+1:]...)
-		}
-	}
-	return s
-}
-
-func (service ModelService) deleteModelDetails(request *UpdateModelRequest) (data *ModelData, err error) {
-	key := service.getModelKeyToUpdate(request)
+func (ds *DaemonService) deleteModelDetails(req *CommonRequest) (data *ModelData, err error) {
+	key := ds.getModelKeyToUpdate(req.ModelId)
 	ok := false
-	data, ok, err = service.storage.Get(key)
+	data, ok, err = ds.storage.Get(key)
 	if ok && err == nil {
 		data.Status = Status_DELETED
 		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
-		err = service.storage.Put(key, data)
-		err = service.deleteUserModelDetails(key, data)
-	}
-	return
-}
-func convertModelDataToBO(data *ModelData) (responseData *ModelDetails) {
-	responseData = &ModelDetails{
-		ModelId:              data.ModelId,
-		GrpcMethodName:       data.GRPCMethodName,
-		GrpcServiceName:      data.GRPCServiceName,
-		Description:          data.Description,
-		IsPubliclyAccessible: data.IsPublic,
-		AddressList:          data.AuthorizedAddresses,
-		TrainingDataLink:     data.TrainingLink,
-		ModelName:            data.ModelName,
-		OrganizationId:       data.OrganizationId,
-		ServiceId:            data.ServiceId,
-		GroupId:              data.GroupId,
-		UpdatedDate:          data.UpdatedDate,
-		Status:               data.Status.String(),
+		err = ds.storage.Put(key, data)
+		err = ds.deleteUserModelDetails(key, data)
 	}
 	return
 }
 
-func (service ModelService) updateModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
-	key := service.getModelKeyToUpdate(request)
-	oldAddresses := make([]string, 0)
-	var latestAddresses []string
-	// by default add the creator to the Authorized list of Address
-	if request.UpdateModelDetails.AddressList != nil || len(request.UpdateModelDetails.AddressList) > 0 {
-		latestAddresses = request.UpdateModelDetails.AddressList
-	}
-	latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
-	if data, err = service.getModelDataForUpdate(request); err == nil && data != nil {
-		oldAddresses = data.AuthorizedAddresses
-		data.AuthorizedAddresses = latestAddresses
-		latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
-		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
-		data.UpdatedByAddress = request.Authorization.SignerAddress
-		if response != nil {
-			data.Status = response.Status
-		}
-		data.ModelName = request.UpdateModelDetails.ModelName
-		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
-		data.Description = request.UpdateModelDetails.Description
-
-		err = service.storage.Put(key, data)
-		if err != nil {
-			zap.L().Error("Error in putting data in user storage", zap.Error(err))
-		}
-		//get the difference of all the addresses b/w old and new
-		updatedAddresses := difference(oldAddresses, latestAddresses)
-		for _, address := range updatedAddresses {
-			modelUserKey := getModelUserKey(key, address)
-			modelUserData := service.getModelUserData(key, address)
-			//if the address is present in the request but not in the old address , add it to the storage
-			if isValuePresent(address, request.UpdateModelDetails.AddressList) {
-				modelUserData.ModelIds = append(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
-			} else { // the address was present in the old data , but not in new , hence needs to be deleted
-				modelUserData.ModelIds = remove(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
-			}
-			err = service.userStorage.Put(modelUserKey, modelUserData)
-			if err != nil {
-				zap.L().Error("Error in putting data in storage", zap.Error(err))
-			}
-		}
-
+func convertModelDataToBO(data *ModelData) (responseData *ModelResponse) {
+	responseData = &ModelResponse{
+		ModelId:          data.ModelId,
+		GrpcMethodName:   data.GRPCMethodName,
+		GrpcServiceName:  data.GRPCServiceName,
+		Description:      data.Description,
+		IsPublic:         data.IsPublic,
+		AddressList:      data.AuthorizedAddresses,
+		TrainingDataLink: data.TrainingLink,
+		Name:             data.ModelName,
+		//OrganizationId:       data.OrganizationId,
+		//ServiceId:            data.ServiceId,
+		//GroupId:              data.GroupId,
+		UpdatedDate: data.UpdatedDate,
+		Status:      data.Status,
 	}
 	return
 }
 
-func difference(oldAddresses []string, newAddresses []string) []string {
-	var diff []string
-	for i := 0; i < 2; i++ {
-		for _, s1 := range oldAddresses {
-			found := false
-			for _, s2 := range newAddresses {
-				if s1 == s2 {
-					found = true
-					break
-				}
-			}
-			// String not found. We add it to return slice
-			if !found {
-				diff = append(diff, s1)
-			}
-		}
-		// Swap the slices, only if it was the first loop
-		if i == 0 {
-			oldAddresses, newAddresses = newAddresses, oldAddresses
-		}
-	}
-	return diff
-}
-
-func isValuePresent(value string, list []string) bool {
-	for _, v := range list {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
+//func (ds *DaemonService) updateModelDetails(request *UpdateModelRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
+//	key := ds.getModelKeyToUpdate(request.Mo)
+//	oldAddresses := make([]string, 0)
+//	var latestAddresses []string
+//	// by default add the creator to the Authorized list of Address
+//	if request.UpdateModelDetails.AddressList != nil || len(request.UpdateModelDetails.AddressList) > 0 {
+//		latestAddresses = request.UpdateModelDetails.AddressList
+//	}
+//	latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
+//	if data, err = ds.getModelDataForUpdate(request); err == nil && data != nil {
+//		oldAddresses = data.AuthorizedAddresses
+//		data.AuthorizedAddresses = latestAddresses
+//		latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
+//		data.IsPublic = request.UpdateModelDetails.IsPubliclyAccessible
+//		data.UpdatedByAddress = request.Authorization.SignerAddress
+//		if response != nil {
+//			data.Status = response.Status
+//		}
+//		data.ModelName = request.UpdateModelDetails.ModelName
+//		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
+//		data.Description = request.UpdateModelDetails.Description
+//
+//		err = ds.storage.Put(key, data)
+//		if err != nil {
+//			zap.L().Error("Error in putting data in user storage", zap.Error(err))
+//		}
+//		//get the difference of all the addresses b/w old and new
+//		updatedAddresses := difference(oldAddresses, latestAddresses)
+//		for _, address := range updatedAddresses {
+//			modelUserKey := getModelUserKey(key, address)
+//			modelUserData := service.getModelUserData(key, address)
+//			//if the address is present in the request but not in the old address , add it to the storage
+//			if isValuePresent(address, request.UpdateModelDetails.AddressList) {
+//				modelUserData.ModelIds = append(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
+//			} else { // the address was present in the old data , but not in new , hence needs to be deleted
+//				modelUserData.ModelIds = remove(modelUserData.ModelIds, request.UpdateModelDetails.ModelId)
+//			}
+//			err = ds.userStorage.Put(modelUserKey, modelUserData)
+//			if err != nil {
+//				zap.L().Error("Error in putting data in storage", zap.Error(err))
+//			}
+//		}
+//
+//	}
+//	return
+//}
 
 // ensure only authorized use
-func (service ModelService) verifySignerHasAccessToTheModel(serviceName string, methodName string, modelId string, address string) (err error) {
+func (ds DaemonService) verifySignerHasAccessToTheModel(modelId string, address string) (err error) {
 	key := &ModelUserKey{
-		OrganizationId:  config.GetString(config.OrganizationId),
-		ServiceId:       config.GetString(config.ServiceId),
-		GroupId:         service.organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  methodName,
-		GRPCServiceName: serviceName,
-		UserAddress:     address,
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        ds.organizationMetaData.GetGroupIdString(),
+		//GRPCMethodName:  methodName,
+		//GRPCServiceName: serviceName,
+		UserAddress: address,
 	}
-	data, ok, err := service.userStorage.Get(key)
+	data, ok, err := ds.userStorage.Get(key)
 	if ok && err == nil {
 		if !slices.Contains(data.ModelIds, modelId) {
 			return fmt.Errorf("user %v, does not have access to model Id %v", address, modelId)
@@ -327,20 +369,20 @@ func (service ModelService) verifySignerHasAccessToTheModel(serviceName string, 
 	return
 }
 
-func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDetailsRequest, response *ModelDetailsResponse) (data *ModelData, err error) {
+func (ds DaemonService) updateModelDetailsWithLatestStatus(request *CommonRequest, response *ModelResponse) (data *ModelData, err error) {
 	key := &ModelKey{
-		OrganizationId:  config.GetString(config.OrganizationId),
-		ServiceId:       config.GetString(config.ServiceId),
-		GroupId:         service.organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  request.ModelDetails.GrpcMethodName,
-		GRPCServiceName: request.ModelDetails.GrpcServiceName,
-		ModelId:         request.ModelDetails.ModelId,
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        ds.organizationMetaData.GetGroupIdString(),
+		//GRPCMethodName:  request.ModelDetails.GrpcMethodName,
+		//GRPCServiceName: request.ModelDetails.GrpcServiceName,
+		ModelId: request.ModelId,
 	}
 	ok := false
 	zap.L().Debug("updateModelDetailsWithLatestStatus: ", zap.Any("key", key))
-	if data, ok, err = service.storage.Get(key); err == nil && ok {
+	if data, ok, err = ds.storage.Get(key); err == nil && ok {
 		data.Status = response.Status
-		if err = service.storage.Put(key, data); err != nil {
+		if err = ds.storage.Put(key, data); err != nil {
 			zap.L().Error("issue with retrieving model data from storage", zap.Error(err))
 		}
 	} else {
@@ -349,75 +391,75 @@ func (service ModelService) updateModelDetailsWithLatestStatus(request *ModelDet
 	return
 }
 
-func (service ModelService) getModelKeyToCreate(request *CreateModelRequest, response *ModelDetailsResponse) (key *ModelKey) {
+func (ds *DaemonService) buildModelKey(modelID string) (key *ModelKey) {
 	key = &ModelKey{
-		OrganizationId:  config.GetString(config.OrganizationId),
-		ServiceId:       config.GetString(config.ServiceId),
-		GroupId:         service.organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  request.ModelDetails.GrpcMethodName,
-		GRPCServiceName: request.ModelDetails.GrpcServiceName,
-		ModelId:         response.ModelDetails.ModelId,
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        ds.organizationMetaData.GetGroupIdString(),
+		//GRPCMethodName:  request.Model.GrpcMethodName,
+		//GRPCServiceName: request.Model.GrpcServiceName,
+		ModelId: modelID,
 	}
 	return
 }
 
-func (service ModelService) getModelKeyToUpdate(request *UpdateModelRequest) (key *ModelKey) {
+func (ds *DaemonService) getModelKeyToUpdate(modelID string) (key *ModelKey) {
 	key = &ModelKey{
-		OrganizationId:  config.GetString(config.OrganizationId),
-		ServiceId:       config.GetString(config.ServiceId),
-		GroupId:         service.organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  request.UpdateModelDetails.GrpcMethodName,
-		GRPCServiceName: request.UpdateModelDetails.GrpcServiceName,
-		ModelId:         request.UpdateModelDetails.ModelId,
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        ds.organizationMetaData.GetGroupIdString(),
+		//GRPCMethodName:  request.UpdateModelDetails.GrpcMethodName,
+		//GRPCServiceName: request.UpdateModelDetails.GrpcServiceName,
+		ModelId: modelID,
 	}
 	return
 }
 
-func (service ModelService) getModelDataForUpdate(request *UpdateModelRequest) (data *ModelData, err error) {
-	key := service.getModelKeyToUpdate(request)
-	ok := false
+//func (ds *DaemonService) getModelDataForUpdate(request *UpdateModelRequest) (data *ModelData, err error) {
+//	key := ds.getModelKeyToUpdate(request)
+//	ok := false
+//
+//	if data, ok, err = ds.storage.Get(key); err != nil || !ok {
+//		zap.L().Warn("unable to retrieve model data from storage", zap.String("Model Id", key.ModelId), zap.Error(err))
+//	}
+//	return
+//}
 
-	if data, ok, err = service.storage.Get(key); err != nil || !ok {
-		zap.L().Warn("unable to retrieve model data from storage", zap.String("Model Id", key.ModelId), zap.Error(err))
-	}
-	return
-}
-
-func (service ModelService) GetAllModels(c context.Context, request *AccessibleModelsRequest) (response *AccessibleModelsResponse, err error) {
+func (ds *DaemonService) GetAllModels(c context.Context, request *AllModelsRequest) (response *ModelsResponse, err error) {
 	if request == nil || request.Authorization == nil {
-		return &AccessibleModelsResponse{},
+		return &ModelsResponse{},
 			fmt.Errorf("Invalid request , no Authorization provided ")
 	}
-	if err = service.verifySignature(request.Authorization); err != nil {
-		return &AccessibleModelsResponse{},
+	if err = ds.verifySignature(request.Authorization); err != nil {
+		return &ModelsResponse{},
 			fmt.Errorf("Unable to access model, %v", err)
 	}
-	if request.GetGrpcMethodName() == "" || request.GetGrpcServiceName() == "" {
-		return &AccessibleModelsResponse{},
-			fmt.Errorf("Invalid request, no GrpcMethodName or GrpcServiceName provided")
-	}
+	//if request.GetGrpcMethodName() == "" || request.GetGrpcServiceName() == "" {
+	//	return &AccessibleModelsResponse{},
+	//		fmt.Errorf("Invalid request, no GrpcMethodName or GrpcServiceName provided")
+	//}
 
 	key := &ModelUserKey{
-		OrganizationId:  config.GetString(config.OrganizationId),
-		ServiceId:       config.GetString(config.ServiceId),
-		GroupId:         service.organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  request.GrpcMethodName,
-		GRPCServiceName: request.GrpcServiceName,
-		UserAddress:     request.Authorization.SignerAddress,
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        ds.organizationMetaData.GetGroupIdString(),
+		//GRPCMethodName:  request.GrpcMethodName,
+		//GRPCServiceName: request.GrpcServiceName,
+		UserAddress: request.Authorization.SignerAddress,
 	}
 
-	modelDetailsArray := make([]*ModelDetails, 0)
-	if data, ok, err := service.userStorage.Get(key); data != nil && ok && err == nil {
+	modelDetailsArray := make([]*ModelResponse, 0)
+	if data, ok, err := ds.userStorage.Get(key); data != nil && ok && err == nil {
 		for _, modelId := range data.ModelIds {
 			modelKey := &ModelKey{
-				OrganizationId:  config.GetString(config.OrganizationId),
-				ServiceId:       config.GetString(config.ServiceId),
-				GroupId:         service.organizationMetaData.GetGroupIdString(),
-				GRPCMethodName:  request.GrpcMethodName,
-				GRPCServiceName: request.GrpcServiceName,
-				ModelId:         modelId,
+				OrganizationId: config.GetString(config.OrganizationId),
+				ServiceId:      config.GetString(config.ServiceId),
+				GroupId:        ds.organizationMetaData.GetGroupIdString(),
+				//GRPCMethodName:  request.GrpcMethodName,
+				//GRPCServiceName: request.GrpcServiceName,
+				ModelId: modelId,
 			}
-			if modelData, modelOk, modelErr := service.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
+			if modelData, modelOk, modelErr := ds.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
 				boModel := convertModelDataToBO(modelData)
 				modelDetailsArray = append(modelDetailsArray, boModel)
 			}
@@ -425,34 +467,33 @@ func (service ModelService) GetAllModels(c context.Context, request *AccessibleM
 	}
 
 	for _, model := range modelDetailsArray {
-		zap.L().Debug("Model", zap.String("Name", model.ModelName))
+		zap.L().Debug("Model", zap.String("Name", model.Name))
 	}
 
-	response = &AccessibleModelsResponse{
+	response = &ModelsResponse{
 		ListOfModels: modelDetailsArray,
 	}
 	return
 }
 
-func (service ModelService) getModelDataToCreate(request *CreateModelRequest, response *ModelDetailsResponse) (data *ModelData) {
-
+func (ds DaemonService) getModelDataToCreate(request *NewModelRequest, response *ModelID) (data *ModelData) {
 	data = &ModelData{
-		Status:              response.Status,
-		GRPCServiceName:     request.ModelDetails.GrpcServiceName,
-		GRPCMethodName:      request.ModelDetails.GrpcMethodName,
+		Status:              Status_CREATED,
+		GRPCServiceName:     request.Model.GrpcServiceName,
+		GRPCMethodName:      request.Model.GrpcMethodName,
 		CreatedByAddress:    request.Authorization.SignerAddress,
 		UpdatedByAddress:    request.Authorization.SignerAddress,
-		AuthorizedAddresses: request.ModelDetails.AddressList,
-		Description:         request.ModelDetails.Description,
-		ModelName:           request.ModelDetails.ModelName,
-		TrainingLink:        request.ModelDetails.TrainingDataLink,
-		IsPublic:            request.ModelDetails.IsPubliclyAccessible,
-		IsDefault:           false,
-		ModelId:             response.ModelDetails.ModelId,
-		OrganizationId:      config.GetString(config.OrganizationId),
-		ServiceId:           config.GetString(config.ServiceId),
-		GroupId:             service.organizationMetaData.GetGroupIdString(),
-		UpdatedDate:         fmt.Sprintf("%v", time.Now().Format(DateFormat)),
+		AuthorizedAddresses: request.Model.AddressList,
+		Description:         request.Model.Description,
+		ModelName:           request.Model.Name,
+		//TrainingLink:
+		IsPublic:       request.Model.IsPublic,
+		IsDefault:      false,
+		ModelId:        response.ModelId,
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        ds.organizationMetaData.GetGroupIdString(),
+		UpdatedDate:    fmt.Sprintf("%v", time.Now().Format(DateFormat)),
 	}
 	//by default add the creator to the Authorized list of Address
 	if data.AuthorizedAddresses == nil {
@@ -462,214 +503,146 @@ func (service ModelService) getModelDataToCreate(request *CreateModelRequest, re
 	return
 }
 
-func (service ModelService) CreateModel(c context.Context, request *CreateModelRequest) (response *ModelDetailsResponse,
-	err error) {
-
-	// verify the request
-	if request == nil || request.Authorization == nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request, no Authorization provided  , %v", err)
-	}
-	if err = service.verifySignature(request.Authorization); err != nil {
-		zap.L().Error(err.Error())
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf("unable to create Model: %v", err)
-	}
-	if request.GetModelDetails().GrpcServiceName == "" || request.GetModelDetails().GrpcMethodName == "" {
-		zap.L().Error("Error in getting grpc service name", zap.Error(err))
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request, no GrpcServiceName or GrpcMethodName provided  , %v", err)
-	}
-
-	// make a call to the client
-	// if the response is successful, store details in etcd
-	// send back the response to the client
-	conn, client, err := service.getServiceClient()
-	if err != nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf("error in invoking service for Model Training %v", err)
-	}
-
-	response, err = client.CreateModel(c, request)
-	if err != nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf("error in invoking service for Model Training %v", err)
-	}
-
-	if response.ModelDetails == nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf("error in invoking service for Model Training: service return empty ModelDetails")
-	}
-
-	//store the details in etcd
-	zap.L().Info("Creating model based on response from CreateModel of training service")
-
-	data, err := service.createModelDetails(request, response)
-	if err != nil {
-		zap.L().Error(err.Error())
-		return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
-	}
-	response = BuildModelResponseFrom(data, response.Status)
-	deferConnection(conn)
-	return
-}
-
-func BuildModelResponseFrom(data *ModelData, status Status) *ModelDetailsResponse {
-	return &ModelDetailsResponse{
-		Status: status,
-		ModelDetails: &ModelDetails{
-			ModelId:              data.ModelId,
-			GrpcMethodName:       data.GRPCMethodName,
-			GrpcServiceName:      data.GRPCServiceName,
-			Description:          data.Description,
-			IsPubliclyAccessible: data.IsPublic,
-			AddressList:          data.AuthorizedAddresses,
-			TrainingDataLink:     data.TrainingLink,
-			ModelName:            data.ModelName,
-			OrganizationId:       config.GetString(config.OrganizationId),
-			ServiceId:            config.GetString(config.ServiceId),
-			GroupId:              data.GroupId,
-			Status:               status.String(),
-			UpdatedDate:          data.UpdatedDate,
-		},
+func BuildModelResponse(data *ModelData, status Status) *ModelResponse {
+	return &ModelResponse{
+		Status:           status,
+		ModelId:          data.ModelId,
+		GrpcMethodName:   data.GRPCMethodName,
+		GrpcServiceName:  data.GRPCServiceName,
+		Description:      data.Description,
+		IsPublic:         data.IsPublic,
+		AddressList:      data.AuthorizedAddresses,
+		TrainingDataLink: data.TrainingLink,
+		Name:             data.ModelName,
+		//OrganizationId:   config.GetString(config.OrganizationId),
+		//ServiceId:        config.GetString(config.ServiceId),
+		//GroupId:          data.GroupId,
+		//Status:               status.String(),
+		UpdatedDate: data.UpdatedDate,
 	}
 }
-func (service ModelService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
-	err error) {
-	if request == nil || request.Authorization == nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
-	}
-	if err = service.verifySignature(request.Authorization); err != nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Unable to access model , %v", err)
-	}
-	if err = service.verifySignerHasAccessToTheModel(request.UpdateModelDetails.GrpcServiceName,
-		request.UpdateModelDetails.GrpcMethodName, request.UpdateModelDetails.ModelId, request.Authorization.SignerAddress); err != nil {
-		return &ModelDetailsResponse{},
-			fmt.Errorf(" Unable to access model , %v", err)
-	}
-	if request.UpdateModelDetails == nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Invalid request , no UpdateModelDetails provided  , %v", err)
+
+//func (ds *DaemonService) UpdateModelAccess(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
+//	err error) {
+//	if request == nil || request.Authorization == nil {
+//		return &ModelDetailsResponse{Status: Status_ERRORED},
+//			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
+//	}
+//	if err = ds.verifySignature(request.Authorization); err != nil {
+//		return &ModelDetailsResponse{Status: Status_ERRORED},
+//			fmt.Errorf(" Unable to access model , %v", err)
+//	}
+//	if err = service.verifySignerHasAccessToTheModel(request.UpdateModelDetails.GrpcServiceName,
+//		request.UpdateModelDetails.GrpcMethodName, request.UpdateModelDetails.ModelId, request.Authorization.SignerAddress); err != nil {
+//		return &ModelDetailsResponse{},
+//			fmt.Errorf(" Unable to access model , %v", err)
+//	}
+//	if request.UpdateModelDetails == nil {
+//		return &ModelDetailsResponse{Status: Status_ERRORED},
+//			fmt.Errorf(" Invalid request , no UpdateModelDetails provided  , %v", err)
+//	}
+//
+//	zap.L().Info("Updating model based on response from UpdateModel")
+//	if data, err := service.updateModelDetails(request, response); err == nil && data != nil {
+//		response = BuildModelResponse(data, data.Status)
+//
+//	} else {
+//		return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
+//	}
+//
+//	return
+//}
+
+func (ds *DaemonService) DeleteModel(c context.Context, req *CommonRequest) (*StatusResponse, error) {
+
+	if req == nil || req.Authorization == nil {
+		return &StatusResponse{Status: Status_ERRORED},
+			fmt.Errorf("invalid request, no Authorization provided")
 	}
 
-	zap.L().Info("Updating model based on response from UpdateModel")
-	if data, err := service.updateModelDetails(request, response); err == nil && data != nil {
-		response = BuildModelResponseFrom(data, data.Status)
-
-	} else {
-		return response, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
+	if req.ModelId == "" {
+		return &StatusResponse{Status: Status_ERRORED},
+			fmt.Errorf("invalid request: ModelId is empty")
 	}
 
-	return
-}
+	if err := ds.verifySignature(req.Authorization); err != nil {
+		return &StatusResponse{Status: Status_ERRORED},
+			fmt.Errorf("unable to access model , %v", err)
+	}
 
-func (service ModelService) DeleteModel(c context.Context, request *UpdateModelRequest) (response *ModelDetailsResponse,
-	err error) {
-	if request == nil || request.Authorization == nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Invalid request , no Authorization provided  , %v", err)
-	}
-	if err = service.verifySignature(request.Authorization); err != nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Unable to access model , %v", err)
-	}
-	if err = service.verifySignerHasAccessToTheModel(request.UpdateModelDetails.GrpcServiceName,
-		request.UpdateModelDetails.GrpcMethodName, request.UpdateModelDetails.ModelId, request.Authorization.SignerAddress); err != nil {
-		return &ModelDetailsResponse{},
-			fmt.Errorf(" Unable to access model , %v", err)
-	}
-	if request.UpdateModelDetails == nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf(" Invalid request: UpdateModelDetails are empty")
+	if err := ds.verifySignerHasAccessToTheModel(req.ModelId, req.Authorization.SignerAddress); err != nil {
+		return &StatusResponse{},
+			fmt.Errorf("unable to access model , %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-	if conn, client, err := service.getServiceClient(); err == nil {
-		response, err = client.DeleteModel(ctx, request)
-		if response == nil || err != nil {
-			zap.L().Error("error in invoking DeleteModel, service-provider should realize it", zap.Error(err))
-			return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking DeleteModel, service-provider should realize it")
-		}
-		if data, err := service.deleteModelDetails(request); err == nil && data != nil {
-			response = BuildModelResponseFrom(data, response.Status)
-		} else {
-			zap.L().Error("issue with deleting ModelId in storage", zap.Error(err))
-			return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)
-		}
-		deferConnection(conn)
-	} else {
-		return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking service for Model Training")
+	conn, client, err := ds.getServiceClient()
+	if err != nil {
+		return &StatusResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking service for Model Training")
 	}
-
-	return
+	deferConnection(conn)
+	response, err := client.DeleteModel(ctx, &ModelID{ModelId: req.ModelId})
+	if response == nil || err != nil {
+		zap.L().Error("error in invoking DeleteModel, service-provider should realize it", zap.Error(err))
+		return &StatusResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking DeleteModel, service-provider should realize it")
+	}
+	data, err := ds.deleteModelDetails(req)
+	if err == nil && data != nil {
+		zap.L().Error("issue with deleting ModelId in storage", zap.Error(err))
+		return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)
+	}
+	//responseData := BuildModelResponse(data, response.Status)
+	return &StatusResponse{Status: Status_DELETED}, err
 }
 
-func (service ModelService) GetModelStatus(c context.Context, request *ModelDetailsRequest) (response *ModelDetailsResponse,
+func (ds *DaemonService) GetModel(c context.Context, request *CommonRequest) (response *ModelResponse,
 	err error) {
 	if request == nil || request.Authorization == nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
+		return &ModelResponse{Status: Status_ERRORED},
 			fmt.Errorf("invalid request, no Authorization provided  , %v", err)
 	}
-	if err = service.verifySignature(request.Authorization); err != nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
+	if err = ds.verifySignature(request.Authorization); err != nil {
+		return &ModelResponse{Status: Status_ERRORED},
 			fmt.Errorf("unable to access model , %v", err)
 	}
-	if err = service.verifySignerHasAccessToTheModel(request.ModelDetails.GrpcServiceName,
-		request.ModelDetails.GrpcMethodName, request.ModelDetails.ModelId, request.Authorization.SignerAddress); err != nil {
-		return &ModelDetailsResponse{},
+	if err = ds.verifySignerHasAccessToTheModel(request.ModelId, request.Authorization.SignerAddress); err != nil {
+		return &ModelResponse{},
 			fmt.Errorf("unable to access model , %v", err)
 	}
-	if request.ModelDetails == nil {
-		return &ModelDetailsResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request: ModelDetails can't be empty")
+	if request.ModelId == "" {
+		return &ModelResponse{Status: Status_ERRORED},
+			fmt.Errorf("invalid request: ModelId can't be empty")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer cancel()
 
-	if conn, client, err := service.getServiceClient(); err == nil {
-		response, err = client.GetModelStatus(ctx, request)
-		if response == nil || err != nil {
+	if conn, client, err := ds.getServiceClient(); err == nil {
+		responseStatus, err := client.GetModelStatus(ctx, &ModelID{ModelId: request.ModelId})
+		if responseStatus == nil || err != nil {
 			zap.L().Error("error in invoking GetModelStatus, service-provider should realize it", zap.Error(err))
-			return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking GetModelStatus, service-provider should realize it")
+			return &ModelResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking GetModelStatus, service-provider should realize it")
 		}
 		zap.L().Info("[GetModelStatus] response from service-provider", zap.Any("response", response))
 		zap.L().Info("[GetModelStatus] updating model status based on response from UpdateModel")
-		data, err := service.updateModelDetailsWithLatestStatus(request, response)
+		data, err := ds.updateModelDetailsWithLatestStatus(request, response)
 		zap.L().Debug("[GetModelStatus] data that be returned to client", zap.Any("data", data))
 		if err == nil && data != nil {
-			response = BuildModelResponseFrom(data, response.Status)
+			response = BuildModelResponse(data, responseStatus.Status)
 		} else {
-			zap.L().Error("[GetModelStatus] BuildModelResponseFrom error", zap.Error(err))
+			zap.L().Error("[GetModelStatus] BuildModelResponse error", zap.Error(err))
 			return response, fmt.Errorf("[GetModelStatus] issue with storing Model Id in the Daemon Storage %v", err)
 		}
 		deferConnection(conn)
 	} else {
-		return &ModelDetailsResponse{Status: Status_ERRORED}, fmt.Errorf("[GetModelStatus] error in invoking service for Model Training")
+		return &ModelResponse{Status: Status_ERRORED}, fmt.Errorf("[GetModelStatus] error in invoking service for Model Training")
 	}
 	return
 }
 
-// message used to sign is of the form ("__create_model", mpe_address, current_block_number)
-func (service *ModelService) verifySignature(request *AuthorizationDetails) error {
-	return utils.VerifySigner(service.getMessageBytes(request.Message, request),
-		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
-}
-
-// "user passed message	", user_address, current_block_number
-func (service *ModelService) getMessageBytes(prefixMessage string, request *AuthorizationDetails) []byte {
-	userAddress := utils.ToChecksumAddress(request.SignerAddress)
-	message := bytes.Join([][]byte{
-		[]byte(prefixMessage),
-		userAddress.Bytes(),
-		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
-	}, nil)
-	return message
-}
-
+// NewModelService AI service prodiver
+// TODO maybe remove
 func NewModelService(channelService escrow.PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage) ModelServer {
 	serviceURL := config.GetString(config.ModelMaintenanceEndPoint)
@@ -685,4 +658,137 @@ func NewModelService(channelService escrow.PaymentChannelService, serMetaData *b
 	} else {
 		return &NoModelSupportService{}
 	}
+}
+
+// NewTrainingService daemon self server
+func NewTrainingService(channelService escrow.PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
+	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage) DaemonServer {
+
+	linkerFiles := getFileDescriptors(serMetaData.ProtoFiles)
+	serMetaData.ProtoDescriptors = linkerFiles
+	methodsMD, trainMD, err := parseTrainingMetadata(linkerFiles)
+	if err != nil {
+		// TODO
+		return nil
+	}
+
+	serviceURL := config.GetString(config.ModelMaintenanceEndPoint)
+	if config.IsValidUrl(serviceURL) && config.GetBool(config.BlockchainEnabledKey) {
+		return &DaemonService{
+			channelService:       channelService,
+			serviceMetaData:      serMetaData,
+			organizationMetaData: orgMetadata,
+			storage:              storage,
+			userStorage:          userStorage,
+			serviceUrl:           serviceURL,
+			trainingMetadata:     &trainMD,
+			methodsMetadata:      methodsMD,
+		}
+	} else {
+		return &NoTrainingService{}
+	}
+}
+
+// parseTrainingMetadata TODO add comment
+func parseTrainingMetadata(protos linker.Files) (methodsMD map[string]*MethodMetadata, trainingMD TrainingMetadata, err error) {
+	methodsMD = make(map[string]*MethodMetadata)
+	trainingMD.TrainingMethods = make(map[string]*structpb.ListValue)
+
+	for _, protoFile := range protos {
+		for servicesCounter := 0; servicesCounter < protoFile.Services().Len(); servicesCounter++ {
+			protoService := protoFile.Services().Get(servicesCounter)
+			if protoService == nil {
+				continue
+			}
+			for methodsCounter := 0; methodsCounter < protoService.Methods().Len(); methodsCounter++ {
+				method := protoFile.Services().Get(servicesCounter).Methods().Get(methodsCounter)
+				if method == nil {
+					continue
+				}
+				inputFields := method.Input().Fields()
+				if inputFields == nil {
+					continue
+				}
+				for fieldsCounter := 0; fieldsCounter < inputFields.Len(); fieldsCounter++ {
+					if inputFields.Get(fieldsCounter).Message() != nil {
+						// if the method accepts modelId, then we consider it as training
+						if inputFields.Get(fieldsCounter).Message().FullName() == "trainingV2.ModelID" {
+							// init array if nil
+							if trainingMD.TrainingMethods[string(protoService.Name())] == nil {
+								trainingMD.TrainingMethods[string(protoService.Name())], _ = structpb.NewList(nil)
+							}
+							value := structpb.NewStringValue(string(method.Name()))
+							trainingMD.TrainingMethods[string(protoService.Name())].Values = append(trainingMD.TrainingMethods[string(protoService.Name())].Values, value)
+						}
+					}
+				}
+
+				methodOptions, ok := method.Options().(*descriptorpb.MethodOptions)
+				if ok && methodOptions != nil {
+					key := string(protoService.Name() + method.Name())
+					methodsMD[key] = &MethodMetadata{}
+					if proto.HasExtension(methodOptions, E_DatasetDescription) {
+						if datasetDesc, ok := proto.GetExtension(methodOptions, E_DatasetDescription).(string); ok {
+							methodsMD[key].DatasetDescription = datasetDesc
+						}
+					}
+					if proto.HasExtension(methodOptions, E_DatasetType) {
+						if datasetType, ok := proto.GetExtension(methodOptions, E_DatasetType).(string); ok {
+							methodsMD[key].DatasetType = datasetType
+						}
+					}
+					if proto.HasExtension(methodOptions, E_DatasetFilesType) {
+						if datasetDesc, ok := proto.GetExtension(methodOptions, E_DatasetFilesType).(string); ok {
+							methodsMD[key].DatasetFilesType = datasetDesc
+						}
+					}
+					if proto.HasExtension(methodOptions, E_MaxModelsPerUser) {
+						if datasetDesc, ok := proto.GetExtension(methodOptions, E_MaxModelsPerUser).(uint64); ok {
+							methodsMD[key].MaxModelsPerUser = datasetDesc
+						}
+					}
+					if proto.HasExtension(methodOptions, E_DefaultModelId) {
+						if defaultModelId, ok := proto.GetExtension(methodOptions, E_DefaultModelId).(string); ok {
+							methodsMD[key].DefaultModelId = defaultModelId
+						}
+					}
+					if proto.HasExtension(methodOptions, E_DatasetMaxSizeSingleFileMb) {
+						if d, ok := proto.GetExtension(methodOptions, E_DatasetMaxSizeSingleFileMb).(uint64); ok {
+							methodsMD[key].DatasetMaxSizeSingleFileMb = d
+						}
+					}
+					if proto.HasExtension(methodOptions, E_DatasetMaxCountFiles) {
+						if maxCountFiles, ok := proto.GetExtension(methodOptions, E_DatasetMaxCountFiles).(uint64); ok {
+							methodsMD[key].DatasetMaxCountFiles = maxCountFiles
+						}
+					}
+					if proto.HasExtension(methodOptions, E_DatasetMaxSizeMb) {
+						if datasetMaxSizeMb, ok := proto.GetExtension(methodOptions, E_DatasetMaxSizeMb).(uint64); ok {
+							methodsMD[key].DatasetMaxSizeMb = datasetMaxSizeMb
+						}
+					}
+					if methodsMD[key].DefaultModelId != "" {
+						zap.L().Debug("training metadata", zap.String("method", string(method.Name())), zap.String("key", key), zap.Any("metadata", methodsMD[key]))
+					}
+				}
+			}
+		}
+	}
+	zap.L().Debug("training methods", zap.Any("methods", trainingMD.TrainingMethods))
+	return
+}
+
+func getFileDescriptors(protoFiles map[string]string) linker.Files {
+	protoFiles["training_v2.proto"] = TrainingProtoEmbeded
+	accessor := protocompile.SourceAccessorFromMap(protoFiles)
+	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
+	compiler := protocompile.Compiler{
+		Resolver:       r,
+		SourceInfoMode: protocompile.SourceInfoStandard,
+	}
+	fds, err := compiler.Compile(context.Background(), slices.Collect(maps.Keys(protoFiles))...)
+	if err != nil || fds == nil {
+		zap.L().Fatal("failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
+	}
+	return fds
 }

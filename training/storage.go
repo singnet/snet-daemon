@@ -2,9 +2,10 @@ package training
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/singnet/snet-daemon/v5/storage"
 	"github.com/singnet/snet-daemon/v5/utils"
-	"reflect"
 )
 
 type ModelStorage struct {
@@ -84,6 +85,27 @@ func (data *ModelData) String() string {
 		data.OrganizationId,
 		data.ServiceId, data.GroupId, data.GRPCServiceName, data.GRPCMethodName, data.ModelId, data.AuthorizedAddresses, data.IsPublic,
 		data.CreatedByAddress, data.UpdatedByAddress, data.Status, data.TrainingLink)
+}
+
+type TrainingValidatingModelKey struct {
+	OrganizationId string
+	ServiceId      string
+	GroupId        string
+}
+
+func (key *TrainingValidatingModelKey) String() string {
+	return fmt.Sprintf("{ID:%v|%v|%v|%v}",
+		key.OrganizationId,
+		key.ServiceId,
+		key.GroupId)
+}
+
+type TrainingValidatingModelsData struct {
+	ModelIds []string
+}
+
+func (data *TrainingValidatingModelsData) String() string {
+	return fmt.Sprintf("{DATA:%v}", data.ModelIds)
 }
 
 type ModelData struct {

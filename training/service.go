@@ -6,6 +6,13 @@ package training
 import (
 	"context"
 	"fmt"
+	"maps"
+	"net/url"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
 	"github.com/singnet/snet-daemon/v5/blockchain"
@@ -15,13 +22,9 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
-	"maps"
-	"net/url"
-	"slices"
-	"strings"
-	"time"
 
 	_ "embed"
+
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/escrow"
 	"go.uber.org/zap"
@@ -58,6 +61,28 @@ type DaemonService struct {
 	serviceUrl           string
 	trainingMetadata     *TrainingMetadata
 	methodsMetadata      map[string]*MethodMetadata
+}
+
+func NewDaemonsService(
+	serviceMetaData *blockchain.ServiceMetadata,
+	organizationMetaData *blockchain.OrganizationMetaData,
+	channelService escrow.PaymentChannelService,
+	storage *ModelStorage,
+	userStorage *ModelUserStorage,
+	serviceUrl string,
+	trainingMedadata *TrainingMetadata,
+	methodsMetadata map[string]*MethodMetadata,
+) *DaemonService {
+	return &DaemonService{
+		serviceMetaData:      serviceMetaData,
+		organizationMetaData: organizationMetaData,
+		channelService:       channelService,
+		storage:              storage,
+		userStorage:          userStorage,
+		serviceUrl:           serviceUrl,
+		trainingMetadata:     trainingMedadata,
+		methodsMetadata:      methodsMetadata,
+	}
 }
 
 func (ds *DaemonService) CreateModel(c context.Context, request *NewModelRequest) (*ModelResponse, error) {
@@ -119,6 +144,82 @@ func (ds *DaemonService) CreateModel(c context.Context, request *NewModelRequest
 	}
 	modelResponse := BuildModelResponse(data, Status_CREATED)
 	return modelResponse, err
+}
+
+func (ds *DaemonService) getTrainingAndValidatingModelIds(orgId, serviceId, groupId string) []string {
+	// TODO: make real implmentation
+	return []string{"1", "2", "3"}
+}
+
+func (ds *DaemonService) startUpdateModelStatusWorker(ctx context.Context, modelId string) {
+
+	modelKey := ds.buildModelKey(modelId)
+
+	currentModelData, ok, err := ds.storage.Get(modelKey)
+	if err != nil {
+		zap.L().Error("err in getting modelData from storage", zap.Error(err))
+		return
+	}
+	if !ok {
+		zap.L().Error("there is no model with such modelKey", zap.Any("modelKey", modelKey))
+		return
+	}
+
+	_, client, err := ds.getServiceClient()
+	if err != nil {
+		zap.L().Error("error in gettting service client", zap.Error(err))
+		return
+	}
+
+	response, err := client.GetModelStatus(ctx, &ModelID{ModelId: modelId})
+	if response == nil || err != nil {
+		zap.L().Error("error in invoking GetModelStatus, service-provider should implement it", zap.Error(err))
+		return
+	}
+
+	newModelData := *currentModelData // Shallow copy of the current model data.
+	// However, it does not create deep copies of any slices contained within ModelData; modifications to the slices in newModelData will affect currentModelData.
+	newModelData.Status = response.Status
+	ds.storage.CompareAndSwap(modelKey, currentModelData, &newModelData)
+}
+
+func (ds *DaemonService) worker(ctx context.Context, tasks <-chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
+		case modelID := <-tasks:
+			ds.startUpdateModelStatusWorker(ctx, modelID)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (ds *DaemonService) ManageUpdateModelStatusWorkers(ctx context.Context, interval time.Duration, orgID, serviceID, groupID string) {
+	ticker := time.NewTicker(interval)
+	modelIDs := ds.getTrainingAndValidatingModelIds(orgID, serviceID, groupID)
+	tasks := make(chan string, len(modelIDs))
+	numWorkers := 3
+	var wg sync.WaitGroup
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go ds.worker(ctx, tasks, &wg)
+	}
+
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			for _, modelID := range modelIDs {
+				tasks <- modelID
+			}
+		case <-ctx.Done():
+			wg.Wait()
+			return
+		}
+	}
 }
 
 func (ds *DaemonService) ValidateModelPrice(ctx context.Context, request *AuthValidateRequest) (*PriceInBaseUnit, error) {
@@ -183,7 +284,6 @@ func getConnection(endpoint string) (conn *grpc.ClientConn) {
 		}
 	} else {
 		conn, err = grpc.NewClient(passthroughURL.Host, grpc.WithTransportCredentials(insecure.NewCredentials()), options)
-
 		if err != nil {
 			zap.L().Panic("error dialing service", zap.Error(err))
 		}
@@ -385,9 +485,8 @@ func (ds DaemonService) updateModelDetailsWithLatestStatus(request *CommonReques
 		if err = ds.storage.Put(key, data); err != nil {
 			zap.L().Error("issue with retrieving model data from storage", zap.Error(err))
 		}
-	} else {
-		zap.L().Error("can't get model data from etcd", zap.Error(err))
 	}
+	zap.L().Error("can't get model data from etcd", zap.Error(err))
 	return
 }
 
@@ -655,9 +754,8 @@ func NewModelService(channelService escrow.PaymentChannelService, serMetaData *b
 			userStorage:          userStorage,
 			serviceUrl:           serviceURL,
 		}
-	} else {
-		return &NoModelSupportService{}
 	}
+	return &NoModelSupportService{}
 }
 
 // NewTrainingService daemon self server
@@ -674,7 +772,8 @@ func NewTrainingService(channelService escrow.PaymentChannelService, serMetaData
 
 	serviceURL := config.GetString(config.ModelMaintenanceEndPoint)
 	if config.IsValidUrl(serviceURL) && config.GetBool(config.BlockchainEnabledKey) {
-		return &DaemonService{
+
+		daemonService := &DaemonService{
 			channelService:       channelService,
 			serviceMetaData:      serMetaData,
 			organizationMetaData: orgMetadata,
@@ -684,9 +783,13 @@ func NewTrainingService(channelService escrow.PaymentChannelService, serMetaData
 			trainingMetadata:     &trainMD,
 			methodsMetadata:      methodsMD,
 		}
-	} else {
-		return &NoTrainingService{}
+
+		daemonService.ManageUpdateModelStatusWorkers(context.Background(), 4*time.Second, "3", "2", "1")
+
+		return daemonService
 	}
+
+	return &NoTrainingService{}
 }
 
 // parseTrainingMetadata TODO add comment

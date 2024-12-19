@@ -1,10 +1,11 @@
 package training
 
 import (
+	"testing"
+
 	"github.com/singnet/snet-daemon/v5/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"testing"
 )
 
 type ModelStorageSuite struct {
@@ -21,11 +22,11 @@ type ModelStorageSuite struct {
 
 func (suite *ModelStorageSuite) getModelKey(modelId string) *ModelKey {
 	return &ModelKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
-		ServiceId: suite.serviceId, ModelId: modelId, GRPCMethodName: suite.methodName}
+		ServiceId: suite.serviceId, ModelId: modelId}
 }
 func (suite *ModelStorageSuite) getUserModelKey(address string) *ModelUserKey {
 	return &ModelUserKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
-		ServiceId: suite.serviceId, GRPCMethodName: suite.methodName, UserAddress: address}
+		ServiceId: suite.serviceId, UserAddress: address}
 }
 
 func (suite *ModelStorageSuite) getModelData(modelId string) *ModelData {
@@ -48,7 +49,7 @@ func (suite *ModelStorageSuite) getUserModelData(modelId []string) *ModelUserDat
 		OrganizationId: suite.organizationId,
 		ServiceId:      suite.serviceId,
 		GroupId:        suite.groupId,
-		GRPCMethodName: suite.methodName,
+		// GRPCMethodName: suite.methodName,
 	}
 }
 func (suite *ModelStorageSuite) SetupSuite() {

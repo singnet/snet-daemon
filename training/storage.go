@@ -16,7 +16,11 @@ type ModelUserStorage struct {
 	delegate storage.TypedAtomicStorage
 }
 
-func NewUerModelStorage(atomicStorage storage.AtomicStorage) *ModelUserStorage {
+type PendingModelStorage struct {
+	delegate storage.TypedAtomicStorage
+}
+
+func NewUserModelStorage(atomicStorage storage.AtomicStorage) *ModelUserStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/userModelStorage")
 	userModelStorage := storage.NewTypedAtomicStorageImpl(
 		prefixedStorage, serializeModelUserKey, reflect.TypeOf(ModelUserKey{}), utils.Serialize, utils.Deserialize,
@@ -32,6 +36,55 @@ func NewModelStorage(atomicStorage storage.AtomicStorage) *ModelStorage {
 		reflect.TypeOf(ModelData{}),
 	)
 	return &ModelStorage{delegate: modelStorage}
+}
+
+func NewPendingModelStorage(atomicStorage storage.AtomicStorage) *PendingModelStorage {
+	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/pendingModelStorage")
+	pendingModelStorage := storage.NewTypedAtomicStorageImpl(
+		prefixedStorage, serializePendingModelKey, reflect.TypeOf(PendingModelKey{}), utils.Serialize, utils.Deserialize,
+		reflect.TypeOf(PendingModelData{}),
+	)
+	return &PendingModelStorage{delegate: pendingModelStorage}
+}
+
+type ModelKey struct {
+	OrganizationId string
+	ServiceId      string
+	GroupId        string
+	//GRPCMethodName  string
+	//GRPCServiceName string
+	ModelId string
+}
+
+func (key *ModelKey) String() string {
+	return fmt.Sprintf("{ID:%v|%v|%v|%v}", key.OrganizationId,
+		key.ServiceId, key.GroupId, key.ModelId)
+}
+
+type ModelData struct {
+	IsPublic            bool
+	ModelName           string
+	AuthorizedAddresses []string
+	Status              Status
+	CreatedByAddress    string
+	ModelId             string
+	UpdatedByAddress    string
+	GroupId             string
+	OrganizationId      string
+	ServiceId           string
+	GRPCMethodName      string
+	GRPCServiceName     string
+	Description         string
+	IsDefault           bool
+	TrainingLink        string
+	UpdatedDate         string
+}
+
+func (data *ModelData) String() string {
+	return fmt.Sprintf("{DATA:%v|%v|%v|%v|%v|%v|IsPublic:%v|accesibleAddress:%v|createdBy:%v|updatedBy:%v|status:%v|TrainingLin:%v}",
+		data.OrganizationId,
+		data.ServiceId, data.GroupId, data.GRPCServiceName, data.GRPCMethodName, data.ModelId, data.AuthorizedAddresses, data.IsPublic,
+		data.CreatedByAddress, data.UpdatedByAddress, data.Status, data.TrainingLink)
 }
 
 type ModelUserKey struct {
@@ -66,70 +119,31 @@ func (data *ModelUserData) String() string {
 		data.ServiceId, data.GroupId, data.UserAddress, data.ModelIds)
 }
 
-type ModelKey struct {
-	OrganizationId string
-	ServiceId      string
-	GroupId        string
-	//GRPCMethodName  string
-	//GRPCServiceName string
-	ModelId string
-}
-
-func (key *ModelKey) String() string {
-	return fmt.Sprintf("{ID:%v|%v|%v|%v}", key.OrganizationId,
-		key.ServiceId, key.GroupId, key.ModelId)
-}
-
-func (data *ModelData) String() string {
-	return fmt.Sprintf("{DATA:%v|%v|%v|%v|%v|%v|IsPublic:%v|accesibleAddress:%v|createdBy:%v|updatedBy:%v|status:%v|TrainingLin:%v}",
-		data.OrganizationId,
-		data.ServiceId, data.GroupId, data.GRPCServiceName, data.GRPCMethodName, data.ModelId, data.AuthorizedAddresses, data.IsPublic,
-		data.CreatedByAddress, data.UpdatedByAddress, data.Status, data.TrainingLink)
-}
-
-type TrainingValidatingModelKey struct {
+type PendingModelKey struct {
 	OrganizationId string
 	ServiceId      string
 	GroupId        string
 }
 
-func (key *TrainingValidatingModelKey) String() string {
-	return fmt.Sprintf("{ID:%v|%v|%v|%v}",
+func (key *PendingModelKey) String() string {
+	return fmt.Sprintf("{ID:%v|%v|%v}",
 		key.OrganizationId,
 		key.ServiceId,
 		key.GroupId)
 }
 
-type TrainingValidatingModelsData struct {
-	ModelIds []string
+type PendingModelData struct {
+	ModelIDs []string
 }
 
-func (data *TrainingValidatingModelsData) String() string {
-	return fmt.Sprintf("{DATA:%v}", data.ModelIds)
-}
-
-type ModelData struct {
-	IsPublic            bool
-	ModelName           string
-	AuthorizedAddresses []string
-	Status              Status
-	CreatedByAddress    string
-	ModelId             string
-	UpdatedByAddress    string
-	GroupId             string
-	OrganizationId      string
-	ServiceId           string
-	GRPCMethodName      string
-	GRPCServiceName     string
-	Description         string
-	IsDefault           bool
-	TrainingLink        string
-	UpdatedDate         string
+// PendingModelData maintain the list of all modelIds that have TRAINING\VALIDATING status
+func (data *PendingModelData) String() string {
+	return fmt.Sprintf("{DATA:%v}", data.ModelIDs)
 }
 
 func serializeModelKey(key any) (serialized string, err error) {
-	myKey := key.(*ModelKey)
-	return myKey.String(), nil
+	modelKey := key.(*ModelKey)
+	return modelKey.String(), nil
 }
 
 func (storage *ModelStorage) Get(key *ModelKey) (state *ModelData, ok bool, err error) {
@@ -161,9 +175,10 @@ func (storage *ModelStorage) CompareAndSwap(key *ModelKey, prevState *ModelData,
 	newState *ModelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }
+
 func serializeModelUserKey(key any) (serialized string, err error) {
-	myKey := key.(*ModelUserKey)
-	return myKey.String(), nil
+	modelUserKey := key.(*ModelUserKey)
+	return modelUserKey.String(), nil
 }
 
 func (storage *ModelUserStorage) Get(key *ModelUserKey) (state *ModelUserData, ok bool, err error) {
@@ -193,5 +208,41 @@ func (storage *ModelUserStorage) PutIfAbsent(key *ModelUserKey, state *ModelUser
 
 func (storage *ModelUserStorage) CompareAndSwap(key *ModelUserKey, prevState *ModelUserData,
 	newState *ModelUserData) (ok bool, err error) {
+	return storage.delegate.CompareAndSwap(key, prevState, newState)
+}
+
+func serializePendingModelKey(key any) (serialized string, err error) {
+	pendingModelKey := key.(*PendingModelKey)
+	return pendingModelKey.String(), nil
+}
+
+func (storage *PendingModelStorage) Get(key *PendingModelKey) (state *PendingModelData, ok bool, err error) {
+	value, ok, err := storage.delegate.Get(key)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+
+	return value.(*PendingModelData), ok, err
+}
+
+func (storage *PendingModelStorage) GetAll() (states []*PendingModelData, err error) {
+	values, err := storage.delegate.GetAll()
+	if err != nil {
+		return
+	}
+
+	return values.([]*PendingModelData), nil
+}
+
+func (storage *PendingModelStorage) Put(key *PendingModelKey, state *PendingModelData) (err error) {
+	return storage.delegate.Put(key, state)
+}
+
+func (storage *PendingModelStorage) PutIfAbsent(key *PendingModelKey, state *PendingModelData) (ok bool, err error) {
+	return storage.delegate.PutIfAbsent(key, state)
+}
+
+func (storage *PendingModelStorage) CompareAndSwap(key *PendingModelKey, prevState *PendingModelData,
+	newState *PendingModelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }

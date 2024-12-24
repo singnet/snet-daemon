@@ -58,6 +58,7 @@ type DaemonService struct {
 	channelService       escrow.PaymentChannelService
 	storage              *ModelStorage
 	userStorage          *ModelUserStorage
+	pendingStorage       *PendingModelStorage
 	serviceUrl           string
 	trainingMetadata     *TrainingMetadata
 	methodsMetadata      map[string]*MethodMetadata
@@ -69,6 +70,7 @@ func NewDaemonsService(
 	channelService escrow.PaymentChannelService,
 	storage *ModelStorage,
 	userStorage *ModelUserStorage,
+	pendingStorage *PendingModelStorage,
 	serviceUrl string,
 	trainingMedadata *TrainingMetadata,
 	methodsMetadata map[string]*MethodMetadata,
@@ -79,6 +81,7 @@ func NewDaemonsService(
 		channelService:       channelService,
 		storage:              storage,
 		userStorage:          userStorage,
+		pendingStorage:       pendingStorage,
 		serviceUrl:           serviceUrl,
 		trainingMetadata:     trainingMedadata,
 		methodsMetadata:      methodsMetadata,
@@ -146,9 +149,33 @@ func (ds *DaemonService) CreateModel(c context.Context, request *NewModelRequest
 	return modelResponse, err
 }
 
-func (ds *DaemonService) getTrainingAndValidatingModelIds(orgId, serviceId, groupId string) []string {
-	// TODO: make real implmentation
-	return []string{"1", "2", "3"}
+func (ds *DaemonService) buildPendingModelKey() *PendingModelKey {
+	return &PendingModelKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        ds.organizationMetaData.GetGroupIdString(),
+	}
+}
+
+func (ds *DaemonService) setPendingModelIds(modelIds *[]string) {
+	key := ds.buildPendingModelKey()
+
+	data := &PendingModelData{
+		ModelIDs: *modelIds,
+	}
+
+	ds.pendingStorage.Put(key, data)
+}
+
+func (ds *DaemonService) getPendingModelIds() (*PendingModelData, error) {
+	key := ds.buildPendingModelKey()
+
+	data, _, err := ds.pendingStorage.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (ds *DaemonService) startUpdateModelStatusWorker(ctx context.Context, modelId string) {
@@ -183,7 +210,7 @@ func (ds *DaemonService) startUpdateModelStatusWorker(ctx context.Context, model
 	ds.storage.CompareAndSwap(modelKey, currentModelData, &newModelData)
 }
 
-func (ds *DaemonService) worker(ctx context.Context, tasks <-chan string, wg *sync.WaitGroup) {
+func (ds *DaemonService) updateModelStatusworker(ctx context.Context, tasks <-chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		select {
@@ -197,14 +224,22 @@ func (ds *DaemonService) worker(ctx context.Context, tasks <-chan string, wg *sy
 
 func (ds *DaemonService) ManageUpdateModelStatusWorkers(ctx context.Context, interval time.Duration, orgID, serviceID, groupID string) {
 	ticker := time.NewTicker(interval)
-	modelIDs := ds.getTrainingAndValidatingModelIds(orgID, serviceID, groupID)
-	tasks := make(chan string, len(modelIDs))
+	data, err := ds.getPendingModelIds()
+	if err != nil {
+		zap.L().Error("Error in getting pending model IDs", zap.Error(err))
+		return
+	}
+	if data == nil {
+		zap.L().Debug("There are no pending models")
+		return
+	}
+	tasks := make(chan string, len(data.ModelIDs))
 	numWorkers := 3
 	var wg sync.WaitGroup
 
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		go ds.worker(ctx, tasks, &wg)
+		go ds.updateModelStatusworker(ctx, tasks, &wg)
 	}
 
 	defer ticker.Stop()
@@ -212,7 +247,7 @@ func (ds *DaemonService) ManageUpdateModelStatusWorkers(ctx context.Context, int
 	for {
 		select {
 		case <-ticker.C:
-			for _, modelID := range modelIDs {
+			for _, modelID := range data.ModelIDs {
 				tasks <- modelID
 			}
 		case <-ctx.Done():
@@ -784,7 +819,7 @@ func NewTrainingService(channelService escrow.PaymentChannelService, serMetaData
 			methodsMetadata:      methodsMD,
 		}
 
-		daemonService.ManageUpdateModelStatusWorkers(context.Background(), 4*time.Second, "3", "2", "1")
+		go daemonService.ManageUpdateModelStatusWorkers(context.Background(), 4*time.Second, "3", "2", "1")
 
 		return daemonService
 	}

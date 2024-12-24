@@ -1,18 +1,20 @@
-package training
+package tests
 
 import (
 	"testing"
 
-	"github.com/singnet/snet-daemon/v5/storage"
+	base_storage "github.com/singnet/snet-daemon/v5/storage"
+	"github.com/singnet/snet-daemon/v5/training"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
 type ModelStorageSuite struct {
 	suite.Suite
-	memoryStorage     *storage.MemoryStorage
-	storage           *ModelStorage
-	userstorage       *ModelUserStorage
+	memoryStorage     *base_storage.MemoryStorage
+	storage           *training.ModelStorage
+	userStorage       *training.ModelUserStorage
+	pendingStorage    *training.PendingModelStorage
 	organizationId    string
 	serviceId         string
 	groupId           string
@@ -20,18 +22,24 @@ type ModelStorageSuite struct {
 	accessibleAddress []string
 }
 
-func (suite *ModelStorageSuite) getModelKey(modelId string) *ModelKey {
-	return &ModelKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
+func (suite *ModelStorageSuite) getModelKey(modelId string) *training.ModelKey {
+	return &training.ModelKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
 		ServiceId: suite.serviceId, ModelId: modelId}
 }
-func (suite *ModelStorageSuite) getUserModelKey(address string) *ModelUserKey {
-	return &ModelUserKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
+
+func (suite *ModelStorageSuite) getUserModelKey(address string) *training.ModelUserKey {
+	return &training.ModelUserKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
 		ServiceId: suite.serviceId, UserAddress: address}
 }
 
-func (suite *ModelStorageSuite) getModelData(modelId string) *ModelData {
-	return &ModelData{
-		Status:              Status_CREATED,
+func (suite *ModelStorageSuite) getPendingModelKey() *training.PendingModelKey {
+	return &training.PendingModelKey{OrganizationId: suite.organizationId, ServiceId: suite.serviceId,
+		GroupId: suite.groupId}
+}
+
+func (suite *ModelStorageSuite) getModelData(modelId string) *training.ModelData {
+	return &training.ModelData{
+		Status:              training.Status_CREATED,
 		ModelId:             modelId,
 		OrganizationId:      suite.organizationId,
 		ServiceId:           suite.serviceId,
@@ -43,8 +51,8 @@ func (suite *ModelStorageSuite) getModelData(modelId string) *ModelData {
 	}
 }
 
-func (suite *ModelStorageSuite) getUserModelData(modelId []string) *ModelUserData {
-	return &ModelUserData{
+func (suite *ModelStorageSuite) getUserModelData(modelId []string) *training.ModelUserData {
+	return &training.ModelUserData{
 		ModelIds:       modelId,
 		OrganizationId: suite.organizationId,
 		ServiceId:      suite.serviceId,
@@ -52,13 +60,24 @@ func (suite *ModelStorageSuite) getUserModelData(modelId []string) *ModelUserDat
 		// GRPCMethodName: suite.methodName,
 	}
 }
+
+func (suite *ModelStorageSuite) getPendingModelData(modelIds []string) *training.PendingModelData {
+	return &training.PendingModelData{
+		ModelIDs: modelIds,
+	}
+}
+
 func (suite *ModelStorageSuite) SetupSuite() {
-	suite.memoryStorage = storage.NewMemStorage()
-	suite.storage = NewModelStorage(suite.memoryStorage)
-	suite.userstorage = NewUerModelStorage(storage.NewMemStorage())
+	suite.memoryStorage = base_storage.NewMemStorage()
+	suite.storage = training.NewModelStorage(suite.memoryStorage)
+	suite.userStorage = training.NewUserModelStorage(base_storage.NewMemStorage())
+	suite.pendingStorage = training.NewPendingModelStorage(base_storage.NewMemStorage())
 	suite.accessibleAddress = make([]string, 2)
 	suite.accessibleAddress[0] = "ADD1"
 	suite.accessibleAddress[1] = "ADD2"
+	suite.organizationId = "org_id"
+	suite.serviceId = "service_id"
+	suite.groupId = "group_id"
 }
 
 func TestFreeCallUserStorageSuite(t *testing.T) {
@@ -126,9 +145,9 @@ func (suite *ModelStorageSuite) TestModelUserStorage_GetAll() {
 	data1 := suite.getUserModelData([]string{"1"})
 	data2 := suite.getUserModelData([]string{"2"})
 	data3 := suite.getUserModelData([]string{"3"})
-	suite.userstorage.Put(key1, data1)
-	suite.userstorage.Put(key2, data2)
-	models, err := suite.userstorage.GetAll()
+	suite.userStorage.Put(key1, data1)
+	suite.userStorage.Put(key2, data2)
+	models, err := suite.userStorage.GetAll()
 	assert.Equal(suite.T(), len(models), 2)
 	assert.Equal(suite.T(), err, nil)
 	match1 := false
@@ -143,25 +162,37 @@ func (suite *ModelStorageSuite) TestModelUserStorage_GetAll() {
 	}
 	assert.True(suite.T(), match2)
 	assert.True(suite.T(), match1)
-	suite.userstorage.PutIfAbsent(key1, data3)
-	retrieveddata, ok, err := suite.userstorage.Get(key1)
+	suite.userStorage.PutIfAbsent(key1, data3)
+	retrieveddata, ok, err := suite.userStorage.Get(key1)
 	assert.True(suite.T(), ok)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), retrieveddata, suite.getUserModelData([]string{"1"}))
 
-	suite.userstorage.PutIfAbsent(key3, data3)
-	retrieveddata, ok, err = suite.userstorage.Get(key3)
+	suite.userStorage.PutIfAbsent(key3, data3)
+	retrieveddata, ok, err = suite.userStorage.Get(key3)
 	assert.True(suite.T(), ok)
 	assert.Equal(suite.T(), retrieveddata, suite.getUserModelData([]string{"3"}))
 
-	ok, err = suite.userstorage.CompareAndSwap(key1, data1, data3)
+	ok, err = suite.userStorage.CompareAndSwap(key1, data1, data3)
 	assert.True(suite.T(), ok)
 	assert.Nil(suite.T(), err)
-	retrieveddata, ok, err = suite.userstorage.Get(key1)
+	retrieveddata, ok, err = suite.userStorage.Get(key1)
 	assert.True(suite.T(), ok)
 	assert.Equal(suite.T(), retrieveddata, suite.getUserModelData([]string{"3"}))
 
-	_, ok, err = suite.userstorage.Get(suite.getUserModelKey("4"))
+	_, ok, err = suite.userStorage.Get(suite.getUserModelKey("4"))
 	assert.Equal(suite.T(), ok, false)
+}
 
+func (suite *ModelStorageSuite) TestPendingModelStorage_Get() {
+	key := suite.getPendingModelKey()
+	data := suite.getPendingModelData([]string{"1", "2"})
+
+	err := suite.pendingStorage.Put(key, data)
+	assert.NoError(suite.T(), err)
+
+	newData, ok, err := suite.pendingStorage.Get(key)
+	assert.True(suite.T(), ok)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), data, newData)
 }

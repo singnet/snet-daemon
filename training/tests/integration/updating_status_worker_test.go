@@ -1,4 +1,4 @@
-package integrationtests
+package tests
 
 import (
 	"context"
@@ -92,9 +92,10 @@ func setupTestConfig() {
 
 var testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"test_org_id\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",        \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",  \"license_server_endpoints\": [\"https://licensendpoint:8082\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
 
-func addTestModels() (*training.ModelKey, *training.ModelKey, map[string]training.ModelData, *training.ModelStorage) {
+func addTestModels() (*training.ModelKey, *training.ModelKey, map[string]training.ModelData, *training.ModelStorage, *training.PendingModelStorage) {
 	memStorage := storage.NewMemStorage()
 	modelStorage := training.NewModelStorage(memStorage)
+	pendingModelStorage := training.NewPendingModelStorage(memStorage)
 
 	modelA := &training.ModelData{
 		IsPublic:            true,
@@ -156,31 +157,33 @@ func addTestModels() (*training.ModelKey, *training.ModelKey, map[string]trainin
 		"2": *modelB,
 	}
 
-	modelIdsData := "{DATA:[1, 2]}"
-
-	key := &training.TrainingValidatingModelKey{
+	key := &training.PendingModelKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
-	memStorage.Put(key.String(), modelIdsData)
+	pendingModelsData := &training.PendingModelData{
+		ModelIDs: []string{"1", "2"},
+	}
 
-	return modelAKey, modelBKey, models, modelStorage
+	pendingModelStorage.Put(key, pendingModelsData)
+
+	return modelAKey, modelBKey, models, modelStorage, pendingModelStorage
 }
 
 func TestRunDaemonService(t *testing.T) {
 	setupTestConfig()
 	address := "localhost:5001"
 
-	modelAKey, modelBKey, _, modelStorage := addTestModels()
+	modelAKey, modelBKey, _, modelStorage, pendingModelStorage := addTestModels()
 	startTestService(address)
 
 	orgMetadata, err := blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgGroupData))
 	assert.Nil(t, err)
 
 	ds := training.NewDaemonsService(
-		nil, orgMetadata, nil, modelStorage, nil, "http://localhost:5001", nil, nil,
+		nil, orgMetadata, nil, modelStorage, nil, pendingModelStorage, "http://localhost:5001", nil, nil,
 	)
 	assert.NotNil(t, ds)
 

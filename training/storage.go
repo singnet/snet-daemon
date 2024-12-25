@@ -126,10 +126,7 @@ type PendingModelKey struct {
 }
 
 func (key *PendingModelKey) String() string {
-	return fmt.Sprintf("{ID:%v|%v|%v}",
-		key.OrganizationId,
-		key.ServiceId,
-		key.GroupId)
+	return fmt.Sprintf("{ID:%v|%v|%v}", key.OrganizationId, key.ServiceId, key.GroupId)
 }
 
 type PendingModelData struct {

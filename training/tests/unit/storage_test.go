@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"testing"
 
 	base_storage "github.com/singnet/snet-daemon/v5/storage"
@@ -121,7 +122,32 @@ func (suite *ModelStorageSuite) TestModelStorage_PutIfAbsent() {
 }
 
 func (suite *ModelStorageSuite) Test_serializeModelKey() {
+	modelId := "1"
+	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId, modelId)
 
+	key := suite.getModelKey(modelId)
+	serializedKey := key.String()
+
+	assert.Equal(suite.T(), expectedSerializedKey, serializedKey)
+}
+
+func (suite *ModelStorageSuite) Test_serializeUserModelKey() {
+	userAddress := "test_address"
+	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId, userAddress)
+
+	key := suite.getUserModelKey(userAddress)
+	serializedKey := key.String()
+
+	assert.Equal(suite.T(), expectedSerializedKey, serializedKey)
+}
+
+func (suite *ModelStorageSuite) Test_serializePendingModelKey() {
+	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId)
+
+	key := suite.getPendingModelKey()
+	serializedKey := key.String()
+
+	assert.Equal(suite.T(), expectedSerializedKey, serializedKey)
 }
 
 func (suite *ModelStorageSuite) TestModelStorage_CompareAndSwap() {

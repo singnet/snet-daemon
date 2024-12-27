@@ -281,7 +281,7 @@ func (ds *DaemonService) ValidateModelPrice(ctx context.Context, request *AuthVa
 
 // TODO fix
 func (ds *DaemonService) UploadAndValidate(stream Daemon_UploadAndValidateServer) error {
-	var fullData bytes.Buffer // Для хранения всего принятого файла
+	var fullData bytes.Buffer
 	var modelID string
 
 	conn, client, err := ds.getServiceClient()
@@ -289,7 +289,6 @@ func (ds *DaemonService) UploadAndValidate(stream Daemon_UploadAndValidateServer
 		zap.L().Debug(err.Error())
 		return err
 	}
-	//deferConnection(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*55)
 	defer cancel()
 	grpcStream, err := client.UploadAndValidate(ctx)
@@ -300,14 +299,12 @@ func (ds *DaemonService) UploadAndValidate(stream Daemon_UploadAndValidateServer
 
 	zap.L().Debug("UploadAndValidate CALLED")
 	for {
-		// Получаем сообщение из потока
 		req, err := stream.Recv()
 		if req != nil {
 			zap.L().Debug("stream.Recv() for model_id " + req.UploadInput.ModelId)
 		}
 		if err == io.EOF {
-			// Клиент завершил отправку данных
-			zap.L().Debug("Клиент завершил отправку данных")
+			zap.L().Debug("[UploadAndValidate] EOF")
 			break
 		}
 		if err != nil {
@@ -322,9 +319,8 @@ func (ds *DaemonService) UploadAndValidate(stream Daemon_UploadAndValidateServer
 			return err
 		}
 
-		// Обрабатываем данные
 		zap.L().Debug("Received chunk of data for model", zap.String("modelID", modelID))
-		fullData.Write(req.UploadInput.Data) // Добавляем данные в общий буфер
+		fullData.Write(req.UploadInput.Data)
 	}
 	zap.L().Debug("Received file for model %s with size %d bytes", zap.String("modelID", modelID), zap.Int("len", fullData.Len()))
 	closeConn(conn)
@@ -422,7 +418,13 @@ func (ds *DaemonService) UpdateModel(ctx context.Context, request *UpdateModelRe
 
 func (ds *DaemonService) GetMethodMetadata(ctx context.Context, request *MethodMetadataRequest) (*MethodMetadata, error) {
 	if request.GetModelId() != "" {
-		// TODO get from etcd
+		data, err := ds.getModelData(request.ModelId)
+		if err != nil {
+			zap.L().Error("[GetMethodMetadata] can't get model data", zap.Error(err))
+			return nil, fmt.Errorf(" can't get model data: %v", err)
+		}
+		request.GrpcMethodName = data.GRPCMethodName
+		request.GrpcServiceName = data.GRPCServiceName
 	}
 	key := request.GrpcServiceName + request.GrpcMethodName
 	return ds.methodsMetadata[key], nil
@@ -561,7 +563,7 @@ func (ds *DaemonService) deleteUserModelDetails(key *ModelKey, data *ModelData) 
 }
 
 func (ds *DaemonService) deleteModelDetails(req *CommonRequest) (data *ModelData, err error) {
-	key := ds.getModelKeyToUpdate(req.ModelId)
+	key := ds.getModelKey(req.ModelId)
 	ok := false
 	data, ok, err = ds.storage.Get(key)
 	if data == nil || !ok || err != nil {
@@ -598,7 +600,7 @@ func convertModelDataToBO(data *ModelData) (responseData *ModelResponse) {
 }
 
 func (ds *DaemonService) updateModelDetails(request *UpdateModelRequest) (data *ModelData, err error) {
-	key := ds.getModelKeyToUpdate(request.ModelId)
+	key := ds.getModelKey(request.ModelId)
 	oldAddresses := make([]string, 0)
 	var latestAddresses []string
 	// by default add the creator to the Authorized list of Address
@@ -606,7 +608,7 @@ func (ds *DaemonService) updateModelDetails(request *UpdateModelRequest) (data *
 		latestAddresses = request.AddressList
 	}
 	latestAddresses = append(latestAddresses, request.Authorization.SignerAddress) // add creator
-	if data, err = ds.getModelDataForUpdate(request.ModelId); err == nil && data != nil {
+	if data, err = ds.getModelData(request.ModelId); err == nil && data != nil {
 		oldAddresses = data.AuthorizedAddresses
 		data.AuthorizedAddresses = latestAddresses
 		latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
@@ -697,7 +699,7 @@ func (ds *DaemonService) buildModelKey(modelID string) (key *ModelKey) {
 	return
 }
 
-func (ds *DaemonService) getModelKeyToUpdate(modelID string) (key *ModelKey) {
+func (ds *DaemonService) getModelKey(modelID string) (key *ModelKey) {
 	key = &ModelKey{
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
@@ -709,10 +711,9 @@ func (ds *DaemonService) getModelKeyToUpdate(modelID string) (key *ModelKey) {
 	return
 }
 
-func (ds *DaemonService) getModelDataForUpdate(modelID string) (data *ModelData, err error) {
-	key := ds.getModelKeyToUpdate(modelID)
+func (ds *DaemonService) getModelData(modelID string) (data *ModelData, err error) {
+	key := ds.getModelKey(modelID)
 	ok := false
-
 	if data, ok, err = ds.storage.Get(key); err != nil || !ok {
 		zap.L().Warn("unable to retrieve model data from storage", zap.String("Model Id", key.ModelId), zap.Error(err))
 	}
@@ -898,24 +899,6 @@ func (ds *DaemonService) GetModel(c context.Context, request *CommonRequest) (re
 		return &ModelResponse{Status: Status_ERRORED}, fmt.Errorf("[GetModelStatus] error in invoking service for Model Training")
 	}
 	return
-}
-
-// NewModelService AI service prodiver
-// TODO maybe remove
-func NewModelService(channelService escrow.PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
-	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage) ModelServer {
-	serviceURL := config.GetString(config.ModelMaintenanceEndPoint)
-	if config.IsValidUrl(serviceURL) && config.GetBool(config.BlockchainEnabledKey) {
-		return &ModelService{
-			channelService:       channelService,
-			serviceMetaData:      serMetaData,
-			organizationMetaData: orgMetadata,
-			storage:              storage,
-			userStorage:          userStorage,
-			serviceUrl:           serviceURL,
-		}
-	}
-	return &NoModelSupportService{}
 }
 
 // NewTrainingService daemon self server

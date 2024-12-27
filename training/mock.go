@@ -101,35 +101,35 @@ func (service ModelService) mustEmbedUnimplementedModelServer() {
 }
 
 func (n NoModelSupportService) CreateModel(ctx context.Context, model *NewModel) (*ModelID, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
 func (n NoModelSupportService) ValidateModelPrice(ctx context.Context, request *ValidateRequest) (*PriceInBaseUnit, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
 func (n NoModelSupportService) UploadAndValidate(server Model_UploadAndValidateServer) error {
-	return fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
 func (n NoModelSupportService) ValidateModel(ctx context.Context, request *ValidateRequest) (*StatusResponse, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
 func (n NoModelSupportService) TrainModelPrice(ctx context.Context, id *ModelID) (*PriceInBaseUnit, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
 func (n NoModelSupportService) TrainModel(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
 func (n NoModelSupportService) DeleteModel(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
 func (n NoModelSupportService) GetModelStatus(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
 func (n NoModelSupportService) mustEmbedUnimplementedModelServer() {

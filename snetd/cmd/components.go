@@ -564,7 +564,7 @@ func (components *Components) ModelUserStorage() *training.ModelUserStorage {
 	if components.modelUserStorage != nil {
 		return components.modelUserStorage
 	}
-	components.modelUserStorage = training.NewUerModelStorage(components.AtomicStorage())
+	components.modelUserStorage = training.NewUserModelStorage(components.AtomicStorage())
 	return components.modelUserStorage
 }
 

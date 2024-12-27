@@ -1,21 +1,30 @@
-package integrationtests
+package tests
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 
 	"github.com/singnet/snet-daemon/v5/training"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 type model struct {
-	name   string
-	method string
-	desc   string
+	modelId         string
+	name            string
+	desc            string
+	grpcMethodName  string
+	grpcServiceName string
+	addressList     []string
+	isPublic        bool
+	serviceId       string
+	groupId         string
+	status          training.Status
 }
 
-func startTestService(address string) {
+func startTestService(address string) *grpc.Server {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -25,21 +34,44 @@ func startTestService(address string) {
 	var trainingServer TrainServer
 	training.RegisterModelServer(grpcServer, &trainingServer)
 
+	trainingServer.curModelId = 0
+
 	go func() {
-		log.Println("Starting server on 127.0.0.1:5001")
+		zap.L().Info("Starting test service", zap.String("address", address))
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("grpcServer failed: %v", err)
+			zap.L().Fatal("Error in starting grpcServer", zap.Error(err))
 		}
 	}()
+
+	return grpcServer
 }
 
 type TrainServer struct {
 	training.UnimplementedModelServer
+	curModelId int
+	models     []model
 }
 
 func (s *TrainServer) CreateModel(ctx context.Context, newModel *training.NewModel) (*training.ModelID, error) {
+	modelIdStr := fmt.Sprintf("%v", s.curModelId)
+	createdModel := &model{
+		modelId:         modelIdStr,
+		name:            newModel.Name,
+		desc:            newModel.Description,
+		grpcMethodName:  newModel.GrpcMethodName,
+		grpcServiceName: newModel.GrpcServiceName,
+		addressList:     newModel.AddressList,
+		isPublic:        newModel.IsPublic,
+		serviceId:       newModel.ServiceId,
+		groupId:         newModel.GroupId,
+		status:          training.Status_CREATED,
+	}
+	s.models = append(s.models, *createdModel)
+
+	s.curModelId += 1
+
 	return &training.ModelID{
-		ModelId: "1", // TODO random gen
+		ModelId: fmt.Sprintf("%v", s.curModelId),
 	}, nil
 }
 

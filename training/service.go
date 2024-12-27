@@ -920,7 +920,7 @@ func NewModelService(channelService escrow.PaymentChannelService, serMetaData *b
 
 // NewTrainingService daemon self server
 func NewTrainingService(channelService escrow.PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
-	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage) DaemonServer {
+	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage, pendingStorage *PendingModelStorage) DaemonServer {
 
 	linkerFiles := getFileDescriptors(serMetaData.ProtoFiles)
 	serMetaData.ProtoDescriptors = linkerFiles
@@ -939,6 +939,7 @@ func NewTrainingService(channelService escrow.PaymentChannelService, serMetaData
 			organizationMetaData: orgMetadata,
 			storage:              storage,
 			userStorage:          userStorage,
+			pendingStorage:       pendingStorage,
 			serviceUrl:           serviceURL,
 			trainingMetadata:     &trainMD,
 			methodsMetadata:      methodsMD,

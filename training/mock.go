@@ -136,6 +136,6 @@ func (n NoModelSupportService) mustEmbedUnimplementedModelServer() {
 	panic("implement me")
 }
 
-func (ds DaemonService) mustEmbedUnimplementedDaemonServer() {
+func (ds *DaemonService) mustEmbedUnimplementedDaemonServer() {
 	panic("implement me")
 }

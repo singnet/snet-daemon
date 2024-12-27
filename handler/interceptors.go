@@ -264,7 +264,17 @@ func (interceptor *paymentValidationInterceptor) intercept(srv any, ss grpc.Serv
 	if err != nil {
 		return err.Err()
 	}
+
 	zap.L().Debug("New gRPC call received", zap.Any("context", context))
+
+	if context.Info.FullMethod == "/training_daemon.Daemon/upload_and_validate" {
+		e = handler(srv, wrapperStream)
+		if e != nil {
+			zap.L().Warn("gRPC handler returned error", zap.Error(e))
+			return e
+		}
+		return nil
+	}
 
 	paymentHandler, err := interceptor.getPaymentHandler(context)
 	if err != nil {

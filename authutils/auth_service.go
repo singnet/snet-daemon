@@ -65,15 +65,15 @@ func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Addr
 			messageHashFieldLog)
 		return nil, errors.New("incorrect signature data")
 	}
-	publicKeyFieldLog := zap.Any("publicKey", publicKey)
+	//publicKeyFieldLog := zap.Any("publicKey", publicKey)
 
 	keyOwnerAddress := crypto.PubkeyToAddress(*publicKey)
 	keyOwnerAddressFieldLog := zap.Any("keyOwnerAddress", keyOwnerAddress)
 	zap.L().Debug("Message signature parsed",
-		messageFieldLog,
+		//messageFieldLog,
 		signatureFieldLog,
 		messageHashFieldLog,
-		publicKeyFieldLog,
+		//publicKeyFieldLog,
 		keyOwnerAddressFieldLog)
 
 	return &keyOwnerAddress, nil

@@ -29,8 +29,7 @@ message AuthValidateRequest {
 
 message UploadAndValidateRequest {
   AuthorizationDetails authorization = 1;
-  string model_id = 2;
-  bytes data = 3;
+  trainingV2.UploadInput upload_input = 2;
 }
 
 message CommonRequest {

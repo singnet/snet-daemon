@@ -14,7 +14,7 @@ service Model {
   rpc validate_model_price(ValidateRequest) returns (PriceInBaseUnit) {}
 
   // Paid
-  rpc upload_and_validate(stream DataToUpload) returns (StatusResponse) {}
+  rpc upload_and_validate(stream UploadInput) returns (StatusResponse) {}
 
   // Paid
   rpc validate_model(ValidateRequest) returns (StatusResponse) {}
@@ -97,9 +97,14 @@ message StatusResponse {
   Status status = 1;
 }
 
-message DataToUpload {
-  string model_id = 2;
-  bytes data = 3;
+message UploadInput {
+  string model_id = 1;
+  bytes data = 2;
+  string file_name = 3;
+  uint64 file_size = 4; // in bytes
+  uint64 batch_size = 5;
+  uint64 batch_number = 6;
+  uint64 batch_count = 7;
 }
 
 message ValidateRequest {

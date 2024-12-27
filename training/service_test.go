@@ -224,12 +224,12 @@ func (suite *ModelServiceTestSuite) TestModelService_CreateModel() {
 
 	//check if the model Id stored has all the details
 	key := &ModelKey{
-		OrganizationId:  config.GetString(config.OrganizationId),
-		ServiceId:       config.GetString(config.ServiceId),
-		GroupId:         suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
-		GRPCMethodName:  "/example_service.Calculator/train_add",
-		GRPCServiceName: " ",
-		ModelId:         "1",
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        suite.service.(*ModelService).organizationMetaData.GetGroupIdString(),
+		//GRPCMethodName:  "/example_service.Calculator/train_add",
+		//GRPCServiceName: " ",
+		ModelId: "1",
 	}
 	modelData, ok, err := suite.service.(*ModelService).storage.Get(key)
 	assert.Equal(suite.T(), []string{"A1", "A2", "A3", suite.senderAddress.String()}, modelData.AuthorizedAddresses)
@@ -411,7 +411,7 @@ func (suite *ModelServiceTestSuite) TestModelService_UpdateModelAccess() {
 
 }
 
-func (suite *ModelServiceTestSuite) TestModelService_GetAllAccessibleModels() {
+func (suite *ModelServiceTestSuite) TestModelService_GetAllModels() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2000)
 	defer cancel()
 	request2 := &AccessibleModelsRequest{

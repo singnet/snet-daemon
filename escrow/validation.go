@@ -57,7 +57,7 @@ func (validator *FreeCallPaymentValidator) Validate(payment *FreeCallPayment) (e
 		return NewPaymentError(Unauthenticated, "payment signer is not valid %v , %v", signerAddress.Hex(), validator.freeCallSigner.Hex())
 	}
 	if newSignature {
-		if err := authutils.CheckIfTokenHasExpired(payment.AuthTokenExpiryBlockNumber); err != nil {
+		if err := validator.CheckIfBlockExpired(payment.AuthTokenExpiryBlockNumber); err != nil {
 			return err
 		}
 	}
@@ -139,6 +139,18 @@ func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNum
 	return nil
 }
 
+func (validator *FreeCallPaymentValidator) CheckIfBlockExpired(expiredBlock *big.Int) error {
+	currentBlockNumber, err := validator.currentBlock()
+	if err != nil {
+		return err
+	}
+
+	if expiredBlock.Cmp(currentBlockNumber) < 0 {
+		return fmt.Errorf("authentication failed as the Free Call Token passed has expired")
+	}
+	return nil
+}
+
 // deprecated
 func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
 
@@ -186,8 +198,8 @@ func (validator *FreeCallPaymentValidator) getSignerOfAuthTokenForFreeCall(payme
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("signer of req - will be passed to token: ", signer.Hex())
-	fmt.Println("AuthTokenExpiryBlockNumber: ", payment.AuthTokenExpiryBlockNumber.Int64())
+	zap.L().Debug("signer of req - will be passed to token: ", zap.String("signer", signer.Hex()))
+	zap.L().Debug("AuthTokenExpiryBlockNumber", zap.Int64("value", payment.AuthTokenExpiryBlockNumber.Int64()))
 	message := bytes.Join([][]byte{
 		[]byte(payment.UserId),
 		signer.Bytes(), // user address

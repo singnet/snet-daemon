@@ -57,10 +57,10 @@ if ($GOOS -eq "windows")
 # build with Go
 $Env:CGO_ENABLED = 0; $Env:GOOS = $GOOS; $Env:GOARCH = $GOARCH; go build -ldflags "
 -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore
--X github.com/singnet/snet-daemon/config.sha1Revision=$GitHash
--X github.com/singnet/snet-daemon/config.versionTag=$Version
--X github.com/singnet/snet-daemon/config.buildTime=$Now
--X 'github.com/singnet/snet-daemon/config.networkIdNameMapping=$NetworkJson'" -o (Join-Path $BuildDirectory $BuildName) snetd/main.go
+-X github.com/singnet/snet-daemon/v5/config.sha1Revision=$GitHash
+-X github.com/singnet/snet-daemon/v5/config.versionTag=$Version
+-X github.com/singnet/snet-daemon/v5/config.buildTime=$Now
+-X 'github.com/singnet/snet-daemon/v5/config.networkIdNameMapping=$NetworkJson'" -o (Join-Path $BuildDirectory $BuildName) snetd/main.go
 
 # return to previous directory
 Pop-Location

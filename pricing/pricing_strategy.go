@@ -30,7 +30,6 @@ func (pricing PricingStrategy) determinePricingApplicable(context *handler.GrpcS
 		} else {
 			zap.L().Info("No Dynamic Price method defined in service proto", zap.String("Method", context.Info.FullMethod))
 		}
-
 	}
 	//Default pricing is Fixed Pricing
 	return pricing.pricingTypes[pricing.serviceMetaData.GetDefaultPricing().PriceModel], nil

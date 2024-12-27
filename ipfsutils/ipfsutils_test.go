@@ -24,6 +24,16 @@ func (suite *IpfsUtilsTestSuite) BeforeTest() {
 	assert.NotNil(suite.T(), suite.ipfsClient)
 }
 
+func (suite *IpfsUtilsTestSuite) TestGetProtoFiles() {
+	hash := "ipfs://Qmc32Gi3e62gcw3fFfRPidxrGR7DncNki2ptfh9rVESsTc"
+	data, err := ReadFile(hash)
+	assert.Nil(suite.T(), err)
+	assert.NotNil(suite.T(), data)
+	protoFiles, err := ReadFilesCompressed(data)
+	assert.Nil(suite.T(), err)
+	assert.NotNil(suite.T(), protoFiles)
+}
+
 func (suite *IpfsUtilsTestSuite) TestReadFiles() {
 	// For testing purposes, a hash is used from the calculator service.
 	hash := "QmeyrQkEyba8dd4rc3jrLd5pEwsxHutfH2RvsSaeSMqTtQ"

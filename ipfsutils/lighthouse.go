@@ -1,14 +1,13 @@
 package ipfsutils
 
 import (
+	"github.com/singnet/snet-daemon/v5/config"
 	"io"
 	"net/http"
 )
 
-const lighthouseURL = "https://gateway.lighthouse.storage/ipfs/"
-
 func GetLighthouseFile(cID string) ([]byte, error) {
-	resp, err := http.Get(lighthouseURL + cID)
+	resp, err := http.Get(config.GetString(config.LighthouseEndpoint) + cID)
 	if err != nil {
 		return nil, err
 	}

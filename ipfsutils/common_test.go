@@ -1,6 +1,7 @@
 package ipfsutils
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -9,6 +10,13 @@ func TestReadFile(t *testing.T) {
 	file, err := ReadFile("filecoin://bafkreibk4ham7y6mwad2qxwyrhpmxh2fho7xwvsfw26lcra5bt5r5fvcwe")
 	assert.Nil(t, err)
 	assert.NotNil(t, file)
+}
+
+func TestIpfsReadFile(t *testing.T) {
+	file, err := ReadFile("ipfs://QmQcT5SJB9s8LXom8zuNGksCa7d34XbVn52dACWvgzeWAW")
+	assert.Nil(t, err)
+	assert.NotNil(t, file)
+	fmt.Println(string(file))
 }
 
 func TestFormatHash(t *testing.T) {

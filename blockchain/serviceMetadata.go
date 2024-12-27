@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/singnet/snet-daemon/v5/errs"
 	"math/big"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/bufbuild/protocompile"
@@ -164,7 +166,7 @@ type ServiceMetadata struct {
 	freeCallSignerAddress     common.Address
 	isfreeCallAllowed         bool
 	freeCallsAllowed          int
-	DynamicPriceMethodMapping map[string]string           `json:"dynamicpricing"`
+	DynamicPriceMethodMapping map[string]string           `json:"dynamic_pricing"`
 	TrainingMethods           []string                    `json:"training_methods"`
 	ProtoFile                 protoreflect.FileDescriptor `json:"-"`
 }
@@ -252,16 +254,22 @@ func (metaData ServiceMetadata) GetDefaultPricing() Pricing {
 func ServiceMetaData() *ServiceMetadata {
 	var metadata *ServiceMetadata
 	var err error
-	if config.GetBool(config.BlockchainEnabledKey) {
-		ipfsHash := string(getServiceMetaDataUrifromRegistry())
-		metadata, err = GetServiceMetaDataFromIPFS(ipfsHash)
-		if err != nil {
-			zap.L().Panic("error on determining service metadata from file", zap.Error(err))
-		}
-	} else {
+	var ipfsHash []byte
+	if !config.GetBool(config.BlockchainEnabledKey) {
 		metadata = &ServiceMetadata{Encoding: "proto", ServiceType: "grpc"}
+		return metadata
 	}
-	zap.L().Debug("service_type: " + metadata.GetServiceType())
+	ipfsHash, err = getServiceMetaDataURIfromRegistry()
+	if err != nil {
+		zap.L().Fatal("error retrieving contract details for the given organization and service ids"+errs.ErrDescURL(errs.InvalidConfig),
+			zap.String("OrganizationId", config.GetString(config.OrganizationId)),
+			zap.String("ServiceId", config.GetString(config.ServiceId)))
+	}
+	metadata, err = GetServiceMetaDataFromIPFS(string(ipfsHash))
+	if err != nil {
+		zap.L().Panic("error on determining service metadata from file"+errs.ErrDescURL(errs.InvalidMetadata), zap.Error(err))
+	}
+	zap.L().Debug("service type: " + metadata.GetServiceType())
 	return metadata
 }
 
@@ -300,7 +308,7 @@ func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
 	return reg
 }
 
-func getServiceMetaDataUrifromRegistry() []byte {
+func getServiceMetaDataURIfromRegistry() ([]byte, error) {
 	reg := getRegistryCaller()
 
 	orgId := StringToBytes32(config.GetString(config.OrganizationId))
@@ -308,12 +316,10 @@ func getServiceMetaDataUrifromRegistry() []byte {
 
 	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
 	if err != nil || !serviceRegistration.Found {
-		zap.L().Panic("Error Retrieving contract details for the Given Organization and Service Ids ",
-			zap.String("OrganizationId", config.GetString(config.OrganizationId)),
-			zap.String("ServiceId", config.GetString(config.ServiceId)))
+		return nil, fmt.Errorf("error retrieving contract details for the given organization and service ids")
 	}
 
-	return serviceRegistration.MetadataURI[:]
+	return serviceRegistration.MetadataURI[:], nil
 }
 
 func GetServiceMetaDataFromIPFS(hash string) (*ServiceMetadata, error) {
@@ -353,7 +359,7 @@ func InitServiceMetaDataFromJson(jsonData []byte) (*ServiceMetadata, error) {
 		zap.L().Error(err.Error())
 	}
 
-	zap.L().Debug("Training method", zap.String("json", string(trainingMethodsJson)))
+	zap.L().Debug("Training methods", zap.String("json", string(trainingMethodsJson)))
 
 	return metaData, err
 }
@@ -408,7 +414,7 @@ func setFreeCallData(metaData *ServiceMetadata) error {
 		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
 		//If the signer address is not a valid address, then return back an error
 		if !common.IsHexAddress(metaData.defaultGroup.FreeCallSigner) {
-			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly")
+			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly" + errs.ErrDescURL(errs.InvalidMetadata))
 		}
 		metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
 	}
@@ -453,10 +459,10 @@ func (metaData *ServiceMetadata) GetLicenses() Licenses {
 
 // methodFullName , ex "/example_service.Calculator/add"
 func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullName string) (pricingMethod string, isDynamicPricingEligible bool) {
-	//Check if Method Level Options are defined , for the given Service and method,
-	//If Defined check if its in the format supported , then return the full method Name
+	// Check if Method Level Options are defined, for the given Service and method,
+	// If Defined check if it's in the format supported, then return the full method Name
 	// i.e /package.service/method format , this will be directly fed in to the grpc called to made to
-	//determine dynamic pricing
+	// determine dynamic pricing
 	if !config.GetBool(config.EnableDynamicPricing) {
 		return
 	}
@@ -469,23 +475,12 @@ func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullNam
 	return
 }
 
-// methodFullName , ex "/example_service.Calculator/add"
+// IsModelTraining methodFullName , ex "/example_service.Calculator/add"
 func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useModelTrainingEndPoint bool) {
-
 	if !config.GetBool(config.ModelTrainingEnabled) {
 		return false
 	}
-	useModelTrainingEndPoint = isElementInArray(methodFullName, metaData.TrainingMethods)
-	return
-}
-
-func isElementInArray(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(metaData.TrainingMethods, methodFullName)
 }
 
 func setServiceProto(metaData *ServiceMetadata) (err error) {
@@ -495,7 +490,7 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 
 	// for backwards compatibility
 	if metaData.ModelIpfsHash != "" {
-		rawFile, err = ipfsutils.GetIpfsFile(metaData.ServiceApiSource)
+		rawFile, err = ipfsutils.GetIpfsFile(metaData.ModelIpfsHash)
 	}
 
 	if metaData.ServiceApiSource != "" {
@@ -520,7 +515,7 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 
 		// If Dynamic pricing is enabled, there will be mandatory checks on the service proto
 		//this is to ensure that the standards on how one defines the methods to invoke is followed
-		if config.GetBool(config.EnableDynamicPricing) {
+		if config.GetBool(config.EnableDynamicPricing) || config.GetBool(config.ModelTrainingEnabled) {
 			if srvProto, err := parseServiceProto(file); err != nil {
 				return err
 			} else {
@@ -594,8 +589,8 @@ func getFileDescriptor(protoContent string) protoreflect.FileDescriptor {
 		SourceInfoMode: protocompile.SourceInfoStandard,
 	}
 	fds, err := compiler.Compile(context.Background(), serviceProto)
-	if err != nil {
-		zap.L().Error(err.Error())
+	if err != nil || fds == nil {
+		zap.L().Fatal("failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
 	}
 	return fds.FindFileByPath(serviceProto)
 }

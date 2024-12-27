@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"go.uber.org/zap"
 
 	"github.com/spf13/cobra"
 
@@ -31,10 +32,11 @@ func newListChannelsCommand(cmd *cobra.Command, args []string, components *Compo
 	return
 }
 
-func (command *listChannelsCommand) Run() (err error) {
+func (command *listChannelsCommand) Run() error {
 	channels, err := command.channelService.ListChannels()
 	if err != nil {
-		return
+		zap.L().Error("can't list channels", zap.Error(err))
+		return err
 	}
 
 	if len(channels) == 0 {

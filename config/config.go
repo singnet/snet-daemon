@@ -34,6 +34,7 @@ const (
 	ExecutablePathKey         = "executable_path"
 	EnableDynamicPricing      = "enable_dynamic_pricing"
 	IpfsEndPoint              = "ipfs_end_point"
+	LighthouseEndpoint        = "lighthouse_endpoint"
 	IpfsTimeout               = "ipfs_timeout"
 	LogKey                    = "log"
 	MaxMessageSizeInMB        = "max_message_size_in_mb"
@@ -77,7 +78,8 @@ const (
 	"daemon_end_point": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"payment_channel_storage_type": "etcd",
-	"ipfs_end_point": "http://ipfs.singularitynet.io:80", 
+	"ipfs_end_point": "https://ipfs.singularitynet.io:443", 
+	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/", 
 	"ipfs_timeout" : 30,
 	"passthrough_enabled": true,
 	"passthrough_endpoint":"YOUR_SERVICE_ENDPOINT",
@@ -144,7 +146,8 @@ const (
 	"daemon_group_name":"default_group",
 	"passthrough_enabled": true,
 	"payment_channel_storage_type": "etcd",
-	"ipfs_end_point": "http://ipfs.singularitynet.io:80",
+	"ipfs_end_point": "https://ipfs.singularitynet.io:443",
+	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/",
 	"log": {
 		"output": {
 			"type": ["file", "stdout"]
@@ -200,6 +203,7 @@ func Validate() error {
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
 	case "http":
+		zap.L().Warn("daemon type http is not for production mode, be careful")
 	default:
 		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)
 	}
@@ -348,6 +352,7 @@ var DisplayKeys = map[string]bool{
 	strings.ToUpper(DaemonEndPoint):                 true,
 	strings.ToUpper(ExecutablePathKey):              true,
 	strings.ToUpper(IpfsEndPoint):                   true,
+	strings.ToUpper(LighthouseEndpoint):             true,
 	strings.ToUpper(IpfsTimeout):                    true,
 	strings.ToUpper(LogKey):                         true,
 	strings.ToUpper(MaxMessageSizeInMB):             true,

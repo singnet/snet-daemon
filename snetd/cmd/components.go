@@ -64,6 +64,7 @@ type Components struct {
 	modelUserStorage           *training.ModelUserStorage
 	modelStorage               *training.ModelStorage
 	pendingModelStorage        *training.PendingModelStorage
+	publicModelStorage         *training.PublicModelStorage
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -561,11 +562,23 @@ func (components *Components) ConfigurationService() *configuration_service.Conf
 	return components.configurationService
 }
 
+func (components *Components) ModelStorage() *training.ModelStorage {
+	if components.modelStorage != nil {
+		return components.modelStorage
+	}
+
+	components.modelStorage = training.NewModelStorage(components.AtomicStorage())
+
+	return components.modelStorage
+}
+
 func (components *Components) ModelUserStorage() *training.ModelUserStorage {
 	if components.modelUserStorage != nil {
 		return components.modelUserStorage
 	}
+
 	components.modelUserStorage = training.NewUserModelStorage(components.AtomicStorage())
+
 	return components.modelUserStorage
 }
 
@@ -573,16 +586,20 @@ func (components *Components) PendingModelStorage() *training.PendingModelStorag
 	if components.pendingModelStorage != nil {
 		return components.pendingModelStorage
 	}
+
 	components.pendingModelStorage = training.NewPendingModelStorage(components.AtomicStorage())
+
 	return components.pendingModelStorage
 }
 
-func (components *Components) ModelStorage() *training.ModelStorage {
-	if components.modelStorage != nil {
-		return components.modelStorage
+func (components *Components) PublicModelStorage() *training.PublicModelStorage {
+	if components.publicModelStorage != nil {
+		return components.publicModelStorage
 	}
-	components.modelStorage = training.NewModelStorage(components.AtomicStorage())
-	return components.modelStorage
+
+	components.publicModelStorage = training.NewPublicModelStorage(components.AtomicStorage())
+
+	return components.publicModelStorage
 }
 
 func (components *Components) TrainingService() training.DaemonServer {
@@ -594,8 +611,12 @@ func (components *Components) TrainingService() training.DaemonServer {
 		return components.trainingService
 	}
 
-	components.trainingService = training.NewTrainingService(components.PaymentChannelService(), components.ServiceMetaData(),
-		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage())
+	components.trainingService = training.NewTrainingService(
+		components.PaymentChannelService(), components.ServiceMetaData(),
+		components.OrganizationMetaData(), components.ModelStorage(),
+		components.ModelUserStorage(), components.PendingModelStorage(),
+		components.PublicModelStorage())
+
 	return components.trainingService
 }
 

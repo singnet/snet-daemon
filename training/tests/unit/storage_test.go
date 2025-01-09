@@ -16,6 +16,7 @@ type ModelStorageSuite struct {
 	storage           *training.ModelStorage
 	userStorage       *training.ModelUserStorage
 	pendingStorage    *training.PendingModelStorage
+	publicStorage     *training.PublicModelStorage
 	organizationId    string
 	serviceId         string
 	groupId           string
@@ -35,6 +36,11 @@ func (suite *ModelStorageSuite) getUserModelKey(address string) *training.ModelU
 
 func (suite *ModelStorageSuite) getPendingModelKey() *training.PendingModelKey {
 	return &training.PendingModelKey{OrganizationId: suite.organizationId, ServiceId: suite.serviceId,
+		GroupId: suite.groupId}
+}
+
+func (suite *ModelStorageSuite) getPublicModelKey() *training.PublicModelKey {
+	return &training.PublicModelKey{OrganizationId: suite.organizationId, ServiceId: suite.serviceId,
 		GroupId: suite.groupId}
 }
 
@@ -68,11 +74,18 @@ func (suite *ModelStorageSuite) getPendingModelData(modelIds []string) *training
 	}
 }
 
+func (suite *ModelStorageSuite) getPublicModelData(modelIds []string) *training.PublicModelData {
+	return &training.PublicModelData{
+		ModelIDs: modelIds,
+	}
+}
+
 func (suite *ModelStorageSuite) SetupSuite() {
 	suite.memoryStorage = base_storage.NewMemStorage()
 	suite.storage = training.NewModelStorage(suite.memoryStorage)
-	suite.userStorage = training.NewUserModelStorage(base_storage.NewMemStorage())
-	suite.pendingStorage = training.NewPendingModelStorage(base_storage.NewMemStorage())
+	suite.userStorage = training.NewUserModelStorage(suite.memoryStorage)
+	suite.pendingStorage = training.NewPendingModelStorage(suite.memoryStorage)
+	suite.publicStorage = training.NewPublicModelStorage(suite.memoryStorage)
 	suite.accessibleAddress = make([]string, 2)
 	suite.accessibleAddress[0] = "ADD1"
 	suite.accessibleAddress[1] = "ADD2"
@@ -86,7 +99,6 @@ func TestFreeCallUserStorageSuite(t *testing.T) {
 }
 
 func (suite *ModelStorageSuite) TestModelStorage_GetAll() {
-
 	key1 := suite.getModelKey("1")
 	key2 := suite.getModelKey("2")
 	data1 := suite.getModelData("1")
@@ -145,6 +157,15 @@ func (suite *ModelStorageSuite) Test_serializePendingModelKey() {
 	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId)
 
 	key := suite.getPendingModelKey()
+	serializedKey := key.String()
+
+	assert.Equal(suite.T(), expectedSerializedKey, serializedKey)
+}
+
+func (suite *ModelStorageSuite) Test_serializePublicModelKey() {
+	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId)
+
+	key := suite.getPublicModelKey()
 	serializedKey := key.String()
 
 	assert.Equal(suite.T(), expectedSerializedKey, serializedKey)
@@ -220,5 +241,60 @@ func (suite *ModelStorageSuite) TestPendingModelStorage_Get() {
 	newData, ok, err := suite.pendingStorage.Get(key)
 	assert.True(suite.T(), ok)
 	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), data, newData)
+}
+
+func (suite *ModelStorageSuite) TestPendingModelStorage_AddPendingModelId() {
+	key := suite.getPendingModelKey()
+	data := suite.getPendingModelData([]string{"1", "2"})
+
+	err := suite.pendingStorage.Put(key, data)
+	assert.NoError(suite.T(), err)
+
+	newData, ok, err := suite.pendingStorage.Get(key)
+	assert.True(suite.T(), ok)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), data, newData)
+
+	newModelId := "3"
+	data = suite.getPendingModelData([]string{"1", "2", "3"})
+	err = suite.pendingStorage.AddPendingModelId(key, newModelId)
+	assert.NoError(suite.T(), err)
+	newData, ok, err = suite.pendingStorage.Get(key)
+	assert.True(suite.T(), ok)
+	assert.Equal(suite.T(), data, newData)
+}
+
+func (suite *ModelStorageSuite) TestPublicModelStorage_Get() {
+	key := suite.getPublicModelKey()
+	data := suite.getPublicModelData([]string{"1", "2"})
+
+	err := suite.publicStorage.Put(key, data)
+	assert.NoError(suite.T(), err)
+
+	newData, ok, err := suite.publicStorage.Get(key)
+	assert.True(suite.T(), ok)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), data, newData)
+}
+
+func (suite *ModelStorageSuite) TestPublicModelStorage_AddPublicModelId() {
+	key := suite.getPublicModelKey()
+	data := suite.getPublicModelData([]string{"1", "2"})
+
+	err := suite.publicStorage.Put(key, data)
+	assert.NoError(suite.T(), err)
+
+	newData, ok, err := suite.publicStorage.Get(key)
+	assert.True(suite.T(), ok)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), data, newData)
+
+	newModelId := "3"
+	data = suite.getPublicModelData([]string{"1", "2", "3"})
+	err = suite.publicStorage.AddPublicModelId(key, newModelId)
+	assert.NoError(suite.T(), err)
+	newData, ok, err = suite.publicStorage.Get(key)
+	assert.True(suite.T(), ok)
 	assert.Equal(suite.T(), data, newData)
 }

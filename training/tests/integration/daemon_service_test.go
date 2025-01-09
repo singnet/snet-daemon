@@ -22,7 +22,7 @@ type DaemonServiceSuite struct {
 	modelStorage        *training.ModelStorage
 	userModelStorage    *training.ModelUserStorage
 	pendingModelStorage *training.PendingModelStorage
-	daemonService       *training.DaemonService
+	daemonService       training.DaemonServer
 	modelKeys           []*training.ModelKey
 	grpcServer          *grpc.Server
 }
@@ -36,7 +36,7 @@ var (
 func (suite *DaemonServiceSuite) SetupSuite() {
 	suite.setupTestConfig()
 
-	modelKeys, modelStorage, userModelStorage, pendingModelStorage := suite.createTestModels()
+	modelKeys, modelStorage, userModelStorage, pendingModelStorage, publicModelStorage := suite.createTestModels()
 	suite.modelKeys = modelKeys
 	suite.modelStorage = modelStorage
 	suite.userModelStorage = userModelStorage
@@ -48,8 +48,14 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 		zap.L().Fatal("Error in initinalize organization metadata from json", zap.Error(err))
 	}
 
-	suite.daemonService = training.NewDaemonsService(
-		serviceMetadata, orgMetadata, nil, modelStorage, userModelStorage, pendingModelStorage, "http://localhost:5001", nil, nil,
+	suite.daemonService = training.NewTrainingService(
+		nil,
+		serviceMetadata,
+		orgMetadata,
+		modelStorage,
+		userModelStorage,
+		pendingModelStorage,
+		publicModelStorage,
 	)
 
 	address := "localhost:5001"
@@ -101,6 +107,7 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 		},
 		"hooks": []
 	},
+	"model_maintenance_endpoint": "http://localhost:5001",
 	"payment_channel_storage_client": {
 		"connection_timeout": "0s",
 		"request_timeout": "0s",
@@ -135,11 +142,13 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 	config.SetVip(testConfig)
 }
 
-func (suite *DaemonServiceSuite) createTestModels() ([]*training.ModelKey, *training.ModelStorage, *training.ModelUserStorage, *training.PendingModelStorage) {
+func (suite *DaemonServiceSuite) createTestModels() ([]*training.ModelKey,
+	*training.ModelStorage, *training.ModelUserStorage, *training.PendingModelStorage, *training.PublicModelStorage) {
 	memStorage := storage.NewMemStorage()
 	modelStorage := training.NewModelStorage(memStorage)
 	userModelStorage := training.NewUserModelStorage(memStorage)
 	pendingModelStorage := training.NewPendingModelStorage(memStorage)
+	publicModelStorage := training.NewPublicModelStorage(memStorage)
 
 	modelA := &training.ModelData{
 		IsPublic:            true,
@@ -209,7 +218,7 @@ func (suite *DaemonServiceSuite) createTestModels() ([]*training.ModelKey, *trai
 
 	pendingModelStorage.Put(key, pendingModelsData)
 
-	return modelKeys, modelStorage, userModelStorage, pendingModelStorage
+	return modelKeys, modelStorage, userModelStorage, pendingModelStorage, publicModelStorage
 }
 
 func (suite *DaemonServiceSuite) TestRunDaemonService() {
@@ -218,8 +227,6 @@ func (suite *DaemonServiceSuite) TestRunDaemonService() {
 	deadline := time.Now().Add(duration)
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
-
-	suite.daemonService.ManageUpdateModelStatusWorkers(ctx, time.Second*3, "test_org_id", "service_id", "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=")
 
 	select {
 	case <-ctx.Done():

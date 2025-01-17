@@ -2,10 +2,11 @@ package training
 
 import (
 	"bytes"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/v5/authutils"
 	"github.com/singnet/snet-daemon/v5/utils"
-	"math/big"
 )
 
 // message used to sign is of the form ("__create_model", mpe_address, current_block_number)

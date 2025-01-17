@@ -607,7 +607,7 @@ func (components *Components) TrainingService() training.DaemonServer {
 		return components.trainingService
 	}
 	if !config.GetBool(config.BlockchainEnabledKey) {
-		components.trainingService = training.NoTrainingService{}
+		components.trainingService = training.NoTrainingDaemonServer{}
 		return components.trainingService
 	}
 

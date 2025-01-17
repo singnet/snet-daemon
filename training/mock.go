@@ -3,136 +3,113 @@ package training
 import (
 	"context"
 	"fmt"
+
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type NoModelSupportService struct {
+type NoModelSupportTrainingService struct {
 }
 
-type NoTrainingService struct {
+type NoTrainingDaemonServer struct {
 }
 
-func (n NoTrainingService) mustEmbedUnimplementedDaemonServer() {
+func (n NoTrainingDaemonServer) mustEmbedUnimplementedDaemonServer() {
 	panic("implement me")
 }
 
-func (n NoTrainingService) CreateModel(ctx context.Context, request *NewModelRequest) (*ModelResponse, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) CreateModel(ctx context.Context, request *NewModelRequest) (*ModelResponse, error) {
+	return &ModelResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) ValidateModelPrice(ctx context.Context, request *AuthValidateRequest) (*PriceInBaseUnit, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) ValidateModelPrice(ctx context.Context, request *AuthValidateRequest) (*PriceInBaseUnit, error) {
+	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) UploadAndValidate(server Daemon_UploadAndValidateServer) error {
-	panic("implement me")
+func (n NoTrainingDaemonServer) UploadAndValidate(server Daemon_UploadAndValidateServer) error {
+	return fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) ValidateModel(ctx context.Context, request *AuthValidateRequest) (*StatusResponse, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) ValidateModel(ctx context.Context, request *AuthValidateRequest) (*StatusResponse, error) {
+	return &StatusResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) TrainModelPrice(ctx context.Context, request *CommonRequest) (*PriceInBaseUnit, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) TrainModelPrice(ctx context.Context, request *CommonRequest) (*PriceInBaseUnit, error) {
+	return nil,
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) TrainModel(ctx context.Context, request *CommonRequest) (*StatusResponse, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) TrainModel(ctx context.Context, request *CommonRequest) (*StatusResponse, error) {
+	return &StatusResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) DeleteModel(ctx context.Context, request *CommonRequest) (*StatusResponse, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) DeleteModel(ctx context.Context, request *CommonRequest) (*StatusResponse, error) {
+	return &StatusResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) GetTrainingMetadata(ctx context.Context, empty *emptypb.Empty) (*TrainingMetadata, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) GetTrainingMetadata(ctx context.Context, empty *emptypb.Empty) (*TrainingMetadata, error) {
+	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) GetAllModels(ctx context.Context, request *AllModelsRequest) (*ModelsResponse, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) GetAllModels(ctx context.Context, request *AllModelsRequest) (*ModelsResponse, error) {
+	return &ModelsResponse{ListOfModels: []*ModelResponse{}},
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) GetModel(ctx context.Context, request *CommonRequest) (*ModelResponse, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) GetModel(ctx context.Context, request *CommonRequest) (*ModelResponse, error) {
+	return &ModelResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) UpdateModel(ctx context.Context, request *UpdateModelRequest) (*ModelResponse, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) UpdateModel(ctx context.Context, request *UpdateModelRequest) (*ModelResponse, error) {
+	return &ModelResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (n NoTrainingService) GetMethodMetadata(ctx context.Context, request *MethodMetadataRequest) (*MethodMetadata, error) {
-	panic("implement me")
+func (n NoTrainingDaemonServer) GetMethodMetadata(ctx context.Context, request *MethodMetadataRequest) (*MethodMetadata, error) {
+	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
-func (service ModelService) CreateModel(ctx context.Context, model *NewModel) (*ModelID, error) {
-	panic("implement me")
-}
-
-func (service ModelService) ValidateModelPrice(ctx context.Context, request *ValidateRequest) (*PriceInBaseUnit, error) {
-	panic("implement me")
-}
-
-func (service ModelService) UploadAndValidate(server Model_UploadAndValidateServer) error {
-	panic("implement me")
-}
-
-func (service ModelService) ValidateModel(ctx context.Context, request *ValidateRequest) (*StatusResponse, error) {
-	panic("implement me")
-}
-
-func (service ModelService) TrainModelPrice(ctx context.Context, id *ModelID) (*PriceInBaseUnit, error) {
-	panic("implement me")
-}
-
-func (service ModelService) TrainModel(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	panic("implement me")
-}
-
-func (service ModelService) DeleteModel(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	panic("implement me")
-}
-
-func (service ModelService) GetModelStatus(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	panic("implement me")
-}
-
-func (service ModelService) mustEmbedUnimplementedModelServer() {
-	panic("implement me")
-}
-
-func (n NoModelSupportService) CreateModel(ctx context.Context, model *NewModel) (*ModelID, error) {
+func (n NoModelSupportTrainingService) CreateModel(ctx context.Context, model *NewModel) (*ModelID, error) {
 	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
-func (n NoModelSupportService) ValidateModelPrice(ctx context.Context, request *ValidateRequest) (*PriceInBaseUnit, error) {
+func (n NoModelSupportTrainingService) ValidateModelPrice(ctx context.Context, request *ValidateRequest) (*PriceInBaseUnit, error) {
 	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
-func (n NoModelSupportService) UploadAndValidate(server Model_UploadAndValidateServer) error {
+func (n NoModelSupportTrainingService) UploadAndValidate(server Model_UploadAndValidateServer) error {
 	return fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
-func (n NoModelSupportService) ValidateModel(ctx context.Context, request *ValidateRequest) (*StatusResponse, error) {
+func (n NoModelSupportTrainingService) ValidateModel(ctx context.Context, request *ValidateRequest) (*StatusResponse, error) {
+	return &StatusResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
+}
+
+func (n NoModelSupportTrainingService) TrainModelPrice(ctx context.Context, id *ModelID) (*PriceInBaseUnit, error) {
 	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
-func (n NoModelSupportService) TrainModelPrice(ctx context.Context, id *ModelID) (*PriceInBaseUnit, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
+func (n NoModelSupportTrainingService) TrainModel(ctx context.Context, id *ModelID) (*StatusResponse, error) {
+	return &StatusResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
-func (n NoModelSupportService) TrainModel(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
+func (n NoModelSupportTrainingService) DeleteModel(ctx context.Context, id *ModelID) (*StatusResponse, error) {
+	return &StatusResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
-func (n NoModelSupportService) DeleteModel(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
+func (n NoModelSupportTrainingService) GetModelStatus(ctx context.Context, id *ModelID) (*StatusResponse, error) {
+	return &StatusResponse{Status: Status_ERRORED},
+		fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
 }
 
-func (n NoModelSupportService) GetModelStatus(ctx context.Context, id *ModelID) (*StatusResponse, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid, please contact the AI developer")
-}
-
-func (n NoModelSupportService) mustEmbedUnimplementedModelServer() {
+func (n NoModelSupportTrainingService) mustEmbedUnimplementedModelServer() {
 	panic("implement me")
 }
 

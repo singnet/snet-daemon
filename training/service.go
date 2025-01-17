@@ -69,20 +69,17 @@ func (ds *DaemonService) CreateModel(c context.Context, request *NewModelRequest
 	zap.L().Debug("CreateModel request")
 
 	if request == nil || request.Authorization == nil {
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request, no authorization provided")
+		return &ModelResponse{Status: Status_ERRORED}, ErrNoAuthorization
 	}
 
 	if err := ds.verifySignature(request.Authorization); err != nil {
 		zap.L().Error("unable to create model, bad authorization provided", zap.Error(err))
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("bad authorization provided: %v", err)
+		return &ModelResponse{Status: Status_ERRORED}, ErrBadAuthorization
 	}
 
 	if request.GetModel().GrpcServiceName == "" || request.GetModel().GrpcMethodName == "" {
 		zap.L().Error("invalid request, no grpc_method_name or grpc_service_name provided")
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request, no grpc_service_name or grpc_method_name provided")
+		return &ModelResponse{Status: Status_ERRORED}, ErrNoGRPCServiceOrMethod
 	}
 
 	request.Model.ServiceId = config.GetString(config.ServiceId)
@@ -95,28 +92,24 @@ func (ds *DaemonService) CreateModel(c context.Context, request *NewModelRequest
 	conn, client, err := ds.getServiceClient()
 	if err != nil {
 		zap.L().Error("[CreateModel] unable to getServiceClient", zap.Error(err))
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("error in invoking service for Model Training %v", err)
+		return &ModelResponse{Status: Status_ERRORED}, WrapError(ErrServiceInvocation, err.Error())
 	}
 
 	responseModelID, errClient := client.CreateModel(c, request.Model)
 	closeConn(conn)
 	if errClient != nil {
 		zap.L().Error("[CreateModel] unable to call CreateModel", zap.Error(errClient))
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("error in invoking service for Model Training %v", errClient)
+		return &ModelResponse{Status: Status_ERRORED}, WrapError(ErrServiceInvocation, errClient.Error())
 	}
 
 	if responseModelID == nil {
 		zap.L().Error("[CreateModel] CreateModel returned null response")
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("error in invoking service for model training: service return empty response")
+		return &ModelResponse{Status: Status_ERRORED}, ErrEmptyResponse
 	}
 
 	if responseModelID.ModelId == "" {
 		zap.L().Error("[CreateModel] CreateModel returned empty modelID")
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("error in invoking service for model training: service return empty modelID")
+		return &ModelResponse{Status: Status_ERRORED}, ErrEmptyModelID
 	}
 
 	//store the details in etcd
@@ -125,7 +118,7 @@ func (ds *DaemonService) CreateModel(c context.Context, request *NewModelRequest
 	data, err := ds.createModelDetails(request, responseModelID)
 	if err != nil {
 		zap.L().Error("[CreateModel] Can't save model", zap.Error(err))
-		return nil, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
+		return nil, WrapError(ErrDaemonStorage, err.Error())
 	}
 	modelResponse := BuildModelResponse(data, Status_CREATED)
 	return modelResponse, err
@@ -240,7 +233,7 @@ func (ds *DaemonService) ValidateModelPrice(ctx context.Context, request *AuthVa
 	if client == nil || err != nil {
 		return &PriceInBaseUnit{
 			Price: 0,
-		}, fmt.Errorf("issue with service: %v", err)
+		}, WrapError(ErrServiceIssue, err.Error())
 	}
 	price, err := client.ValidateModelPrice(context.Background(), &ValidateRequest{
 		ModelId:          request.ModelId,
@@ -249,7 +242,7 @@ func (ds *DaemonService) ValidateModelPrice(ctx context.Context, request *AuthVa
 	closeConn(conn)
 	if err != nil || price == nil {
 		zap.L().Error("issue with ValidateModelPrice", zap.Error(err))
-		return nil, fmt.Errorf("issue with service: %v", err)
+		return nil, WrapError(ErrServiceIssue, err.Error())
 	}
 	return price, nil
 }
@@ -309,7 +302,7 @@ func (ds *DaemonService) ValidateModel(ctx context.Context, request *AuthValidat
 	if client == nil || err != nil {
 		return &StatusResponse{
 			Status: Status_ERRORED,
-		}, fmt.Errorf("issue with service: %v", err)
+		}, WrapError(ErrServiceIssue, err.Error())
 	}
 	price, err := client.ValidateModel(ctx, &ValidateRequest{
 		ModelId:          request.ModelId,
@@ -317,7 +310,7 @@ func (ds *DaemonService) ValidateModel(ctx context.Context, request *AuthValidat
 	})
 	closeConn(conn)
 	if err != nil {
-		return nil, fmt.Errorf("[ValidateModel] issue with service: %v", err)
+		return nil, WrapError(ErrServiceIssue, err.Error())
 	}
 	return price, nil
 }
@@ -327,14 +320,14 @@ func (ds *DaemonService) TrainModelPrice(ctx context.Context, request *CommonReq
 	if client == nil || err != nil {
 		return &PriceInBaseUnit{
 			Price: 0,
-		}, fmt.Errorf("issue with service: %v", err)
+		}, WrapError(ErrServiceIssue, err.Error())
 	}
 	price, err := client.TrainModelPrice(ctx, &ModelID{
 		ModelId: request.ModelId,
 	})
 	closeConn(conn)
 	if err != nil {
-		return nil, fmt.Errorf("issue with service: %v", err)
+		return nil, WrapError(ErrServiceIssue, err.Error())
 	}
 	return price, nil
 }
@@ -345,7 +338,7 @@ func (ds *DaemonService) TrainModel(ctx context.Context, request *CommonRequest)
 		zap.L().Error("issue with service", zap.Error(err))
 		return &StatusResponse{
 			Status: Status_ERRORED,
-		}, fmt.Errorf("issue with service: %v", err)
+		}, WrapError(ErrServiceIssue, err.Error())
 	}
 	statusResp, err := client.TrainModel(ctx, &ModelID{
 		ModelId: request.ModelId,
@@ -355,7 +348,7 @@ func (ds *DaemonService) TrainModel(ctx context.Context, request *CommonRequest)
 		zap.L().Error("[TrainModel] issue with service", zap.Error(err))
 		return &StatusResponse{
 			Status: Status_ERRORED,
-		}, fmt.Errorf("issue with service: %v", err)
+		}, WrapError(ErrServiceIssue, err.Error())
 	}
 	return statusResp, nil
 }
@@ -367,26 +360,28 @@ func (ds *DaemonService) GetTrainingMetadata(ctx context.Context, empty *emptypb
 func (ds *DaemonService) UpdateModel(ctx context.Context, request *UpdateModelRequest) (*ModelResponse, error) {
 
 	if request == nil || request.Authorization == nil {
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request, no authorization provided")
+		return &ModelResponse{Status: Status_ERRORED}, ErrNoAuthorization
 	}
 	if err := ds.verifySignature(request.Authorization); err != nil {
 		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("unable to access model: %v", err)
+			WrapError(ErrAccessToModel, err.Error())
 	}
 	if err := ds.verifySignerHasAccessToTheModel(request.ModelId, request.Authorization.SignerAddress); err != nil {
 		return &ModelResponse{},
-			fmt.Errorf("unable to access model: %v", err)
+			WrapError(ErrAccessToModel, err.Error())
 	}
 	if request.ModelId == "" {
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request, no model id provided")
+		return &ModelResponse{Status: Status_ERRORED}, ErrEmptyModelID
+	}
+	if err := ds.verifyCreatedByAddress(request.ModelId, request.Authorization.SignerAddress); err != nil {
+		return &ModelResponse{}, err
 	}
 
 	zap.L().Info("Updating model")
 	data, err := ds.updateModelDetails(request)
 	if err != nil || data == nil {
-		return &ModelResponse{Status: Status_ERRORED}, fmt.Errorf("issue with storing Model Id in the Daemon Storage %v", err)
+		return &ModelResponse{Status: Status_ERRORED},
+			WrapError(ErrDaemonStorage, err.Error())
 	}
 	return BuildModelResponse(data, data.Status), nil
 }
@@ -396,7 +391,7 @@ func (ds *DaemonService) GetMethodMetadata(ctx context.Context, request *MethodM
 		data, err := ds.getModelData(request.ModelId)
 		if err != nil {
 			zap.L().Error("[GetMethodMetadata] can't get model data", zap.Error(err))
-			return nil, fmt.Errorf(" can't get model data: %v", err)
+			return nil, WrapError(ErrGetModelStorage, err.Error())
 		}
 		request.GrpcMethodName = data.GRPCMethodName
 		request.GrpcServiceName = data.GRPCServiceName
@@ -502,9 +497,7 @@ func getModelUserKey(key *ModelKey, address string) *ModelUserKey {
 		OrganizationId: key.OrganizationId,
 		ServiceId:      key.ServiceId,
 		GroupId:        key.GroupId,
-		//GRPCMethodName:  key.GRPCMethodName,
-		//GRPCServiceName: key.GRPCServiceName,
-		UserAddress: address,
+		UserAddress:    address,
 	}
 }
 
@@ -525,10 +518,8 @@ func (ds *DaemonService) getModelUserData(key *ModelKey, address string) *ModelU
 		OrganizationId: key.OrganizationId,
 		ServiceId:      key.ServiceId,
 		GroupId:        key.GroupId,
-		//GRPCMethodName:  key.GRPCMethodName,
-		//GRPCServiceName: key.GRPCServiceName,
-		UserAddress: address,
-		ModelIds:    modelIds,
+		UserAddress:    address,
+		ModelIds:       modelIds,
 	}
 }
 
@@ -628,7 +619,6 @@ func (ds *DaemonService) updateModelDetails(request *UpdateModelRequest) (data *
 				zap.L().Error("Error in putting data in storage", zap.Error(err))
 			}
 		}
-
 	}
 	return
 }
@@ -649,16 +639,47 @@ func (ds *DaemonService) verifySignerHasAccessToTheModel(modelId string, address
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
 		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-		//GRPCMethodName:  methodName,
-		//GRPCServiceName: serviceName,
-		UserAddress: address,
+		UserAddress:    address,
 	}
-	data, ok, err := ds.userStorage.Get(userModelKey)
-	if ok && err == nil {
-		if !slices.Contains(data.ModelIds, modelId) {
-			return fmt.Errorf("user %v, does not have access to model Id %v", address, modelId)
-		}
+	userModelsData, ok, err := ds.userStorage.Get(userModelKey)
+
+	if err != nil {
+		return WrapError(ErrGetUserModelStorage, err.Error())
 	}
+
+	if !ok {
+		return fmt.Errorf("user %v, does not have access to model Id %v", address, modelId)
+	}
+
+	if !slices.Contains(userModelsData.ModelIds, modelId) {
+		return fmt.Errorf("user %v, does not have access to model Id %v", address, modelId)
+	}
+
+	return
+}
+
+// ensure only owner can update the model state
+func (ds *DaemonService) verifyCreatedByAddress(modelId, address string) (err error) {
+	modelKey := &ModelKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        ds.organizationMetaData.GetGroupIdString(),
+		ModelId:        modelId,
+	}
+
+	modelData, ok, err := ds.storage.Get(modelKey)
+	if err != nil {
+		return WrapError(ErrGetModelStorage, err.Error())
+	}
+
+	if !ok {
+		return WrapError(ErrGetModelStorage, fmt.Sprintf("model data doesn't for key: %s", modelKey))
+	}
+
+	if modelData.CreatedByAddress != address {
+		return ErrNotOwnerModel
+	}
+
 	return
 }
 
@@ -674,12 +695,12 @@ func (ds *DaemonService) updateModelStatus(request *CommonRequest, newStatus Sta
 	data, ok, err = ds.storage.Get(key)
 	if err != nil || !ok || data == nil {
 		zap.L().Error("[updateModelStatus] can't get model data from etcd", zap.Error(err))
-		return data, errors.New("can't get model data from etcd")
+		return data, WrapError(ErrGetModelStorage, err.Error())
 	}
 	data.Status = newStatus
 	if err = ds.storage.Put(key, data); err != nil {
 		zap.L().Error("[updateModelStatus] issue with retrieving model data from storage", zap.Error(err))
-		return data, fmt.Errorf("can't get model data from etcd: %s", err)
+		return data, WrapError(ErrGetModelStorage, err.Error())
 	}
 	return
 }
@@ -689,9 +710,7 @@ func (ds *DaemonService) buildModelKey(modelID string) (key *ModelKey) {
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
 		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-		//GRPCMethodName:  request.Model.GrpcMethodName,
-		//GRPCServiceName: request.Model.GrpcServiceName,
-		ModelId: modelID,
+		ModelId:        modelID,
 	}
 	return
 }
@@ -701,9 +720,7 @@ func (ds *DaemonService) getModelKey(modelID string) (key *ModelKey) {
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
 		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-		//GRPCMethodName:  request.UpdateModelDetails.GrpcMethodName,
-		//GRPCServiceName: request.UpdateModelDetails.GrpcServiceName,
-		ModelId: modelID,
+		ModelId:        modelID,
 	}
 	return
 }
@@ -719,25 +736,17 @@ func (ds *DaemonService) getModelData(modelID string) (data *ModelData, err erro
 
 func (ds *DaemonService) GetAllModels(c context.Context, request *AllModelsRequest) (*ModelsResponse, error) {
 	if request == nil || request.Authorization == nil {
-		return &ModelsResponse{},
-			fmt.Errorf("invalid request, no Authorization provided ")
+		return &ModelsResponse{}, ErrNoAuthorization
 	}
 	if err := ds.verifySignature(request.Authorization); err != nil {
-		return &ModelsResponse{},
-			fmt.Errorf("unable to access model: %v", err)
+		return &ModelsResponse{}, ErrBadAuthorization
 	}
-	//if request.GetGrpcMethodName() == "" || request.GetGrpcServiceName() == "" {
-	//	return &AccessibleModelsResponse{},
-	//		fmt.Errorf("Invalid request, no GrpcMethodName or GrpcServiceName provided")
-	//}
 
 	userModelKey := &ModelUserKey{
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
 		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-		//GRPCMethodName:  request.GrpcMethodName,
-		//GRPCServiceName: request.GrpcServiceName,
-		UserAddress: request.Authorization.SignerAddress,
+		UserAddress:    request.Authorization.SignerAddress,
 	}
 
 	modelDetailsArray := make([]*ModelResponse, 0)
@@ -747,9 +756,7 @@ func (ds *DaemonService) GetAllModels(c context.Context, request *AllModelsReque
 				OrganizationId: config.GetString(config.OrganizationId),
 				ServiceId:      config.GetString(config.ServiceId),
 				GroupId:        ds.organizationMetaData.GetGroupIdString(),
-				//GRPCMethodName:  request.GrpcMethodName,
-				//GRPCServiceName: request.GrpcServiceName,
-				ModelId: modelId,
+				ModelId:        modelId,
 			}
 			if modelData, modelOk, modelErr := ds.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
 				boModel := convertModelDataToBO(modelData)
@@ -770,9 +777,7 @@ func (ds *DaemonService) GetAllModels(c context.Context, request *AllModelsReque
 				OrganizationId: config.GetString(config.OrganizationId),
 				ServiceId:      config.GetString(config.ServiceId),
 				GroupId:        ds.organizationMetaData.GetGroupIdString(),
-				//GRPCMethodName:  request.GrpcMethodName,
-				//GRPCServiceName: request.GrpcServiceName,
-				ModelId: modelId,
+				ModelId:        modelId,
 			}
 			if modelData, modelOk, modelErr := ds.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
 				boModel := convertModelDataToBO(modelData)
@@ -833,30 +838,29 @@ func BuildModelResponse(data *ModelData, status Status) *ModelResponse {
 func (ds *DaemonService) DeleteModel(c context.Context, req *CommonRequest) (*StatusResponse, error) {
 
 	if req == nil || req.Authorization == nil {
-		return &StatusResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request, no Authorization provided")
+		return &StatusResponse{Status: Status_ERRORED}, ErrNoAuthorization
 	}
 
 	if req.ModelId == "" {
-		return &StatusResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request: ModelId is empty")
+		return &StatusResponse{Status: Status_ERRORED}, ErrEmptyModelID
 	}
 
 	if err := ds.verifySignature(req.Authorization); err != nil {
 		return &StatusResponse{Status: Status_ERRORED},
-			fmt.Errorf("unable to access model , %v", err)
+			WrapError(ErrAccessToModel, err.Error())
 	}
 
 	if err := ds.verifySignerHasAccessToTheModel(req.ModelId, req.Authorization.SignerAddress); err != nil {
 		return &StatusResponse{},
-			fmt.Errorf("unable to access model , %v", err)
+			WrapError(ErrAccessToModel, err.Error())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 	conn, client, err := ds.getServiceClient()
 	if err != nil {
-		return &StatusResponse{Status: Status_ERRORED}, fmt.Errorf("error in invoking service for Model Training")
+		return &StatusResponse{Status: Status_ERRORED},
+			WrapError(ErrServiceInvocation, err.Error())
 	}
 	response, errModel := client.DeleteModel(ctx, &ModelID{ModelId: req.ModelId})
 	closeConn(conn)
@@ -867,7 +871,7 @@ func (ds *DaemonService) DeleteModel(c context.Context, req *CommonRequest) (*St
 	data, err := ds.deleteModelDetails(req)
 	if err != nil || data == nil {
 		zap.L().Error("issue with deleting ModelId in storage", zap.Error(err))
-		return response, fmt.Errorf("issue with deleting Model Id in Storage %v", err)
+		return response, WrapError(ErrDaemonStorage, fmt.Sprintf("issue with deleting Model %v", err))
 	}
 	//responseData := BuildModelResponse(data, response.Status)
 	return &StatusResponse{Status: Status_DELETED}, err
@@ -876,20 +880,17 @@ func (ds *DaemonService) DeleteModel(c context.Context, req *CommonRequest) (*St
 func (ds *DaemonService) GetModel(c context.Context, request *CommonRequest) (response *ModelResponse,
 	err error) {
 	if request == nil || request.Authorization == nil {
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request, no Authorization provided  , %v", err)
+		return &ModelResponse{Status: Status_ERRORED}, ErrNoAuthorization
 	}
 	if err = ds.verifySignature(request.Authorization); err != nil {
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("unable to access model , %v", err)
+		return &ModelResponse{Status: Status_ERRORED}, ErrBadAuthorization
+	}
+	if request.ModelId == "" {
+		return &ModelResponse{Status: Status_ERRORED}, ErrEmptyModelID
 	}
 	if err = ds.verifySignerHasAccessToTheModel(request.ModelId, request.Authorization.SignerAddress); err != nil {
 		return &ModelResponse{},
-			fmt.Errorf("unable to access model , %v", err)
-	}
-	if request.ModelId == "" {
-		return &ModelResponse{Status: Status_ERRORED},
-			fmt.Errorf("invalid request: ModelId can't be empty")
+			WrapError(ErrAccessToModel, err.Error())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
@@ -952,7 +953,7 @@ func NewTrainingService(channelService escrow.PaymentChannelService, serMetaData
 		return daemonService
 	}
 
-	return &NoTrainingService{}
+	return &NoTrainingDaemonServer{}
 }
 
 // parseTrainingMetadata TODO add comment

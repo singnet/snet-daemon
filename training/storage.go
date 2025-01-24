@@ -2,6 +2,9 @@ package training
 
 import (
 	"fmt"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/config"
+	"go.uber.org/zap"
 	"reflect"
 
 	"github.com/singnet/snet-daemon/v5/storage"
@@ -9,7 +12,8 @@ import (
 )
 
 type ModelStorage struct {
-	delegate storage.TypedAtomicStorage
+	delegate             storage.TypedAtomicStorage
+	organizationMetaData *blockchain.OrganizationMetaData
 }
 
 type ModelUserStorage struct {
@@ -29,13 +33,13 @@ func NewUserModelStorage(atomicStorage storage.AtomicStorage) *ModelUserStorage 
 	return &ModelUserStorage{delegate: userModelStorage}
 }
 
-func NewModelStorage(atomicStorage storage.AtomicStorage) *ModelStorage {
+func NewModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData) *ModelStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/modelStorage")
 	modelStorage := storage.NewTypedAtomicStorageImpl(
 		prefixedStorage, serializeModelKey, reflect.TypeOf(ModelKey{}), utils.Serialize, utils.Deserialize,
 		reflect.TypeOf(ModelData{}),
 	)
-	return &ModelStorage{delegate: modelStorage}
+	return &ModelStorage{delegate: modelStorage, organizationMetaData: orgMetadata}
 }
 
 func NewPendingModelStorage(atomicStorage storage.AtomicStorage) *PendingModelStorage {
@@ -78,6 +82,8 @@ type ModelData struct {
 	IsDefault           bool
 	TrainingLink        string
 	UpdatedDate         string
+	ValidatePrice       uint64
+	TrainPrice          uint64
 }
 
 func (data *ModelData) String() string {
@@ -91,9 +97,7 @@ type ModelUserKey struct {
 	OrganizationId string
 	ServiceId      string
 	GroupId        string
-	//GRPCMethodName  string
-	//GRPCServiceName string
-	UserAddress string
+	UserAddress    string
 }
 
 func (key *ModelUserKey) String() string {
@@ -171,6 +175,25 @@ func (storage *ModelStorage) PutIfAbsent(key *ModelKey, state *ModelData) (ok bo
 func (storage *ModelStorage) CompareAndSwap(key *ModelKey, prevState *ModelData,
 	newState *ModelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
+}
+
+func (storage *ModelStorage) buildModelKey(modelID string) (key *ModelKey) {
+	key = &ModelKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        storage.organizationMetaData.GetGroupIdString(),
+		ModelId:        modelID,
+	}
+	return
+}
+
+func (storage *ModelStorage) GetModel(modelID string) (data *ModelData, err error) {
+	key := storage.buildModelKey(modelID)
+	ok := false
+	if data, ok, err = storage.Get(key); err != nil || !ok {
+		zap.L().Warn("unable to retrieve model data from storage", zap.String("Model Id", key.ModelId), zap.Error(err))
+	}
+	return
 }
 
 func serializeModelUserKey(key any) (serialized string, err error) {

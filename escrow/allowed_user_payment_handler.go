@@ -11,7 +11,7 @@ type allowedUserPaymentHandler struct {
 	validator *AllowedUserPaymentValidator
 }
 
-func AllowedUserPaymentHandler() handler.PaymentHandler {
+func AllowedUserPaymentHandler() handler.StreamPaymentHandler {
 	return &allowedUserPaymentHandler{
 		validator: &AllowedUserPaymentValidator{},
 	}

@@ -24,6 +24,10 @@ type PendingModelStorage struct {
 	delegate storage.TypedAtomicStorage
 }
 
+type PublicModelStorage struct {
+	delegate storage.TypedAtomicStorage
+}
+
 func NewUserModelStorage(atomicStorage storage.AtomicStorage) *ModelUserStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/userModelStorage")
 	userModelStorage := storage.NewTypedAtomicStorageImpl(
@@ -49,6 +53,15 @@ func NewPendingModelStorage(atomicStorage storage.AtomicStorage) *PendingModelSt
 		reflect.TypeOf(PendingModelData{}),
 	)
 	return &PendingModelStorage{delegate: pendingModelStorage}
+}
+
+func NewPublicModelStorage(atomicStorage storage.AtomicStorage) *PublicModelStorage {
+	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/publicModelStorage")
+	publicModelStorage := storage.NewTypedAtomicStorageImpl(
+		prefixedStorage, serializePublicModelKey, reflect.TypeOf(PublicModelKey{}), utils.Serialize, utils.Deserialize,
+		reflect.TypeOf(PublicModelData{}),
+	)
+	return &PublicModelStorage{delegate: publicModelStorage}
 }
 
 type ModelKey struct {
@@ -139,6 +152,24 @@ type PendingModelData struct {
 
 // PendingModelData maintain the list of all modelIds that have TRAINING\VALIDATING status
 func (data *PendingModelData) String() string {
+	return fmt.Sprintf("{DATA:%v}", data.ModelIDs)
+}
+
+type PublicModelKey struct {
+	OrganizationId string
+	ServiceId      string
+	GroupId        string
+}
+
+func (key *PublicModelKey) String() string {
+	return fmt.Sprintf("{ID:%v|%v|%v}", key.OrganizationId, key.ServiceId, key.GroupId)
+}
+
+type PublicModelData struct {
+	ModelIDs []string
+}
+
+func (data *PublicModelData) String() string {
 	return fmt.Sprintf("{DATA:%v}", data.ModelIDs)
 }
 
@@ -258,11 +289,167 @@ func (storage *PendingModelStorage) Put(key *PendingModelKey, state *PendingMode
 	return storage.delegate.Put(key, state)
 }
 
+func (pendingStorage *PendingModelStorage) AddPendingModelId(key *PendingModelKey, modelId string) (err error) {
+	typedUpdateFunc := func(conditionValues []storage.TypedKeyValueData) (update []storage.TypedKeyValueData, ok bool, err error) {
+		if len(conditionValues) != 1 || conditionValues[0].Key != key {
+			return nil, false, fmt.Errorf("unexpected condition values or missing key")
+		}
+
+		// Fetch the current list of pending model IDs from the storage
+		currentValue, ok, err := pendingStorage.delegate.Get(key)
+		if err != nil {
+			return nil, false, err
+		}
+
+		var pendingModelData *PendingModelData
+		if currentValue == nil {
+			pendingModelData = &PendingModelData{ModelIDs: make([]string, 0, 100)}
+		} else {
+			pendingModelData = currentValue.(*PendingModelData)
+		}
+
+		// Check if the modelId already exists
+		for _, currentModelId := range pendingModelData.ModelIDs {
+			if currentModelId == modelId {
+				// If the model ID already exists, no update is needed
+				return nil, false, nil
+			}
+		}
+
+		// Add the new model ID to the list
+		pendingModelData.ModelIDs = append(pendingModelData.ModelIDs, modelId)
+
+		// Prepare the updated values for the transaction
+		newValues := []storage.TypedKeyValueData{
+			{
+				Key:     key,
+				Value:   pendingModelData,
+				Present: true,
+			},
+		}
+
+		return newValues, true, nil
+	}
+
+	request := storage.TypedCASRequest{
+		ConditionKeys:           []any{key},
+		RetryTillSuccessOrError: true,
+		Update:                  typedUpdateFunc,
+	}
+
+	// Execute the transaction
+	ok, err := pendingStorage.delegate.ExecuteTransaction(request)
+	if err != nil {
+		return fmt.Errorf("transaction execution failed: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("transaction was not successful")
+	}
+
+	return nil
+}
+
 func (storage *PendingModelStorage) PutIfAbsent(key *PendingModelKey, state *PendingModelData) (ok bool, err error) {
 	return storage.delegate.PutIfAbsent(key, state)
 }
 
 func (storage *PendingModelStorage) CompareAndSwap(key *PendingModelKey, prevState *PendingModelData,
 	newState *PendingModelData) (ok bool, err error) {
+	return storage.delegate.CompareAndSwap(key, prevState, newState)
+}
+
+func serializePublicModelKey(key any) (serialized string, err error) {
+	pendingModelKey := key.(*PublicModelKey)
+	return pendingModelKey.String(), nil
+}
+
+func (storage *PublicModelStorage) Get(key *PublicModelKey) (state *PublicModelData, ok bool, err error) {
+	value, ok, err := storage.delegate.Get(key)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+
+	return value.(*PublicModelData), ok, err
+}
+
+func (storage *PublicModelStorage) GetAll() (states []*PublicModelData, err error) {
+	values, err := storage.delegate.GetAll()
+	if err != nil {
+		return
+	}
+
+	return values.([]*PublicModelData), nil
+}
+
+func (storage *PublicModelStorage) Put(key *PublicModelKey, state *PublicModelData) (err error) {
+	return storage.delegate.Put(key, state)
+}
+
+func (publicStorage *PublicModelStorage) AddPublicModelId(key *PublicModelKey, modelId string) (err error) {
+	typedUpdateFunc := func(conditionValues []storage.TypedKeyValueData) (update []storage.TypedKeyValueData, ok bool, err error) {
+		if len(conditionValues) != 1 || conditionValues[0].Key != key {
+			return nil, false, fmt.Errorf("unexpected condition values or missing key")
+		}
+
+		// Fetch the current list of public model IDs from the storage
+		currentValue, ok, err := publicStorage.delegate.Get(key)
+		if err != nil {
+			return nil, false, err
+		}
+
+		var publicModelData *PublicModelData
+		if currentValue == nil {
+			publicModelData = &PublicModelData{ModelIDs: make([]string, 0, 100)}
+		} else {
+			publicModelData = currentValue.(*PublicModelData)
+		}
+
+		// Check if the modelId already exists
+		for _, currentModelId := range publicModelData.ModelIDs {
+			if currentModelId == modelId {
+				// If the model ID already exists, no update is needed
+				return nil, false, nil
+			}
+		}
+
+		// Add the new model ID to the list
+		publicModelData.ModelIDs = append(publicModelData.ModelIDs, modelId)
+
+		// Prepare the updated values for the transaction
+		newValues := []storage.TypedKeyValueData{
+			{
+				Key:     key,
+				Value:   publicModelData,
+				Present: true,
+			},
+		}
+
+		return newValues, true, nil
+	}
+
+	request := storage.TypedCASRequest{
+		ConditionKeys:           []any{key},
+		RetryTillSuccessOrError: true,
+		Update:                  typedUpdateFunc,
+	}
+
+	// Execute the transaction
+	ok, err := publicStorage.delegate.ExecuteTransaction(request)
+	if err != nil {
+		return fmt.Errorf("transaction execution failed: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("transaction was not successful")
+	}
+
+	return nil
+}
+
+func (storage *PublicModelStorage) PutIfAbsent(key *PublicModelKey, state *PublicModelData) (ok bool, err error) {
+	return storage.delegate.PutIfAbsent(key, state)
+}
+
+func (storage *PublicModelStorage) CompareAndSwap(key *PublicModelKey, prevState *PublicModelData,
+	newState *PublicModelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
 }

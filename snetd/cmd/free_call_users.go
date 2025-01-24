@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/escrow"
@@ -71,7 +72,7 @@ func newFreeCallResetCountCommand(cmd *cobra.Command, args []string, pComponents
 	return
 }
 
-func getUserId(cmd *cobra.Command) (userId string, err error) {
+func getUserId(*cobra.Command) (userId string, err error) {
 	return freeCallUserId, nil
 }
 

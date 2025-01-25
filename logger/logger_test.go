@@ -89,11 +89,11 @@ func TestGetLocationTimezone(t *testing.T) {
 
 	testCases := []testGetLocationTimezone{
 		{
-			name:     "Valid timzone",
+			name:     "Valid timezone",
 			timezone: "UTC",
 		},
 		{
-			name:          "Invalid timzone",
+			name:          "Invalid timezone",
 			timezone:      "INVALID",
 			expectedError: "unknown time zone INVALID",
 		},
@@ -326,7 +326,7 @@ func TestCreateWriterSyncer(t *testing.T) {
 
 	testCases := []createWriterSyncerTestCases{
 		{
-			name:            "Valid signle output type",
+			name:            "Valid single output type",
 			outputType:      "file",
 			filePatternName: "./snet-daemon.%Y%m%d.log",
 		},

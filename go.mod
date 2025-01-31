@@ -6,7 +6,7 @@ require (
 	github.com/OneOfOne/go-utils v0.0.0-20180319162427-6019ff89a94e
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/emicklei/proto v1.14.0
-	github.com/ethereum/go-ethereum v1.14.12
+	github.com/ethereum/go-ethereum v1.14.13
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gorilla/handlers v1.5.2

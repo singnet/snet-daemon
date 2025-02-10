@@ -25,7 +25,7 @@ jobs:
       - name: install protoc (protobuf)
         uses: arduino/setup-protoc@v3
         with:
-          version: "27.2"
+          version: "29.3"
           include-pre-releases: false
 
       - name: chmod +x

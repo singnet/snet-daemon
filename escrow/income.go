@@ -49,7 +49,7 @@ func (validator *incomeStreamValidator) Validate(data *IncomeStreamData) (err er
 
 	price := big.NewInt(0)
 
-	if data.GrpcContext.Info.FullMethod == "/training_daemon.Daemon/upload_and_validate" {
+	if data.GrpcContext != nil && data.GrpcContext.Info.FullMethod == "/training_daemon.Daemon/upload_and_validate" {
 		modelID, ok := data.GrpcContext.MD[handler.TrainingModelId]
 		if !ok {
 			return errors.New("no training model found")

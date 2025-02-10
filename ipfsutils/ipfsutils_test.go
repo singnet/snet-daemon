@@ -46,7 +46,7 @@ func (suite *IpfsUtilsTestSuite) TestReadFiles() {
 	assert.Nil(suite.T(), err)
 	assert.NotNil(suite.T(), protoFiles)
 
-	excpectedProtoFiles := []string{`syntax = "proto3";
+	expectedProtoFiles := map[string]string{"example_service.proto": `syntax = "proto3";
 
 package example_service;
 
@@ -66,5 +66,5 @@ service Calculator {
     rpc div(Numbers) returns (Result) {}
 }`}
 
-	assert.Equal(suite.T(), excpectedProtoFiles, protoFiles)
+	assert.EqualValues(suite.T(), expectedProtoFiles, protoFiles)
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/singnet/snet-daemon/v5/handler"
 	"github.com/singnet/snet-daemon/v5/pricing"
+	"google.golang.org/grpc"
 	"math/big"
 	"testing"
 
@@ -15,7 +16,7 @@ type incomeValidatorMockType struct {
 	err error
 }
 
-func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeData) (err error) {
+func (incomeValidator *incomeValidatorMockType) Validate(income *IncomeStreamData) (err error) {
 	return incomeValidator.err
 }
 
@@ -39,20 +40,20 @@ func TestIncomeValidate(t *testing.T) {
 	pricingStrt, err := pricing.InitPricingStrategy(pricingMetadata)
 	assert.Nil(t, err)
 	pricingStrt.AddPricingTypes(&MockPriceType{})
-	incomeValidator := NewIncomeValidator(pricingStrt)
+	incomeValidator := NewIncomeStreamValidator(pricingStrt, nil)
 	price := big.NewInt(0)
 
 	income.Sub(price, one)
-	err = incomeValidator.Validate(&IncomeData{Income: income})
+	err = incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: &handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "test"}}})
 	msg := fmt.Sprintf("income %s does not equal to price %s", income, price)
 	assert.Equal(t, NewPaymentError(Unauthenticated, msg), err)
 
 	income.Set(price)
-	err = incomeValidator.Validate(&IncomeData{Income: income})
+	err = incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: &handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "test"}}})
 	assert.Nil(t, err)
 
 	income.Add(price, one)
-	err = incomeValidator.Validate(&IncomeData{Income: income})
+	err = incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: &handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "test"}}})
 	msg = fmt.Sprintf("income %s does not equal to price %s", income, price)
 	assert.Equal(t, NewPaymentError(Unauthenticated, msg), err)
 }
@@ -71,8 +72,7 @@ func TestIncomeValidateForPriceError(t *testing.T) {
 	pricingStrt, err := pricing.InitPricingStrategy(pricingMetadata)
 	assert.Nil(t, err)
 	pricingStrt.AddPricingTypes(&MockPriceErrorType{})
-	incomeValidator := NewIncomeValidator(pricingStrt)
-	err = incomeValidator.Validate(&IncomeData{Income: big.NewInt(0)})
+	incomeValidator := NewIncomeStreamValidator(pricingStrt, nil)
+	err = incomeValidator.Validate(&IncomeStreamData{Income: big.NewInt(0), GrpcContext: &handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "test"}}})
 	assert.Equal(t, err.Error(), "Error in Determining Price")
-
 }

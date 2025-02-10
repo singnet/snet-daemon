@@ -57,7 +57,7 @@ func (validator *FreeCallPaymentValidator) Validate(payment *FreeCallPayment) (e
 		return NewPaymentError(Unauthenticated, "payment signer is not valid %v , %v", signerAddress.Hex(), validator.freeCallSigner.Hex())
 	}
 	if newSignature {
-		if err := authutils.CheckIfTokenHasExpired(payment.AuthTokenExpiryBlockNumber); err != nil {
+		if err := validator.CheckIfBlockExpired(payment.AuthTokenExpiryBlockNumber); err != nil {
 			return err
 		}
 	}
@@ -134,6 +134,18 @@ func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNum
 	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
 	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > authutils.AllowedBlockChainDifference {
 		return fmt.Errorf("authentication failed as the signature passed has expired")
+	}
+	return nil
+}
+
+func (validator *FreeCallPaymentValidator) CheckIfBlockExpired(expiredBlock *big.Int) error {
+	currentBlockNumber, err := validator.currentBlock()
+	if err != nil {
+		return err
+	}
+
+	if expiredBlock.Cmp(currentBlockNumber) < 0 {
+		return fmt.Errorf("authentication failed as the Free Call Token passed has expired")
 	}
 	return nil
 }

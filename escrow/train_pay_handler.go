@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 	"math/big"
 
@@ -133,6 +134,7 @@ func (h *trainUnaryPaymentHandler) Payment(context *handler.GrpcUnaryContext) (p
 	}
 
 	income := big.NewInt(0)
+	zap.L().Debug("[trainUnaryPaymentHandler.Payment]", zap.Any("Amount", internalPayment.Amount), zap.Any("AuthorizedAmount", transaction.Channel().AuthorizedAmount))
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
 	e = h.incomeValidator.Validate(&IncomeUnaryData{Income: income, GrpcContext: context})
 	if e != nil {

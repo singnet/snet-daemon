@@ -1,10 +1,13 @@
 package blockchain
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
 	"github.com/singnet/snet-daemon/v5/errs"
+	"maps"
 	"math/big"
 	"os"
 	"slices"
@@ -269,8 +272,29 @@ func ServiceMetaData() *ServiceMetadata {
 	if err != nil {
 		zap.L().Panic("error on determining service metadata from file"+errs.ErrDescURL(errs.InvalidMetadata), zap.Error(err))
 	}
+
+	// if ModelTraining enabled in config training package will init protoDescriptors
+	if !config.GetBool(config.ModelTrainingEnabled) {
+		metadata.ProtoDescriptors = getFileDescriptors(metadata.ProtoFiles)
+	}
+
 	zap.L().Debug("service type: " + metadata.GetServiceType())
 	return metadata
+}
+
+// getFileDescriptors converts text of proto files to bufbuild linker
+func getFileDescriptors(protoFiles map[string]string) linker.Files {
+	accessor := protocompile.SourceAccessorFromMap(protoFiles)
+	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
+	compiler := protocompile.Compiler{
+		Resolver:       r,
+		SourceInfoMode: protocompile.SourceInfoStandard,
+	}
+	fds, err := compiler.Compile(context.Background(), slices.Collect(maps.Keys(protoFiles))...)
+	if err != nil || fds == nil {
+		zap.L().Fatal("[getFileDescriptors] failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
+	}
+	return fds
 }
 
 func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {

@@ -268,6 +268,7 @@ func (components *Components) PrepaidUserStorage() storage.TypedAtomicStorage {
 
 	return components.prepaidUserStorage
 }
+
 func (components *Components) PaymentChannelService() escrow.PaymentChannelService {
 	if components.paymentChannelService != nil {
 		return components.paymentChannelService
@@ -618,7 +619,7 @@ func (components *Components) ModelStorage() *training.ModelStorage {
 		return components.modelStorage
 	}
 
-	components.modelStorage = training.NewModelStorage(components.AtomicStorage())
+	components.modelStorage = training.NewModelStorage(components.AtomicStorage(), components.OrganizationMetaData())
 
 	return components.modelStorage
 }
@@ -638,7 +639,7 @@ func (components *Components) PendingModelStorage() *training.PendingModelStorag
 		return components.pendingModelStorage
 	}
 
-	components.pendingModelStorage = training.NewPendingModelStorage(components.AtomicStorage())
+	components.pendingModelStorage = training.NewPendingModelStorage(components.AtomicStorage(), components.OrganizationMetaData())
 
 	return components.pendingModelStorage
 }

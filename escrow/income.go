@@ -2,6 +2,7 @@ package escrow
 
 import (
 	"errors"
+	"fmt"
 	"github.com/singnet/snet-daemon/v5/pricing"
 	"github.com/singnet/snet-daemon/v5/training"
 	"go.uber.org/zap"
@@ -103,12 +104,12 @@ func NewTrainValidator(storage *training.ModelStorage) (validator IncomeUnaryVal
 func (validator *trainUnaryValidator) Validate(data *IncomeUnaryData) (err error) {
 	modelID, ok := data.GrpcContext.MD[handler.TrainingModelId]
 	if !ok {
-		return errors.New("no training model found")
+		return errors.New("[trainUnaryValidator] no training model found")
 	}
 
 	model, err := validator.storage.GetModel(modelID[0])
 	if err != nil {
-		return errors.New("no training model found")
+		return errors.New("[trainUnaryValidator] no training model found")
 	}
 
 	price := big.NewInt(0)
@@ -125,6 +126,7 @@ func (validator *trainUnaryValidator) Validate(data *IncomeUnaryData) (err error
 	zap.L().Debug("[Validate]", zap.Uint64("price", price.Uint64()))
 
 	if data.Income.Cmp(price) != 0 {
+		zap.L().Error(fmt.Sprintf("[Validate] income %d does not equal to price %d", data.Income, price))
 		err = NewPaymentError(Unauthenticated, "income %d does not equal to price %d", data.Income, price)
 		return
 	}

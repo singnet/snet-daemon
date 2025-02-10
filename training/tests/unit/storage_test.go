@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 	"testing"
 
 	base_storage "github.com/singnet/snet-daemon/v5/storage"
@@ -12,16 +13,17 @@ import (
 
 type ModelStorageSuite struct {
 	suite.Suite
-	memoryStorage     *base_storage.MemoryStorage
-	storage           *training.ModelStorage
-	userStorage       *training.ModelUserStorage
-	pendingStorage    *training.PendingModelStorage
-	publicStorage     *training.PublicModelStorage
-	organizationId    string
-	serviceId         string
-	groupId           string
-	methodName        string
-	accessibleAddress []string
+	memoryStorage        *base_storage.MemoryStorage
+	storage              *training.ModelStorage
+	userStorage          *training.ModelUserStorage
+	pendingStorage       *training.PendingModelStorage
+	publicStorage        *training.PublicModelStorage
+	organizationMetaData *blockchain.OrganizationMetaData
+	organizationId       string
+	serviceId            string
+	groupId              string
+	methodName           string
+	accessibleAddress    []string
 }
 
 func (suite *ModelStorageSuite) getModelKey(modelId string) *training.ModelKey {
@@ -64,7 +66,6 @@ func (suite *ModelStorageSuite) getUserModelData(modelId []string) *training.Mod
 		OrganizationId: suite.organizationId,
 		ServiceId:      suite.serviceId,
 		GroupId:        suite.groupId,
-		// GRPCMethodName: suite.methodName,
 	}
 }
 
@@ -80,18 +81,25 @@ func (suite *ModelStorageSuite) getPublicModelData(modelIds []string) *training.
 	}
 }
 
+var testJsonOrgMeta = "{\n    \"org_name\": \"semyon_dev\",\n    \"org_id\": \"semyon_dev\",\n    \"org_type\": \"individual\",\n    \"description\": {\n        \"description\": \"Describe your organization details here\",\n        \"short_description\": \"This is short description of your organization\",\n        \"url\": \"https://anyurlofyourorganization\"\n    },\n    \"assets\": {},\n    \"contacts\": [],\n    \"groups\": [\n        {\n            \"group_name\": \"default_group\",\n            \"group_id\": \"FtNuizEOUsVCd5f2Fij9soehtRSb58LlTePgkVnsgVI=\",\n            \"payment\": {\n                \"payment_address\": \"0x747155e03c892B8b311B7Cfbb920664E8c6792fA\",\n                \"payment_expiration_threshold\": 40320,\n                \"payment_channel_storage_type\": \"etcd\",\n                \"payment_channel_storage_client\": {\n                    \"connection_timeout\": \"10s\",\n                    \"request_timeout\": \"5s\",\n                    \"endpoints\": [\n                        \"http://0.0.0.0:2379\"\n                    ]\n                }\n            }\n        },\n        {\n            \"group_name\": \"not_default\",\n            \"group_id\": \"udN0SLIvsDdvQQe3Ltv/NwqCh7sPKdz4scYmlI7AMdE=\",\n            \"payment\": {\n                \"payment_address\": \"0x747155e03c892B8b311B7Cfbb920664E8c6792fA\",\n                \"payment_expiration_threshold\": 100,\n                \"payment_channel_storage_type\": \"etcd\",\n                \"payment_channel_storage_client\": {\n                    \"connection_timeout\": \"7s\",\n                    \"request_timeout\": \"5s\",\n                    \"endpoints\": [\n                        \"http://0.0.0.0:2379\"\n                    ]\n                }\n            }\n        }\n    ]\n}"
+
 func (suite *ModelStorageSuite) SetupSuite() {
+	metadata, err := blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgMeta))
+	if err != nil {
+		panic(err)
+	}
 	suite.memoryStorage = base_storage.NewMemStorage()
-	suite.storage = training.NewModelStorage(suite.memoryStorage)
+	suite.organizationMetaData = metadata
+	suite.storage = training.NewModelStorage(suite.memoryStorage, suite.organizationMetaData)
 	suite.userStorage = training.NewUserModelStorage(suite.memoryStorage)
-	suite.pendingStorage = training.NewPendingModelStorage(suite.memoryStorage)
+	suite.pendingStorage = training.NewPendingModelStorage(suite.memoryStorage, suite.organizationMetaData)
 	suite.publicStorage = training.NewPublicModelStorage(suite.memoryStorage)
 	suite.accessibleAddress = make([]string, 2)
 	suite.accessibleAddress[0] = "ADD1"
 	suite.accessibleAddress[1] = "ADD2"
-	suite.organizationId = "org_id"
-	suite.serviceId = "service_id"
-	suite.groupId = "group_id"
+	suite.organizationId = "semyon_dev"
+	suite.serviceId = "semyon_dev"
+	suite.groupId = "FtNuizEOUsVCd5f2Fij9soehtRSb58LlTePgkVnsgVI="
 }
 
 func TestFreeCallUserStorageSuite(t *testing.T) {
@@ -259,6 +267,34 @@ func (suite *ModelStorageSuite) TestPendingModelStorage_AddPendingModelId() {
 	newModelId := "3"
 	data = suite.getPendingModelData([]string{"1", "2", "3"})
 	err = suite.pendingStorage.AddPendingModelId(key, newModelId)
+	assert.NoError(suite.T(), err)
+	newData, ok, err = suite.pendingStorage.Get(key)
+	assert.True(suite.T(), ok)
+	assert.Equal(suite.T(), data, newData)
+}
+
+func (suite *ModelStorageSuite) TestPendingModelStorage_AddRemovePendingModelId() {
+	key := suite.getPendingModelKey()
+	data := suite.getPendingModelData([]string{"1", "2"})
+
+	err := suite.pendingStorage.Put(key, data)
+	assert.NoError(suite.T(), err)
+
+	newData, ok, err := suite.pendingStorage.Get(key)
+	assert.True(suite.T(), ok)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), data, newData)
+
+	newModelId := "3"
+	data = suite.getPendingModelData([]string{"1", "2", "3"})
+	err = suite.pendingStorage.AddPendingModelId(key, newModelId)
+	assert.NoError(suite.T(), err)
+	newData, ok, err = suite.pendingStorage.Get(key)
+	assert.True(suite.T(), ok)
+	assert.Equal(suite.T(), data, newData)
+
+	data = suite.getPendingModelData([]string{"2", "3"})
+	err = suite.pendingStorage.RemovePendingModelId(key, "1")
 	assert.NoError(suite.T(), err)
 	newData, ok, err = suite.pendingStorage.Get(key)
 	assert.True(suite.T(), ok)

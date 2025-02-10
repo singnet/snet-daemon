@@ -80,7 +80,6 @@ func (suite *DaemonServiceSuite) SetupTest() {
 	suite.pendingModelStorage = pendingModelStorage
 
 	suite.daemonService = training.NewTrainingService(
-		nil,
 		suite.serviceMetadata,
 		suite.organizationMetadata,
 		modelStorage,
@@ -220,9 +219,9 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 
 func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *training.ModelUserStorage, *training.PendingModelStorage, *training.PublicModelStorage) {
 	memStorage := storage.NewMemStorage()
-	modelStorage := training.NewModelStorage(memStorage)
+	modelStorage := training.NewModelStorage(memStorage, suite.organizationMetadata)
 	userModelStorage := training.NewUserModelStorage(memStorage)
-	pendingModelStorage := training.NewPendingModelStorage(memStorage)
+	pendingModelStorage := training.NewPendingModelStorage(memStorage, suite.organizationMetadata)
 	publicModelStorage := training.NewPublicModelStorage(memStorage)
 
 	modelA := &training.ModelData{

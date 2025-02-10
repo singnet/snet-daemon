@@ -50,7 +50,7 @@ func (service *FreeCallStateService) GetFreeCallsAvailable(context context.Conte
 }
 
 func (service *BlockChainDisabledFreeCallStateService) GetFreeCallsAvailable(context.Context, *FreeCallStateRequest) (*FreeCallStateReply, error) {
-	return &FreeCallStateReply{UserId: "", FreeCallsAvailable: 0}, fmt.Errorf("error in determining free call state")
+	return &FreeCallStateReply{UserId: "", FreeCallsAvailable: 0}, fmt.Errorf("error in determining free calls because blockchain is disabled, contact service prodiver")
 }
 
 func (service *FreeCallStateService) verify(request *FreeCallStateRequest) (err error) {

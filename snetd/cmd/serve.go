@@ -285,6 +285,7 @@ func (d *daemon) start() {
 				handler.PrePaidAuthTokenHeader,
 				handler.CurrentBlockNumberHeader,
 				handler.PaymentMultiPartyEscrowAddressHeader,
+				handler.TrainingModelId,
 			},
 		})
 

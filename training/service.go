@@ -1,4 +1,4 @@
-//go:generate protoc -I . ./training_daemon.proto ./training_v2.proto --go-grpc_out=. --go_out=.
+//go:generate protoc -I . ./training_daemon.proto ./training.proto --go-grpc_out=paths=source_relative:. --go_out=paths=source_relative:.
 
 package training
 
@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/bufbuild/protocompile"
+	"github.com/bufbuild/protocompile/linker"
+	"github.com/singnet/snet-daemon/v5/errs"
 	"io"
 	"maps"
 	"net/url"
@@ -15,17 +18,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bufbuild/protocompile"
-	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/errs"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/descriptorpb"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	_ "embed"
+	"github.com/singnet/snet-daemon/v5/blockchain"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/singnet/snet-daemon/v5/config"
 	"go.uber.org/zap"
@@ -36,9 +32,6 @@ import (
 const (
 	DateFormat = "02-01-2006"
 )
-
-//go:embed training_v2.proto
-var TrainingProtoEmbeded string
 
 // ModelService this is remote AI service provider
 type ModelService struct {
@@ -129,16 +122,8 @@ func (ds *DaemonService) buildPublicModelKey() *PublicModelKey {
 	}
 }
 
-func (ds *DaemonService) buildPendingModelKey() *PendingModelKey {
-	return &PendingModelKey{
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-	}
-}
-
 func (ds *DaemonService) getPendingModelIds() (*PendingModelData, error) {
-	key := ds.buildPendingModelKey()
+	key := ds.pendingStorage.buildPendingModelKey()
 
 	data, _, err := ds.pendingStorage.Get(key)
 	if err != nil {
@@ -152,38 +137,54 @@ func (ds *DaemonService) startUpdateModelStatusWorker(ctx context.Context, model
 	modelKey := ds.storage.buildModelKey(modelId)
 	currentModelData, ok, err := ds.storage.Get(modelKey)
 	if err != nil {
-		zap.L().Error("err in getting modelData from storage", zap.Error(err))
+		zap.L().Error("[startUpdateModelStatusWorker] err in getting modelData from storage", zap.Error(err))
 		return
 	}
 	if !ok {
-		zap.L().Error("there is no model with such modelKey", zap.Any("modelKey", modelKey))
+		zap.L().Error("[startUpdateModelStatusWorker] there is no model with such modelKey", zap.Any("modelKey", modelKey))
 		return
 	}
 
 	_, client, err := ds.getServiceClient()
 	if err != nil {
-		zap.L().Error("error in gettting service client", zap.Error(err))
+		zap.L().Error("[startUpdateModelStatusWorker] error in getting service client", zap.Error(err))
 		return
 	}
 
 	response, err := client.GetModelStatus(ctx, &ModelID{ModelId: modelId})
 	if response == nil || err != nil {
-		zap.L().Error("error in invoking GetModelStatus, service-provider should implement it", zap.Error(err))
+		zap.L().Error("[startUpdateModelStatusWorker] error in invoking GetModelStatus, service-provider should implement it", zap.Error(err))
 		return
+	}
+
+	if response.Status != Status_TRAINING && response.Status != Status_VALIDATING {
+		err := ds.pendingStorage.RemovePendingModelId(ds.pendingStorage.buildPendingModelKey(), modelId)
+		if err != nil {
+			zap.L().Error("[RemovePendingModelId] error in updating model status", zap.Error(err))
+		}
 	}
 
 	newModelData := *currentModelData // Shallow copy of the current model data.
 	// However, it does not create deep copies of any slices contained within ModelData; modifications to the slices in newModelData will affect currentModelData.
+	if currentModelData.Status == response.Status {
+		// if status don't changed yet we skip it
+		return
+	}
+
 	newModelData.Status = response.Status
-	ds.storage.CompareAndSwap(modelKey, currentModelData, &newModelData)
+	zap.L().Debug("[startUpdateModelStatusWorker]", zap.String("current status", currentModelData.Status.String()), zap.String("new status", response.Status.String()))
+	ok, err = ds.storage.CompareAndSwap(modelKey, currentModelData, &newModelData)
+	if !ok || err != nil {
+		zap.L().Debug("[startUpdateModelStatusWorker] error in updating model status", zap.Bool("isOK", ok), zap.Error(err))
+	}
 }
 
-func (ds *DaemonService) updateModelStatusworker(ctx context.Context, tasks <-chan string, wg *sync.WaitGroup) {
+func (ds *DaemonService) updateModelStatusWorker(ctx context.Context, tasks <-chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		select {
 		case modelID := <-tasks:
-			ds.startUpdateModelStatusWorker(ctx, modelID)
+			go ds.startUpdateModelStatusWorker(ctx, modelID)
 		case <-ctx.Done():
 			return
 		}
@@ -192,29 +193,29 @@ func (ds *DaemonService) updateModelStatusworker(ctx context.Context, tasks <-ch
 
 func (ds *DaemonService) ManageUpdateModelStatusWorkers(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
-	data, err := ds.getPendingModelIds()
-	if err != nil {
-		zap.L().Error("Error in getting pending model IDs", zap.Error(err))
-		return
-	}
-	if data == nil {
-		zap.L().Debug("There are no pending models")
-		return
-	}
-	tasks := make(chan string, len(data.ModelIDs))
-	numWorkers := 3
+
+	tasks := make(chan string)
+	//numWorkers := 1docker
 	var wg sync.WaitGroup
 
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go ds.updateModelStatusworker(ctx, tasks, &wg)
-	}
+	//for i := 0; i < numWorkers; i++ {
+	//	wg.Add(1)
+	go ds.updateModelStatusWorker(ctx, tasks, &wg)
+	//}
 
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
+			data, err := ds.getPendingModelIds()
+			if err != nil {
+				zap.L().Error("Error in getting pending model IDs", zap.Error(err))
+				return
+			}
+			if data == nil {
+				continue
+			}
 			for _, modelID := range data.ModelIDs {
 				tasks <- modelID
 			}
@@ -247,7 +248,6 @@ func (ds *DaemonService) ValidateModelPrice(ctx context.Context, request *AuthVa
 	return price, nil
 }
 
-// TODO fix
 func (ds *DaemonService) UploadAndValidate(stream Daemon_UploadAndValidateServer) error {
 	var fullData bytes.Buffer
 	var modelID string
@@ -265,15 +265,18 @@ func (ds *DaemonService) UploadAndValidate(stream Daemon_UploadAndValidateServer
 		return err
 	}
 
+	var stResp *StatusResponse
+
 	zap.L().Debug("UploadAndValidate CALLED")
 	for {
 		req, err := stream.Recv()
-		if req != nil {
-			zap.L().Debug("stream.Recv() for model_id " + req.UploadInput.ModelId)
+		if req == nil {
+			continue
 		}
+		zap.L().Debug("stream.Recv() for model_id " + req.UploadInput.ModelId)
 		if err == io.EOF {
 			zap.L().Debug("[UploadAndValidate] EOF")
-			err := grpcStream.CloseSend()
+			stResp, err = grpcStream.CloseAndRecv()
 			if err != nil {
 				zap.L().Error("[UploadAndValidate] CloseSend error", zap.Error(err))
 			}
@@ -285,6 +288,12 @@ func (ds *DaemonService) UploadAndValidate(stream Daemon_UploadAndValidateServer
 			return err
 		}
 
+		modelID = req.UploadInput.ModelId
+
+		if modelID == "" {
+			return errors.New("modelID can't be empty")
+		}
+
 		err = grpcStream.SendMsg(req.UploadInput)
 		if err != nil {
 			zap.L().Error("error in sending upload validation response", zap.Error(err))
@@ -292,14 +301,20 @@ func (ds *DaemonService) UploadAndValidate(stream Daemon_UploadAndValidateServer
 		}
 
 		zap.L().Debug("Received chunk of data for model", zap.String("modelID", req.UploadInput.ModelId))
-		modelID = req.UploadInput.ModelId
 		fullData.Write(req.UploadInput.Data)
 	}
 	zap.L().Debug("Received file for model %s with size %d bytes", zap.String("modelID", modelID), zap.Int("len", fullData.Len()))
 	closeConn(conn)
-	return stream.SendAndClose(&StatusResponse{
-		Status: Status_VALIDATING,
-	})
+	go func() {
+		err := ds.pendingStorage.AddPendingModelId(ds.pendingStorage.buildPendingModelKey(), modelID)
+		if err != nil {
+			zap.L().Error("[AddPendingModelId]", zap.Error(err))
+		}
+	}()
+	if stResp == nil {
+		stResp = &StatusResponse{Status: Status_VALIDATING}
+	}
+	return stream.SendAndClose(stResp)
 }
 
 func (ds *DaemonService) ValidateModel(ctx context.Context, request *AuthValidateRequest) (*StatusResponse, error) {
@@ -309,7 +324,7 @@ func (ds *DaemonService) ValidateModel(ctx context.Context, request *AuthValidat
 			Status: Status_ERRORED,
 		}, WrapError(ErrServiceIssue, err.Error())
 	}
-	price, err := client.ValidateModel(ctx, &ValidateRequest{
+	statusResp, err := client.ValidateModel(ctx, &ValidateRequest{
 		ModelId:          request.ModelId,
 		TrainingDataLink: request.TrainingDataLink,
 	})
@@ -317,7 +332,14 @@ func (ds *DaemonService) ValidateModel(ctx context.Context, request *AuthValidat
 	if err != nil {
 		return nil, WrapError(ErrServiceIssue, err.Error())
 	}
-	return price, nil
+	go func() {
+		err := ds.pendingStorage.AddPendingModelId(ds.pendingStorage.buildPendingModelKey(), request.ModelId)
+		if err != nil {
+			zap.L().Error("[AddPendingModelId]", zap.Error(err))
+		}
+	}()
+
+	return statusResp, nil
 }
 
 func (ds *DaemonService) TrainModelPrice(ctx context.Context, request *CommonRequest) (*PriceInBaseUnit, error) {
@@ -359,6 +381,12 @@ func (ds *DaemonService) TrainModel(ctx context.Context, request *CommonRequest)
 			Status: Status_ERRORED,
 		}, WrapError(ErrServiceIssue, err.Error())
 	}
+	go func() {
+		err := ds.pendingStorage.AddPendingModelId(ds.pendingStorage.buildPendingModelKey(), request.ModelId)
+		if err != nil {
+			zap.L().Error("[AddPendingModelId]", zap.Error(err))
+		}
+	}()
 	return statusResp, nil
 }
 
@@ -599,11 +627,7 @@ func (ds *DaemonService) updateModelDetails(request *UpdateModelRequest) (data *
 		oldAddresses = data.AuthorizedAddresses
 		data.AuthorizedAddresses = latestAddresses
 		latestAddresses = append(latestAddresses, request.Authorization.SignerAddress)
-		// TODO data.IsPublic = request.IsIsPubliclyAccessible
 		data.UpdatedByAddress = request.Authorization.SignerAddress
-		//if response != nil {
-		//	data.Status = response.Status
-		//}
 		data.ModelName = request.ModelName
 		data.UpdatedDate = fmt.Sprintf("%v", time.Now().Format(DateFormat))
 		data.Description = request.Description
@@ -729,15 +753,6 @@ func (ds *DaemonService) updateModelPrices(modelID string, validatePrice, trainP
 	}
 	if validatePrice != nil {
 		data.ValidatePrice = validatePrice.Price
-	return err
-}
-
-func (ds *DaemonService) getModelKey(modelID string) (key *ModelKey) {
-	key = &ModelKey{
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-		ModelId:        modelID,
 	}
 	if trainPrice != nil {
 		data.TrainPrice = trainPrice.Price
@@ -746,7 +761,7 @@ func (ds *DaemonService) getModelKey(modelID string) (key *ModelKey) {
 		zap.L().Error("[updateModelPrices] issue with updating model data", zap.Error(err))
 		return fmt.Errorf("[updateModelPrices] issue with updating model data: %s", err)
 	}
-	return nil
+	return err
 }
 
 func (ds *DaemonService) GetAllModels(c context.Context, request *AllModelsRequest) (*ModelsResponse, error) {
@@ -757,55 +772,81 @@ func (ds *DaemonService) GetAllModels(c context.Context, request *AllModelsReque
 		return &ModelsResponse{}, ErrBadAuthorization
 	}
 
-	userModelKey := &ModelUserKey{
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-		UserAddress:    request.Authorization.SignerAddress,
+	zap.L().Debug("[GetAllModels]", zap.Any("request", request))
+
+	if request.Statuses == nil || len(request.Statuses) == 0 {
+		request.Statuses = []Status{Status_CREATED, Status_VALIDATING, Status_VALIDATED, Status_TRAINING, Status_READY_TO_USE, Status_ERRORED, Status_DELETED}
 	}
 
 	modelDetailsArray := make([]*ModelResponse, 0)
-	if data, ok, err := ds.userStorage.Get(userModelKey); data != nil && ok && err == nil {
-		for _, modelId := range data.ModelIds {
+
+	if request.IsPublic == nil || !*request.IsPublic {
+
+		userModelKey := &ModelUserKey{
+			OrganizationId: config.GetString(config.OrganizationId),
+			ServiceId:      config.GetString(config.ServiceId),
+			GroupId:        ds.organizationMetaData.GetGroupIdString(),
+			UserAddress:    request.Authorization.SignerAddress,
+		}
+
+		if data, ok, err := ds.userStorage.Get(userModelKey); data != nil && ok && err == nil {
 			modelKey := &ModelKey{
 				OrganizationId: config.GetString(config.OrganizationId),
 				ServiceId:      config.GetString(config.ServiceId),
 				GroupId:        ds.organizationMetaData.GetGroupIdString(),
-				ModelId:        modelId,
 			}
-			if modelData, modelOk, modelErr := ds.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
-				boModel := convertModelDataToBO(modelData)
-				modelDetailsArray = append(modelDetailsArray, boModel)
+			for _, modelId := range data.ModelIds {
+				modelKey.ModelId = modelId
+				if modelData, modelOk, modelErr := ds.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
+					boModel := convertModelDataToBO(modelData)
+					modelDetailsArray = append(modelDetailsArray, boModel)
+				}
 			}
 		}
 	}
 
-	publicModelKey := &PublicModelKey{
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-	}
+	if request.IsPublic == nil || *request.IsPublic {
 
-	if data, ok, err := ds.publicStorage.Get(publicModelKey); data != nil && ok && err == nil {
-		for _, modelId := range data.ModelIDs {
+		publicModelKey := &PublicModelKey{
+			OrganizationId: config.GetString(config.OrganizationId),
+			ServiceId:      config.GetString(config.ServiceId),
+			GroupId:        ds.organizationMetaData.GetGroupIdString(),
+		}
+
+		if data, ok, err := ds.publicStorage.Get(publicModelKey); data != nil && ok && err == nil {
 			modelKey := &ModelKey{
 				OrganizationId: config.GetString(config.OrganizationId),
 				ServiceId:      config.GetString(config.ServiceId),
 				GroupId:        ds.organizationMetaData.GetGroupIdString(),
-				ModelId:        modelId,
 			}
-			if modelData, modelOk, modelErr := ds.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
-				boModel := convertModelDataToBO(modelData)
-				modelDetailsArray = append(modelDetailsArray, boModel)
+			for _, modelId := range data.ModelIDs {
+				modelKey.ModelId = modelId
+				if modelData, modelOk, modelErr := ds.storage.Get(modelKey); modelOk && modelData != nil && modelErr == nil {
+					boModel := convertModelDataToBO(modelData)
+					modelDetailsArray = append(modelDetailsArray, boModel)
+				}
 			}
 		}
 	}
 
-	for _, model := range modelDetailsArray {
-		zap.L().Debug("Model", zap.String("Name", model.Name))
+	filtered := modelDetailsArray[:0]
+
+	for _, v := range modelDetailsArray {
+		zap.L().Debug("[GetAllModels] model", zap.String("id", v.ModelId), zap.String("status", v.Status.String()))
+		if strings.Contains(v.Name, request.Name) &&
+			strings.Contains(v.GrpcMethodName, request.GrpcMethodName) &&
+			strings.Contains(v.GrpcServiceName, request.GrpcServiceName) &&
+			strings.Contains(v.CreatedByAddress, request.CreatedByAddress) &&
+			slices.Contains(request.Statuses, v.Status) {
+			filtered = append(filtered, v)
+		}
 	}
 
-	return &ModelsResponse{ListOfModels: modelDetailsArray}, nil
+	if request.Page != 0 || request.PageSize != 0 {
+		filtered = filtered[request.Page*request.PageSize : request.PageSize]
+	}
+
+	return &ModelsResponse{ListOfModels: filtered}, nil
 }
 
 func (ds *DaemonService) getModelDataToCreate(request *NewModelRequest, response *ModelID) (data *ModelData) {
@@ -818,14 +859,13 @@ func (ds *DaemonService) getModelDataToCreate(request *NewModelRequest, response
 		AuthorizedAddresses: request.Model.AddressList,
 		Description:         request.Model.Description,
 		ModelName:           request.Model.Name,
-		//TrainingLink: TODO
-		IsPublic:       request.Model.IsPublic,
-		IsDefault:      false,
-		ModelId:        response.ModelId,
-		OrganizationId: config.GetString(config.OrganizationId),
-		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        ds.organizationMetaData.GetGroupIdString(),
-		UpdatedDate:    fmt.Sprintf("%v", time.Now().Format(DateFormat)),
+		IsPublic:            request.Model.IsPublic,
+		IsDefault:           false,
+		ModelId:             response.ModelId,
+		OrganizationId:      config.GetString(config.OrganizationId),
+		ServiceId:           config.GetString(config.ServiceId),
+		GroupId:             ds.organizationMetaData.GetGroupIdString(),
+		UpdatedDate:         fmt.Sprintf("%v", time.Now().Format(DateFormat)),
 	}
 	//by default add the creator to the Authorized list of Address
 	if data.AuthorizedAddresses == nil {
@@ -847,6 +887,8 @@ func BuildModelResponse(data *ModelData, status Status) *ModelResponse {
 		TrainingDataLink: data.TrainingLink,
 		Name:             data.ModelName,
 		UpdatedDate:      data.UpdatedDate,
+		CreatedDate:      data.CreatedDate,
+		CreatedByAddress: data.CreatedByAddress,
 	}
 }
 
@@ -888,12 +930,10 @@ func (ds *DaemonService) DeleteModel(c context.Context, req *CommonRequest) (*St
 		zap.L().Error("issue with deleting ModelId in storage", zap.Error(err))
 		return response, WrapError(ErrDaemonStorage, fmt.Sprintf("issue with deleting Model %v", err))
 	}
-	//responseData := BuildModelResponse(data, response.Status)
 	return &StatusResponse{Status: Status_DELETED}, err
 }
 
-func (ds *DaemonService) GetModel(c context.Context, request *CommonRequest) (response *ModelResponse,
-	err error) {
+func (ds *DaemonService) GetModel(c context.Context, request *CommonRequest) (response *ModelResponse, err error) {
 	if request == nil || request.Authorization == nil {
 		return &ModelResponse{Status: Status_ERRORED}, ErrNoAuthorization
 	}
@@ -934,18 +974,33 @@ func (ds *DaemonService) GetModel(c context.Context, request *CommonRequest) (re
 	return
 }
 
+// getFileDescriptors converts text of proto files to bufbuild linker
+func getFileDescriptorsWithTraining(protoFiles map[string]string) linker.Files {
+	protoFiles["training.proto"] = TrainingProtoEmbeded
+	accessor := protocompile.SourceAccessorFromMap(protoFiles)
+	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
+	compiler := protocompile.Compiler{
+		Resolver:       r,
+		SourceInfoMode: protocompile.SourceInfoStandard,
+	}
+	fds, err := compiler.Compile(context.Background(), slices.Collect(maps.Keys(protoFiles))...)
+	if err != nil || fds == nil {
+		zap.L().Fatal("failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
+	}
+	return fds
+}
+
 // NewTrainingService daemon self server
 func NewTrainingService(serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage,
 	pendingStorage *PendingModelStorage, publicStorage *PublicModelStorage) DaemonServer {
 
-	linkerFiles := getFileDescriptors(serMetaData.ProtoFiles)
-	serMetaData.ProtoDescriptors = linkerFiles
-	methodsMD, trainMD, err := parseTrainingMetadata(linkerFiles)
+	serMetaData.ProtoDescriptors = getFileDescriptorsWithTraining(serMetaData.ProtoFiles)
+
+	methodsMD, trainMD, err := parseTrainingMetadata(serMetaData.ProtoDescriptors)
 	if err != nil {
-		zap.L().Error(err.Error())
-		// TODO
-		return nil
+		zap.L().Error("[NewTrainingService] can't init training", zap.Error(err))
+		return &NoTrainingDaemonServer{}
 	}
 
 	serviceURL := config.GetString(config.ModelMaintenanceEndPoint)
@@ -963,126 +1018,10 @@ func NewTrainingService(serMetaData *blockchain.ServiceMetadata,
 			methodsMetadata:      methodsMD,
 		}
 
-		go daemonService.ManageUpdateModelStatusWorkers(context.Background(), 4*time.Second)
+		go daemonService.ManageUpdateModelStatusWorkers(context.Background(), 3*time.Second)
 
 		return daemonService
 	}
 
 	return &NoTrainingDaemonServer{}
-}
-
-// parseTrainingMetadata parses metadata from Protobuf files to identify training-related methods
-// and their associated metadata.
-// Input:
-// - protos: a collection of Protobuf files containing definitions of services and methods.
-// Output:
-//   - methodsMD: a map where the key is the combination of service and method names,
-//     and the value is metadata related to the method (MethodMetadata).
-//   - trainingMD: a structure containing metadata for training methods, including
-//     whether training methods are defined and their names grouped by service.
-//   - err: an error, if any occurred during the parsing process.
-func parseTrainingMetadata(protos linker.Files) (methodsMD map[string]*MethodMetadata, trainingMD *TrainingMetadata, err error) {
-	methodsMD = make(map[string]*MethodMetadata)
-	trainingMD = &TrainingMetadata{}
-	trainingMD.TrainingMethods = make(map[string]*structpb.ListValue)
-
-	for _, protoFile := range protos {
-		for servicesCounter := 0; servicesCounter < protoFile.Services().Len(); servicesCounter++ {
-			protoService := protoFile.Services().Get(servicesCounter)
-			if protoService == nil {
-				continue
-			}
-			for methodsCounter := 0; methodsCounter < protoService.Methods().Len(); methodsCounter++ {
-				method := protoFile.Services().Get(servicesCounter).Methods().Get(methodsCounter)
-				if method == nil {
-					continue
-				}
-				inputFields := method.Input().Fields()
-				if inputFields == nil {
-					continue
-				}
-				for fieldsCounter := 0; fieldsCounter < inputFields.Len(); fieldsCounter++ {
-					if inputFields.Get(fieldsCounter).Message() != nil {
-						// if the method accepts modelId, then we consider it as training
-						if inputFields.Get(fieldsCounter).Message().FullName() == "trainingV2.ModelID" {
-							// init array if nil
-							trainingMD.TrainingInProto = true
-							if trainingMD.TrainingMethods[string(protoService.Name())] == nil {
-								trainingMD.TrainingMethods[string(protoService.Name())], _ = structpb.NewList(nil)
-							}
-							value := structpb.NewStringValue(string(method.Name()))
-							trainingMD.TrainingMethods[string(protoService.Name())].Values = append(trainingMD.TrainingMethods[string(protoService.Name())].Values, value)
-						}
-					}
-				}
-
-				methodOptions, ok := method.Options().(*descriptorpb.MethodOptions)
-				if ok && methodOptions != nil {
-					key := string(protoService.Name() + method.Name())
-					methodsMD[key] = &MethodMetadata{}
-					if proto.HasExtension(methodOptions, E_DatasetDescription) {
-						if datasetDesc, ok := proto.GetExtension(methodOptions, E_DatasetDescription).(string); ok {
-							methodsMD[key].DatasetDescription = datasetDesc
-						}
-					}
-					if proto.HasExtension(methodOptions, E_DatasetType) {
-						if datasetType, ok := proto.GetExtension(methodOptions, E_DatasetType).(string); ok {
-							methodsMD[key].DatasetType = datasetType
-						}
-					}
-					if proto.HasExtension(methodOptions, E_DatasetFilesType) {
-						if datasetDesc, ok := proto.GetExtension(methodOptions, E_DatasetFilesType).(string); ok {
-							methodsMD[key].DatasetFilesType = datasetDesc
-						}
-					}
-					if proto.HasExtension(methodOptions, E_MaxModelsPerUser) {
-						if datasetDesc, ok := proto.GetExtension(methodOptions, E_MaxModelsPerUser).(uint64); ok {
-							methodsMD[key].MaxModelsPerUser = datasetDesc
-						}
-					}
-					if proto.HasExtension(methodOptions, E_DefaultModelId) {
-						if defaultModelId, ok := proto.GetExtension(methodOptions, E_DefaultModelId).(string); ok {
-							methodsMD[key].DefaultModelId = defaultModelId
-						}
-					}
-					if proto.HasExtension(methodOptions, E_DatasetMaxSizeSingleFileMb) {
-						if d, ok := proto.GetExtension(methodOptions, E_DatasetMaxSizeSingleFileMb).(uint64); ok {
-							methodsMD[key].DatasetMaxSizeSingleFileMb = d
-						}
-					}
-					if proto.HasExtension(methodOptions, E_DatasetMaxCountFiles) {
-						if maxCountFiles, ok := proto.GetExtension(methodOptions, E_DatasetMaxCountFiles).(uint64); ok {
-							methodsMD[key].DatasetMaxCountFiles = maxCountFiles
-						}
-					}
-					if proto.HasExtension(methodOptions, E_DatasetMaxSizeMb) {
-						if datasetMaxSizeMb, ok := proto.GetExtension(methodOptions, E_DatasetMaxSizeMb).(uint64); ok {
-							methodsMD[key].DatasetMaxSizeMb = datasetMaxSizeMb
-						}
-					}
-					if methodsMD[key].DefaultModelId != "" {
-						zap.L().Debug("training metadata", zap.String("method", string(method.Name())), zap.String("key", key), zap.Any("metadata", methodsMD[key]))
-					}
-				}
-			}
-		}
-	}
-	zap.L().Debug("training methods", zap.Any("methods", trainingMD.TrainingMethods))
-	return
-}
-
-// getFileDescriptors converts text of proto file to bufbuild linker
-func getFileDescriptors(protoFiles map[string]string) linker.Files {
-	protoFiles["training_v2.proto"] = TrainingProtoEmbeded
-	accessor := protocompile.SourceAccessorFromMap(protoFiles)
-	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
-	compiler := protocompile.Compiler{
-		Resolver:       r,
-		SourceInfoMode: protocompile.SourceInfoStandard,
-	}
-	fds, err := compiler.Compile(context.Background(), slices.Collect(maps.Keys(protoFiles))...)
-	if err != nil || fds == nil {
-		zap.L().Fatal("failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
-	}
-	return fds
 }

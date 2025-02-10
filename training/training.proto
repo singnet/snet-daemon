@@ -1,7 +1,7 @@
 syntax = "proto3";
 import "google/protobuf/descriptor.proto";  // Required for indicators to work
-package trainingV2;
-option go_package = "../training";
+package training;
+option go_package = "github.com/singnet/snet-daemon/v5/training";
 
 // Methods that the service provider must implement
 service Model {
@@ -37,19 +37,22 @@ service Model {
 message ModelResponse {
   string model_id = 1;
   Status status = 2;
-  string updated_date = 3;
-  string name = 4;
-  string description = 5;
-  string grpc_method_name = 6;
-  string grpc_service_name = 7;
+  string created_date = 3;
+  string updated_date = 4;
+  string name = 5;
+  string description = 6;
+  string grpc_method_name = 7;
+  string grpc_service_name = 8;
 
   // List of all addresses that will have access to this model
-  repeated string address_list = 8;
+  repeated string address_list = 9;
 
   // Access to the model is granted only for use and viewing
-  bool is_public = 9;
+  bool is_public = 10;
 
-  string training_data_link = 10;
+  string training_data_link = 11;
+
+  string created_by_address = 12;
 }
 
 // Used as input for new_model requests

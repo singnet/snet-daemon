@@ -20,7 +20,7 @@ type PaymentHandlerTestSuite struct {
 	suite.Suite
 
 	paymentChannelServiceMock PaymentChannelService
-	incomeValidatorMock       IncomeValidator
+	incomeValidatorMock       IncomeStreamValidator
 
 	paymentHandler paymentChannelPaymentHandler
 }

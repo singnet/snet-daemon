@@ -1,10 +1,11 @@
 syntax = "proto3";
-package training_daemon;
+package training;
+
 import "google/protobuf/descriptor.proto";  // Required for indicators to work
 import "google/protobuf/struct.proto";     // Required for google.protobuf.ListValue
-import "training_v2.proto";
-option go_package = "../training";
+import "training.proto";
 import "google/protobuf/empty.proto";
+option go_package = "github.com/singnet/snet-daemon/v5/training";
 
 message AuthorizationDetails {
   uint64 current_block = 1; // Check for relevance within a range of +/- N blocks
@@ -18,7 +19,7 @@ message AuthorizationDetails {
 
 message NewModelRequest {
   AuthorizationDetails authorization = 1;
-  trainingV2.NewModel model = 2;
+  training.NewModel model = 2;
 }
 
 message AuthValidateRequest {
@@ -29,7 +30,7 @@ message AuthValidateRequest {
 
 message UploadAndValidateRequest {
   AuthorizationDetails authorization = 1;
-  trainingV2.UploadInput upload_input = 2;
+  training.UploadInput upload_input = 2;
 }
 
 message CommonRequest {
@@ -46,38 +47,38 @@ message UpdateModelRequest {
 }
 
 message ModelsResponse {
-  repeated trainingV2.ModelResponse list_of_models = 1;
+  repeated training.ModelResponse list_of_models = 1;
 }
 
 // These methods are implemented only by the daemon; the service provider should ignore them
 service Daemon {
   // Free
-  rpc create_model(NewModelRequest) returns (trainingV2.ModelResponse) {}
+  rpc create_model(NewModelRequest) returns (training.ModelResponse) {}
 
   // Free
-  rpc validate_model_price(AuthValidateRequest) returns (trainingV2.PriceInBaseUnit) {}
+  rpc validate_model_price(AuthValidateRequest) returns (training.PriceInBaseUnit) {}
 
   // Paid
-  rpc upload_and_validate(stream UploadAndValidateRequest) returns (trainingV2.StatusResponse) {}
+  rpc upload_and_validate(stream UploadAndValidateRequest) returns (training.StatusResponse) {}
 
   // Paid
-  rpc validate_model(AuthValidateRequest) returns (trainingV2.StatusResponse) {}
+  rpc validate_model(AuthValidateRequest) returns (training.StatusResponse) {}
 
   // Free, one signature for both train_model_price & train_model methods
-  rpc train_model_price(CommonRequest) returns (trainingV2.PriceInBaseUnit) {}
+  rpc train_model_price(CommonRequest) returns (training.PriceInBaseUnit) {}
 
   // Paid
-  rpc train_model(CommonRequest) returns (trainingV2.StatusResponse) {}
+  rpc train_model(CommonRequest) returns (training.StatusResponse) {}
 
   // Free
   // After deleting the model, the status becomes DELETED in etcd
-  rpc delete_model(CommonRequest) returns (trainingV2.StatusResponse) {}
+  rpc delete_model(CommonRequest) returns (training.StatusResponse) {}
 
   rpc get_all_models(AllModelsRequest) returns (ModelsResponse) {}
 
-  rpc get_model(CommonRequest) returns (trainingV2.ModelResponse) {}
+  rpc get_model(CommonRequest) returns (training.ModelResponse) {}
 
-  rpc update_model(UpdateModelRequest) returns (trainingV2.ModelResponse) {}
+  rpc update_model(UpdateModelRequest) returns (training.ModelResponse) {}
 
   // Unique methods by daemon
   // One signature for all getters
@@ -96,12 +97,15 @@ message MethodMetadataRequest {
 
 message AllModelsRequest {
   AuthorizationDetails authorization = 1;
-  // Filters
-  trainingV2.Status status = 2;
-  bool is_public = 3;
-  string name = 4; // Search by name
-  uint64 page_size = 5; // Pagination
-  uint64 page = 6;
+  // filters:
+  repeated training.Status statuses = 3;
+  optional bool is_public = 4; // null - all, false - only private, true - only public models
+  string grpc_method_name = 5;
+  string grpc_service_name = 6;
+  string name = 7;
+  string created_by_address = 8;
+  uint64 page_size = 9;
+  uint64 page = 10;
 }
 
 message TrainingMetadata {

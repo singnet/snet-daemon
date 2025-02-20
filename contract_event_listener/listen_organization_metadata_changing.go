@@ -21,6 +21,12 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 	}
 
 	ethWSClient := l.BlockchainProcessor.GetEthWSClient()
+	if ethWSClient == nil {
+		err := l.BlockchainProcessor.ConnectToWsClient()
+		if err != nil {
+			zap.L().Warn("[ListenOrganizationMetadataChanging]", zap.Error(err))
+		}
+	}
 
 	registryFilterer := blockchain.GetRegistryFilterer(ethWSClient)
 	orgIdFilter := blockchain.MakeTopicFilterer(l.CurrentOrganizationMetaData.OrgID)

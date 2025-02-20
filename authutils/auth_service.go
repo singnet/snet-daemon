@@ -8,11 +8,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/singnet/snet-daemon/v5/blockchain"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/v5/blockchain"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +24,18 @@ import (
 const (
 	AllowedBlockChainDifference = 5
 )
+
+func VerifySigner(message []byte, signature []byte, signer common.Address) error {
+	derivedSigner, err := GetSignerAddressFromMessage(message, signature)
+	if err != nil {
+		zap.L().Error(err.Error())
+		return err
+	}
+	if err = VerifyAddress(*derivedSigner, signer); err != nil {
+		return err
+	}
+	return nil
+}
 
 func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
 	messageFieldLog := zap.String("message", blockchain.BytesToBase64(message))
@@ -53,15 +65,15 @@ func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Addr
 			messageHashFieldLog)
 		return nil, errors.New("incorrect signature data")
 	}
-	publicKeyFieldLog := zap.Any("publicKey", publicKey)
+	//publicKeyFieldLog := zap.Any("publicKey", publicKey)
 
 	keyOwnerAddress := crypto.PubkeyToAddress(*publicKey)
 	keyOwnerAddressFieldLog := zap.Any("keyOwnerAddress", keyOwnerAddress)
 	zap.L().Debug("Message signature parsed",
-		messageFieldLog,
-		signatureFieldLog,
-		messageHashFieldLog,
-		publicKeyFieldLog,
+		//messageFieldLog,
+		//signatureFieldLog,
+		//messageHashFieldLog,
+		//publicKeyFieldLog,
 		keyOwnerAddressFieldLog)
 
 	return &keyOwnerAddress, nil
@@ -69,17 +81,17 @@ func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Addr
 
 // VerifySigner Verify the signature done by given singer or not
 // returns nil if signer indeed sign the message and signature proves it, if not throws an error
-func VerifySigner(message []byte, signature []byte, signer common.Address) error {
-	signerFromMessage, err := GetSignerAddressFromMessage(message, signature)
-	if err != nil {
-		zap.L().Error("error from getSignerAddressFromMessage", zap.Error(err))
-		return err
-	}
-	if signerFromMessage.String() == signer.String() {
-		return nil
-	}
-	return fmt.Errorf("incorrect signer")
-}
+//func VerifySigner(message []byte, signature []byte, signer common.Address) error {
+//	signerFromMessage, err := GetSignerAddressFromMessage(message, signature)
+//	if err != nil {
+//		zap.L().Error("error from getSignerAddressFromMessage", zap.Error(err))
+//		return err
+//	}
+//	if signerFromMessage.String() == signer.String() {
+//		return nil
+//	}
+//	return fmt.Errorf("incorrect signer")
+//}
 
 // CompareWithLatestBlockNumber Check if the block number passed is not more +- 5 from the latest block number on chain
 func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
@@ -94,22 +106,9 @@ func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	return nil
 }
 
-// CheckIfTokenHasExpired Check if the block number ( date on which the token was issued is not more than 1 month)
-func CheckIfTokenHasExpired(expiredBlock *big.Int) error {
-	currentBlockNumber, err := CurrentBlock()
-	if err != nil {
-		return err
-	}
-
-	if expiredBlock.Cmp(currentBlockNumber) < 0 {
-		return fmt.Errorf("authentication failed as the Free Call Token passed has expired")
-	}
-	return nil
-}
-
 // CurrentBlock Get the current block number from on chain
 func CurrentBlock() (*big.Int, error) {
-	if ethHttpClient, _, err := blockchain.CreateEthereumClients(); err != nil {
+	if ethHttpClient, err := blockchain.CreateHTTPEthereumClient(); err != nil {
 		return nil, err
 	} else {
 		defer ethHttpClient.RawClient.Close()
@@ -138,7 +137,7 @@ func GetSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byt
 
 	signature, err := crypto.Sign(hash, privateKey)
 	if err != nil {
-		panic(fmt.Sprintf("Cannot sign test message: %v", err))
+		zap.L().Fatal(fmt.Sprintf("Cannot sign test message: %v", err))
 	}
 
 	return signature

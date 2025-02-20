@@ -1,0 +1,128 @@
+syntax = "proto3";
+package training;
+
+import "google/protobuf/descriptor.proto";  // Required for indicators to work
+import "google/protobuf/struct.proto";     // Required for google.protobuf.ListValue
+import "training.proto";
+import "google/protobuf/empty.proto";
+option go_package = "github.com/singnet/snet-daemon/v5/training";
+
+message AuthorizationDetails {
+  // Check for relevance within a range of +/- N blocks
+  uint64 current_block = 1;
+  // Signer should specify method name in message
+  string message = 2;
+  // Signature of the following message:
+  // ("message", user_address, current_block_number)
+  bytes signature = 3;
+  string signer_address = 4;
+}
+
+message NewModelRequest {
+  AuthorizationDetails authorization = 1;
+  training.NewModel model = 2;
+}
+
+message AuthValidateRequest {
+  AuthorizationDetails authorization = 1;
+  string model_id = 2;
+  string training_data_link = 3;
+}
+
+message UploadAndValidateRequest {
+  AuthorizationDetails authorization = 1;
+  training.UploadInput upload_input = 2;
+}
+
+message CommonRequest {
+  AuthorizationDetails authorization = 1;
+  string model_id = 2;
+}
+
+message UpdateModelRequest {
+  AuthorizationDetails authorization = 1;
+  string model_id = 2;
+  optional string model_name = 3;
+  optional string description = 4;
+  repeated string address_list = 5;
+}
+
+message ModelsResponse {
+  repeated training.ModelResponse list_of_models = 1;
+}
+
+// These methods are implemented only by the daemon; the service provider should ignore them
+service Daemon {
+  // Free
+  rpc create_model(NewModelRequest) returns (training.ModelResponse) {}
+
+  // Free
+  rpc validate_model_price(AuthValidateRequest) returns (training.PriceInBaseUnit) {}
+
+  // Paid
+  rpc upload_and_validate(stream UploadAndValidateRequest) returns (training.StatusResponse) {}
+
+  // Paid
+  rpc validate_model(AuthValidateRequest) returns (training.StatusResponse) {}
+
+  // Free, one signature for both train_model_price & train_model methods
+  rpc train_model_price(CommonRequest) returns (training.PriceInBaseUnit) {}
+
+  // Paid
+  rpc train_model(CommonRequest) returns (training.StatusResponse) {}
+
+  // Free
+  // After deleting the model, the status becomes DELETED in etcd
+  rpc delete_model(CommonRequest) returns (training.StatusResponse) {}
+
+  rpc get_all_models(AllModelsRequest) returns (ModelsResponse) {}
+
+  rpc get_model(CommonRequest) returns (training.ModelResponse) {}
+
+  rpc update_model(UpdateModelRequest) returns (training.ModelResponse) {}
+
+  // Unique methods by daemon
+  // One signature for all getters
+  rpc get_training_metadata(google.protobuf.Empty) returns (TrainingMetadata) {}
+
+  // Free & without authorization
+  rpc get_method_metadata(MethodMetadataRequest) returns (MethodMetadata) {}
+}
+
+message MethodMetadataRequest {
+  string model_id = 1;
+  // Model ID or gRPC method name
+  string grpc_method_name = 2;
+  string grpc_service_name = 3;
+}
+
+message AllModelsRequest {
+  AuthorizationDetails authorization = 1;
+  // filters:
+  repeated training.Status statuses = 3; // optional
+  optional bool is_public = 4; // null - all, false - only private, true - only public models
+  string grpc_method_name = 5;
+  string grpc_service_name = 6;
+  string name = 7;
+  string created_by_address = 8;
+  uint64 page_size = 9;
+  uint64 page = 10;
+}
+
+message TrainingMetadata {
+  bool trainingEnabled = 1;
+  bool trainingInProto = 2;
+  // Key: grpc_service_name, Value: array of grpc_method_name
+  map<string, google.protobuf.ListValue> trainingMethods = 3;
+}
+
+message MethodMetadata {
+  string default_model_id = 50001;
+  uint64 max_models_per_user = 50002; // max models per method & user
+  uint64 dataset_max_size_mb = 50003; // max size of dataset
+  uint64 dataset_max_count_files = 50004; // maximum number of files in the dataset
+  uint64 dataset_max_size_single_file_mb = 50005; // maximum size of a single file in the dataset
+  string dataset_files_type = 50006; // allowed files types in dataset. string with array or single value, example: jpg, png, mp3
+  string dataset_type = 50007; // string with array or single value, example: zip, tar.gz, tar
+  string dataset_description = 50008; // additional free-form requirements
+}

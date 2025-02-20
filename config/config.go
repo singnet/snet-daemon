@@ -115,7 +115,7 @@ const (
 	"payment_channel_storage_client": {
 		"connection_timeout": "0s",
 		"request_timeout": "0s",
-		"hot_reload": true
+		"hot_reload": false
     },
 	"payment_channel_storage_server": {
 		"id": "storage-1",

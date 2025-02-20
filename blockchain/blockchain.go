@@ -56,18 +56,14 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	}
 
 	// Setup ethereum client
-
-	if ethHttpClients, ethWSClients, err := CreateEthereumClients(); err != nil {
+	if ethHttpClients, err := CreateEthereumClient(); err != nil {
 		return p, errors.Wrap(err, "error creating RPC client")
 	} else {
 		p.rawHttpClient = ethHttpClients.RawClient
 		p.ethHttpClient = ethHttpClients.EthClient
-		p.rawWSClient = ethWSClients.RawClient
-		p.ethWSClient = ethWSClients.EthClient
 	}
 
 	// TODO: if address is not in config, try to load it using network
-
 	//TODO: Read this from github
 
 	p.escrowContractAddress = metadata.GetMpeAddress()
@@ -91,6 +87,13 @@ func (processor *Processor) ReconnectToWsClient() error {
 	processor.rawHttpClient.Close()
 
 	zap.L().Debug("Try to reconnect to websocket client")
+
+	return processor.ConnectToWsClient()
+}
+
+func (processor *Processor) ConnectToWsClient() error {
+
+	zap.L().Debug("Try to connect to websocket client")
 
 	newEthWSClients, err := CreateWSEthereumClient()
 	if err != nil {
@@ -124,17 +127,24 @@ func (processor *Processor) GetEthWSClient() *ethclient.Client {
 }
 
 func (processor *Processor) CurrentBlock() (currentBlock *big.Int, err error) {
-	// We have to do a raw call because the standard method of ethClient.HeaderByNumber(ctx, nil) errors on
-	// unmarshaling the response currently. See https://github.com/ethereum/go-ethereum/issues/3230
-	var currentBlockHex string
-	if err = processor.rawHttpClient.CallContext(context.Background(), &currentBlockHex, "eth_blockNumber"); err != nil {
+	latestBlock, err := processor.ethHttpClient.BlockNumber(context.Background())
+	if err != nil {
 		zap.L().Error("error determining current block", zap.Error(err))
 		return nil, fmt.Errorf("error determining current block: %v", err)
 	}
+	return new(big.Int).SetUint64(latestBlock), nil
+}
 
-	currentBlockBytes := common.FromHex(currentBlockHex)
-	currentBlock = new(big.Int).SetBytes(currentBlockBytes)
+func (processor *Processor) CompareWithLatestBlockNumber(blockNumberPassed *big.Int, allowedBlockChainDifference uint64) (err error) {
+	latestBlockNumber, err := processor.CurrentBlock()
+	if err != nil {
+		return err
+	}
 
+	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
+	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > allowedBlockChainDifference {
+		return fmt.Errorf("authentication failed as the signature passed has expired")
+	}
 	return
 }
 
@@ -145,6 +155,10 @@ func (processor *Processor) HasIdentity() bool {
 func (processor *Processor) Close() {
 	processor.ethHttpClient.Close()
 	processor.rawHttpClient.Close()
-	processor.ethWSClient.Close()
-	processor.rawWSClient.Close()
+	if processor.ethWSClient != nil {
+		processor.ethWSClient.Close()
+	}
+	if processor.rawWSClient != nil {
+		processor.rawWSClient.Close()
+	}
 }

@@ -95,13 +95,13 @@ func setRegistryAddress() (err error) {
 	//		fileName, GetString(BlockChainNetworkSelected), err)
 	//}
 
-	if err = deriveDatafromJSON(data); err != nil {
+	if err = deriveDataFromJSON(data); err != nil {
 		return err
 	}
 	return nil
 }
 
-func deriveDatafromJSON(data []byte) (err error) {
+func deriveDataFromJSON(data []byte) (err error) {
 	m := map[string]any{}
 	err = json.Unmarshal(data, &m)
 	if err != nil {

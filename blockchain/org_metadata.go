@@ -184,13 +184,13 @@ func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error)
 }
 
 func getMetaDataURI() []byte {
-	//Block chain call here to get the hash of the metadata for the given Organization
+	// Blockchain call here to get the hash of the metadata for the given Organization
 	reg := getRegistryCaller()
 	orgId := StringToBytes32(config.GetString(config.OrganizationId))
 
 	organizationRegistered, err := reg.GetOrganizationById(nil, orgId)
 	if err != nil || !organizationRegistered.Found {
-		zap.L().Panic("Error Retrieving contract details for the Given Organization", zap.String("OrganizationId", config.GetString(config.OrganizationId)), zap.Error(err))
+		zap.L().Panic("Error Retrieving contract details for the Given Organization, recheck blockchain provider endpoint", zap.String("OrganizationId", config.GetString(config.OrganizationId)), zap.Error(err))
 	}
 	return organizationRegistered.OrgMetadataURI[:]
 }

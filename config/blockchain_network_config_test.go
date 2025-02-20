@@ -117,7 +117,7 @@ func Test_setRegistryAddress(t *testing.T) {
 		wantErr   bool
 	}{
 		{"11155111", false},
-		{"5", false},
+		{"1", false},
 		{"11155111_", true},
 	}
 
@@ -130,7 +130,6 @@ func Test_setRegistryAddress(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func Test_setBlockChainNetworkDetails(t *testing.T) {

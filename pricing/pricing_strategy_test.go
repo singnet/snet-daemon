@@ -2,7 +2,9 @@ package pricing
 
 import (
 	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v5/handler"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 	"math/big"
 	"testing"
 )
@@ -14,8 +16,7 @@ func TestPricing_GetPrice(t *testing.T) {
 
 	pricing, err := InitPricingStrategy(metadata)
 	if pricing != nil {
-
-		price, err := pricing.GetPrice(nil)
+		price, err := pricing.GetPrice(&handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "add"}})
 		assert.Equal(t, price, big.NewInt(2))
 		assert.Nil(t, err)
 	}
@@ -24,5 +25,4 @@ func TestPricing_GetPrice(t *testing.T) {
 	pricing,err = InitPricingStrategy(metadata)
 	assert.Equal(t,err.Error(),"No PricingStrategy strategy defined in Metadata ")
 	assert.Nil(t,pricing)*/
-
 }

@@ -23,7 +23,7 @@ type freeCallPaymentHandler struct {
 // NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func FreeCallPaymentHandler(
 	freeCallService FreeCallUserService, processor *blockchain.Processor, metadata *blockchain.OrganizationMetaData,
-	pServiceMetaData *blockchain.ServiceMetadata) handler.PaymentHandler {
+	pServiceMetaData *blockchain.ServiceMetadata) handler.StreamPaymentHandler {
 	return &freeCallPaymentHandler{
 		service:         freeCallService,
 		orgMetadata:     metadata,

@@ -1,4 +1,4 @@
-package tests
+package service_mock
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type model struct {
 	status          training.Status
 }
 
-func startTestService(address string) *grpc.Server {
+func StartTestService(address string) *grpc.Server {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

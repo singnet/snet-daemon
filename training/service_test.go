@@ -1,9 +1,10 @@
-package tests
+package training
 
 import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"github.com/singnet/snet-daemon/v5/training/service_mock"
 	"math/big"
 	"slices"
 	"strings"
@@ -22,20 +23,19 @@ import (
 	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/storage"
-	"github.com/singnet/snet-daemon/v5/training"
 )
 
 type DaemonServiceSuite struct {
 	suite.Suite
 	blockchain                 blockchain.Processor
 	currentBlock               *big.Int
-	modelStorage               *training.ModelStorage
-	userModelStorage           *training.ModelUserStorage
-	pendingModelStorage        *training.PendingModelStorage
-	daemonService              training.DaemonServer
-	unimplementedDaemonService training.DaemonServer
-	modelKeys                  []*training.ModelKey
-	pendingModelKeys           []*training.ModelKey // using for checking updated status
+	modelStorage               *ModelStorage
+	userModelStorage           *ModelUserStorage
+	pendingModelStorage        *PendingModelStorage
+	daemonService              DaemonServer
+	unimplementedDaemonService DaemonServer
+	modelKeys                  []*ModelKey
+	pendingModelKeys           []*ModelKey // using for checking updated status
 	grpcServer                 *grpc.Server
 	grpcClient                 *grpc.ClientConn
 	serviceMetadata            *blockchain.ServiceMetadata
@@ -77,11 +77,11 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 	suite.organizationMetadata = orgMetadata
 
 	// setup unimplemented daemon server once
-	suite.unimplementedDaemonService = training.NoTrainingDaemonServer{}
+	suite.unimplementedDaemonService = NoTrainingDaemonServer{}
 
 	// setup test poriver service once
 	address := "localhost:5001"
-	suite.grpcServer = startTestService(address)
+	suite.grpcServer = service_mock.StartTestService(address)
 }
 
 func (suite *DaemonServiceSuite) SetupTest() {
@@ -91,7 +91,7 @@ func (suite *DaemonServiceSuite) SetupTest() {
 	suite.userModelStorage = userModelStorage
 	suite.pendingModelStorage = pendingModelStorage
 
-	suite.daemonService = training.NewTrainingService(
+	suite.daemonService = NewTrainingService(
 		&suite.blockchain,
 		suite.serviceMetadata,
 		suite.organizationMetadata,
@@ -128,12 +128,12 @@ func getTestSignature(text string, blockNumber uint64, privateKey *ecdsa.Private
 	return signature
 }
 
-func createTestAuthDetails(block *big.Int, method string) *training.AuthorizationDetails {
+func createTestAuthDetails(block *big.Int, method string) *AuthorizationDetails {
 	privateKey, err := crypto.HexToECDSA("c0e4803a3a5b3c26cfc96d19a6dc4bbb4ba653ce5fa68f0b7dbf3903cda17ee6")
 	if err != nil {
 		zap.L().Fatal("error in creating private key", zap.Error(err))
 	}
-	return &training.AuthorizationDetails{
+	return &AuthorizationDetails{
 		CurrentBlock:  block.Uint64(),
 		Message:       method,
 		Signature:     getTestSignature(method, block.Uint64(), privateKey),
@@ -141,12 +141,12 @@ func createTestAuthDetails(block *big.Int, method string) *training.Authorizatio
 	}
 }
 
-func creatBadTestAuthDetails(block *big.Int) *training.AuthorizationDetails {
+func creatBadTestAuthDetails(block *big.Int) *AuthorizationDetails {
 	privateKey, err := crypto.HexToECDSA("c0e4803a3a5b3c26cfc96d19a6dc4bbb4ba653ce5fa68f0b7dbf3903cda17ee6")
 	if err != nil {
 		zap.L().Fatal("error in creating private key", zap.Error(err))
 	}
-	return &training.AuthorizationDetails{
+	return &AuthorizationDetails{
 		CurrentBlock:  block.Uint64(),
 		Message:       "badMessage",
 		Signature:     getTestSignature("badMessage", block.Uint64(), privateKey),
@@ -213,18 +213,18 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 	config.SetVip(testConfig)
 }
 
-func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *training.ModelUserStorage, *training.PendingModelStorage, *training.PublicModelStorage) {
+func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserStorage, *PendingModelStorage, *PublicModelStorage) {
 	memStorage := storage.NewMemStorage()
-	modelStorage := training.NewModelStorage(memStorage, suite.organizationMetadata)
-	userModelStorage := training.NewUserModelStorage(memStorage, suite.organizationMetadata)
-	pendingModelStorage := training.NewPendingModelStorage(memStorage, suite.organizationMetadata)
-	publicModelStorage := training.NewPublicModelStorage(memStorage, suite.organizationMetadata)
+	modelStorage := NewModelStorage(memStorage, suite.organizationMetadata)
+	userModelStorage := NewUserModelStorage(memStorage, suite.organizationMetadata)
+	pendingModelStorage := NewPendingModelStorage(memStorage, suite.organizationMetadata)
+	publicModelStorage := NewPublicModelStorage(memStorage, suite.organizationMetadata)
 
-	modelA := &training.ModelData{
+	modelA := &ModelData{
 		IsPublic:            true,
 		ModelName:           "testModel",
 		AuthorizedAddresses: []string{},
-		Status:              training.Status_VALIDATING,
+		Status:              Status_VALIDATING,
 		CreatedByAddress:    "address",
 		ModelId:             "test_1",
 		UpdatedByAddress:    "string",
@@ -238,18 +238,18 @@ func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *tr
 		UpdatedDate:         "string",
 	}
 
-	modelAKey := &training.ModelKey{
+	modelAKey := &ModelKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		ModelId:        "test_1",
 	}
 
-	modelB := &training.ModelData{
+	modelB := &ModelData{
 		IsPublic:            false,
 		ModelName:           "testModel",
 		AuthorizedAddresses: []string{},
-		Status:              training.Status_CREATED,
+		Status:              Status_CREATED,
 		CreatedByAddress:    "address",
 		ModelId:             "test_2",
 		UpdatedByAddress:    "string",
@@ -263,18 +263,18 @@ func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *tr
 		UpdatedDate:         "string",
 	}
 
-	modelBKey := &training.ModelKey{
+	modelBKey := &ModelKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		ModelId:        "test_2",
 	}
 
-	modelC := &training.ModelData{
+	modelC := &ModelData{
 		IsPublic:            false,
 		ModelName:           "testModel",
 		AuthorizedAddresses: []string{},
-		Status:              training.Status_CREATED,
+		Status:              Status_CREATED,
 		CreatedByAddress:    "address",
 		ModelId:             "test_3",
 		UpdatedByAddress:    "string",
@@ -288,7 +288,7 @@ func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *tr
 		UpdatedDate:         "string",
 	}
 
-	modelCKey := &training.ModelKey{
+	modelCKey := &ModelKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
@@ -300,14 +300,14 @@ func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *tr
 	modelStorage.Put(modelCKey, modelC)
 
 	// adding to user models sotrage
-	userModelKey := &training.ModelUserKey{
+	userModelKey := &ModelUserKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		UserAddress:    testUserAddress,
 	}
 
-	userModelData := &training.ModelUserData{
+	userModelData := &ModelUserData{
 		ModelIds:       []string{"test_3"},
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
@@ -318,41 +318,41 @@ func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *tr
 	userModelStorage.Put(userModelKey, userModelData)
 
 	// adding to pending models storage
-	pendingModelKey := &training.PendingModelKey{
+	pendingModelKey := &PendingModelKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
-	pendingModelsData := &training.PendingModelData{
+	pendingModelsData := &PendingModelData{
 		ModelIDs: []string{"test_1"},
 	}
 
 	pendingModelStorage.Put(pendingModelKey, pendingModelsData)
 
 	// adding to public models storage
-	publicModelKey := &training.PublicModelKey{
+	publicModelKey := &PublicModelKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
-	publicModelsData := &training.PublicModelData{
+	publicModelsData := &PublicModelData{
 		ModelIDs: []string{"test_1"},
 	}
 
 	publicModelStorage.Put(publicModelKey, publicModelsData)
 
 	// setup keys in suite
-	suite.modelKeys = []*training.ModelKey{modelAKey, modelBKey, modelCKey}
-	suite.pendingModelKeys = []*training.ModelKey{modelAKey}
+	suite.modelKeys = []*ModelKey{modelAKey, modelBKey, modelCKey}
+	suite.pendingModelKeys = []*ModelKey{modelAKey}
 
 	// return all model keys, storages
 	return modelStorage, userModelStorage, pendingModelStorage, publicModelStorage
 }
 
-func (suite *DaemonServiceSuite) createAdditionalTestModel(modelName string, authDetails *training.AuthorizationDetails) string {
-	newModel := &training.NewModel{
+func (suite *DaemonServiceSuite) createAdditionalTestModel(modelName string, authDetails *AuthorizationDetails) string {
+	newModel := &NewModel{
 		Name:            modelName,
 		Description:     "test_desc",
 		GrpcMethodName:  "test_grpc_method_name",
@@ -364,7 +364,7 @@ func (suite *DaemonServiceSuite) createAdditionalTestModel(modelName string, aut
 		GroupId:         "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
-	request := &training.NewModelRequest{
+	request := &NewModelRequest{
 		Authorization: authDetails,
 		Model:         newModel,
 	}
@@ -382,48 +382,48 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 
 	// check without request
 	response1, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), nil)
-	assert.ErrorContains(suite.T(), err, training.ErrNoAuthorization.Error())
-	assert.Equal(suite.T(), training.Status_ERRORED, response1.Status)
+	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
+	assert.Equal(suite.T(), Status_ERRORED, response1.Status)
 
 	// check without auth
-	request2 := &training.CommonRequest{
+	request2 := &CommonRequest{
 		Authorization: nil,
 		ModelId:       "test_2",
 	}
 	response2, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request2)
-	assert.ErrorContains(suite.T(), err, training.ErrNoAuthorization.Error())
-	assert.Equal(suite.T(), training.Status_ERRORED, response2.Status)
+	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
+	assert.Equal(suite.T(), Status_ERRORED, response2.Status)
 
 	// check with bad auth
-	request3 := &training.CommonRequest{
+	request3 := &CommonRequest{
 		Authorization: badTestAuthCreads,
 		ModelId:       "test_2",
 	}
 	response3, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request3)
-	assert.ErrorContains(suite.T(), err, training.ErrBadAuthorization.Error())
-	assert.Equal(suite.T(), training.Status_ERRORED, response3.Status)
+	assert.ErrorContains(suite.T(), err, ErrBadAuthorization.Error())
+	assert.Equal(suite.T(), Status_ERRORED, response3.Status)
 
 	// check modelId is not empty string
-	request4 := &training.CommonRequest{
+	request4 := &CommonRequest{
 		Authorization: testAuthCreads,
 		ModelId:       "",
 	}
 	response4, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request4)
 	assert.NotNil(suite.T(), err)
-	assert.ErrorContains(suite.T(), err, training.ErrEmptyModelID.Error())
-	assert.Equal(suite.T(), training.Status_ERRORED, response4.Status)
+	assert.ErrorContains(suite.T(), err, ErrEmptyModelID.Error())
+	assert.Equal(suite.T(), Status_ERRORED, response4.Status)
 
 	// check without access to model
-	request5 := &training.CommonRequest{
+	request5 := &CommonRequest{
 		Authorization: testAuthCreads,
 		ModelId:       "test_2",
 	}
 	response5, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request5)
-	assert.ErrorContains(suite.T(), err, training.ErrAccessToModel.Error())
-	assert.Equal(suite.T(), &training.ModelResponse{}, response5)
+	assert.ErrorContains(suite.T(), err, ErrAccessToModel.Error())
+	assert.Equal(suite.T(), &ModelResponse{}, response5)
 
 	// check access to public model
-	request6 := &training.CommonRequest{
+	request6 := &CommonRequest{
 		Authorization: testAuthCreads,
 		ModelId:       "test_1",
 	}
@@ -433,7 +433,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 	assert.Equal(suite.T(), true, response6.IsPublic)
 
 	//check access to non public model
-	request7 := &training.CommonRequest{
+	request7 := &CommonRequest{
 		Authorization: testAuthCreads,
 		ModelId:       "test_3",
 	}
@@ -450,7 +450,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 	testAuthCreads := createTestAuthDetails(suite.currentBlock, "create_model")
 	badTestAuthCreads := creatBadTestAuthDetails(suite.currentBlock)
 
-	newModel := &training.NewModel{
+	newModel := &NewModel{
 		Name:            "new_test_model",
 		Description:     "test_desc",
 		GrpcMethodName:  "test_grpc_method_name",
@@ -462,55 +462,55 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 		GroupId:         "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
-	newEmptyModel := &training.NewModel{}
+	newEmptyModel := &NewModel{}
 
 	// check without request
 	response1, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), nil)
-	assert.ErrorContains(suite.T(), err, training.ErrNoAuthorization.Error())
-	assert.Equal(suite.T(), training.Status_ERRORED, response1.Status)
+	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
+	assert.Equal(suite.T(), Status_ERRORED, response1.Status)
 
 	// check without auth
-	request2 := &training.NewModelRequest{
+	request2 := &NewModelRequest{
 		Authorization: nil,
 		Model:         newModel,
 	}
 	response2, err := suite.daemonService.CreateModel(context.Background(), request2)
-	assert.ErrorContains(suite.T(), err, training.ErrNoAuthorization.Error())
-	assert.Equal(suite.T(), training.Status_ERRORED, response2.Status)
+	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
+	assert.Equal(suite.T(), Status_ERRORED, response2.Status)
 
 	// check with bad auth
-	request3 := &training.NewModelRequest{
+	request3 := &NewModelRequest{
 		Authorization: badTestAuthCreads,
 		Model:         newModel,
 	}
 	response3, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request3)
-	assert.ErrorContains(suite.T(), err, training.ErrBadAuthorization.Error())
-	assert.Equal(suite.T(), training.Status_ERRORED, response3.Status)
+	assert.ErrorContains(suite.T(), err, ErrBadAuthorization.Error())
+	assert.Equal(suite.T(), Status_ERRORED, response3.Status)
 
 	suite.currentBlock, err = suite.blockchain.CurrentBlock()
 	assert.Nil(suite.T(), err)
 	testAuthCreads = createTestAuthDetails(suite.currentBlock, "create_model")
 
 	// check with emptyModel
-	request4 := &training.NewModelRequest{
+	request4 := &NewModelRequest{
 		Authorization: testAuthCreads,
 		Model:         newEmptyModel,
 	}
 	response4, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request4)
-	assert.ErrorContains(suite.T(), err, training.ErrNoGRPCServiceOrMethod.Error())
-	assert.Equal(suite.T(), training.Status_ERRORED, response4.Status)
+	assert.ErrorContains(suite.T(), err, ErrNoGRPCServiceOrMethod.Error())
+	assert.Equal(suite.T(), Status_ERRORED, response4.Status)
 
 	// check with auth
-	request5 := &training.NewModelRequest{
+	request5 := &NewModelRequest{
 		Authorization: testAuthCreads,
 		Model:         newModel,
 	}
 	response5, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request5)
 	assert.Nil(suite.T(), err)
-	assert.Equal(suite.T(), training.Status_CREATED, response5.Status)
+	assert.Equal(suite.T(), Status_CREATED, response5.Status)
 
 	// check model creation in model storage
-	modelKey := &training.ModelKey{
+	modelKey := &ModelKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
@@ -524,7 +524,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 	assert.Equal(suite.T(), newModel.Name, modelData.ModelName)
 
 	// check user model data creation in user model storage
-	userModelKey := &training.ModelUserKey{
+	userModelKey := &ModelUserKey{
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
@@ -547,27 +547,27 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetAllModels() {
 
 	// check without request
 	response1, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), "method", "get_all_models"), nil)
-	assert.ErrorContains(suite.T(), err, training.ErrNoAuthorization.Error())
+	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
 	assert.Nil(suite.T(), response1.ListOfModels)
 
 	// check without auth
-	request2 := &training.AllModelsRequest{
+	request2 := &AllModelsRequest{
 		Authorization: nil,
 	}
 	response2, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), "method", "get_all_models"), request2)
-	assert.ErrorContains(suite.T(), err, training.ErrNoAuthorization.Error())
+	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
 	assert.Nil(suite.T(), response2.ListOfModels)
 
 	// check with bad auth
-	request3 := &training.AllModelsRequest{
+	request3 := &AllModelsRequest{
 		Authorization: badTestAuthCreads,
 	}
 	response3, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), "method", "get_all_models"), request3)
-	assert.ErrorContains(suite.T(), err, training.ErrBadAuthorization.Error())
+	assert.ErrorContains(suite.T(), err, ErrBadAuthorization.Error())
 	assert.Nil(suite.T(), response3.ListOfModels)
 
 	// check with auth and without filters
-	request4 := &training.AllModelsRequest{
+	request4 := &AllModelsRequest{
 		Authorization: testAuthCreads,
 	}
 	response4, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), "method", "get_all_models"), request4)
@@ -597,48 +597,48 @@ func (suite *DaemonServiceSuite) TestDaemonService_ManageUpdateStatusWorkers() {
 		modelData, ok, err := suite.modelStorage.Get(modelKey)
 		assert.Nil(suite.T(), err)
 		assert.True(suite.T(), ok)
-		assert.Equal(suite.T(), training.Status_VALIDATED, modelData.Status)
+		assert.Equal(suite.T(), Status_VALIDATED, modelData.Status)
 	}
 }
 
 func (suite *DaemonServiceSuite) TestDaemonService_UnimplementedDaemonService() {
-	response1, err := suite.unimplementedDaemonService.CreateModel(context.TODO(), &training.NewModelRequest{})
+	response1, err := suite.unimplementedDaemonService.CreateModel(context.TODO(), &NewModelRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), training.Status_ERRORED, response1.Status)
+	assert.Equal(suite.T(), Status_ERRORED, response1.Status)
 
-	_, err = suite.unimplementedDaemonService.ValidateModelPrice(context.TODO(), &training.AuthValidateRequest{})
-	assert.NotNil(suite.T(), err)
-
-	response2, err := suite.unimplementedDaemonService.ValidateModel(context.TODO(), &training.AuthValidateRequest{})
-	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), training.Status_ERRORED, response2.Status)
-
-	_, err = suite.unimplementedDaemonService.TrainModelPrice(context.TODO(), &training.CommonRequest{})
+	_, err = suite.unimplementedDaemonService.ValidateModelPrice(context.TODO(), &AuthValidateRequest{})
 	assert.NotNil(suite.T(), err)
 
-	response3, err := suite.unimplementedDaemonService.TrainModel(context.TODO(), &training.CommonRequest{})
+	response2, err := suite.unimplementedDaemonService.ValidateModel(context.TODO(), &AuthValidateRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), training.Status_ERRORED, response3.Status)
+	assert.Equal(suite.T(), Status_ERRORED, response2.Status)
 
-	response4, err := suite.unimplementedDaemonService.DeleteModel(context.TODO(), &training.CommonRequest{})
+	_, err = suite.unimplementedDaemonService.TrainModelPrice(context.TODO(), &CommonRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), training.Status_ERRORED, response4.Status)
 
-	response5, err := suite.unimplementedDaemonService.GetAllModels(context.TODO(), &training.AllModelsRequest{})
+	response3, err := suite.unimplementedDaemonService.TrainModel(context.TODO(), &CommonRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), []*training.ModelResponse{}, response5.ListOfModels)
+	assert.Equal(suite.T(), Status_ERRORED, response3.Status)
 
-	response6, err := suite.unimplementedDaemonService.GetModel(context.TODO(), &training.CommonRequest{})
+	response4, err := suite.unimplementedDaemonService.DeleteModel(context.TODO(), &CommonRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), training.Status_ERRORED, response6.Status)
+	assert.Equal(suite.T(), Status_ERRORED, response4.Status)
 
-	response7, err := suite.unimplementedDaemonService.UpdateModel(context.Background(), &training.UpdateModelRequest{})
+	response5, err := suite.unimplementedDaemonService.GetAllModels(context.TODO(), &AllModelsRequest{})
 	assert.NotNil(suite.T(), err)
-	assert.Equal(suite.T(), training.Status_ERRORED, response7.Status)
+	assert.Equal(suite.T(), []*ModelResponse{}, response5.ListOfModels)
+
+	response6, err := suite.unimplementedDaemonService.GetModel(context.TODO(), &CommonRequest{})
+	assert.NotNil(suite.T(), err)
+	assert.Equal(suite.T(), Status_ERRORED, response6.Status)
+
+	response7, err := suite.unimplementedDaemonService.UpdateModel(context.Background(), &UpdateModelRequest{})
+	assert.NotNil(suite.T(), err)
+	assert.Equal(suite.T(), Status_ERRORED, response7.Status)
 
 	_, err = suite.unimplementedDaemonService.GetTrainingMetadata(context.Background(), &emptypb.Empty{})
 	assert.NotNil(suite.T(), err)
 
-	_, err = suite.unimplementedDaemonService.GetMethodMetadata(context.TODO(), &training.MethodMetadataRequest{})
+	_, err = suite.unimplementedDaemonService.GetMethodMetadata(context.TODO(), &MethodMetadataRequest{})
 	assert.NotNil(suite.T(), err)
 }

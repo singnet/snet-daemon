@@ -6,7 +6,7 @@ require (
 	github.com/OneOfOne/go-utils v0.0.0-20180319162427-6019ff89a94e
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/emicklei/proto v1.14.0
-	github.com/ethereum/go-ethereum v1.15.0
+	github.com/ethereum/go-ethereum v1.15.2
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gorilla/handlers v1.5.2
@@ -15,7 +15,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/ipfs/go-cid v0.5.0
-	github.com/ipfs/kubo v0.33.1
+	github.com/ipfs/kubo v0.33.2
 	github.com/magiconair/properties v1.8.9
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.11.1
@@ -23,7 +23,7 @@ require (
 	github.com/singnet/snet-ecosystem-contracts v0.2.1
 	github.com/soheilhy/cmux v0.1.5
 	github.com/spf13/cast v1.7.1
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
@@ -31,7 +31,7 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.18
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.33.0
-	golang.org/x/net v0.34.0
+	golang.org/x/net v0.35.0
 	golang.org/x/time v0.10.0
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.5
@@ -62,7 +62,7 @@ require (
 	github.com/consensys/gnark-crypto v0.16.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/crackcomm/go-gitignore v0.0.0-20241020182519-7843d2ba8fdf // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
@@ -228,7 +228,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/supranational/blst v0.3.13 // indirect
+	github.com/supranational/blst v0.3.14 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect

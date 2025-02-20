@@ -69,11 +69,11 @@ func TestInitServiceMetaDataFromJson(t *testing.T) {
 	//Parse Bad JSON
 	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F", "", 1)))
 	if err != nil {
-		assert.Contains(t, err.Error(), "MetaData does not have 'free_call_signer_address defined correctly")
+		assert.Contains(t, err.Error(), "metadata does not have 'free_call_signer_address defined correctly")
 	}
 	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "default_pricing", "dummy", 1)))
 	if err != nil {
-		assert.Equal(t, err.Error(), "MetaData does not have the default pricing set ")
+		assert.Equal(t, err.Error(), "metadata does not have the default pricing set")
 	}
 
 }
@@ -98,7 +98,7 @@ func Test_setDefaultPricing(t *testing.T) {
 	err := setDefaultPricing(&ServiceMetadata{})
 	assert.NotNil(t, err)
 	err = setDefaultPricing(&ServiceMetadata{Groups: []OrganizationGroup{{GroupName: "default_group"}}})
-	assert.Equal(t, err.Error(), "MetaData does not have the default pricing set ")
+	assert.Equal(t, err.Error(), "metadata does not have the default pricing set")
 }
 
 func Test_setGroup(t *testing.T) {

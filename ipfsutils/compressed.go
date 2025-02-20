@@ -38,12 +38,12 @@ func ReadFilesCompressed(compressedFile []byte) (protos map[string]string, err e
 			}
 			protos[name] = string(data)
 		default:
-			err = fmt.Errorf(fmt.Sprintf("%s : %c %s %s\n",
+			err = fmt.Errorf("%s : %c %s %s\n",
 				"Unknown file Type ",
 				header.Typeflag,
 				"in file",
 				name,
-			))
+			)
 			zap.L().Error(err.Error())
 			return nil, err
 		}

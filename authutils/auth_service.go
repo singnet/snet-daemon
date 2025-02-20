@@ -71,8 +71,8 @@ func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Addr
 	keyOwnerAddressFieldLog := zap.Any("keyOwnerAddress", keyOwnerAddress)
 	zap.L().Debug("Message signature parsed",
 		//messageFieldLog,
-		signatureFieldLog,
-		messageHashFieldLog,
+		//signatureFieldLog,
+		//messageHashFieldLog,
 		//publicKeyFieldLog,
 		keyOwnerAddressFieldLog)
 
@@ -106,22 +106,9 @@ func CompareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	return nil
 }
 
-// CheckIfTokenHasExpired Check if the block number ( date on which the token was issued is not more than 1 month)
-func CheckIfTokenHasExpired(expiredBlock *big.Int) error {
-	currentBlockNumber, err := CurrentBlock()
-	if err != nil {
-		return err
-	}
-
-	if expiredBlock.Cmp(currentBlockNumber) < 0 {
-		return fmt.Errorf("authentication failed as the Free Call Token passed has expired")
-	}
-	return nil
-}
-
 // CurrentBlock Get the current block number from on chain
 func CurrentBlock() (*big.Int, error) {
-	if ethHttpClient, _, err := blockchain.CreateEthereumClients(); err != nil {
+	if ethHttpClient, err := blockchain.CreateHTTPEthereumClient(); err != nil {
 		return nil, err
 	} else {
 		defer ethHttpClient.RawClient.Close()

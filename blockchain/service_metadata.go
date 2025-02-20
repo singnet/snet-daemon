@@ -421,8 +421,8 @@ func setDefaultPricing(metaData *ServiceMetadata) (err error) {
 			return nil
 		}
 	}
-	err = fmt.Errorf("MetaData does not have the default pricing set ")
-	zap.L().Warn("Error in set default pricing", zap.Error(err))
+	err = fmt.Errorf("metadata does not have the default pricing set")
+	zap.L().Warn("[setDefaultPricing] Error in set default pricing", zap.Error(err))
 	return err
 }
 
@@ -432,13 +432,12 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 }
 
 func setFreeCallData(metaData *ServiceMetadata) error {
-
 	if metaData.defaultGroup.FreeCalls > 0 {
 		metaData.isfreeCallAllowed = true
 		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
 		//If the signer address is not a valid address, then return back an error
 		if !common.IsHexAddress(metaData.defaultGroup.FreeCallSigner) {
-			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly" + errs.ErrDescURL(errs.InvalidMetadata))
+			return fmt.Errorf("metadata does not have 'free_call_signer_address defined correctly")
 		}
 		metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
 	}

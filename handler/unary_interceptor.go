@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"strings"
 )
 
 type GrpcUnaryContext struct {
@@ -39,8 +40,10 @@ type paymentValidationUnaryInterceptor struct {
 func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, e error) {
 	var err *GrpcError
 
+	ctx = context.WithValue(ctx, "method", info.FullMethod)
+
 	// pass non training requests and free requests
-	if info.FullMethod != "/training_daemon.Daemon/validate_model" && info.FullMethod != "/training_daemon.Daemon/train_model" {
+	if !strings.Contains(info.FullMethod, "validate_model") && !strings.Contains(info.FullMethod, "train_model") {
 		resp, e := handler(ctx, req)
 		if e != nil {
 			zap.L().Warn("gRPC handler returned error", zap.Error(e))

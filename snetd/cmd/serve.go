@@ -268,8 +268,8 @@ func (d *daemon) start() {
 			AllowOriginFunc: func(origin string) bool {
 				return true
 			},
-			ExposedHeaders: []string{"X-Grpc-Web", "Content-Length", "Access-Control-Allow-Origin", "Content-Type", "Origin"},
-			AllowedHeaders: []string{"X-Grpc-Web", "User-Agent", "Origin", "Accept", "Authorization", "Content-Type", "X-Requested-With", "Content-Length", "Access-Control-Allow-Origin",
+			ExposedHeaders: []string{"X-Grpc-Web", "Content-Length", "Access-Control-Allow-Origin", "Content-Type", "Origin", "Grpc-Status", "Grpc-Message"},
+			AllowedHeaders: []string{"Grpc-Status", "Grpc-Message", "X-Grpc-Web", "User-Agent", "Origin", "Accept", "Authorization", "Content-Type", "X-Requested-With", "Content-Length", "Access-Control-Allow-Origin",
 				handler.PaymentTypeHeader,
 				handler.ClientTypeHeader,
 				handler.PaymentChannelSignatureHeader,

@@ -1,23 +1,21 @@
-package tests
+package training
 
 import (
 	"fmt"
 	"github.com/singnet/snet-daemon/v5/blockchain"
-	"testing"
-
 	base_storage "github.com/singnet/snet-daemon/v5/storage"
-	"github.com/singnet/snet-daemon/v5/training"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"testing"
 )
 
 type ModelStorageSuite struct {
 	suite.Suite
 	memoryStorage        *base_storage.MemoryStorage
-	storage              *training.ModelStorage
-	userStorage          *training.ModelUserStorage
-	pendingStorage       *training.PendingModelStorage
-	publicStorage        *training.PublicModelStorage
+	storage              *ModelStorage
+	userStorage          *ModelUserStorage
+	pendingStorage       *PendingModelStorage
+	publicStorage        *PublicModelStorage
 	organizationMetaData *blockchain.OrganizationMetaData
 	organizationId       string
 	serviceId            string
@@ -26,29 +24,29 @@ type ModelStorageSuite struct {
 	accessibleAddress    []string
 }
 
-func (suite *ModelStorageSuite) getModelKey(modelId string) *training.ModelKey {
-	return &training.ModelKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
+func (suite *ModelStorageSuite) getModelKey(modelId string) *ModelKey {
+	return &ModelKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
 		ServiceId: suite.serviceId, ModelId: modelId}
 }
 
-func (suite *ModelStorageSuite) getUserModelKey(address string) *training.ModelUserKey {
-	return &training.ModelUserKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
+func (suite *ModelStorageSuite) getUserModelKey(address string) *ModelUserKey {
+	return &ModelUserKey{OrganizationId: suite.organizationId, GroupId: suite.groupId,
 		ServiceId: suite.serviceId, UserAddress: address}
 }
 
-func (suite *ModelStorageSuite) getPendingModelKey() *training.PendingModelKey {
-	return &training.PendingModelKey{OrganizationId: suite.organizationId, ServiceId: suite.serviceId,
+func (suite *ModelStorageSuite) getPendingModelKey() *PendingModelKey {
+	return &PendingModelKey{OrganizationId: suite.organizationId, ServiceId: suite.serviceId,
 		GroupId: suite.groupId}
 }
 
-func (suite *ModelStorageSuite) getPublicModelKey() *training.PublicModelKey {
-	return &training.PublicModelKey{OrganizationId: suite.organizationId, ServiceId: suite.serviceId,
+func (suite *ModelStorageSuite) getPublicModelKey() *PublicModelKey {
+	return &PublicModelKey{OrganizationId: suite.organizationId, ServiceId: suite.serviceId,
 		GroupId: suite.groupId}
 }
 
-func (suite *ModelStorageSuite) getModelData(modelId string) *training.ModelData {
-	return &training.ModelData{
-		Status:              training.Status_CREATED,
+func (suite *ModelStorageSuite) getModelData(modelId string) *ModelData {
+	return &ModelData{
+		Status:              Status_CREATED,
 		ModelId:             modelId,
 		OrganizationId:      suite.organizationId,
 		ServiceId:           suite.serviceId,
@@ -60,8 +58,8 @@ func (suite *ModelStorageSuite) getModelData(modelId string) *training.ModelData
 	}
 }
 
-func (suite *ModelStorageSuite) getUserModelData(modelId []string) *training.ModelUserData {
-	return &training.ModelUserData{
+func (suite *ModelStorageSuite) getUserModelData(modelId []string) *ModelUserData {
+	return &ModelUserData{
 		ModelIds:       modelId,
 		OrganizationId: suite.organizationId,
 		ServiceId:      suite.serviceId,
@@ -69,14 +67,14 @@ func (suite *ModelStorageSuite) getUserModelData(modelId []string) *training.Mod
 	}
 }
 
-func (suite *ModelStorageSuite) getPendingModelData(modelIds []string) *training.PendingModelData {
-	return &training.PendingModelData{
+func (suite *ModelStorageSuite) getPendingModelData(modelIds []string) *PendingModelData {
+	return &PendingModelData{
 		ModelIDs: modelIds,
 	}
 }
 
-func (suite *ModelStorageSuite) getPublicModelData(modelIds []string) *training.PublicModelData {
-	return &training.PublicModelData{
+func (suite *ModelStorageSuite) getPublicModelData(modelIds []string) *PublicModelData {
+	return &PublicModelData{
 		ModelIDs: modelIds,
 	}
 }
@@ -90,10 +88,10 @@ func (suite *ModelStorageSuite) SetupSuite() {
 	}
 	suite.memoryStorage = base_storage.NewMemStorage()
 	suite.organizationMetaData = metadata
-	suite.storage = training.NewModelStorage(suite.memoryStorage, suite.organizationMetaData)
-	suite.userStorage = training.NewUserModelStorage(suite.memoryStorage)
-	suite.pendingStorage = training.NewPendingModelStorage(suite.memoryStorage, suite.organizationMetaData)
-	suite.publicStorage = training.NewPublicModelStorage(suite.memoryStorage)
+	suite.storage = NewModelStorage(suite.memoryStorage, suite.organizationMetaData)
+	suite.userStorage = NewUserModelStorage(suite.memoryStorage, suite.organizationMetaData)
+	suite.pendingStorage = NewPendingModelStorage(suite.memoryStorage, suite.organizationMetaData)
+	suite.publicStorage = NewPublicModelStorage(suite.memoryStorage, suite.organizationMetaData)
 	suite.accessibleAddress = make([]string, 2)
 	suite.accessibleAddress[0] = "ADD1"
 	suite.accessibleAddress[1] = "ADD2"
@@ -141,7 +139,7 @@ func (suite *ModelStorageSuite) TestModelStorage_PutIfAbsent() {
 	assert.Equal(suite.T(), err, nil)
 }
 
-func (suite *ModelStorageSuite) Test_serializeModelKey() {
+func (suite *ModelStorageSuite) TestSerializeModelKey() {
 	modelId := "1"
 	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId, modelId)
 
@@ -151,7 +149,7 @@ func (suite *ModelStorageSuite) Test_serializeModelKey() {
 	assert.Equal(suite.T(), expectedSerializedKey, serializedKey)
 }
 
-func (suite *ModelStorageSuite) Test_serializeUserModelKey() {
+func (suite *ModelStorageSuite) TestSerializeUserModelKey() {
 	userAddress := "test_address"
 	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId, userAddress)
 
@@ -161,7 +159,7 @@ func (suite *ModelStorageSuite) Test_serializeUserModelKey() {
 	assert.Equal(suite.T(), expectedSerializedKey, serializedKey)
 }
 
-func (suite *ModelStorageSuite) Test_serializePendingModelKey() {
+func (suite *ModelStorageSuite) TestSerializePendingModelKey() {
 	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId)
 
 	key := suite.getPendingModelKey()
@@ -170,7 +168,7 @@ func (suite *ModelStorageSuite) Test_serializePendingModelKey() {
 	assert.Equal(suite.T(), expectedSerializedKey, serializedKey)
 }
 
-func (suite *ModelStorageSuite) Test_serializePublicModelKey() {
+func (suite *ModelStorageSuite) TestSerializePublicModelKey() {
 	expectedSerializedKey := fmt.Sprintf("{ID:%v|%v|%v}", suite.organizationId, suite.serviceId, suite.groupId)
 
 	key := suite.getPublicModelKey()

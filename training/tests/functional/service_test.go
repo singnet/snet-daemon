@@ -26,6 +26,7 @@ import (
 
 type DaemonServiceSuite struct {
 	suite.Suite
+	blockchain                 *blockchain.Processor
 	modelStorage               *training.ModelStorage
 	userModelStorage           *training.ModelUserStorage
 	pendingModelStorage        *training.PendingModelStorage
@@ -80,6 +81,7 @@ func (suite *DaemonServiceSuite) SetupTest() {
 	suite.pendingModelStorage = pendingModelStorage
 
 	suite.daemonService = training.NewTrainingService(
+		suite.blockchain,
 		suite.serviceMetadata,
 		suite.organizationMetadata,
 		modelStorage,
@@ -220,9 +222,9 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *training.ModelUserStorage, *training.PendingModelStorage, *training.PublicModelStorage) {
 	memStorage := storage.NewMemStorage()
 	modelStorage := training.NewModelStorage(memStorage, suite.organizationMetadata)
-	userModelStorage := training.NewUserModelStorage(memStorage)
+	userModelStorage := training.NewUserModelStorage(memStorage, suite.organizationMetadata)
 	pendingModelStorage := training.NewPendingModelStorage(memStorage, suite.organizationMetadata)
-	publicModelStorage := training.NewPublicModelStorage(memStorage)
+	publicModelStorage := training.NewPublicModelStorage(memStorage, suite.organizationMetadata)
 
 	modelA := &training.ModelData{
 		IsPublic:            true,
@@ -238,7 +240,6 @@ func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *tr
 		GRPCMethodName:      "string",
 		GRPCServiceName:     "string",
 		Description:         "string",
-		IsDefault:           true,
 		TrainingLink:        "string",
 		UpdatedDate:         "string",
 	}
@@ -264,7 +265,6 @@ func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *tr
 		GRPCMethodName:      "string",
 		GRPCServiceName:     "string",
 		Description:         "string",
-		IsDefault:           true,
 		TrainingLink:        "string",
 		UpdatedDate:         "string",
 	}
@@ -290,7 +290,6 @@ func (suite *DaemonServiceSuite) createTestModels() (*training.ModelStorage, *tr
 		GRPCMethodName:      "string",
 		GRPCServiceName:     "string",
 		Description:         "string",
-		IsDefault:           true,
 		TrainingLink:        "string",
 		UpdatedDate:         "string",
 	}

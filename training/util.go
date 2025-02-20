@@ -3,22 +3,62 @@ package training
 import (
 	"bytes"
 	_ "embed"
+	"errors"
+	"fmt"
 	"github.com/bufbuild/protocompile/linker"
+	"github.com/singnet/snet-daemon/v5/authutils"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"math/big"
+	"slices"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/v5/authutils"
 	"github.com/singnet/snet-daemon/v5/utils"
 )
 
-// message used to sign is of the form ("__create_model", mpe_address, current_block_number)
-func (ds *DaemonService) verifySignature(request *AuthorizationDetails) error {
-	return authutils.VerifySigner(ds.getMessageBytes(request.Message, request),
-		request.GetSignature(), utils.ToChecksumAddress(request.SignerAddress))
+var unifiedAuthMethods = map[string]struct{}{
+	"validate_model_price": {},
+	"train_model_price":    {},
+	"get_all_models":       {},
+	"get_model":            {},
+}
+
+func (ds *DaemonService) verifySignature(r *AuthorizationDetails, method any) error {
+	fullMethodName, ok := method.(string)
+	if !ok {
+		return errors.New("invalid method")
+	}
+
+	lastSlash := strings.LastIndex(fullMethodName, "/")
+
+	methodName := fullMethodName[lastSlash+1:]
+
+	_, isUnifiedMethod := unifiedAuthMethods[methodName]
+
+	zap.L().Debug("Verifying signature", zap.String("methodName", methodName), zap.Bool("isUnifiedMethod", isUnifiedMethod), zap.String("msg", r.Message))
+
+	// good cases:
+	// methodName - get_model, msg - unified
+	// methodName - get_model, msg - get_model
+	// methodName - train_model, msg - train_model
+
+	var allowDifference uint64
+
+	if strings.EqualFold(methodName, r.Message) {
+		allowDifference = 5
+	} else if isUnifiedMethod && strings.EqualFold(r.Message, "unified") {
+		allowDifference = 600
+	} else {
+		return fmt.Errorf("unsupported message: %s for this method", r.Message)
+	}
+
+	if err := authutils.VerifySigner(ds.getMessageBytes(r.Message, r), r.GetSignature(), utils.ToChecksumAddress(r.SignerAddress)); err != nil {
+		return err
+	}
+	return ds.blockchain.CompareWithLatestBlockNumber(big.NewInt(0).SetUint64(r.CurrentBlock), allowDifference)
 }
 
 // "user passed message	", user_address, current_block_number
@@ -63,15 +103,6 @@ func difference(oldAddresses []string, newAddresses []string) []string {
 		}
 	}
 	return diff
-}
-
-func isValuePresent(value string, list []string) bool {
-	for _, v := range list {
-		if v == value {
-			return true
-		}
-	}
-	return false
 }
 
 //go:embed training.proto
@@ -175,4 +206,31 @@ func parseTrainingMetadata(protos linker.Files) (methodsMD map[string]*MethodMet
 	}
 	zap.L().Debug("training methods", zap.Any("methods", trainingMD.TrainingMethods))
 	return
+}
+
+func paginate[T any](items []T, page, pageSize int) []T {
+	if page < 0 {
+		page = 0
+	}
+	if pageSize < 1 {
+		pageSize = 1
+	}
+
+	start := page * pageSize
+	if start >= len(items) {
+		return []T{}
+	}
+
+	end := start + pageSize
+	if end > len(items) {
+		end = len(items)
+	}
+
+	return items[start:end]
+}
+
+func sliceContainsEqualFold(slice []string, value string) bool {
+	return slices.ContainsFunc(slice, func(s string) bool {
+		return strings.EqualFold(s, value)
+	})
 }

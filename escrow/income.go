@@ -7,6 +7,7 @@ import (
 	"github.com/singnet/snet-daemon/v5/training"
 	"go.uber.org/zap"
 	"math/big"
+	"strings"
 
 	"github.com/singnet/snet-daemon/v5/handler"
 )
@@ -49,7 +50,7 @@ func (validator *incomeStreamValidator) Validate(data *IncomeStreamData) (err er
 
 	price := big.NewInt(0)
 
-	if data.GrpcContext != nil && data.GrpcContext.Info.FullMethod == "/training_daemon.Daemon/upload_and_validate" {
+	if data.GrpcContext != nil && strings.Contains(data.GrpcContext.Info.FullMethod, "/upload_and_validate") {
 		modelID, ok := data.GrpcContext.MD[handler.TrainingModelId]
 		if !ok {
 			return errors.New("no training model found")
@@ -114,10 +115,13 @@ func (validator *trainUnaryValidator) Validate(data *IncomeUnaryData) (err error
 
 	price := big.NewInt(0)
 
-	switch data.GrpcContext.Info.FullMethod {
-	case "/training_daemon.Daemon/train_model":
+	lastSlash := strings.LastIndex(data.GrpcContext.Info.FullMethod, "/")
+	methodName := data.GrpcContext.Info.FullMethod[lastSlash+1:]
+
+	switch methodName {
+	case "train_model":
 		price = price.SetUint64(model.TrainPrice)
-	case "/training_daemon.Daemon/validate_model":
+	case "validate_model":
 		price = price.SetUint64(model.ValidatePrice)
 	default:
 		return nil

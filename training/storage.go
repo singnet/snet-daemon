@@ -6,6 +6,7 @@ import (
 	"github.com/singnet/snet-daemon/v5/config"
 	"go.uber.org/zap"
 	"reflect"
+	"strings"
 
 	"github.com/singnet/snet-daemon/v5/storage"
 	"github.com/singnet/snet-daemon/v5/utils"
@@ -17,7 +18,8 @@ type ModelStorage struct {
 }
 
 type ModelUserStorage struct {
-	delegate storage.TypedAtomicStorage
+	delegate             storage.TypedAtomicStorage
+	organizationMetaData *blockchain.OrganizationMetaData
 }
 
 type PendingModelStorage struct {
@@ -26,16 +28,17 @@ type PendingModelStorage struct {
 }
 
 type PublicModelStorage struct {
-	delegate storage.TypedAtomicStorage
+	delegate             storage.TypedAtomicStorage
+	organizationMetaData *blockchain.OrganizationMetaData
 }
 
-func NewUserModelStorage(atomicStorage storage.AtomicStorage) *ModelUserStorage {
+func NewUserModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData) *ModelUserStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/userModelStorage")
 	userModelStorage := storage.NewTypedAtomicStorageImpl(
 		prefixedStorage, serializeModelUserKey, reflect.TypeOf(ModelUserKey{}), utils.Serialize, utils.Deserialize,
 		reflect.TypeOf(ModelUserData{}),
 	)
-	return &ModelUserStorage{delegate: userModelStorage}
+	return &ModelUserStorage{delegate: userModelStorage, organizationMetaData: orgMetadata}
 }
 
 func NewModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData) *ModelStorage {
@@ -56,22 +59,20 @@ func NewPendingModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *bl
 	return &PendingModelStorage{delegate: pendingModelStorage, organizationMetaData: orgMetadata}
 }
 
-func NewPublicModelStorage(atomicStorage storage.AtomicStorage) *PublicModelStorage {
+func NewPublicModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData) *PublicModelStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/publicModelStorage")
 	publicModelStorage := storage.NewTypedAtomicStorageImpl(
 		prefixedStorage, serializePublicModelKey, reflect.TypeOf(PublicModelKey{}), utils.Serialize, utils.Deserialize,
 		reflect.TypeOf(PublicModelData{}),
 	)
-	return &PublicModelStorage{delegate: publicModelStorage}
+	return &PublicModelStorage{delegate: publicModelStorage, organizationMetaData: orgMetadata}
 }
 
 type ModelKey struct {
 	OrganizationId string
 	ServiceId      string
 	GroupId        string
-	//GRPCMethodName  string
-	//GRPCServiceName string
-	ModelId string
+	ModelId        string
 }
 
 func (key *ModelKey) String() string {
@@ -80,20 +81,19 @@ func (key *ModelKey) String() string {
 }
 
 type ModelData struct {
+	ModelId             string
 	IsPublic            bool
+	Status              Status
 	ModelName           string
 	AuthorizedAddresses []string
-	Status              Status
 	CreatedByAddress    string
-	ModelId             string
-	UpdatedByAddress    string // TODO ?!
+	UpdatedByAddress    string
 	GroupId             string
 	OrganizationId      string
 	ServiceId           string
 	GRPCMethodName      string
 	GRPCServiceName     string
 	Description         string
-	IsDefault           bool
 	TrainingLink        string
 	ValidatePrice       uint64
 	TrainPrice          uint64
@@ -102,10 +102,9 @@ type ModelData struct {
 }
 
 func (data *ModelData) String() string {
-	return fmt.Sprintf("{DATA:%v|%v|%v|%v|%v|%v|IsPublic:%v|accesibleAddress:%v|createdBy:%v|updatedBy:%v|status:%v|TrainingLin:%v}",
-		data.OrganizationId,
-		data.ServiceId, data.GroupId, data.GRPCServiceName, data.GRPCMethodName, data.ModelId, data.AuthorizedAddresses, data.IsPublic,
-		data.CreatedByAddress, data.UpdatedByAddress, data.Status, data.TrainingLink)
+	return fmt.Sprintf("{DATA:%v|%v|%v|%v|%v|%v|Name:%v|IsPublic:%v|AuthorizedAddresses:%v|CreatedBy:%v|UpdatedBy:%v|Status:%v|TrainingLink:%v|Updated:%v|Created:%v|ValPrice:%v|TrPrice:%v|Desc:%v}",
+		data.OrganizationId, data.ServiceId, data.GroupId, data.GRPCServiceName, data.GRPCMethodName, data.ModelId, data.ModelName, data.IsPublic, data.AuthorizedAddresses,
+		data.CreatedByAddress, data.UpdatedByAddress, data.Status, data.TrainingLink, data.UpdatedDate, data.CreatedDate, data.ValidatePrice, data.TrainPrice, data.Description)
 }
 
 type ModelUserKey struct {
@@ -127,9 +126,7 @@ type ModelUserData struct {
 	OrganizationId string
 	ServiceId      string
 	GroupId        string
-	//GRPCMethodName  string
-	//GRPCServiceName string
-	UserAddress string
+	UserAddress    string
 }
 
 func (data *ModelUserData) String() string {
@@ -232,6 +229,15 @@ func (storage *ModelStorage) GetModel(modelID string) (data *ModelData, err erro
 func serializeModelUserKey(key any) (serialized string, err error) {
 	modelUserKey := key.(*ModelUserKey)
 	return modelUserKey.String(), nil
+}
+
+func (storage *ModelUserStorage) buildModelUserKey(address string) *ModelUserKey {
+	return &ModelUserKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        storage.organizationMetaData.GetGroupIdString(),
+		UserAddress:    strings.ToLower(address),
+	}
 }
 
 func (storage *ModelUserStorage) Get(key *ModelUserKey) (state *ModelUserData, ok bool, err error) {
@@ -523,4 +529,12 @@ func (storage *PublicModelStorage) PutIfAbsent(key *PublicModelKey, state *Publi
 func (storage *PublicModelStorage) CompareAndSwap(key *PublicModelKey, prevState *PublicModelData,
 	newState *PublicModelData) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(key, prevState, newState)
+}
+
+func (storage *PublicModelStorage) buildPublicModelKey() *PublicModelKey {
+	return &PublicModelKey{
+		OrganizationId: config.GetString(config.OrganizationId),
+		ServiceId:      config.GetString(config.ServiceId),
+		GroupId:        storage.organizationMetaData.GetGroupIdString(),
+	}
 }

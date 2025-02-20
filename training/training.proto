@@ -53,6 +53,7 @@ message ModelResponse {
   string training_data_link = 11;
 
   string created_by_address = 12;
+  string updated_by_address = 13;
 }
 
 // Used as input for new_model requests

@@ -8,11 +8,12 @@ import "google/protobuf/empty.proto";
 option go_package = "github.com/singnet/snet-daemon/v5/training";
 
 message AuthorizationDetails {
-  uint64 current_block = 1; // Check for relevance within a range of +/- N blocks
-  // Signer can specify any message here
+  // Check for relevance within a range of +/- N blocks
+  uint64 current_block = 1;
+  // Signer should specify method name in message
   string message = 2;
   // Signature of the following message:
-  // ("user specified message", user_address, current_block_number)
+  // ("message", user_address, current_block_number)
   bytes signature = 3;
   string signer_address = 4;
 }
@@ -41,8 +42,8 @@ message CommonRequest {
 message UpdateModelRequest {
   AuthorizationDetails authorization = 1;
   string model_id = 2;
-  string model_name = 3;
-  string description = 4;
+  optional string model_name = 3;
+  optional string description = 4;
   repeated string address_list = 5;
 }
 
@@ -98,7 +99,7 @@ message MethodMetadataRequest {
 message AllModelsRequest {
   AuthorizationDetails authorization = 1;
   // filters:
-  repeated training.Status statuses = 3;
+  repeated training.Status statuses = 3; // optional
   optional bool is_public = 4; // null - all, false - only private, true - only public models
   string grpc_method_name = 5;
   string grpc_service_name = 6;

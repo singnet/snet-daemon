@@ -629,7 +629,7 @@ func (components *Components) ModelUserStorage() *training.ModelUserStorage {
 		return components.modelUserStorage
 	}
 
-	components.modelUserStorage = training.NewUserModelStorage(components.AtomicStorage())
+	components.modelUserStorage = training.NewUserModelStorage(components.AtomicStorage(), components.organizationMetaData)
 
 	return components.modelUserStorage
 }
@@ -649,7 +649,7 @@ func (components *Components) PublicModelStorage() *training.PublicModelStorage 
 		return components.publicModelStorage
 	}
 
-	components.publicModelStorage = training.NewPublicModelStorage(components.AtomicStorage())
+	components.publicModelStorage = training.NewPublicModelStorage(components.AtomicStorage(), components.OrganizationMetaData())
 
 	return components.publicModelStorage
 }
@@ -663,7 +663,7 @@ func (components *Components) TrainingService() training.DaemonServer {
 		return components.trainingService
 	}
 
-	components.trainingService = training.NewTrainingService(components.ServiceMetaData(),
+	components.trainingService = training.NewTrainingService(components.blockchain, components.ServiceMetaData(),
 		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage())
 	return components.trainingService
 }

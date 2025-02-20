@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -62,14 +61,13 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 	serviceMetadata, err := blockchain.InitServiceMetaDataFromJson([]byte(testJsonServiceData))
 	suite.blockchain, err = blockchain.NewProcessor(serviceMetadata)
 	if err != nil {
-		zap.L().Fatal("can't connect to blockchain")
-		return
+		suite.T().Fatalf("can't connect to blockchain: %v", err)
 	}
-	suite.currentBlock, _ = suite.blockchain.CurrentBlock()
+	suite.currentBlock, err = suite.blockchain.CurrentBlock()
 
 	orgMetadata, err := blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgGroupData))
 	if err != nil {
-		zap.L().Fatal("Error in initinalize organization metadata from json", zap.Error(err))
+		suite.T().Fatalf("Error in initinalize organization metadata from json: %v", err)
 	}
 
 	suite.serviceMetadata = serviceMetadata
@@ -121,7 +119,7 @@ func getTestSignature(text string, blockNumber uint64, privateKey *ecdsa.Private
 
 	signature, err := crypto.Sign(hash, privateKey)
 	if err != nil {
-		zap.L().Fatal("Cannot sign test message", zap.Error(err))
+		return nil
 	}
 
 	return signature
@@ -130,7 +128,7 @@ func getTestSignature(text string, blockNumber uint64, privateKey *ecdsa.Private
 func createTestAuthDetails(block *big.Int, method string) *AuthorizationDetails {
 	privateKey, err := crypto.HexToECDSA("c0e4803a3a5b3c26cfc96d19a6dc4bbb4ba653ce5fa68f0b7dbf3903cda17ee6")
 	if err != nil {
-		zap.L().Fatal("error in creating private key", zap.Error(err))
+		return nil
 	}
 	return &AuthorizationDetails{
 		CurrentBlock:  block.Uint64(),
@@ -143,7 +141,7 @@ func createTestAuthDetails(block *big.Int, method string) *AuthorizationDetails 
 func creatBadTestAuthDetails(block *big.Int) *AuthorizationDetails {
 	privateKey, err := crypto.HexToECDSA("c0e4803a3a5b3c26cfc96d19a6dc4bbb4ba653ce5fa68f0b7dbf3903cda17ee6")
 	if err != nil {
-		zap.L().Fatal("error in creating private key", zap.Error(err))
+		return nil
 	}
 	return &AuthorizationDetails{
 		CurrentBlock:  block.Uint64(),
@@ -206,7 +204,7 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 	var testConfig = viper.New()
 	err := config.ReadConfigFromJsonString(testConfig, testConfigJson)
 	if err != nil {
-		zap.L().Fatal("Error in reading config")
+		suite.T().Fatalf("Error in reading config")
 	}
 
 	config.SetVip(testConfig)
@@ -294,9 +292,18 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 		ModelId:        "test_3",
 	}
 
-	modelStorage.Put(modelAKey, modelA)
-	modelStorage.Put(modelBKey, modelB)
-	modelStorage.Put(modelCKey, modelC)
+	err := modelStorage.Put(modelAKey, modelA)
+	if err != nil {
+		suite.T().Fatalf("error in putting model: %v", err)
+	}
+	err = modelStorage.Put(modelBKey, modelB)
+	if err != nil {
+		suite.T().Fatalf("error in putting model: %v", err)
+	}
+	err = modelStorage.Put(modelCKey, modelC)
+	if err != nil {
+		suite.T().Fatalf("error in putting model: %v", err)
+	}
 
 	// adding to user models sotrage
 	userModelKey := &ModelUserKey{
@@ -307,14 +314,15 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 	}
 
 	userModelData := &ModelUserData{
-		ModelIds:       []string{"test_3"},
+		ModelIds:       []string{"test_1", "test_2", "test_3"},
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		UserAddress:    testUserAddress,
 	}
 
-	userModelStorage.Put(userModelKey, userModelData)
+	err = userModelStorage.Put(userModelKey, userModelData)
+	assert.Nil(suite.T(), err)
 
 	// adding to pending models storage
 	pendingModelKey := &PendingModelKey{
@@ -327,7 +335,8 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 		ModelIDs: []string{"test_1"},
 	}
 
-	pendingModelStorage.Put(pendingModelKey, pendingModelsData)
+	err = pendingModelStorage.Put(pendingModelKey, pendingModelsData)
+	assert.Nil(suite.T(), err)
 
 	// adding to public models storage
 	publicModelKey := &PublicModelKey{
@@ -340,7 +349,8 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 		ModelIDs: []string{"test_1"},
 	}
 
-	publicModelStorage.Put(publicModelKey, publicModelsData)
+	err = publicModelStorage.Put(publicModelKey, publicModelsData)
+	assert.Nil(suite.T(), err)
 
 	// setup keys in suite
 	suite.modelKeys = []*ModelKey{modelAKey, modelBKey, modelCKey}
@@ -369,7 +379,7 @@ func (suite *DaemonServiceSuite) createAdditionalTestModel(modelName string, aut
 	}
 	response, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request)
 	if err != nil {
-		zap.L().Fatal("error in creating additional test model", zap.Error(err))
+		suite.T().Fatalf("error in creating additional test model: %v", err)
 	}
 
 	return response.ModelId
@@ -485,9 +495,8 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 	response3, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request3)
 	assert.ErrorContains(suite.T(), err, ErrBadAuthorization.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response3.Status)
-
-	suite.currentBlock, err = suite.blockchain.CurrentBlock()
 	assert.Nil(suite.T(), err)
+
 	testAuthCreads = createTestAuthDetails(suite.currentBlock, "create_model")
 
 	// check with emptyModel
@@ -538,9 +547,10 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 
 func (suite *DaemonServiceSuite) TestDaemonService_GetAllModels() {
 	testAuthCreads := createTestAuthDetails(suite.currentBlock, "unified")
+	testAuthCreadsCreateModel := createTestAuthDetails(suite.currentBlock, "create_model")
 	badTestAuthCreads := creatBadTestAuthDetails(suite.currentBlock)
 
-	newAdditionalTestModelId := suite.createAdditionalTestModel("new_additional_test_model", testAuthCreads)
+	newAdditionalTestModelId := suite.createAdditionalTestModel("new_additional_test_model", testAuthCreadsCreateModel)
 
 	expectedModelIds := []string{"test_3", newAdditionalTestModelId, "test_1"}
 
@@ -587,9 +597,9 @@ func (suite *DaemonServiceSuite) TestDaemonService_ManageUpdateStatusWorkers() {
 
 	select {
 	case <-ctx.Done():
-		zap.L().Info("Context done", zap.Error(ctx.Err()))
+		suite.T().Logf("context done %v", ctx.Err())
 	case <-time.After(duration):
-		zap.L().Info("Operation timed out after", zap.Duration("duration", duration))
+		suite.T().Logf("operation timed out after: %v", duration)
 	}
 
 	for _, modelKey := range suite.pendingModelKeys {

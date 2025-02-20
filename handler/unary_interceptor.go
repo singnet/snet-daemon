@@ -42,8 +42,11 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 
 	ctx = context.WithValue(ctx, "method", info.FullMethod)
 
+	lastSlash := strings.LastIndex(info.FullMethod, "/")
+	methodName := info.FullMethod[lastSlash+1:]
+
 	// pass non training requests and free requests
-	if !strings.Contains(info.FullMethod, "validate_model") && !strings.Contains(info.FullMethod, "train_model") {
+	if methodName != "validate_model" && methodName != "train_model" {
 		resp, e := handler(ctx, req)
 		if e != nil {
 			zap.L().Warn("gRPC handler returned error", zap.Error(e))

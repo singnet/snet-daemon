@@ -868,12 +868,7 @@ func (ds *DaemonService) GetAllModels(ctx context.Context, request *AllModelsReq
 
 	if request.IsPublic == nil || !*request.IsPublic {
 
-		userModelKey := &ModelUserKey{
-			OrganizationId: config.GetString(config.OrganizationId),
-			ServiceId:      config.GetString(config.ServiceId),
-			GroupId:        ds.organizationMetaData.GetGroupIdString(),
-			UserAddress:    request.Authorization.SignerAddress,
-		}
+		userModelKey := ds.userStorage.buildModelUserKey(request.Authorization.SignerAddress)
 
 		if data, ok, err := ds.userStorage.Get(userModelKey); data != nil && ok && err == nil {
 			modelKey := &ModelKey{

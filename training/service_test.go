@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"github.com/singnet/snet-daemon/v5/training/service_mock"
 	"math/big"
 	"slices"
 	"strings"
@@ -81,7 +80,7 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 
 	// setup test poriver service once
 	address := "localhost:5001"
-	suite.grpcServer = service_mock.StartTestService(address)
+	suite.grpcServer = startTestService(address)
 }
 
 func (suite *DaemonServiceSuite) SetupTest() {

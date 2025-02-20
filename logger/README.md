@@ -168,5 +168,5 @@ configuration is one JSON object located in ```log``` field.
 
 ### Adding new hooks implementations
 
-Adding a new hook implementation is trivial. You should implement interface hook with method `call`  which inputs `entry zapcore.Entry`. Also you need impelement init method which inputs configuration as [Viper](https://godoc.org/github.com/spf13/viper#Viper) config and returns new instance of the Hook structure. Then register the new hook
+Adding a new hook implementation is trivial. You should implement interface hook with method `call`  which inputs `entry zapcore.Entry`. Also you need implement init method which inputs configuration as [Viper](https://godoc.org/github.com/spf13/viper#Viper) config and returns new instance of the Hook structure. Then register the new hook
 type by calling RegisterHookType() function from init() method. Please see "email" hook implementation as example in hook.go file.

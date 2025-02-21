@@ -63,6 +63,9 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 		suite.T().Fatalf("can't connect to blockchain: %v", err)
 	}
 	suite.currentBlock, err = suite.blockchain.CurrentBlock()
+	if err != nil {
+		suite.T().Fatalf("can't get lastest block: %v", err)
+	}
 
 	orgMetadata, err := blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgGroupData))
 	if err != nil {
@@ -533,7 +536,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 		OrganizationId: "test_org_id",
 		ServiceId:      "service_id",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
-		UserAddress:    testUserAddress,
+		UserAddress:    strings.ToLower(testUserAddress),
 	}
 
 	userModelData, ok, err := suite.userModelStorage.Get(userModelKey)

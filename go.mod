@@ -196,7 +196,6 @@ require (
 	github.com/pion/rtp v1.8.11 // indirect
 	github.com/pion/sctp v1.8.35 // indirect
 	github.com/pion/sdp/v3 v3.0.10 // indirect
-	github.com/pion/srtp/v2 v2.0.20 // indirect
 	github.com/pion/srtp/v3 v3.0.4 // indirect
 	github.com/pion/stun v0.6.1 // indirect
 	github.com/pion/stun/v2 v2.0.0 // indirect
@@ -205,7 +204,6 @@ require (
 	github.com/pion/transport/v3 v3.0.7 // indirect
 	github.com/pion/turn/v2 v2.1.6 // indirect
 	github.com/pion/turn/v4 v4.0.0 // indirect
-	github.com/pion/webrtc/v3 v3.3.5 // indirect
 	github.com/pion/webrtc/v4 v4.0.8 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/polydawn/refmt v0.89.0 // indirect

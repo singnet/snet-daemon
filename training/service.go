@@ -916,10 +916,10 @@ func (ds *DaemonService) GetAllModels(ctx context.Context, request *AllModelsReq
 
 	for _, v := range modelDetailsArray {
 		//zap.L().Debug("[GetAllModels] model", zap.String("id", v.ModelId), zap.String("status", v.Status.String()))
-		if strings.Contains(v.Name, request.Name) &&
+		if strings.Contains(strings.ToLower(v.Name), strings.ToLower(request.Name)) &&
 			strings.Contains(v.GrpcMethodName, request.GrpcMethodName) &&
 			strings.Contains(v.GrpcServiceName, request.GrpcServiceName) &&
-			strings.Contains(v.CreatedByAddress, strings.ToLower(request.CreatedByAddress)) &&
+			strings.Contains(strings.ToLower(v.CreatedByAddress), strings.ToLower(request.CreatedByAddress)) &&
 			slices.Contains(request.Statuses, v.Status) {
 			filtered = append(filtered, v)
 		}

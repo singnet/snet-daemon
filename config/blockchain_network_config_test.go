@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/magiconair/properties/assert"
-	assert2 "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetNetworkId(t *testing.T) {
@@ -39,21 +38,22 @@ var defaultBlockChainNetworkConfig = `
 }`
 
 func TestGetBlockChainEndPoint(t *testing.T) {
-	Vip().Set(BlockChainNetworkSelected, "local")
+	Vip().Set(BlockChainNetworkSelected, "sepolia")
 	err := determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
 	assert.Equal(t, err, nil)
-	assert.Matches(t, GetBlockChainHTTPEndPoint(), GetString(BlockChainNetworkSelected))
-	assert.Matches(t, GetBlockChainWSEndPoint(), GetString(BlockChainNetworkSelected))
-	assert2.NotEqual(t, GetNetworkId(), nil)
+	assert.Contains(t, GetBlockChainHTTPEndPoint(), GetString(BlockChainNetworkSelected))
+	assert.Contains(t, GetBlockChainWSEndPoint(), GetString(BlockChainNetworkSelected))
+	assert.NotNil(t, GetNetworkId())
 }
 
 func TestGetRegistryAddress(t *testing.T) {
 
-	determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
+	err := determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
+	assert.Nil(t, err)
 	if GetString(BlockChainNetworkSelected) == "local" {
-		assert2.Equal(t, GetRegistryAddress(), "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2")
+		assert.Equal(t, GetRegistryAddress(), "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2")
 	} else {
-		assert2.NotEqual(t, GetRegistryAddress(), nil)
+		assert.NotNil(t, GetRegistryAddress())
 	}
 }
 
@@ -73,7 +73,7 @@ func TestReadFromFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if _, err := ReadFromFile(tt.name); err != nil {
-				assert2.Equal(t, true, tt.wantErr)
+				assert.Equal(t, true, tt.wantErr)
 			}
 
 		})
@@ -82,14 +82,15 @@ func TestReadFromFile(t *testing.T) {
 
 func Test_SetBlockChainNetworkDetails(t *testing.T) {
 	setBlockChainNetworkDetails(BlockChainNetworkFileName)
-	assert2.NotNil(t, GetRegistryAddress())
+	assert.NotNil(t, GetRegistryAddress())
 }
 
 func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 
 	dynamicBinding := map[string]any{}
 	data := []byte(defaultBlockChainNetworkConfig)
-	json.Unmarshal(data, &dynamicBinding)
+	err := json.Unmarshal(data, &dynamicBinding)
+	assert.Nil(t, err)
 
 	tests := []struct {
 		name    string

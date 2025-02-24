@@ -61,11 +61,11 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	}
 
 	h := grpcHandler{
-		serviceMetaData:       serviceMetadata,
-		enc:                   serviceMetadata.GetWireEncoding(),
-		passthroughEndpoint:   config.GetString(config.PassthroughEndpointKey),
-		modelTrainingEndpoint: config.GetString(config.ModelTrainingEndpoint),
-		executable:            config.GetString(config.ExecutablePathKey),
+		serviceMetaData:     serviceMetadata,
+		enc:                 serviceMetadata.GetWireEncoding(),
+		passthroughEndpoint: config.GetString(config.ServiceEndpointKey),
+		//modelTrainingEndpoint: config.GetString(config.ModelTrainingEndpoint),
+		executable: config.GetString(config.ExecutablePathKey),
 		options: grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
 			grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024)),
@@ -74,9 +74,9 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	switch serviceMetadata.GetServiceType() {
 	case "grpc":
 		h.grpcConn = h.getConnection(h.passthroughEndpoint)
-		if config.GetBool(config.ModelTrainingEnabled) {
-			h.grpcModelConn = h.getConnection(h.modelTrainingEndpoint)
-		}
+		//if config.GetBool(config.ModelTrainingEnabled) {
+		//	h.grpcModelConn = h.getConnection(h.modelTrainingEndpoint)
+		//}
 		return h.grpcToGRPC
 	case "jsonrpc":
 		return h.grpcToJSONRPC
@@ -308,7 +308,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	base, err := url.Parse(g.passthroughEndpoint)
 	if err != nil {
 		zap.L().Error("can't parse passthroughEndpoint", zap.Error(err))
-		return status.Errorf(codes.Internal, "can't parse passthrough_endpoint %v%v", err, errs.ErrDescURL(errs.InvalidConfig))
+		return status.Errorf(codes.Internal, "can't parse service_endpoint %v%v", err, errs.ErrDescURL(errs.InvalidConfig))
 	}
 
 	base.Path += method // method from proto should be the same as http handler path

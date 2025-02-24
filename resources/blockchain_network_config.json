@@ -1,6 +1,6 @@
 {
   "local": {
-    "ethereum_json_rpc_endpoint": "http://localhost:8545",
+    "ethereum_json_rpc_http_endpoint": "http://localhost:8545",
     "network_id": "42",
     "registry_address_key": "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2"
   },

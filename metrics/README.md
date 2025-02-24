@@ -46,7 +46,7 @@ Heartbeats will be enabled by default and they cant be disabled.
 * **service_heartbeat_type** (mandatory. ```http|grpc```) - though All services must be using grpc, for the
   simplicity of heartbeat implementation, both http and gRPC based heartbeat end points are supported.
 
-* **heartbeat_svc_end_point** (mandatory ```must be a valid http|https|grpc url```) - It is service heartbeat endpoint.
+* **heartbeat_endpoint** (mandatory ```must be a valid http|https|grpc url```) - It is service heartbeat endpoint.
   Based on the service heart beat type, if the type is http, then heartbeat service endpoint must be a HTTP endpoint,
   similarly, if the type is gRPC, then the heartbeat service must follow the health protocol as mentioned above and the
   gRPC endpoint has to be configured here.
@@ -70,7 +70,7 @@ Sample heartbeat from the daemon, which contains the service heartbeat as well
 }
 ```
 
-Daemon must call the services as configured in heartbeat_svc_end_point and the type to get the service heartbeat.
+Daemon must call the services as configured in heartbeat_endpoint and the type to get the service heartbeat.
 Sample Heartbeat Service result is
 
 GET http://127.0.0.1:25000/heartbeat
@@ -150,7 +150,7 @@ the configured email address.
 * **alerts_email** (optional unless metrics enabled. ```must be a valid email address```) - an email for the
   alerts when there is an issue/warning/error/information to be sent.
 
-* **notification_svc_end_point** (optional unless metrics enabled. ```must be a valid webhook/service end point```) -
+* **notification_endpoint** (optional unless metrics enabled. ```must be a valid webhook/service end point```) -
   Its service endpoint or a web hook to receive the alerts/notifications and relay it to alert email, which is
   configured
   the configuration.
@@ -187,9 +187,9 @@ This is the sample configuration to enable metrics and heartbeat
   {
   "monitoring_enabled": true,
   "monitoring_svc_end_point": "http://demo8325345.mockable.io/metrics",
-  "notification_svc_end_point": "http://demo8325345.mockable.io/notify",
+  "notification_endpoint": "http://demo8325345.mockable.io/notify",
   "alerts_email": "xyz.abc@myorg.io",
   "service_heartbeat_type": "http",
-  "heartbeat_svc_end_point": "http://localhost:25000/heartbeat"
+  "heartbeat_endpoint": "http://localhost:25000/heartbeat"
 }
 ```

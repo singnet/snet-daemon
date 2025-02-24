@@ -43,7 +43,7 @@ func (priceType *DynamicMethodPrice) checkForDynamicPricing(
 		return nil, fmt.Errorf("Unable to get the method Name from the incoming request")
 	}
 	//[TODO]: get grpc options standardized rather than doing then everytime
-	passThroughURL, err := url.Parse(config.GetString(config.PassthroughEndpointKey))
+	passThroughURL, err := url.Parse(config.GetString(config.ServiceEndpointKey))
 	if err != nil {
 		zap.L().Error(err.Error(), methodNameField)
 		return nil, err

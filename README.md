@@ -84,11 +84,11 @@ time.
   Daemon will automatically read the Registry address associated with this network For local network ( you can also
   specify the registry address manually), see the blockchain_network_config.json
 
-* **daemon_end_point** (required, default `"127.0.0.1:8080"`) -
+* **daemon_endpoint** (required, default `"127.0.0.1:8080"`) -
   Defines the ip and the port on which the daemon listens to.
   format is :`<host>:<port>`.
 
-* **ethereum_json_rpc_endpoint** (optional, default: `"http://127.0.0.1:8545"`) -
+* **ethereum_json_rpc_http_endpoint** (optional, default: `"https://sepolia.infura.io/v3"`) -
   endpoint to which daemon sends ethereum JSON-RPC requests;
   Based on the network selected blockchain_network_selected the end point is auto determined
   Example `"https://sepolia.infura.io/v3"` for sepolia testnet.
@@ -109,7 +109,7 @@ time.
   when passthrough is disabled, daemon echoes requests back as responses; `false`
   reserved mostly for testing purposes.
 
-* **passthrough_endpoint** (required if `service_type` != `executable`) -
+* **service_endpoint** (required if `service_type` != `executable`) -
   endpoint to which requests should be proxied for handling by service.
   This config is mandatory when `passthrough_enabled` is set to true.
   and needs to be a valid url
@@ -117,7 +117,7 @@ time.
 * **executable_path** (required if `service_type` == `executable`) -
   path to executable to expose as a service.
 
-* **ipfs_end_point** (optional; default `"http://ipfs.singularitynet.io:80"`) -
+* **ipfs_endpoint** (optional; default `"http://ipfs.singularitynet.io:80"`) -
   endpoint of IPFS instance to get [service configuration
   metadata][service-configuration-metadata]
 
@@ -194,10 +194,10 @@ This options are less frequently needed.
   `Please make sure your grpc version > 1.25`
 
 * **metering_enabled** (optional,default: `false`) -
-  This is used to define if metering needs to be enabled or not .You will need to define a valid ` metering_end_point`
+  This is used to define if metering needs to be enabled or not .You will need to define a valid ` metering_endpoint`
   when this flag is enabled
 
-* **metering_end_point** (optional;only applies if `metering_enabled` is set to true) -
+* **metering_endpoint** (optional;only applies if `metering_enabled` is set to true) -
   Needs to be a vaild url where the request and response stats are published as part of Metering
 
 * **ssl_cert** (optional; default: `""`) -
@@ -234,13 +234,10 @@ This options are less frequently needed.
 * **alerts_email** (optional; default: `""`) - It must be a valid email. if it is empty, then it is considered as alerts
   disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
 
-* **notification_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then it is
-  considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
-
 * **service_heartbeat_type** (optional; default: `grpc`) - possible type configurations are ```none | grpc | http```. If
   it is left empty, then it is considered as none type. see [daemon heartbeats configuration](./metrics/README.md)
 
-* **heartbeat_svc_end_point** (optional; default: `""`) - It must be a valid URL. if it is empty, then service state
+* **heartbeat_endpoint** (optional; default: `""`) - It must be a valid URL. if it is empty, then service state
   always assumed as SERVING, and same will be wrapped in Daemon Heartbeat.
   see [daemon heartbeats configuration](./metrics/README.md)
 
@@ -257,20 +254,23 @@ This options are less frequently needed.
 * **token_secret_key** (optional;) - This is the secret key used to sign a JWT token , please do add this in your
   configuration to make your tokens a lot more secure.
 
+* **notification_endpoint** (optional; default: `""`) - It must be a valid URL. if it is empty, then it is
+  considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
+
 #### Environment variables and CLI parameters <a name="table_conf"></a>
 
-| config file key              | environment variable name         | flag                  |
-|------------------------------|-----------------------------------|-----------------------|
-| `auto_ssl_domain`            | `SNET_AUTO_SSL_DOMAIN`            | `--auto-ssl-domain`   |
-| `auto_ssl_cache_dir`         | `SNET_AUTO_SSL_CACHE_DIR`         | `--auto-ssl-cache`    |
-| `blockchain_enabled`         | `SNET_BLOCKCHAIN_ENABLED`         | `--blockchain`, `-b`  |
-| `config_path`                | `SNET_CONFIG_PATH`                | `--config`, `-c`      |
-| `ethereum_json_rpc_endpoint` | `SNET_ETHEREUM_JSON_RPC_ENDPOINT` | `--ethereum-endpoint` |
-| `hdwallet_index`             | `SNET_HDWALLET_INDEX`             | `--wallet-index`      |
-| `hdwallet_mnemonic`          | `SNET_HDWALLET_MNEMONIC`          | `--mnemonic`          |
-| `passthrough_enabled`        | `SNET_PASSTHROUGH_ENABLED`        | `--passthrough`       |
-| `ssl_cert`                   | `SNET_SSL_CERT`                   | `--ssl-cert`          |
-| `ssl_key`                    | `SNET_SSL_KEY`                    | `--ssl-key`           |
+| config file key                   | environment variable name              | flag                  |
+|-----------------------------------|----------------------------------------|-----------------------|
+| `auto_ssl_domain`                 | `SNET_AUTO_SSL_DOMAIN`                 | `--auto-ssl-domain`   |
+| `auto_ssl_cache_dir`              | `SNET_AUTO_SSL_CACHE_DIR`              | `--auto-ssl-cache`    |
+| `blockchain_enabled`              | `SNET_BLOCKCHAIN_ENABLED`              | `--blockchain`, `-b`  |
+| `config_path`                     | `SNET_CONFIG_PATH`                     | `--config`, `-c`      |
+| `ethereum_json_rpc_http_endpoint` | `SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT` | `--ethereum-endpoint` |
+| `hdwallet_index`                  | `SNET_HDWALLET_INDEX`                  | `--wallet-index`      |
+| `hdwallet_mnemonic`               | `SNET_HDWALLET_MNEMONIC`               | `--mnemonic`          |
+| `passthrough_enabled`             | `SNET_PASSTHROUGH_ENABLED`             | `--passthrough`       |
+| `ssl_cert`                        | `SNET_SSL_CERT`                        | `--ssl-cert`          |
+| `ssl_key`                         | `SNET_SSL_KEY`                         | `--ssl-key`           |
 
 [service-configuration-metadata]: https://github.com/singnet/wiki/blob/master/multiPartyEscrowContract/MPEServiceMetadata.md
 
@@ -323,8 +323,8 @@ These instructions are intended to facilitate the development and testing of Sin
 
 ### Prerequisites and dependencies
 
-* [Go 1.22+](https://golang.org/dl/)
-* [Protoc 25.0+](https://github.com/protocolbuffers/protobuf/releases)
+* [Go 1.23+](https://golang.org/dl/)
+* [Protoc 27.0+](https://github.com/protocolbuffers/protobuf/releases)
 
 **Protoc (libprotoc), golang and $GOPATH/bin are recommended to be in environment variables.**
 
@@ -396,12 +396,12 @@ go test ./...
 
 ### Fixing errors
 
-If daemon panic with `panic: proto: file "record.proto" is already registered` 
+If daemon panic with `panic: proto: file "record.proto" is already registered`
 you should set environment var `GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn`
 
 ### Blockchain network config
 
-You can edit `ethereum_json_rpc_endpoint` in `resources/blockchain_network_config.json` before ./scripts/build.
+You can edit `ethereum_json_rpc_http_endpoint` in `resources/blockchain_network_config.json` before ./scripts/build.
 
 ### Signatures in Daemon
 

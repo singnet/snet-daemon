@@ -33,7 +33,7 @@ const DefaultDaemonConfigurationSchema = `
     "section": "blockchain"
   }
 ,
-  "ethereum_json_rpc_endpoint": {
+  "ethereum_json_rpc_http_endpoint": {
     "mandatory": true,
     "value": "https://sepolia.infura.io/v3",
     "description": "Endpoint to which daemon sends ethereum JSON-RPC requests; Based on the network selected blockchain_network_selected the end point is auto determined.",
@@ -53,7 +53,7 @@ const DefaultDaemonConfigurationSchema = `
     "section": "blockchain"
   },
 
-  "passthrough_endpoint": {
+  "service_endpoint": {
     "mandatory": true,
     "value": "http://127.0.0.1:7003",
     "description": "endpoint to which requests should be proxied for handling by service.",

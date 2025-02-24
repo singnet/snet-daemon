@@ -1090,6 +1090,10 @@ func NewTrainingService(b *blockchain.Processor, serMetaData *blockchain.Service
 	}
 
 	serviceURL := config.GetString(config.ModelMaintenanceEndPoint)
+	if serviceURL == "" {
+		zap.L().Info("model_maintenance_endpoint is empty, using service_endpoint for models")
+		serviceURL = config.GetString(config.ServiceEndpointKey)
+	}
 	if config.IsValidUrl(serviceURL) && config.GetBool(config.BlockchainEnabledKey) {
 
 		daemonService := &DaemonService{

@@ -34,15 +34,15 @@ import (
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
 
 type grpcHandler struct {
-	grpcConn              *grpc.ClientConn
-	grpcModelConn         *grpc.ClientConn
-	options               grpc.DialOption
-	enc                   string
-	passthroughEndpoint   string
-	modelTrainingEndpoint string
-	executable            string
-	serviceMetaData       *blockchain.ServiceMetadata
-	serviceCredentials    serviceCredentials
+	grpcConn            *grpc.ClientConn
+	grpcModelConn       *grpc.ClientConn
+	options             grpc.DialOption
+	enc                 string
+	passthroughEndpoint string
+	//modelTrainingEndpoint string
+	executable         string
+	serviceMetaData    *blockchain.ServiceMetadata
+	serviceCredentials serviceCredentials
 }
 
 func (g grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {

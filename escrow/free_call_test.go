@@ -88,7 +88,7 @@ func (suite *FreeCallServiceSuite) TestFreeCallUserTransactionTestLock() {
 	assert.NotNil(suite.T(), transactionA)
 	transactionB, errB := suite.service.StartFreeCallUserTransaction(payment)
 	assert.Nil(suite.T(), transactionB)
-	assert.Equal(suite.T(), errB.Error(), "another transaction on this user: {ID:user2/ExampleOrganizationId/ExampleServiceId/ewAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=} is in progress")
+	assert.Equal(suite.T(), errB.Error(), "another transaction on this user: {ID:user2/YOUR_ORG_ID/YOUR_SERVICE_ID/ewAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=} is in progress")
 }
 
 func (suite *FreeCallServiceSuite) TestListFreeCallUsers() {

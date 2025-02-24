@@ -158,6 +158,8 @@ func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
 		}},
 
 		{name: "", wantErr: nil, setupFunc: func() {
+			config.Vip().Set(config.OrganizationId, "ExampleOrganizationId")
+			config.Vip().Set(config.ServiceId, "ExampleServiceId")
 			config.Vip().Set(config.MeteringEnabled, true)
 			config.Vip().Set(config.PvtKeyForMetering, "063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
 			config.Vip().Set(config.MeteringEndPoint, "https://bkq2d3zjl4.execute-api.eu-west-1.amazonaws.com/main")

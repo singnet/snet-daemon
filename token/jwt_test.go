@@ -26,7 +26,6 @@ func Test_customJWTokenClaimsImpl_CreateToken(t *testing.T) {
 	assert.Nil(t, err)
 	err = tokenImpl.VerifyToken(token, "any struct")
 	assert.Equal(t, "token has invalid claims: token is expired", err.Error())
-
 }
 
 func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
@@ -41,8 +40,8 @@ func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
 	assert.Equal(t, "payload any struct used to generate the Token doesnt match expected values", err.Error())
 	config.Vip().Set(config.OrganizationId, "differentOrganization")
 	err = tokenImpl.VerifyToken(token, "any struct")
-	assert.Equal(t, "organization ExampleOrganizationId is not associated with this Daemon", err.Error())
-	config.Vip().Set(config.OrganizationId, "ExampleOrganizationId")
+	assert.Equal(t, "organization YOUR_ORG_ID is not associated with this Daemon", err.Error())
+	config.Vip().Set(config.OrganizationId, "YOUR_ORG_ID")
 	tokenImpl2 := &customJWTokenServiceImpl{
 		getGroupId: func() string {
 			return "GroupID2"

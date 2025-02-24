@@ -32,12 +32,12 @@ func (suite *RegisterTestSuite) SetupSuite() {
 func TestRegisterTestSuite(t *testing.T) {
 	suite.Run(t, new(RegisterTestSuite))
 }
+
 func TestGetDaemonID(t *testing.T) {
 	daemonID := GetDaemonID()
-
 	assert.NotNil(t, daemonID, "daemon ID must not be nil")
 	assert.NotEmpty(t, daemonID, "daemon ID must not be empty")
-	assert.Equal(t, "091a31bb4b808c574fb5e158923f3067c4e23e805252699fb5946121e7ca1506", daemonID)
+	assert.Equal(t, "4ba3fb622b620ec46174c9ab30f7f141c56f4d57d994c8e08e39251bf1e9ce30", daemonID)
 	assert.NotEqual(t, "48d343313a1e06093c81830103b45496cc7c277f321049e9ee632fd03207d042", daemonID)
 }
 

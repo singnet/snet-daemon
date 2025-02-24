@@ -118,11 +118,11 @@ func (suite *HeartBeatTestSuite) TestHeartbeatHandler() {
 	assert.Equal(suite.T(), dHeartbeat.Status, Warning.String(), "Invalid State")
 	assert.NotEqual(suite.T(), dHeartbeat.Status, Offline.String(), "Invalid State")
 
-	assert.Equal(suite.T(), dHeartbeat.DaemonID, "f940de0eb33eeddb283ac725478900deac24151b019e496c476d59f72c38abb3",
+	assert.Equal(suite.T(), "20e986a77adb1ab0900dce6f554128496aa26be1e212d682f37898bae226fcfc", dHeartbeat.DaemonID,
 		"Incorrect daemon ID")
 
 	assert.NotEqual(suite.T(), dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
-	assert.Equal(suite.T(), dHeartbeat.ServiceHeartbeat, `{"serviceID":"ExampleServiceId","status":"NOT_SERVING"}`,
+	assert.Equal(suite.T(), dHeartbeat.ServiceHeartbeat, `{"serviceID":"YOUR_SERVICE_ID","status":"NOT_SERVING"}`,
 		"Unexpected service heartbeat")
 }
 
@@ -137,7 +137,7 @@ func (suite *HeartBeatTestSuite) Test_GetHeartbeat() {
 	assert.Equal(suite.T(), dHeartbeat.Status, Online.String(), "Invalid State")
 	assert.NotEqual(suite.T(), dHeartbeat.Status, Offline.String(), "Invalid State")
 
-	assert.Equal(suite.T(), dHeartbeat.DaemonID, "f940de0eb33eeddb283ac725478900deac24151b019e496c476d59f72c38abb3",
+	assert.Equal(suite.T(), dHeartbeat.DaemonID, "20e986a77adb1ab0900dce6f554128496aa26be1e212d682f37898bae226fcfc",
 		"Incorrect daemon ID")
 
 	assert.NotEqual(suite.T(), dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")

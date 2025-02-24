@@ -1,6 +1,6 @@
 module github.com/singnet/snet-daemon/v5
 
-go 1.24
+go 1.23.6
 
 require (
 	github.com/OneOfOne/go-utils v0.0.0-20180319162427-6019ff89a94e

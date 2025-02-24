@@ -97,7 +97,7 @@ func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 		want    string
 		network string
 	}{
-		{EthereumJsonRpcHTTPEndpointKey, "https://sepolia.infura.io/v3", "sepolia"},
+		{EthereumJsonRpcHTTPEndpointKey, "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5", "sepolia"},
 		{RegistryAddressKey, "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2", "local"},
 	}
 	for _, tt := range tests {

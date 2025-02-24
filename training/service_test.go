@@ -44,7 +44,7 @@ func TestDaemonServiceSuite(t *testing.T) {
 }
 
 var (
-	testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"test_org_id\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",        \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",  \"license_server_endpoints\": [\"https://licensendpoint:8082\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
+	testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"YOUR_ORG_ID\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",        \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",  \"license_server_endpoints\": [\"https://licensendpoint:8082\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
 	testJsonServiceData  = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"encoding\": \"grpc\",   \"service_type\": \"grpc\",   \"payment_expiration_threshold\": 40320,   \"model_ipfs_hash\": \"Qmdiq8Hu6dYiwp712GtnbBxagyfYyvUY1HYqkH7iN76UCc\", " +
 		"  \"mpe_address\": \"0x7E6366Fbe3bdfCE3C906667911FC5237Cc96BD08\",   \"groups\": [     {    \"free_calls\": 12,  \"free_call_signer_address\": \"0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F\",  \"endpoints\": [\"http://34.344.33.1:2379\",\"http://34.344.33.1:2389\"],       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",\"group_name\": \"default_group\",       \"pricing\": [         {           \"price_model\": \"fixed_price\",           \"price_in_cogs\": 2         },          {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"default\":true,         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     },     {       \"endpoints\": [\"http://97.344.33.1:2379\",\"http://67.344.33.1:2389\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"pricing\": [         {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     }   ] } "
 	testUserAddress = strings.ToLower("0x3432cBa6BF635Df5fBFD1f1a794fA66D412b8774")
@@ -166,8 +166,8 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 	"passthrough_enabled": true,
 	"service_endpoint":"http://0.0.0.0:5001",
 	"model_maintenance_endpoint": "http://0.0.0.0:5001",
-	"service_id": "service_id",
-	"organization_id": "test_org_id",
+	"service_id": "YOUR_SERVICE_ID",
+	"organization_id": "YOUR_ORG_ID",
 	"metering_enabled": false,
 	"max_message_size_in_mb" : 4,
 	"daemon_type": "grpc",
@@ -226,8 +226,8 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 		ModelId:             "test_1",
 		UpdatedByAddress:    testUserAddress,
 		GroupId:             "string",
-		OrganizationId:      "string",
-		ServiceId:           "string",
+		OrganizationId:      "YOUR_ORG_ID",
+		ServiceId:           "YOUR_SERVICE_ID",
 		GRPCMethodName:      "string",
 		GRPCServiceName:     "string",
 		Description:         "string",
@@ -236,8 +236,8 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 	}
 
 	modelAKey := &ModelKey{
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		ModelId:        "test_1",
 	}
@@ -250,9 +250,9 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 		CreatedByAddress:    "unknown",
 		ModelId:             "test_2_no_access",
 		UpdatedByAddress:    "unknown",
-		GroupId:             "string",
+		GroupId:             "YOUR_ORG_ID",
 		OrganizationId:      "string",
-		ServiceId:           "string",
+		ServiceId:           "YOUR_SERVICE_ID",
 		GRPCMethodName:      "string",
 		GRPCServiceName:     "string",
 		Description:         "string",
@@ -261,8 +261,8 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 	}
 
 	modelBKey := &ModelKey{
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		ModelId:        "test_2_no_access",
 	}
@@ -277,7 +277,7 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 		UpdatedByAddress:    testUserAddress,
 		GroupId:             "string",
 		OrganizationId:      "string",
-		ServiceId:           "string",
+		ServiceId:           "YOUR_SERVICE_ID",
 		GRPCMethodName:      "string",
 		GRPCServiceName:     "string",
 		Description:         "string",
@@ -286,8 +286,8 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 	}
 
 	modelCKey := &ModelKey{
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		ModelId:        "test_3",
 	}
@@ -307,16 +307,16 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 
 	// adding to user models sotrage
 	userModelKey := &ModelUserKey{
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		UserAddress:    testUserAddress,
 	}
 
 	userModelData := &ModelUserData{
 		ModelIds:       []string{"test_1", "test_3"},
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		UserAddress:    testUserAddress,
 	}
@@ -326,8 +326,8 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 
 	// adding to pending models storage
 	pendingModelKey := &PendingModelKey{
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
@@ -340,8 +340,8 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 
 	// adding to public models storage
 	publicModelKey := &PublicModelKey{
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
@@ -368,8 +368,8 @@ func (suite *DaemonServiceSuite) createAdditionalTestModel(modelName string, aut
 		GrpcServiceName: "test_grpc_service_name",
 		AddressList:     []string{},
 		IsPublic:        false,
-		OrganizationId:  "test_org_id",
-		ServiceId:       "service_id",
+		OrganizationId:  "YOUR_ORG_ID",
+		ServiceId:       "YOUR_SERVICE_ID",
 		GroupId:         "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
@@ -422,6 +422,8 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 	assert.ErrorContains(suite.T(), err, ErrEmptyModelID.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response4.Status)
 
+	b, _ := suite.blockchain.CurrentBlock()
+	testAuthCreads = createTestAuthDetails(b, "get_model")
 	// check without access to model
 	request5 := &CommonRequest{
 		Authorization: testAuthCreads,
@@ -466,8 +468,8 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 		GrpcServiceName: "test_grpc_service_name",
 		AddressList:     []string{},
 		IsPublic:        false,
-		OrganizationId:  "test_org_id",
-		ServiceId:       "service_id",
+		OrganizationId:  "YOUR_ORG_ID",
+		ServiceId:       "YOUR_SERVICE_ID",
 		GroupId:         "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 	}
 
@@ -518,8 +520,8 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 
 	// check model creation in model storage
 	modelKey := &ModelKey{
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		ModelId:        response5.ModelId,
 	}
@@ -532,8 +534,8 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 
 	// check user model data creation in user model storage
 	userModelKey := &ModelUserKey{
-		OrganizationId: "test_org_id",
-		ServiceId:      "service_id",
+		OrganizationId: "YOUR_ORG_ID",
+		ServiceId:      "YOUR_SERVICE_ID",
 		GroupId:        "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
 		UserAddress:    strings.ToLower(testUserAddress),
 	}

@@ -23,14 +23,14 @@ const (
 type paymentChannelPaymentHandler struct {
 	service            PaymentChannelService
 	mpeContractAddress func() common.Address
-	incomeValidator    IncomeValidator
+	incomeValidator    IncomeStreamValidator
 }
 
 // NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewPaymentHandler(
 	service PaymentChannelService,
 	processor *blockchain.Processor,
-	incomeValidator IncomeValidator) handler.PaymentHandler {
+	incomeValidator IncomeStreamValidator) handler.StreamPaymentHandler {
 	return &paymentChannelPaymentHandler{
 		service:            service,
 		mpeContractAddress: processor.EscrowContractAddress,
@@ -55,7 +55,7 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 
 	income := big.NewInt(0)
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
-	e = h.incomeValidator.Validate(&IncomeData{Income: income, GrpcContext: context})
+	e = h.incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: context})
 	if e != nil {
 		//Make sure the transaction is Rolled back , else this will cause a lock on the channel
 		transaction.Rollback()

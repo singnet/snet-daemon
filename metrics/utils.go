@@ -124,7 +124,6 @@ func SignMessageForMetering(req *http.Request, commonStats *CommonStats) {
 	req.Header.Set("X-Serviceid", commonStats.ServiceID)
 	req.Header.Set("X-Currentblocknumber", currentBlock.String())
 	req.Header.Set("X-Signature", b64.StdEncoding.EncodeToString(signature))
-
 }
 
 func getPrivateKeyForMetering() (privateKey *ecdsa.PrivateKey, err error) {

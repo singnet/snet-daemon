@@ -31,15 +31,16 @@ import (
 )
 
 type Components struct {
-	allowedUserPaymentHandler  handler.PaymentHandler
+	allowedUserPaymentHandler  handler.StreamPaymentHandler
 	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 *blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
 	atomicStorage              storage.AtomicStorage
 	paymentChannelService      escrow.PaymentChannelService
-	escrowPaymentHandler       handler.PaymentHandler
-	grpcInterceptor            grpc.StreamServerInterceptor
+	escrowPaymentHandler       handler.StreamPaymentHandler
+	grpcStreamInterceptor      grpc.StreamServerInterceptor
+	grpcUnaryInterceptor       grpc.UnaryServerInterceptor
 	paymentChannelStateService *escrow.PaymentChannelStateService
 	etcdLockerStorage          *storage.PrefixedAtomicStorage
 	mpeSpecificStorage         *storage.PrefixedAtomicStorage
@@ -51,18 +52,22 @@ type Components struct {
 	configurationService       *configuration_service.ConfigurationService
 	configurationBroadcaster   *configuration_service.MessageBroadcaster
 	organizationMetaData       *blockchain.OrganizationMetaData
-	prepaidPaymentHandler      handler.PaymentHandler
+	prepaidPaymentHandler      handler.StreamPaymentHandler
 	prepaidUserStorage         storage.TypedAtomicStorage
 	prepaidUserService         escrow.PrePaidService
-	freeCallPaymentHandler     handler.PaymentHandler
+	freeCallPaymentHandler     handler.StreamPaymentHandler
+	trainUnaryPaymentHandler   handler.UnaryPaymentHandler
+	trainStreamPaymentHandler  handler.StreamPaymentHandler
 	freeCallUserService        escrow.FreeCallUserService
 	freeCallUserStorage        *escrow.FreeCallUserStorage
 	freeCallLockerStorage      *storage.PrefixedAtomicStorage
 	tokenManager               token.Manager
 	tokenService               *escrow.TokenService
-	modelService               training.ModelServer
+	trainingService            training.DaemonServer
 	modelUserStorage           *training.ModelUserStorage
 	modelStorage               *training.ModelStorage
+	pendingModelStorage        *training.PendingModelStorage
+	publicModelStorage         *training.PublicModelStorage
 }
 
 func InitComponents(cmd *cobra.Command) (components *Components) {
@@ -263,6 +268,7 @@ func (components *Components) PrepaidUserStorage() storage.TypedAtomicStorage {
 
 	return components.prepaidUserStorage
 }
+
 func (components *Components) PaymentChannelService() escrow.PaymentChannelService {
 	if components.paymentChannelService != nil {
 		return components.paymentChannelService
@@ -298,7 +304,7 @@ func (components *Components) FreeCallUserService() escrow.FreeCallUserService {
 	return components.freeCallUserService
 }
 
-func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
+func (components *Components) EscrowPaymentHandler() handler.StreamPaymentHandler {
 	if components.escrowPaymentHandler != nil {
 		return components.escrowPaymentHandler
 	}
@@ -306,13 +312,41 @@ func (components *Components) EscrowPaymentHandler() handler.PaymentHandler {
 	components.escrowPaymentHandler = escrow.NewPaymentHandler(
 		components.PaymentChannelService(),
 		components.Blockchain(),
-		escrow.NewIncomeValidator(components.PricingStrategy()),
+		escrow.NewIncomeStreamValidator(components.PricingStrategy(), components.ModelStorage()),
 	)
 
 	return components.escrowPaymentHandler
 }
 
-func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
+func (components *Components) TrainUnaryPaymentHandler() handler.UnaryPaymentHandler {
+	if components.trainUnaryPaymentHandler != nil {
+		return components.trainUnaryPaymentHandler
+	}
+
+	components.trainUnaryPaymentHandler = escrow.NewTrainUnaryPaymentHandler(
+		components.PaymentChannelService(),
+		components.Blockchain(),
+		escrow.NewTrainValidator(components.ModelStorage()),
+	)
+
+	return components.trainUnaryPaymentHandler
+}
+
+func (components *Components) TrainStreamPaymentHandler() handler.StreamPaymentHandler {
+	if components.trainStreamPaymentHandler != nil {
+		return components.trainStreamPaymentHandler
+	}
+
+	components.trainStreamPaymentHandler = escrow.NewTrainStreamPaymentHandler(
+		components.PaymentChannelService(),
+		components.Blockchain(),
+		escrow.NewIncomeStreamValidator(components.PricingStrategy(), components.ModelStorage()),
+	)
+
+	return components.trainStreamPaymentHandler
+}
+
+func (components *Components) FreeCallPaymentHandler() handler.StreamPaymentHandler {
 	if components.freeCallPaymentHandler != nil {
 		return components.freeCallPaymentHandler
 	}
@@ -323,7 +357,8 @@ func (components *Components) FreeCallPaymentHandler() handler.PaymentHandler {
 	return components.freeCallPaymentHandler
 }
 
-func (components *Components) AllowedUserPaymentHandler() handler.PaymentHandler {
+// AllowedUserPaymentHandler Only for testing when blockchain disabled
+func (components *Components) AllowedUserPaymentHandler() handler.StreamPaymentHandler {
 	if components.allowedUserPaymentHandler != nil {
 		return components.allowedUserPaymentHandler
 	}
@@ -333,9 +368,9 @@ func (components *Components) AllowedUserPaymentHandler() handler.PaymentHandler
 	return components.allowedUserPaymentHandler
 }
 
-func (components *Components) PrePaidPaymentHandler() handler.PaymentHandler {
+func (components *Components) PrePaidPaymentHandler() handler.StreamPaymentHandler {
 	if components.prepaidPaymentHandler != nil {
-		return components.PrePaidPaymentHandler()
+		return components.prepaidPaymentHandler
 	}
 
 	components.prepaidPaymentHandler = escrow.
@@ -358,9 +393,9 @@ func (components *Components) PrePaidService() escrow.PrePaidService {
 }
 
 // Add a chain of interceptors
-func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
-	if components.grpcInterceptor != nil {
-		return components.grpcInterceptor
+func (components *Components) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
+	if components.grpcStreamInterceptor != nil {
+		return components.grpcStreamInterceptor
 	}
 	// Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
@@ -373,14 +408,24 @@ func (components *Components) GrpcInterceptor() grpc.StreamServerInterceptor {
 				" as part of service publication process", zap.Error(err))
 		}
 
-		components.grpcInterceptor = grpc_middleware.ChainStreamServer(
+		components.grpcStreamInterceptor = grpc_middleware.ChainStreamServer(
 			handler.GrpcMeteringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
-			components.GrpcPaymentValidationInterceptor())
+			components.GrpcStreamPaymentValidationInterceptor())
 	} else {
-		components.grpcInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
-			components.GrpcPaymentValidationInterceptor())
+		components.grpcStreamInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
+			components.GrpcStreamPaymentValidationInterceptor())
 	}
-	return components.grpcInterceptor
+	return components.grpcStreamInterceptor
+}
+
+func (components *Components) GrpcUnaryInterceptor() grpc.UnaryServerInterceptor {
+	if components.grpcUnaryInterceptor != nil {
+		return components.grpcUnaryInterceptor
+	}
+	if components.Blockchain().Enabled() {
+		components.grpcUnaryInterceptor = components.GrpcUnaryPaymentValidationInterceptor()
+	}
+	return components.grpcUnaryInterceptor
 }
 
 // Metering end point authentication is now mandatory for daemon
@@ -448,7 +493,7 @@ type VerifyMeteringResponse struct {
 	Data string `json:"data"`
 }
 
-func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServerInterceptor {
+func (components *Components) GrpcStreamPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		if config.GetBool(config.AllowedUserFlag) {
 			zap.L().Info("Blockchain is disabled And AllowedUserFlag is enabled")
@@ -459,8 +504,17 @@ func (components *Components) GrpcPaymentValidationInterceptor() grpc.StreamServ
 	} else {
 		zap.L().Info("Blockchain is enabled: instantiate payment validation interceptor")
 		return handler.GrpcPaymentValidationInterceptor(components.ServiceMetaData(), components.EscrowPaymentHandler(),
-			components.FreeCallPaymentHandler(), components.PrePaidPaymentHandler())
+			components.FreeCallPaymentHandler(), components.PrePaidPaymentHandler(), components.TrainStreamPaymentHandler())
 	}
+}
+
+func (components *Components) GrpcUnaryPaymentValidationInterceptor() grpc.UnaryServerInterceptor {
+	if components.Blockchain().Enabled() {
+		zap.L().Info("Blockchain is enabled: instantiate payment validation interceptor")
+		return handler.GrpcPaymentValidationUnaryInterceptor(components.ServiceMetaData(), components.TrainUnaryPaymentHandler())
+	}
+	zap.L().Info("Blockchain is disabled: no payment validation")
+	return handler.NoOpUnaryInterceptor
 }
 
 func (components *Components) PaymentChannelStateService() (service escrow.PaymentChannelStateServiceServer) {
@@ -560,34 +614,58 @@ func (components *Components) ConfigurationService() *configuration_service.Conf
 	return components.configurationService
 }
 
-func (components *Components) ModelUserStorage() *training.ModelUserStorage {
-	if components.modelUserStorage != nil {
-		return components.modelUserStorage
-	}
-	components.modelUserStorage = training.NewUerModelStorage(components.AtomicStorage())
-	return components.modelUserStorage
-}
-
 func (components *Components) ModelStorage() *training.ModelStorage {
 	if components.modelStorage != nil {
 		return components.modelStorage
 	}
-	components.modelStorage = training.NewModelStorage(components.AtomicStorage())
+
+	components.modelStorage = training.NewModelStorage(components.AtomicStorage(), components.OrganizationMetaData())
+
 	return components.modelStorage
 }
 
-func (components *Components) ModelService() training.ModelServer {
-	if components.modelService != nil {
-		return components.modelService
-	}
-	if !config.GetBool(config.BlockchainEnabledKey) {
-		components.modelService = &training.NoModelSupportService{}
-		return components.modelService
+func (components *Components) ModelUserStorage() *training.ModelUserStorage {
+	if components.modelUserStorage != nil {
+		return components.modelUserStorage
 	}
 
-	components.modelService = training.NewModelService(components.PaymentChannelService(), components.ServiceMetaData(),
-		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage())
-	return components.modelService
+	components.modelUserStorage = training.NewUserModelStorage(components.AtomicStorage(), components.organizationMetaData)
+
+	return components.modelUserStorage
+}
+
+func (components *Components) PendingModelStorage() *training.PendingModelStorage {
+	if components.pendingModelStorage != nil {
+		return components.pendingModelStorage
+	}
+
+	components.pendingModelStorage = training.NewPendingModelStorage(components.AtomicStorage(), components.OrganizationMetaData())
+
+	return components.pendingModelStorage
+}
+
+func (components *Components) PublicModelStorage() *training.PublicModelStorage {
+	if components.publicModelStorage != nil {
+		return components.publicModelStorage
+	}
+
+	components.publicModelStorage = training.NewPublicModelStorage(components.AtomicStorage(), components.OrganizationMetaData())
+
+	return components.publicModelStorage
+}
+
+func (components *Components) TrainingService() training.DaemonServer {
+	if components.trainingService != nil {
+		return components.trainingService
+	}
+	if !config.GetBool(config.BlockchainEnabledKey) {
+		components.trainingService = training.NoTrainingDaemonServer{}
+		return components.trainingService
+	}
+
+	components.trainingService = training.NewTrainingService(components.blockchain, components.ServiceMetaData(),
+		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage())
+	return components.trainingService
 }
 
 func (components *Components) TokenManager() token.Manager {

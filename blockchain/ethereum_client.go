@@ -22,18 +22,12 @@ func basicAuth(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-func CreateEthereumClients() (*EthereumClient, *EthereumClient, error) {
+func CreateEthereumClient() (*EthereumClient, error) {
 	ethereumHttpClient, err := CreateHTTPEthereumClient()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	ethereumWsClient, err := CreateWSEthereumClient()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return ethereumHttpClient, ethereumWsClient, nil
+	return ethereumHttpClient, nil
 }
 
 func CreateHTTPEthereumClient() (*EthereumClient, error) {

@@ -34,15 +34,15 @@ import (
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
 
 type grpcHandler struct {
-	grpcConn              *grpc.ClientConn
-	grpcModelConn         *grpc.ClientConn
-	options               grpc.DialOption
-	enc                   string
-	passthroughEndpoint   string
-	modelTrainingEndpoint string
-	executable            string
-	serviceMetaData       *blockchain.ServiceMetadata
-	serviceCredentials    serviceCredentials
+	grpcConn            *grpc.ClientConn
+	grpcModelConn       *grpc.ClientConn
+	options             grpc.DialOption
+	enc                 string
+	passthroughEndpoint string
+	//modelTrainingEndpoint string
+	executable         string
+	serviceMetaData    *blockchain.ServiceMetadata
+	serviceCredentials serviceCredentials
 }
 
 func (g grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
@@ -61,11 +61,11 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	}
 
 	h := grpcHandler{
-		serviceMetaData:       serviceMetadata,
-		enc:                   serviceMetadata.GetWireEncoding(),
-		passthroughEndpoint:   config.GetString(config.PassthroughEndpointKey),
-		modelTrainingEndpoint: config.GetString(config.ModelTrainingEndpoint),
-		executable:            config.GetString(config.ExecutablePathKey),
+		serviceMetaData:     serviceMetadata,
+		enc:                 serviceMetadata.GetWireEncoding(),
+		passthroughEndpoint: config.GetString(config.ServiceEndpointKey),
+		//modelTrainingEndpoint: config.GetString(config.ModelTrainingEndpoint),
+		executable: config.GetString(config.ExecutablePathKey),
 		options: grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
 			grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024)),
@@ -74,9 +74,9 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	switch serviceMetadata.GetServiceType() {
 	case "grpc":
 		h.grpcConn = h.getConnection(h.passthroughEndpoint)
-		if config.GetBool(config.ModelTrainingEnabled) {
-			h.grpcModelConn = h.getConnection(h.modelTrainingEndpoint)
-		}
+		//if config.GetBool(config.ModelTrainingEnabled) {
+		//	h.grpcModelConn = h.getConnection(h.modelTrainingEndpoint)
+		//}
 		return h.grpcToGRPC
 	case "jsonrpc":
 		return h.grpcToJSONRPC
@@ -298,7 +298,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 
 	// convert proto msg to json
-	jsonBody, err := protoToJson(g.serviceMetaData.ProtoFile, f.Data, method)
+	jsonBody, err := protoToJson(g.serviceMetaData.ProtoDescriptors[0], f.Data, method)
 	if err != nil {
 		return status.Errorf(codes.Internal, "protoToJson error: %+v", errs.ErrDescURL(errs.InvalidProto))
 	}
@@ -308,7 +308,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	base, err := url.Parse(g.passthroughEndpoint)
 	if err != nil {
 		zap.L().Error("can't parse passthroughEndpoint", zap.Error(err))
-		return status.Errorf(codes.Internal, "can't parse passthrough_endpoint %v%v", err, errs.ErrDescURL(errs.InvalidConfig))
+		return status.Errorf(codes.Internal, "can't parse service_endpoint %v%v", err, errs.ErrDescURL(errs.InvalidConfig))
 	}
 
 	base.Path += method // method from proto should be the same as http handler path
@@ -371,7 +371,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 	zap.L().Debug("Response from HTTP service", zap.String("response", string(resp)))
 
-	protoMessage, errMarshal := jsonToProto(g.serviceMetaData.ProtoFile, resp, method)
+	protoMessage, errMarshal := jsonToProto(g.serviceMetaData.ProtoDescriptors[0], resp, method)
 	if errMarshal != nil {
 		return status.Errorf(codes.Internal, "jsonToProto error: %+v%v", errMarshal, errs.ErrDescURL(errs.InvalidProto))
 	}
@@ -418,6 +418,7 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 }
 
 func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte, err error) {
+
 	if protoFile.Services().Len() == 0 {
 		zap.L().Warn("service in proto not found")
 		return []byte("error, invalid proto file"), errors.New("services in proto not found")

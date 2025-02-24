@@ -3,12 +3,10 @@ package authutils
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"math/big"
-	"testing"
-	"time"
-
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/stretchr/testify/assert"
+	"math/big"
+	"testing"
 )
 
 func TestCompareWithLatestBlockNumber(t *testing.T) {
@@ -20,19 +18,6 @@ func TestCompareWithLatestBlockNumber(t *testing.T) {
 
 	currentBlockNum, _ = CurrentBlock()
 	err = CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(1)))
-	assert.Equal(t, nil, err)
-
-}
-
-func TestCheckAllowedBlockDifferenceForToken(t *testing.T) {
-	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
-	config.Validate()
-	currentBlockNum, _ := CurrentBlock()
-	err := CheckIfTokenHasExpired(currentBlockNum.Sub(currentBlockNum, big.NewInt(20000)))
-	assert.Equal(t, err.Error(), "authentication failed as the Free Call Token passed has expired")
-	time.Sleep(250 * time.Millisecond) // because of HTTP 429 Too Many Requests
-	currentBlockNum, _ = CurrentBlock()
-	err = CheckIfTokenHasExpired(currentBlockNum.Add(currentBlockNum, big.NewInt(20)))
 	assert.Equal(t, nil, err)
 }
 

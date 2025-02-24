@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v5/authutils"
-	"go.uber.org/zap"
 )
 
 func Serialize(value any) (slice string, err error) {
@@ -26,18 +24,6 @@ func Deserialize(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	return d.Decode(value)
-}
-
-func VerifySigner(message []byte, signature []byte, signer common.Address) error {
-	derivedSigner, err := authutils.GetSignerAddressFromMessage(message, signature)
-	if err != nil {
-		zap.L().Error(err.Error())
-		return err
-	}
-	if err = authutils.VerifyAddress(*derivedSigner, signer); err != nil {
-		return err
-	}
-	return nil
 }
 
 func ToChecksumAddress(hexAddress string) common.Address {

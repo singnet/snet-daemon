@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/bufbuild/protocompile"
+	"github.com/bufbuild/protocompile/linker"
 	"github.com/singnet/snet-daemon/v5/errs"
+	"maps"
 	"math/big"
 	"os"
 	"slices"
 	"strings"
 
-	"github.com/bufbuild/protocompile"
 	pproto "github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -18,7 +20,6 @@ import (
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/ipfsutils"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 /*
@@ -144,9 +145,6 @@ import (
 	        ]
 	}
 */
-const (
-	serviceProto = "service.proto"
-)
 
 type ServiceMetadata struct {
 	Version          int                 `json:"version"`
@@ -166,18 +164,23 @@ type ServiceMetadata struct {
 	freeCallSignerAddress     common.Address
 	isfreeCallAllowed         bool
 	freeCallsAllowed          int
-	DynamicPriceMethodMapping map[string]string           `json:"dynamic_pricing"`
-	TrainingMethods           []string                    `json:"training_methods"`
-	ProtoFile                 protoreflect.FileDescriptor `json:"-"`
+	DynamicPriceMethodMapping map[string]string `json:"dynamic_pricing"`
+	TrainingMethods           []string          `json:"training_methods"`
+	TrainingMetadata          map[string]any    `json:"training_metadata"`
+	ProtoDescriptors          linker.Files      `json:"-"`
+	ProtoFiles                map[string]string `json:"-"`
 }
+
 type Tiers struct {
 	Tiers Tier `json:"tier"`
 }
+
 type AddOns struct {
 	DiscountInPercentage float64 `json:"discountInPercentage"`
 	AddOnCostInAGIX      int     `json:"addOnCostInAGIX"`
 	Name                 string  `json:"name"`
 }
+
 type TierRange struct {
 	High                 int     `json:"high"`
 	DiscountInPercentage float64 `json:"DiscountInPercentage"`
@@ -269,8 +272,29 @@ func ServiceMetaData() *ServiceMetadata {
 	if err != nil {
 		zap.L().Panic("error on determining service metadata from file"+errs.ErrDescURL(errs.InvalidMetadata), zap.Error(err))
 	}
+
+	// if ModelTraining enabled in config training package will init protoDescriptors
+	if !config.GetBool(config.ModelTrainingEnabled) {
+		metadata.ProtoDescriptors = getFileDescriptors(metadata.ProtoFiles)
+	}
+
 	zap.L().Debug("service type: " + metadata.GetServiceType())
 	return metadata
+}
+
+// getFileDescriptors converts text of proto files to bufbuild linker
+func getFileDescriptors(protoFiles map[string]string) linker.Files {
+	accessor := protocompile.SourceAccessorFromMap(protoFiles)
+	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
+	compiler := protocompile.Compiler{
+		Resolver:       r,
+		SourceInfoMode: protocompile.SourceInfoStandard,
+	}
+	fds, err := compiler.Compile(context.Background(), slices.Collect(maps.Keys(protoFiles))...)
+	if err != nil || fds == nil {
+		zap.L().Fatal("[getFileDescriptors] failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
+	}
+	return fds
 }
 
 func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {
@@ -397,8 +421,8 @@ func setDefaultPricing(metaData *ServiceMetadata) (err error) {
 			return nil
 		}
 	}
-	err = fmt.Errorf("MetaData does not have the default pricing set ")
-	zap.L().Warn("Error in set default pricing", zap.Error(err))
+	err = fmt.Errorf("metadata does not have the default pricing set")
+	zap.L().Warn("[setDefaultPricing] Error in set default pricing", zap.Error(err))
 	return err
 }
 
@@ -408,13 +432,12 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 }
 
 func setFreeCallData(metaData *ServiceMetadata) error {
-
 	if metaData.defaultGroup.FreeCalls > 0 {
 		metaData.isfreeCallAllowed = true
 		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
 		//If the signer address is not a valid address, then return back an error
 		if !common.IsHexAddress(metaData.defaultGroup.FreeCallSigner) {
-			return fmt.Errorf("MetaData does not have 'free_call_signer_address defined correctly" + errs.ErrDescURL(errs.InvalidMetadata))
+			return fmt.Errorf("metadata does not have 'free_call_signer_address defined correctly")
 		}
 		metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
 	}
@@ -501,16 +524,16 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 		zap.L().Error("Error in retrieving file from filecoin/ipfs", zap.Error(err))
 	}
 
-	protoFiles, err := ipfsutils.ReadFilesCompressed(rawFile)
+	metaData.ProtoFiles, err = ipfsutils.ReadFilesCompressed(rawFile)
 	if err != nil {
 		return err
 	}
 
-	if metaData.ServiceType == "http" && len(protoFiles) > 1 {
+	if metaData.ServiceType == "http" && len(metaData.ProtoFiles) > 1 {
 		zap.L().Fatal("Currently daemon support only one proto file for HTTP services!")
 	}
 
-	for _, file := range protoFiles {
+	for _, file := range metaData.ProtoFiles {
 		zap.L().Debug("Protofile", zap.String("file", file))
 
 		// If Dynamic pricing is enabled, there will be mandatory checks on the service proto
@@ -526,10 +549,6 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 				metaData.DynamicPriceMethodMapping = dynamicMethodMap
 				metaData.TrainingMethods = trainingMethodMap
 			}
-		}
-
-		if metaData.ServiceType == "http" {
-			metaData.ProtoFile = getFileDescriptor(file)
 		}
 	}
 
@@ -577,20 +596,4 @@ func buildDynamicPricingMethodsMap(serviceProto *pproto.Proto) (dynamicPricingMe
 		}
 	}
 	return
-}
-
-func getFileDescriptor(protoContent string) protoreflect.FileDescriptor {
-
-	accessor := protocompile.SourceAccessorFromMap(map[string]string{
-		serviceProto: protoContent,
-	})
-	compiler := protocompile.Compiler{
-		Resolver:       &protocompile.SourceResolver{Accessor: accessor},
-		SourceInfoMode: protocompile.SourceInfoStandard,
-	}
-	fds, err := compiler.Compile(context.Background(), serviceProto)
-	if err != nil || fds == nil {
-		zap.L().Fatal("failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
-	}
-	return fds.FindFileByPath(serviceProto)
 }

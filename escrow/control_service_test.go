@@ -164,7 +164,6 @@ func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 	assert.Nil(suite.T(), err)
 	assert.NotNil(suite.T(), replyListInProgress.Payments[0].Signature)
 	assert.NotNil(suite.T(), replyListInProgress.Payments[0].Signature)
-
 }
 
 func (suite *ControlServiceTestSuite) TestProviderControlService_checkMpeAddress() {

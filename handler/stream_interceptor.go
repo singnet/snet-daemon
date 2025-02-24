@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/singnet/snet-daemon/v5/config"
@@ -72,6 +71,8 @@ const (
 	PrePaidAuthTokenHeader = "snet-prepaid-auth-token-bin"
 
 	DynamicPriceDerived = "snet-derived-dynamic-price-cost"
+
+	TrainingModelId = "snet-train-model-id"
 )
 
 // GrpcStreamContext contains information about gRPC call which is used to
@@ -134,10 +135,10 @@ func NewGrpcErrorf(code codes.Code, format string, args ...any) *GrpcError {
 	}
 }
 
-// PaymentHandler interface which is used by gRPC interceptor to get, validate
+// StreamPaymentHandler interface which is used by gRPC interceptor to get, validate
 // and complete payment. There are two payment handler implementations so far:
 // jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is deprecated.
-type PaymentHandler interface {
+type StreamPaymentHandler interface {
 	// Type is a content of PaymentTypeHeader field which triggers usage of the
 	// payment handler.
 	Type() (typ string)
@@ -227,10 +228,10 @@ func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream
 
 // GrpcPaymentValidationInterceptor returns gRPC interceptor to validate payment. If
 // blockchain is disabled then noOpInterceptor is returned.
-func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, defaultPaymentHandler PaymentHandler, paymentHandler ...PaymentHandler) grpc.StreamServerInterceptor {
+func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, defaultPaymentHandler StreamPaymentHandler, paymentHandler ...StreamPaymentHandler) grpc.StreamServerInterceptor {
 	interceptor := &paymentValidationInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,
-		paymentHandlers:       make(map[string]PaymentHandler),
+		paymentHandlers:       make(map[string]StreamPaymentHandler),
 		serviceMetadata:       serviceData,
 	}
 
@@ -240,16 +241,16 @@ func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, d
 		interceptor.paymentHandlers[handler.Type()] = handler
 		zap.L().Info("Payment handler for type registered", zap.Any("paymentType", handler.Type()))
 	}
-	return interceptor.intercept
+	return interceptor.streamIntercept
 }
 
 type paymentValidationInterceptor struct {
 	serviceMetadata       *blockchain.ServiceMetadata
-	defaultPaymentHandler PaymentHandler
-	paymentHandlers       map[string]PaymentHandler
+	defaultPaymentHandler StreamPaymentHandler
+	paymentHandlers       map[string]StreamPaymentHandler
 }
 
-func (interceptor *paymentValidationInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
+func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
 	wrapperStream := ss
 	// check we need to have dynamic pricing here
@@ -260,11 +261,13 @@ func (interceptor *paymentValidationInterceptor) intercept(srv any, ss grpc.Serv
 			return streamError
 		}
 	}
+
 	context, err := getGrpcContext(wrapperStream, info)
 	if err != nil {
 		return err.Err()
 	}
-	zap.L().Debug("New gRPC call received", zap.Any("context", context))
+
+	zap.L().Debug("[streamIntercept] New gRPC call received", zap.Any("context", context))
 
 	paymentHandler, err := interceptor.getPaymentHandler(context)
 	if err != nil {
@@ -296,7 +299,7 @@ func (interceptor *paymentValidationInterceptor) intercept(srv any, ss grpc.Serv
 		}
 	}()
 
-	zap.L().Debug("New payment received", zap.Any("payment", payment))
+	zap.L().Debug("[streamIntercept] New payment received", zap.Any("payment", payment))
 
 	e = handler(srv, wrapperStream)
 	if e != nil {
@@ -321,7 +324,7 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 	}, nil
 }
 
-func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler PaymentHandler, err *GrpcError) {
+func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *GrpcStreamContext) (handler StreamPaymentHandler, err *GrpcError) {
 	paymentTypeMd, ok := context.MD[PaymentTypeHeader]
 	if !ok || len(paymentTypeMd) == 0 {
 		zap.L().Debug("Payment type was not set by caller, return default payment handler",
@@ -330,6 +333,7 @@ func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *Grpc
 	}
 
 	paymentType := paymentTypeMd[0]
+	zap.L().Debug("Payment metadata", zap.String("paymentType", paymentType), zap.Any("paymentTypeMd", paymentTypeMd))
 	paymentHandler, ok := interceptor.paymentHandlers[paymentType]
 	if !ok {
 		zap.L().Error("Unexpected payment type", zap.String("paymentType", paymentType))

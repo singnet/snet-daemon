@@ -8,14 +8,14 @@ import (
 )
 
 const (
-	INNER                  = "inner"
-	OUTER                  = "outer"
-	INNER_VALUE            = "inner-value"
-	OUTER_INNER            = "outer.inner"
-	INNER_DEFAULT          = "inner-default"
-	INNER_DEFAULT_VALUE    = "inner-default-value"
-	PASS_THROUGH_END_POINT = "http://127.0.0.1:8080"
-	DAEMON_END_POINT       = "0.0.0.0:7000"
+	INNER               = "inner"
+	OUTER               = "outer"
+	INNER_VALUE         = "inner-value"
+	OUTER_INNER         = "outer.inner"
+	INNER_DEFAULT       = "inner-default"
+	INNER_DEFAULT_VALUE = "inner-default-value"
+	SERVICE_ENDPOINT    = "http://127.0.0.1:8080"
+	DAEMON_ENDPOINT     = "0.0.0.0:7000"
 )
 
 func TestCustomSubMap(t *testing.T) {
@@ -118,25 +118,25 @@ func TestValidateEmail(t *testing.T) {
 }
 
 func TestValidateEndpoints(t *testing.T) {
-	err := ValidateEndpoints("0.0.0.0:8080", PASS_THROUGH_END_POINT)
+	err := ValidateEndpoints("0.0.0.0:8080", SERVICE_ENDPOINT)
 	assert.NotEqual(t, nil, err)
-	err = ValidateEndpoints("127.0.0.1:8080", PASS_THROUGH_END_POINT)
+	err = ValidateEndpoints("127.0.0.1:8080", SERVICE_ENDPOINT)
 	assert.NotEqual(t, nil, err)
 	err = ValidateEndpoints("0.0.0.0:8080", "http://127.0.0.1:5000")
 	assert.Equal(t, nil, err)
-	err = ValidateEndpoints("1.2.3.4:8080", PASS_THROUGH_END_POINT)
+	err = ValidateEndpoints("1.2.3.4:8080", SERVICE_ENDPOINT)
 	assert.Equal(t, nil, err)
 	err = ValidateEndpoints("1.2.3.4:8080", "")
-	assert.Equal(t, "passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.", err.Error())
-	err = ValidateEndpoints(DAEMON_END_POINT, "http://localhost:8080")
+	assert.Equal(t, "service_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url", err.Error())
+	err = ValidateEndpoints(DAEMON_ENDPOINT, "http://localhost:8080")
 	assert.Equal(t, nil, err)
-	err = ValidateEndpoints(DAEMON_END_POINT, "http://localhost:8080")
+	err = ValidateEndpoints(DAEMON_ENDPOINT, "http://localhost:8080")
 	assert.Equal(t, nil, err)
-	err = ValidateEndpoints(DAEMON_END_POINT, "localhost:8080")
-	assert.Equal(t, "passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.", err.Error())
-	err = ValidateEndpoints(DAEMON_END_POINT, "http://somedomain")
+	err = ValidateEndpoints(DAEMON_ENDPOINT, "localhost:8080")
+	assert.Equal(t, "service_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url", err.Error())
+	err = ValidateEndpoints(DAEMON_ENDPOINT, "http://somedomain")
 	assert.Equal(t, nil, err)
-	err = ValidateEndpoints(DAEMON_END_POINT, "https://somedomain:8093")
+	err = ValidateEndpoints(DAEMON_ENDPOINT, "https://somedomain:8093")
 	assert.Nil(t, err)
 
 }

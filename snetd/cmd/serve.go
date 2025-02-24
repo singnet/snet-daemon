@@ -119,7 +119,7 @@ func newDaemon(components *Components) (daemon, error) {
 	var err error
 	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndPoint))
 	if err != nil {
-		return d, errors.Wrap(err, "Expected format of daemon_end_point is <host>:<port>.Error binding to the endpoint:"+config.GetString(config.DaemonEndPoint))
+		return d, errors.Wrap(err, "Expected format of daemon_endpoint is <host>:<port>.Error binding to the endpoint:"+config.GetString(config.DaemonEndPoint))
 	}
 
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)
@@ -208,14 +208,15 @@ func (d *daemon) start() {
 		maxsizeOpt := grpc.MaxRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB) * 1024 * 1024)
 		d.grpcServer = grpc.NewServer(
 			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
-			grpc.StreamInterceptor(d.components.GrpcInterceptor()),
+			grpc.StreamInterceptor(d.components.GrpcStreamInterceptor()),
+			grpc.UnaryInterceptor(d.components.GrpcUnaryInterceptor()),
 			maxsizeOpt,
 		)
 		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 		escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
 		escrow.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
 		escrow.RegisterTokenServiceServer(d.grpcServer, d.components.TokenService())
-		training.RegisterModelServer(d.grpcServer, d.components.ModelService())
+		training.RegisterDaemonServer(d.grpcServer, d.components.TrainingService())
 		grpc_health_v1.RegisterHealthServer(d.grpcServer, d.components.DaemonHeartBeat())
 		configuration_service.RegisterConfigurationServiceServer(d.grpcServer, d.components.ConfigurationService())
 		mux := cmux.New(d.lis)
@@ -267,8 +268,8 @@ func (d *daemon) start() {
 			AllowOriginFunc: func(origin string) bool {
 				return true
 			},
-			ExposedHeaders: []string{"X-Grpc-Web", "Content-Length", "Access-Control-Allow-Origin", "Content-Type", "Origin"},
-			AllowedHeaders: []string{"X-Grpc-Web", "User-Agent", "Origin", "Accept", "Authorization", "Content-Type", "X-Requested-With", "Content-Length", "Access-Control-Allow-Origin",
+			ExposedHeaders: []string{"X-Grpc-Web", "Content-Length", "Access-Control-Allow-Origin", "Content-Type", "Origin", "Grpc-Status", "Grpc-Message"},
+			AllowedHeaders: []string{"Grpc-Status", "Grpc-Message", "X-Grpc-Web", "User-Agent", "Origin", "Accept", "Authorization", "Content-Type", "X-Requested-With", "Content-Length", "Access-Control-Allow-Origin",
 				handler.PaymentTypeHeader,
 				handler.ClientTypeHeader,
 				handler.PaymentChannelSignatureHeader,
@@ -284,6 +285,7 @@ func (d *daemon) start() {
 				handler.PrePaidAuthTokenHeader,
 				handler.CurrentBlockNumberHeader,
 				handler.PaymentMultiPartyEscrowAddressHeader,
+				handler.TrainingModelId,
 			},
 		})
 

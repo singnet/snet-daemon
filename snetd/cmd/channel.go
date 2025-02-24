@@ -39,7 +39,7 @@ func newChannelCommand(cmd *cobra.Command, args []string, components *Components
 	return
 }
 
-func getPaymentChannelId(cmd *cobra.Command) (id *big.Int, err error) {
+func getPaymentChannelId(*cobra.Command) (id *big.Int, err error) {
 	if paymentChannelId == "" {
 		return nil, nil
 	}

@@ -29,11 +29,11 @@ const (
 	BurstSize                 = "burst_size"
 	ConfigPathKey             = "config_path"
 	DaemonGroupName           = "daemon_group_name"
-	DaemonTypeKey             = "daemon_type"
-	DaemonEndPoint            = "daemon_end_point"
+	DaemonTypeKey             = "daemon_type" // http/grpc
+	DaemonEndPoint            = "daemon_endpoint"
 	ExecutablePathKey         = "executable_path"
 	EnableDynamicPricing      = "enable_dynamic_pricing"
-	IpfsEndPoint              = "ipfs_end_point"
+	IpfsEndPoint              = "ipfs_endpoint"
 	LighthouseEndpoint        = "lighthouse_endpoint"
 	IpfsTimeout               = "ipfs_timeout"
 	LogKey                    = "log"
@@ -42,12 +42,12 @@ const (
 	// ModelMaintenanceEndPoint This is for grpc server end point for Model Maintenance like Create, update, delete, status check
 	ModelMaintenanceEndPoint = "model_maintenance_endpoint"
 	// ModelTrainingEndpoint This is for directing any training calls on Models, as training calls are heavy on resources
-	ModelTrainingEndpoint          = "model_training_endpoint"
+	//ModelTrainingEndpoint          = "model_training_endpoint"
 	ModelTrainingEnabled           = "model_training_enabled"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
 	PassthroughEnabledKey          = "passthrough_enabled"
-	PassthroughEndpointKey         = "passthrough_endpoint"
+	ServiceEndpointKey             = "service_endpoint"
 	ServiceCredentialsKey          = "service_credentials"
 	RateLimitPerMinute             = "rate_limit_per_minute"
 	SSLCertPathKey                 = "ssl_cert"
@@ -58,33 +58,33 @@ const (
 	PaymentChannelStorageTypeKey   = "payment_channel_storage_type"
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
+	BlockchainProviderApiKey       = "blockchain_provider_api_key"
+	FreeCallsUsers                 = "free_calls_users"
 	//configs for Daemon Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
-	HeartbeatServiceEndpoint    = "heartbeat_svc_end_point"
-	MeteringEndPoint            = "metering_end_point"
+	HeartbeatServiceEndpoint    = "heartbeat_endpoint"
+	MeteringEndPoint            = "metering_endpoint"
 	PvtKeyForMetering           = "pvt_key_for_metering"
-	NotificationServiceEndpoint = "notification_svc_end_point"
+	NotificationServiceEndpoint = "notification_endpoint"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	TokenExpiryInMinutes        = "token_expiry_in_minutes"
 	TokenSecretKey              = "token_secret_key"
-	BlockchainProviderApiKey    = "blockchain_provider_api_key"
-	FreeCallsUsers              = "free_calls_users"
-	//none|grpc|http
 	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
 	"blockchain_enabled": true,
 	"blockchain_network_selected": "sepolia",
-	"daemon_end_point": "127.0.0.1:8080",
+	"daemon_endpoint": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"payment_channel_storage_type": "etcd",
-	"ipfs_end_point": "https://ipfs.singularitynet.io:443", 
+	"ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+	"ipfs_endpoint": "https://ipfs.singularitynet.io:443", 
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/", 
 	"ipfs_timeout" : 30,
 	"passthrough_enabled": true,
-	"passthrough_endpoint":"YOUR_SERVICE_ENDPOINT",
-	"service_id": "ExampleServiceId", 
-	"organization_id": "ExampleOrganizationId",
+	"service_endpoint":"YOUR_SERVICE_ENDPOINT",
+	"service_id": "YOUR_SERVICE_ID", 
+	"organization_id": "YOUR_ORG_ID",
 	"metering_enabled": false,
 	"ssl_cert": "",
 	"ssl_key": "",
@@ -115,7 +115,7 @@ const (
 	"payment_channel_storage_client": {
 		"connection_timeout": "0s",
 		"request_timeout": "0s",
-		"hot_reload": true
+		"hot_reload": false
     },
 	"payment_channel_storage_server": {
 		"id": "storage-1",
@@ -139,14 +139,14 @@ const (
 	MinimumConfigJson string = `{
 	"blockchain_enabled": true,
 	"blockchain_network_selected": "sepolia",
-	"passthrough_endpoint":"YOUR_SERVICE_ENDPOINT",
+	"service_endpoint":"YOUR_SERVICE_ENDPOINT",
 	"service_id": "YOUR_SERVICE_ID", 
 	"organization_id": "YOUR_ORG_ID",
-	"daemon_end_point": "127.0.0.1:8080",
+	"daemon_endpoint": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
-	"passthrough_enabled": true,
 	"payment_channel_storage_type": "etcd",
-	"ipfs_end_point": "https://ipfs.singularitynet.io:443",
+	"ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+	"ipfs_endpoint": "https://ipfs.singularitynet.io:443",
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/",
 	"log": {
 		"output": {
@@ -216,7 +216,7 @@ func Validate() error {
 	}
 
 	// Validate metrics URL and set state
-	passEndpoint := vip.GetString(PassthroughEndpointKey)
+	passEndpoint := vip.GetString(ServiceEndpointKey)
 	daemonEndpoint := vip.GetString(DaemonEndPoint)
 	err := ValidateEndpoints(daemonEndpoint, passEndpoint)
 	if err != nil {
@@ -360,7 +360,7 @@ var DisplayKeys = map[string]bool{
 	strings.ToUpper(OrganizationId):                 true,
 	strings.ToUpper(ServiceId):                      true,
 	strings.ToUpper(PassthroughEnabledKey):          true,
-	strings.ToUpper(PassthroughEndpointKey):         true,
+	strings.ToUpper(ServiceEndpointKey):             true,
 	strings.ToUpper(RateLimitPerMinute):             true,
 	strings.ToUpper(SSLCertPathKey):                 true,
 	strings.ToUpper(SSLKeyPathKey):                  true,
@@ -413,7 +413,7 @@ func ValidateEmail(email string) bool {
 func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error {
 	passthroughURL, err := url.Parse(passthroughEndpoint)
 	if err != nil || passthroughURL.Host == "" {
-		return errors.New("passthrough_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url.")
+		return errors.New("service_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url")
 	}
 
 	daemonHost, daemonPort, err := net.SplitHostPort(daemonEndpoint)
@@ -422,13 +422,13 @@ func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error 
 	}
 
 	if daemonHost == passthroughURL.Hostname() && daemonPort == passthroughURL.Port() {
-		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+		return errors.New("passthrough endpoint can't be the same as daemon endpoint")
 	}
 
 	if (daemonPort == passthroughURL.Port()) &&
 		(daemonHost == "0.0.0.0") &&
 		(passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost") {
-		return errors.New("passthrough endpoint can't be the same as daemon endpoint!")
+		return errors.New("passthrough endpoint can't be the same as daemon endpoint")
 	}
 	return nil
 }

@@ -33,7 +33,7 @@ import (
 type Components struct {
 	allowedUserPaymentHandler  handler.StreamPaymentHandler
 	serviceMetadata            *blockchain.ServiceMetadata
-	blockchain                 *blockchain.Processor
+	blockchain                 blockchain.Processor
 	etcdClient                 *etcddb.EtcdClient
 	etcdServer                 *etcddb.EtcdServer
 	atomicStorage              storage.AtomicStorage
@@ -118,7 +118,7 @@ func (components *Components) Close() {
 	}
 }
 
-func (components *Components) Blockchain() *blockchain.Processor {
+func (components *Components) Blockchain() blockchain.Processor {
 	if components.blockchain != nil {
 		return components.blockchain
 	}
@@ -128,7 +128,7 @@ func (components *Components) Blockchain() *blockchain.Processor {
 		zap.L().Panic("unable to initialize blockchain processor", zap.Error(err))
 	}
 
-	components.blockchain = &processor
+	components.blockchain = processor
 	return components.blockchain
 }
 
@@ -534,8 +534,6 @@ func (components *Components) PaymentChannelStateService() (service escrow.Payme
 	return components.paymentChannelStateService
 }
 
-//NewProviderControlService
-
 func (components *Components) ProviderControlService() (service escrow.ProviderControlServiceServer) {
 
 	if !config.GetBool(config.BlockchainEnabledKey) {
@@ -545,7 +543,7 @@ func (components *Components) ProviderControlService() (service escrow.ProviderC
 		return components.providerControlService
 	}
 
-	components.providerControlService = escrow.NewProviderControlService(components.PaymentChannelService(),
+	components.providerControlService = escrow.NewProviderControlService(components.Blockchain(), components.PaymentChannelService(),
 		components.ServiceMetaData(), components.OrganizationMetaData())
 	return components.providerControlService
 }

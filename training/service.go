@@ -36,7 +36,7 @@ const (
 type DaemonService struct {
 	serviceMetaData      *blockchain.ServiceMetadata
 	organizationMetaData *blockchain.OrganizationMetaData
-	blockchain           *blockchain.Processor
+	blockchain           blockchain.Processor
 	storage              *ModelStorage
 	userStorage          *ModelUserStorage
 	pendingStorage       *PendingModelStorage
@@ -1074,7 +1074,7 @@ func getFileDescriptorsWithTraining(protoFiles map[string]string) linker.Files {
 }
 
 // NewTrainingService daemon self server
-func NewTrainingService(b *blockchain.Processor, serMetaData *blockchain.ServiceMetadata,
+func NewTrainingService(b blockchain.Processor, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage,
 	pendingStorage *PendingModelStorage, publicStorage *PublicModelStorage) DaemonServer {
 

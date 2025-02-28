@@ -34,6 +34,20 @@ func (suite *IpfsUtilsTestSuite) TestGetProtoFiles() {
 	assert.NotNil(suite.T(), protoFiles)
 }
 
+func TestIsGzipFile(t *testing.T) {
+	// Valid gzip header
+	gzipData := []byte{0x1F, 0x8B, 0x08, 0x00}
+	if !isGzipFile(gzipData) {
+		t.Errorf("Expected true for valid gzip header")
+	}
+
+	// Invalid gzip header
+	invalidData := []byte{0x00, 0x01, 0x02, 0x03}
+	if isGzipFile(invalidData) {
+		t.Errorf("Expected false for invalid gzip header")
+	}
+}
+
 func (suite *IpfsUtilsTestSuite) TestReadFiles() {
 	// For testing purposes, a hash is used from the calculator service.
 	hash := "QmeyrQkEyba8dd4rc3jrLd5pEwsxHutfH2RvsSaeSMqTtQ"

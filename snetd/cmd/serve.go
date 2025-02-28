@@ -72,7 +72,7 @@ var ServeCmd = &cobra.Command{
 		// to listen for changes in the organization metadata.
 		if d.components.etcdClient != nil && d.components.etcdClient.IsHotReloadEnabled() {
 			contractEventLister := contractListener.ContractEventListener{
-				BlockchainProcessor:         &d.blockProc,
+				BlockchainProcessor:         d.blockProc,
 				CurrentOrganizationMetaData: components.OrganizationMetaData(),
 				CurrentEtcdClient:           components.EtcdClient(),
 			}
@@ -132,7 +132,7 @@ func newDaemon(components *Components) (daemon, error) {
 		}
 	}
 
-	d.blockProc = *components.Blockchain()
+	d.blockProc = components.Blockchain()
 
 	if sslKey := config.GetString(config.SSLKeyPathKey); sslKey != "" {
 		cert, err := tls.LoadX509KeyPair(config.GetString(config.SSLCertPathKey), sslKey)

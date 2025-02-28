@@ -29,7 +29,7 @@ type paymentChannelPaymentHandler struct {
 // NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewPaymentHandler(
 	service PaymentChannelService,
-	processor *blockchain.Processor,
+	processor blockchain.Processor,
 	incomeValidator IncomeStreamValidator) handler.StreamPaymentHandler {
 	return &paymentChannelPaymentHandler{
 		service:            service,

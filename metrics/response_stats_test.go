@@ -52,8 +52,7 @@ func TestGetErrorCode(t *testing.T) {
 func TestJsonCreated(t *testing.T) {
 
 	tim := time.Now()
-	zone, offset := tim.Zone()
-	fmt.Println(zone, offset)
+	zone, _ := tim.Zone()
 	payload := &ResponseStats{
 
 		Type:      "grpc",

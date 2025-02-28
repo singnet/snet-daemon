@@ -76,7 +76,7 @@ type ChannelPaymentValidator struct {
 }
 
 // NewChannelPaymentValidator returns new payment validator instance
-func NewChannelPaymentValidator(processor *blockchain.Processor, cfg *viper.Viper, metadata *blockchain.OrganizationMetaData) *ChannelPaymentValidator {
+func NewChannelPaymentValidator(processor blockchain.Processor, cfg *viper.Viper, metadata *blockchain.OrganizationMetaData) *ChannelPaymentValidator {
 	return &ChannelPaymentValidator{
 		currentBlock: processor.CurrentBlock,
 		paymentExpirationThreshold: func() *big.Int {

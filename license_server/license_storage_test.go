@@ -1,7 +1,6 @@
 package license_server
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -52,7 +51,6 @@ func Test_serializeLicenseDetailsData(t *testing.T) {
 			ServiceMethodDetails: &ServiceMethodCostDetails{MethodName: "M1", ServiceName: "S1"},
 		},
 	}
-	fmt.Println(license)
 	str, err := serializeLicenseDetailsData(license)
 	assert.Nil(t, err)
 	subs := &Subscription{}

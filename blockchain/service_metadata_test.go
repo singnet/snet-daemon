@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"math/big"
 	"slices"
 	"strings"
@@ -18,7 +17,6 @@ var testJsonData = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"en
 	"  \"mpe_address\": \"0x7E6366Fbe3bdfCE3C906667911FC5237Cc96BD08\",   \"groups\": [     {    \"free_calls\": 12,  \"free_call_signer_address\": \"0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F\",  \"endpoints\": [\"http://34.344.33.1:2379\",\"http://34.344.33.1:2389\"],       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",\"group_name\": \"default_group\",  " + testLicenseJsonData + " ,  \"pricing\": [         {           \"price_model\": \"fixed_price\",           \"price_in_cogs\": 2         },          {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"default\":true,         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     },     {       \"endpoints\": [\"http://97.344.33.1:2379\",\"http://67.344.33.1:2389\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"pricing\": [         {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     }   ] } "
 
 func TestAllGetterMethods(t *testing.T) {
-	fmt.Println(testJsonData)
 	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
 	assert.Equal(t, err, nil)
 
@@ -36,7 +34,6 @@ func TestAllGetterMethods(t *testing.T) {
 }
 
 func TestSubscription(t *testing.T) {
-	fmt.Println(testJsonData)
 	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
 	assert.Equal(t, err, nil)
 	assert.Equal(t, 12, metaData.GetFreeCallsAllowed())
@@ -49,7 +46,6 @@ func TestSubscription(t *testing.T) {
 }
 
 func TestTiers(t *testing.T) {
-	fmt.Println(testJsonData)
 	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
 	assert.Equal(t, err, nil)
 
@@ -88,6 +84,7 @@ func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
 	config.Validate()
 	_, err := getServiceMetaDataURIfromRegistry()
 	assert.NotNil(t, err)
+	config.Vip().Set(config.ServiceId, "sepolia")
 	config.Vip().Set(config.ServiceId, "semyon_dev")
 	config.Vip().Set(config.OrganizationId, "semyon_dev")
 	_, err = getServiceMetaDataURIfromRegistry()

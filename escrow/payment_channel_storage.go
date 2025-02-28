@@ -95,7 +95,7 @@ type BlockchainChannelReader struct {
 }
 
 // NewBlockchainChannelReader returns new instance of blockchain channel reader
-func NewBlockchainChannelReader(processor *blockchain.Processor, cfg *viper.Viper,
+func NewBlockchainChannelReader(processor blockchain.Processor, cfg *viper.Viper,
 	orgMetadata *blockchain.OrganizationMetaData) *BlockchainChannelReader {
 	return &BlockchainChannelReader{
 		readChannelFromBlockchain: processor.MultiPartyEscrowChannel,

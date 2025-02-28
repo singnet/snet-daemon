@@ -264,7 +264,7 @@ func ServiceMetaData() *ServiceMetadata {
 	}
 	ipfsHash, err = getServiceMetaDataURIfromRegistry()
 	if err != nil {
-		zap.L().Fatal("error retrieving contract details for the given organization and service ids"+errs.ErrDescURL(errs.InvalidConfig),
+		zap.L().Fatal(err.Error()+errs.ErrDescURL(errs.InvalidConfig),
 			zap.String("OrganizationId", config.GetString(config.OrganizationId)),
 			zap.String("ServiceId", config.GetString(config.ServiceId)))
 	}
@@ -340,7 +340,7 @@ func getServiceMetaDataURIfromRegistry() ([]byte, error) {
 
 	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
 	if err != nil || !serviceRegistration.Found {
-		return nil, fmt.Errorf("error retrieving contract details for the given organization and service ids")
+		return nil, fmt.Errorf("error retrieving contract details for the given organization and service ids %v", err)
 	}
 
 	return serviceRegistration.MetadataURI[:], nil

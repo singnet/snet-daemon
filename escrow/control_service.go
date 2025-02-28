@@ -21,6 +21,7 @@ type ProviderControlService struct {
 	channelService       PaymentChannelService
 	serviceMetaData      *blockchain.ServiceMetadata
 	organizationMetaData *blockchain.OrganizationMetaData
+	blockchain           blockchain.Processor
 	mpeAddress           common.Address
 }
 
@@ -53,13 +54,14 @@ func (service *BlockChainDisabledProviderControlService) StartClaimForMultipleCh
 	return &PaymentsListReply{}, nil
 }
 
-func NewProviderControlService(channelService PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
+func NewProviderControlService(blockchainProcessor blockchain.Processor, channelService PaymentChannelService, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData) *ProviderControlService {
 	return &ProviderControlService{
 		channelService:       channelService,
 		serviceMetaData:      serMetaData,
 		organizationMetaData: orgMetadata,
 		mpeAddress:           common.HexToAddress(serMetaData.MpeAddress),
+		blockchain:           blockchainProcessor,
 	}
 }
 
@@ -73,12 +75,11 @@ Verify that message was signed by the service provider (“payment_address” in
 Send list of unclaimed payments
 */
 func (service *ProviderControlService) GetListUnclaimed(ctx context.Context, request *GetPaymentsListRequest) (paymentReply *PaymentsListReply, err error) {
-
 	//Check if the mpe address matches to what is there in service metadata
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
 		return nil, err
 	}
-	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), authutils.AllowedBlockChainDifference); err != nil {
 		return nil, err
 	}
 	//Check if the signer is valid
@@ -101,11 +102,9 @@ func (service *ProviderControlService) StartClaimForMultipleChannels(ctx context
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
 		return nil, err
 	}
-
-	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), authutils.AllowedBlockChainDifference); err != nil {
 		return nil, err
 	}
-
 	if err := service.verifySignerForStartClaimForMultipleChannels(request); err != nil {
 		return nil, err
 	}
@@ -115,7 +114,6 @@ func (service *ProviderControlService) StartClaimForMultipleChannels(ctx context
 		return nil, err
 	}
 	return service.startClaims(request)
-
 }
 
 func (service *ProviderControlService) startClaims(request *StartMultipleClaimRequest) (reply *PaymentsListReply, err error) {
@@ -184,15 +182,12 @@ func (p Uint64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 // Check for any claims already done on block chain but have not been reflected in the storage yet,
 // update the storage status by calling the Finish() method on such claims.
 func (service *ProviderControlService) GetListInProgress(ctx context.Context, request *GetPaymentsListRequest) (reply *PaymentsListReply, err error) {
-
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
 		return nil, err
 	}
-
-	if err := authutils.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock))); err != nil {
+	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), authutils.AllowedBlockChainDifference); err != nil {
 		return nil, err
 	}
-
 	if err := service.verifySignerForListInProgress(request); err != nil {
 		return nil, err
 	}

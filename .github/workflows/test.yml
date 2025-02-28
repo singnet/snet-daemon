@@ -34,4 +34,6 @@ jobs:
         run: ./scripts/install_deps
 
       - name: go tests
+        env:
+          SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT: ${{secrets.ETH_JSON_HTTP_ENDPOINT}}
         run: go test -v ./...

@@ -91,7 +91,7 @@ func (suite *DaemonServiceSuite) SetupTest() {
 	suite.pendingModelStorage = pendingModelStorage
 
 	suite.daemonService = NewTrainingService(
-		&suite.blockchain,
+		suite.blockchain,
 		suite.serviceMetadata,
 		suite.organizationMetadata,
 		modelStorage,

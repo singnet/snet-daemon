@@ -20,7 +20,7 @@ type MultiPartyEscrowChannel struct {
 
 var zeroAddress = common.Address{}
 
-func (processor *Processor) MultiPartyEscrowChannel(channelID *big.Int) (channel *MultiPartyEscrowChannel, ok bool, err error) {
+func (processor *processor) MultiPartyEscrowChannel(channelID *big.Int) (channel *MultiPartyEscrowChannel, ok bool, err error) {
 	channelIdField := zap.Any("channelID", channelID)
 
 	ch, err := processor.multiPartyEscrow.Channels(nil, channelID)

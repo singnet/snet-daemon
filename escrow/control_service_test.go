@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/v5/authutils"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/storage"
 	"github.com/stretchr/testify/suite"
@@ -80,6 +79,7 @@ func (suite *ControlServiceTestSuite) SetupSuite() {
 	orgJson := strings.Replace(testJsonOrgGroupData, "0x671276c61943A35D5F230d076bDFd91B0c47bF09", suite.receiverAddress.Hex(), -1)
 	suite.orgMetaData, _ = blockchain.InitOrganizationMetaDataFromJson([]byte(orgJson))
 	suite.serviceMetaData, _ = blockchain.InitServiceMetaDataFromJson([]byte(testJsonData))
+	b := blockchain.NewMockProcessor(true)
 	println("suite.orgMetaData.GetPaymentAddress().Hex() " + suite.orgMetaData.GetPaymentAddress().Hex())
 	println("suite.receiverAddress.Hex()" + suite.receiverAddress.Hex())
 
@@ -105,8 +105,7 @@ func (suite *ControlServiceTestSuite) SetupSuite() {
 			return [32]byte{123}, nil
 		})
 
-	suite.service = NewProviderControlService(suite.channelService, suite.serviceMetaData, suite.orgMetaData)
-
+	suite.service = NewProviderControlService(b, suite.channelService, suite.serviceMetaData, suite.orgMetaData)
 }
 
 func TestControlServiceTestSuite(t *testing.T) {
@@ -149,16 +148,15 @@ func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 	ids = append(ids, 1)
 	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
-	blknum, _ := authutils.CurrentBlock()
 	startMultipleClaimRequest := &StartMultipleClaimRequest{
-		MpeAddress: suite.serviceMetaData.GetMpeAddress().Hex(), ChannelIds: ids, CurrentBlock: blknum.Uint64(),
+		MpeAddress: suite.serviceMetaData.GetMpeAddress().Hex(), ChannelIds: ids, CurrentBlock: blockchain.MockedCurrentBlock,
 		Signature: nil}
 	suite.SignStartClaimForMultipleChannels(startMultipleClaimRequest)
 	replyMultipleClaims, err := suite.service.StartClaimForMultipleChannels(nil, startMultipleClaimRequest)
 	assert.Nil(suite.T(), err)
 	assert.True(suite.T(), bytesToBigInt(replyMultipleClaims.Payments[0].ChannelId).Int64() > 0)
 	assert.True(suite.T(), bytesToBigInt(replyMultipleClaims.Payments[1].ChannelId).Int64() > 0)
-	paymentsListRequest := &GetPaymentsListRequest{MpeAddress: suite.serviceMetaData.MpeAddress, CurrentBlock: blknum.Uint64()}
+	paymentsListRequest := &GetPaymentsListRequest{MpeAddress: suite.serviceMetaData.MpeAddress, CurrentBlock: blockchain.MockedCurrentBlock}
 	suite.SignListInProgress(paymentsListRequest)
 	replyListInProgress, err := suite.service.GetListInProgress(nil, paymentsListRequest)
 	assert.Nil(suite.T(), err)
@@ -169,7 +167,7 @@ func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 func (suite *ControlServiceTestSuite) TestProviderControlService_checkMpeAddress() {
 	servicemetadata := blockchain.ServiceMetadata{}
 	servicemetadata.MpeAddress = "0xE8D09a6C296aCdd4c01b21f407ac93fdfC63E78C"
-	control_service := NewProviderControlService(nil, &servicemetadata, nil)
+	control_service := NewProviderControlService(nil, nil, &servicemetadata, nil)
 	err := control_service.checkMpeAddress("0xe8D09a6C296aCdd4c01b21f407ac93fdfC63E78C")
 	assert.Nil(suite.T(), err)
 	err = control_service.checkMpeAddress("0xe9D09a6C296aCdd4c01b21f407ac93fdfC63E78C")
@@ -177,14 +175,13 @@ func (suite *ControlServiceTestSuite) TestProviderControlService_checkMpeAddress
 }
 
 func (suite *ControlServiceTestSuite) TestBeginClaimOnChannel() {
-	control_service := NewProviderControlService(&paymentChannelServiceMock{}, &blockchain.ServiceMetadata{MpeAddress: "0xe9D09a6C296aCdd4c01b21f407ac93fdfC63E78C"}, nil)
+	control_service := NewProviderControlService(nil, &paymentChannelServiceMock{}, &blockchain.ServiceMetadata{MpeAddress: "0xe9D09a6C296aCdd4c01b21f407ac93fdfC63E78C"}, nil)
 	_, err := control_service.beginClaimOnChannel(big.NewInt(12345))
 	assert.Equal(suite.T(), err.Error(), "channel Id 12345 was not found on blockchain or storage")
 }
 
 func (suite *ControlServiceTestSuite) TestVerifyInvalidSignature() {
-	blknum, _ := authutils.CurrentBlock()
-	unclaimedRequests := &GetPaymentsListRequest{MpeAddress: suite.serviceMetaData.MpeAddress, CurrentBlock: blknum.Uint64()}
+	unclaimedRequests := &GetPaymentsListRequest{MpeAddress: suite.serviceMetaData.MpeAddress, CurrentBlock: blockchain.MockedCurrentBlock}
 	suite.SignListInProgress(unclaimedRequests)
 	reply, err := suite.service.GetListUnclaimed(nil, unclaimedRequests)
 	assert.Nil(suite.T(), reply)

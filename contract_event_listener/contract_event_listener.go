@@ -8,7 +8,7 @@ import (
 type EventSignature string
 
 type ContractEventListener struct {
-	BlockchainProcessor         *blockchain.Processor
+	BlockchainProcessor         blockchain.Processor
 	CurrentOrganizationMetaData *blockchain.OrganizationMetaData
 	CurrentEtcdClient           *etcddb.EtcdClient
 }

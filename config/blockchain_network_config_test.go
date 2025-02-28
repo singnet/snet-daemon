@@ -2,14 +2,17 @@ package config
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetNetworkId(t *testing.T) {
-
-	//assert2.NotEqual(t,err,nil)
+	Vip().Set(BlockChainNetworkSelected, "sepolia")
+	err := determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
+	assert.Equal(t, err, nil)
+	assert.Equal(t, GetNetworkId(), "11155111")
 }
 
 var defaultBlockChainNetworkConfig = `
@@ -91,24 +94,28 @@ func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 	data := []byte(defaultBlockChainNetworkConfig)
 	err := json.Unmarshal(data, &dynamicBinding)
 	assert.Nil(t, err)
+	var wantEthEndpoint = "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5"
+
+	if os.Getenv("SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT") != "" {
+		wantEthEndpoint = os.Getenv("SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT")
+	}
 
 	tests := []struct {
 		name    string
 		want    string
 		network string
 	}{
-		{EthereumJsonRpcHTTPEndpointKey, "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5", "sepolia"},
+		{EthereumJsonRpcHTTPEndpointKey, wantEthEndpoint, "sepolia"},
 		{RegistryAddressKey, "0x4e74fefa82e83e0964f0d9f53c68e03f7298a8b2", "local"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getDetailsFromJsonOrConfig(dynamicBinding[tt.network].(map[string]any)[tt.name], tt.name); got != tt.want {
-				t.Errorf("getDetailsFromJsonOrConfig() = %v, want %v", got, tt.want)
+				t.Errorf("Failed getDetailsFromJsonOrConfig")
 			}
 		})
 	}
 	assert.Equal(t, getDetailsFromJsonOrConfig(nil, OrganizationId), GetString(OrganizationId))
-
 	assert.Equal(t, getDetailsFromJsonOrConfig(nil, ""), GetString(""))
 }
 
@@ -152,5 +159,4 @@ func Test_setBlockChainNetworkDetails(t *testing.T) {
 			}
 		})
 	}
-
 }

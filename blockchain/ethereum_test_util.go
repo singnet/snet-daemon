@@ -20,13 +20,13 @@ type SimulatedEthereumEnvironment struct {
 	ServerWallet            *bind.TransactOpts
 	ServerPrivateKey        *ecdsa.PrivateKey
 	Backend                 *simulated.Backend
-	SingularityNetToken     *SingularityNetToken
+	FetToken                *FetchToken
 	MultiPartyEscrowAddress common.Address
 	MultiPartyEscrow        *MultiPartyEscrow
 }
 
 func (env *SimulatedEthereumEnvironment) SnetTransferTokens(to *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
-	_, err := env.SingularityNetToken.Transfer(EstimateGas(env.SingnetWallet), to.From, big.NewInt(amount))
+	_, err := env.FetToken.Transfer(EstimateGas(env.SingnetWallet), to.From, big.NewInt(amount))
 	if err != nil {
 		panic(fmt.Sprintf("Unable to transfer tokens: %v", err))
 	}
@@ -34,7 +34,7 @@ func (env *SimulatedEthereumEnvironment) SnetTransferTokens(to *bind.TransactOpt
 }
 
 func (env *SimulatedEthereumEnvironment) SnetApproveMpe(from *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
-	_, err := env.SingularityNetToken.Approve(EstimateGas(from), env.MultiPartyEscrowAddress, big.NewInt(amount))
+	_, err := env.FetToken.Approve(EstimateGas(from), env.MultiPartyEscrowAddress, big.NewInt(amount))
 	if err != nil {
 		panic(fmt.Sprintf("Unable to aprove tokens transfer to MPE: %v", err))
 	}
@@ -97,12 +97,12 @@ func getTestWallet(chainID *big.Int) (privateKey *ecdsa.PrivateKey, wallet *bind
 }
 
 func deployContracts(env *SimulatedEthereumEnvironment) {
-	tokenAddress, _, token, err := DeploySingularityNetToken(EstimateGas(env.SingnetWallet), env.Backend.Client(), "SingularityNet Token", "AGI")
+	tokenAddress, _, token, err := DeployFetchToken(EstimateGas(env.SingnetWallet), env.Backend.Client(), "Fetch Token", "ASI")
 	if err != nil {
-		panic(fmt.Sprintf("Unable to deploy SingularityNetToken contract, error: %v", err))
+		panic(fmt.Sprintf("Unable to deploy FetchToken contract, error: %v", err))
 	}
 	env.Backend.Commit()
-	env.SingularityNetToken = token
+	env.FetToken = token
 
 	mpeAddress, _, mpe, err := DeployMultiPartyEscrow(EstimateGas(env.SingnetWallet), env.Backend.Client(), tokenAddress)
 	if err != nil {

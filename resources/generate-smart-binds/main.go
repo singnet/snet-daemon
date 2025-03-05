@@ -10,14 +10,16 @@ import (
 // Generate smart-contracts golang bindings
 func main() {
 	bindContent, err := bind.Bind(
-		[]string{"MultiPartyEscrow", "Registry", "SingularityNetToken"},
+		[]string{"MultiPartyEscrow", "Registry", "SingularityNetToken", "FetchToken"},
 		[]string{
 			string(contracts.GetABIClean(contracts.MultiPartyEscrow)),
 			string(contracts.GetABIClean(contracts.Registry)),
+			string(contracts.GetABIClean(contracts.FetchToken)),
 			string(contracts.GetABIClean(contracts.SingularityNetToken))},
 		[]string{
 			string(contracts.GetBytecodeClean(contracts.MultiPartyEscrow)),
 			string(contracts.GetBytecodeClean(contracts.Registry)),
+			string(contracts.GetBytecodeClean(contracts.FetchToken)),
 			string(contracts.GetBytecodeClean(contracts.SingularityNetToken))},
 		nil, "blockchain", bind.LangGo, nil, nil)
 	if err != nil {

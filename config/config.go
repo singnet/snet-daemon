@@ -353,7 +353,7 @@ var DisplayKeys = map[string]bool{
 	strings.ToUpper(ExecutablePathKey):              true,
 	strings.ToUpper(IpfsEndPoint):                   true,
 	strings.ToUpper(LighthouseEndpoint):             true,
-	strings.ToUpper(IpfsTimeout):                    true,
+	strings.ToUpper(IpfsTimeout):                    false,
 	strings.ToUpper(LogKey):                         true,
 	strings.ToUpper(MaxMessageSizeInMB):             true,
 	strings.ToUpper(MeteringEnabled):                true,
@@ -383,6 +383,9 @@ func LogConfig() {
 	sort.Strings(keys)
 	for _, key := range keys {
 		if DisplayKeys[strings.ToUpper(key)] {
+			if v, ok := vip.Get(key).(string); ok && v == "" {
+				continue
+			}
 			zap.L().Info(key, zap.Any("value", vip.Get(key)))
 		}
 	}

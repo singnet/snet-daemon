@@ -75,7 +75,7 @@ func Initialize() {
 
 	zap.ReplaceGlobals(logger.WithOptions(hooks...))
 
-	logger.Info("Logger initialized")
+	zap.L().Info("Logger initialized", zap.String("level", levelString))
 }
 
 func getLoggerLevel(levelString string) (zapcore.Level, error) {

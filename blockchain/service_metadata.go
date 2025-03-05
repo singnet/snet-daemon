@@ -1,13 +1,10 @@
 package blockchain
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
 	"github.com/singnet/snet-daemon/v5/errs"
-	"maps"
 	"math/big"
 	"os"
 	"slices"
@@ -273,28 +270,8 @@ func ServiceMetaData() *ServiceMetadata {
 		zap.L().Panic("error on determining service metadata from file"+errs.ErrDescURL(errs.InvalidMetadata), zap.Error(err))
 	}
 
-	// if ModelTraining enabled in config training package will init protoDescriptors
-	if !config.GetBool(config.ModelTrainingEnabled) {
-		metadata.ProtoDescriptors = getFileDescriptors(metadata.ProtoFiles)
-	}
-
-	zap.L().Debug("service type: " + metadata.GetServiceType())
+	zap.L().Info("service_type", zap.String("value", metadata.GetServiceType()))
 	return metadata
-}
-
-// getFileDescriptors converts text of proto files to bufbuild linker
-func getFileDescriptors(protoFiles map[string]string) linker.Files {
-	accessor := protocompile.SourceAccessorFromMap(protoFiles)
-	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
-	compiler := protocompile.Compiler{
-		Resolver:       r,
-		SourceInfoMode: protocompile.SourceInfoStandard,
-	}
-	fds, err := compiler.Compile(context.Background(), slices.Collect(maps.Keys(protoFiles))...)
-	if err != nil || fds == nil {
-		zap.L().Fatal("[getFileDescriptors] failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
-	}
-	return fds
 }
 
 func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {
@@ -372,18 +349,14 @@ func InitServiceMetaDataFromJson(jsonData []byte) (*ServiceMetadata, error) {
 	if err := setServiceProto(metaData); err != nil {
 		return nil, err
 	}
-	dynamicPriceMethodMappingJson, err := json.Marshal(metaData.DynamicPriceMethodMapping)
-	if err != nil {
-		zap.L().Error(err.Error())
-	}
 
-	zap.L().Debug("dynamic price method mapping", zap.String("json", string(dynamicPriceMethodMappingJson)))
-	trainingMethodsJson, err := json.Marshal(metaData.TrainingMethods)
-	if err != nil {
-		zap.L().Error(err.Error())
+	if len(metaData.DynamicPriceMethodMapping) > 0 {
+		dynamicPriceMethodMappingJson, err := json.Marshal(metaData.DynamicPriceMethodMapping)
+		if err != nil {
+			zap.L().Error(err.Error())
+		}
+		zap.L().Debug("dynamic price method mapping", zap.String("json", string(dynamicPriceMethodMappingJson)))
 	}
-
-	zap.L().Debug("Training methods", zap.String("json", string(trainingMethodsJson)))
 
 	return metaData, err
 }

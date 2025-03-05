@@ -1,13 +1,13 @@
 package etcddb
 
 import (
+	"go.uber.org/zap"
 	"strings"
 	"time"
 
 	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 // EtcdClientConf config
@@ -50,7 +50,9 @@ func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaDa
 	}
 
 	conf.HotReload = confFromVip.HotReload
-	zap.L().Info("Etcd client hot reload", zap.Bool("enable", conf.HotReload))
+	if conf.HotReload {
+		zap.L().Info("Etcd client hot reload", zap.Bool("enable", conf.HotReload))
+	}
 	return
 }
 

@@ -1085,17 +1085,33 @@ func NewTrainingService(b blockchain.Processor, serMetaData *blockchain.ServiceM
 		zap.L().Error("[NewTrainingService] can't init training", zap.Error(err))
 		return &NoTrainingDaemonServer{}
 	}
-	if trainMD.TrainingInProto && config.GetBool(config.ModelTrainingEnabled) {
-		trainMD.TrainingEnabled = true
+
+	if !trainMD.TrainingInProto || !config.GetBool(config.ModelTrainingEnabled) {
+		if config.GetBool(config.ModelTrainingEnabled) {
+			zap.L().Warn("Training enabled in config but your service proto not support it!")
+		}
+		if trainMD.TrainingInProto {
+			zap.L().Info("Training disabled in config but your service support it")
+		}
+		return &NoTrainingDaemonServer{}
+	}
+
+	trainMD.TrainingEnabled = true
+
+	zap.L().Info("training initialized",
+		zap.Bool("ModelTrainingEnabled", trainMD.TrainingEnabled),
+		zap.Bool("trainingInProto", trainMD.TrainingInProto))
+
+	if len(trainMD.TrainingMethods) > 0 {
+		zap.L().Debug("methods that support user's models", zap.Any("methods", trainMD.TrainingMethods))
 	}
 
 	serviceURL := config.GetString(config.ModelMaintenanceEndPoint)
 	if serviceURL == "" {
-		zap.L().Info("model_maintenance_endpoint is empty, using service_endpoint for models")
+		zap.L().Info("model_maintenance_endpoint is empty, using service_endpoint for models maintains")
 		serviceURL = config.GetString(config.ServiceEndpointKey)
 	}
 	if config.IsValidUrl(serviceURL) && config.GetBool(config.BlockchainEnabledKey) {
-
 		daemonService := &DaemonService{
 			blockchain:           b,
 			serviceMetaData:      serMetaData,
@@ -1108,9 +1124,7 @@ func NewTrainingService(b blockchain.Processor, serMetaData *blockchain.ServiceM
 			trainingMetadata:     trainMD,
 			methodsMetadata:      methodsMD,
 		}
-
 		go daemonService.ManageUpdateModelStatusWorkers(context.Background(), 3*time.Second)
-
 		return daemonService
 	}
 

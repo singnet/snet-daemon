@@ -303,7 +303,7 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 
 	e = handler(srv, wrapperStream)
 	if e != nil {
-		zap.L().Warn("gRPC handler returned error", zap.Error(e))
+		zap.L().Warn("[streamIntercept] gRPC handler returned error", zap.Error(e))
 		return e
 	}
 

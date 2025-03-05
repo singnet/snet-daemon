@@ -64,7 +64,7 @@ func GetNetworkId() string {
 	return networkSelected.NetworkId
 }
 
-// Get the blockchain endpoint associated with the Network selected
+// GetBlockChainHTTPEndPoint - Get the blockchain endpoint associated with the Network selected
 func GetBlockChainHTTPEndPoint() string {
 	return networkSelected.EthereumJSONRPCHTTPEndpoint
 }
@@ -73,7 +73,7 @@ func GetBlockChainWSEndPoint() string {
 	return networkSelected.EthereumJSONRPCWSEndpoint
 }
 
-// Get the Registry address of the contract
+// GetRegistryAddress - Get the Registry address of the contract
 func GetRegistryAddress() string {
 	return networkSelected.RegistryAddressKey
 }
@@ -115,16 +115,16 @@ func deriveDataFromJSON(data []byte) (err error) {
 
 	networkSelected.RegistryAddressKey = fmt.Sprintf("%v", m[GetNetworkId()].(map[string]any)["address"])
 
-	zap.L().Info("Derive data from JSON", zap.String("Network", GetString(BlockChainNetworkSelected)),
-		zap.String("Network id", GetNetworkId()),
-		zap.String("Registry address", GetRegistryAddress()),
-		zap.String("Blockchain http endpoint", GetBlockChainHTTPEndPoint()),
-		zap.String("Blockchain ws endpoint", GetBlockChainWSEndPoint()),
+	zap.L().Info("Blockchain params", zap.String("network", GetString(BlockChainNetworkSelected)),
+		zap.String("network_id", GetNetworkId()),
+		zap.String("registry_address", GetRegistryAddress()),
+		zap.String("ethereum_json_rpc_http_endpoint", GetBlockChainHTTPEndPoint()),
+		zap.String("ethereum_json_rpc_ws_endpoint", GetBlockChainWSEndPoint()),
 	)
 	return nil
 }
 
-// Read the file given file, if the file is not found  ,then return back an error
+// ReadFromFile Read the file given file, if the file is not found, then return back an error
 func ReadFromFile(filename string) ([]byte, error) {
 	file, err := os.ReadFile(filename)
 	if err != nil {

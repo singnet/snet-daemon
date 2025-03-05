@@ -53,9 +53,8 @@ var ServeCmd = &cobra.Command{
 		config.LogConfig()
 
 		etcdServer := components.EtcdServer()
-
-		if etcdServer == nil {
-			zap.L().Info("Etcd server is disabled in the config file.")
+		if etcdServer != nil {
+			zap.L().Info("Using internal etcd server because it is enabled in config")
 		}
 
 		var d daemon

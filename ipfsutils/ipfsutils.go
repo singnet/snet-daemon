@@ -15,7 +15,7 @@ import (
 
 func GetIpfsFile(hash string) (content []byte, err error) {
 
-	zap.L().Debug("Hash Used to retrieve from IPFS", zap.String("hash", hash))
+	zap.L().Debug("getting file from IPFS", zap.String("hash", hash))
 
 	ipfsClient := GetIPFSClient()
 

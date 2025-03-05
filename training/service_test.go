@@ -276,7 +276,7 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 		ModelId:             "test_3",
 		UpdatedByAddress:    testUserAddress,
 		GroupId:             "string",
-		OrganizationId:      "string",
+		OrganizationId:      "YOUR_ORG_ID",
 		ServiceId:           "YOUR_SERVICE_ID",
 		GRPCMethodName:      "string",
 		GRPCServiceName:     "string",

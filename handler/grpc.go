@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bufbuild/protocompile/linker"
 	"github.com/singnet/snet-daemon/v5/errs"
 	"io"
 	"net/http"
@@ -298,7 +299,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 
 	// convert proto msg to json
-	jsonBody, err := protoToJson(g.serviceMetaData.ProtoDescriptors[0], f.Data, method)
+	jsonBody, err := protoToJson(g.serviceMetaData.ProtoDescriptors, f.Data, method)
 	if err != nil {
 		return status.Errorf(codes.Internal, "protoToJson error: %+v", errs.ErrDescURL(errs.InvalidProto))
 	}
@@ -316,8 +317,8 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	params := url.Values{}
 	headers := http.Header{}
 
-	var bodymap = map[string]any{}
-	errJson := json.Unmarshal(jsonBody, &bodymap)
+	var bodyMap = map[string]any{}
+	errJson := json.Unmarshal(jsonBody, &bodyMap)
 
 	for _, cred := range g.serviceCredentials {
 		switch cred.Location {
@@ -328,7 +329,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 			}
 		case body:
 			if errJson == nil {
-				bodymap[cred.Key] = cred.Value
+				bodyMap[cred.Key] = cred.Value
 			}
 		case header:
 			v, ok := cred.Value.(string)
@@ -339,7 +340,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 
 	if errJson == nil {
-		newJson, err := json.Marshal(bodymap)
+		newJson, err := json.Marshal(bodyMap)
 		if err == nil {
 			jsonBody = newJson
 		} else {
@@ -371,7 +372,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	}
 	zap.L().Debug("Response from HTTP service", zap.String("response", string(resp)))
 
-	protoMessage, errMarshal := jsonToProto(g.serviceMetaData.ProtoDescriptors[0], resp, method)
+	protoMessage, errMarshal := jsonToProto(g.serviceMetaData.ProtoDescriptors, resp, method)
 	if errMarshal != nil {
 		return status.Errorf(codes.Internal, "jsonToProto error: %+v%v", errMarshal, errs.ErrDescURL(errs.InvalidProto))
 	}
@@ -383,26 +384,33 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	return nil
 }
 
-func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName string) (proto proto.Message, err error) {
+func findMethodInProto(protoFiles linker.Files, methodName string) (method protoreflect.MethodDescriptor) {
+	for _, protoFile := range protoFiles {
+		if protoFile.Services().Len() == 0 {
+			continue
+		}
 
-	zap.L().Debug("Processing file", zap.String("fileName", string(protoFile.Name())))
-	zap.L().Debug("Count services in proto: ", zap.Int("value", protoFile.Services().Len()))
+		for i := 0; i < protoFile.Services().Len(); i++ {
+			service := protoFile.Services().Get(i)
+			if service == nil {
+				continue
+			}
 
-	if protoFile.Services().Len() == 0 {
-		zap.L().Warn("service in proto not found")
-		return proto, errors.New("services in proto not found")
+			method = service.Methods().ByName(protoreflect.Name(methodName))
+			if method != nil {
+				return method
+			}
+		}
 	}
+	return nil
+}
 
-	service := protoFile.Services().Get(0)
-	if service == nil {
-		zap.L().Warn("service in proto not found")
-		return proto, errors.New("services in proto not found")
-	}
+func jsonToProto(protoFiles linker.Files, json []byte, methodName string) (proto proto.Message, err error) {
 
-	method := service.Methods().ByName(protoreflect.Name(methodName))
+	method := findMethodInProto(protoFiles, methodName)
 	if method == nil {
-		zap.L().Warn("method not found in proto")
-		return proto, fmt.Errorf("method %v in proto not found", methodName)
+		zap.L().Error("[jsonToProto] method not found in proto for http call")
+		return proto, errors.New("method in proto not found")
 	}
 
 	output := method.Output()
@@ -417,27 +425,16 @@ func jsonToProto(protoFile protoreflect.FileDescriptor, json []byte, methodName 
 	return proto, nil
 }
 
-func protoToJson(protoFile protoreflect.FileDescriptor, in []byte, methodName string) (json []byte, err error) {
+func protoToJson(protoFiles linker.Files, in []byte, methodName string) (json []byte, err error) {
 
-	if protoFile.Services().Len() == 0 {
-		zap.L().Warn("service in proto not found")
-		return []byte("error, invalid proto file"), errors.New("services in proto not found")
-	}
-
-	service := protoFile.Services().Get(0)
-	if service == nil {
-		zap.L().Warn("service in proto not found")
-		return []byte("error, invalid proto file"), errors.New("services in proto not found")
-	}
-
-	method := service.Methods().ByName(protoreflect.Name(methodName))
+	method := findMethodInProto(protoFiles, methodName)
 	if method == nil {
-		zap.L().Warn("method not found in proto")
+		zap.L().Error("[protoToJson] method not found in proto for http call")
 		return []byte("error, method in proto not found"), errors.New("method in proto not found")
 	}
 
 	input := method.Input()
-	zap.L().Debug("Input fullname method", zap.Any("value", input.FullName()))
+	zap.L().Debug("[protoToJson]", zap.Any("methodName", input.FullName()))
 	msg := dynamicpb.NewMessage(input)
 	err = proto.Unmarshal(in, msg)
 	if err != nil {

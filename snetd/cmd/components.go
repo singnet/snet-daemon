@@ -656,10 +656,6 @@ func (components *Components) TrainingService() training.DaemonServer {
 	if components.trainingService != nil {
 		return components.trainingService
 	}
-	if !config.GetBool(config.BlockchainEnabledKey) {
-		components.trainingService = training.NoTrainingDaemonServer{}
-		return components.trainingService
-	}
 
 	components.trainingService = training.NewTrainingService(components.blockchain, components.ServiceMetaData(),
 		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage())

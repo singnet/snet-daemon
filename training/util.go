@@ -41,9 +41,9 @@ func (ds *DaemonService) verifySignature(r *AuthorizationDetails, method any) er
 	zap.L().Debug("Verifying signature", zap.String("methodName", methodName), zap.Bool("isUnifiedMethod", isUnifiedMethod), zap.String("msg", r.Message))
 
 	// good cases:
-	// methodName - get_model, msg - unified
-	// methodName - get_model, msg - get_model
-	// methodName - train_model, msg - train_model
+	// methodName - get_model, msg - unified, allowDifference will be 60
+	// methodName - get_model, msg - get_model,  allowDifference will be 5
+	// methodName - train_model, msg - train_model,  allowDifference will be 5
 
 	var allowDifference uint64
 
@@ -204,7 +204,6 @@ func parseTrainingMetadata(protos linker.Files) (methodsMD map[string]*MethodMet
 			}
 		}
 	}
-	zap.L().Debug("training methods", zap.Any("methods", trainingMD.TrainingMethods))
 	return
 }
 

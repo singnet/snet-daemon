@@ -51,7 +51,7 @@ func (n NoTrainingDaemonServer) DeleteModel(ctx context.Context, request *Common
 }
 
 func (n NoTrainingDaemonServer) GetTrainingMetadata(ctx context.Context, empty *emptypb.Empty) (*TrainingMetadata, error) {
-	return nil, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
+	return &TrainingMetadata{TrainingEnabled: false}, fmt.Errorf("service end point is not defined or is invalid , please contact the AI developer")
 }
 
 func (n NoTrainingDaemonServer) GetAllModels(ctx context.Context, request *AllModelsRequest) (*ModelsResponse, error) {

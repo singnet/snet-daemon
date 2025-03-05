@@ -2,7 +2,7 @@
 
 ![ci/cd build]( https://github.com/singnet/snet-daemon/actions/workflows/build.yml/badge.svg)
 ![ci/cd build]( https://github.com/singnet/snet-daemon/actions/workflows/test.yml/badge.svg)
-[![Go Report Card](https://goreportcard.com/badge/github.com/singnet/snet-daemon?style=flat-square)](https://goreportcard.com/report/github.com/singnet/snet-daemon)
+[![Go Report Card](https://goreportcard.com/badge/github.com/singnet/snet-daemon/v5)](https://goreportcard.com/report/github.com/singnet/snet-daemon/v5)
 [![Coverage](https://coveralls.io/repos/github/singnet/snet-daemon/badge.svg?branch=master)](https://coveralls.io/github/singnet/snet-daemon?branch=master)
 [![Releases](https://img.shields.io/github/release/singnet/snet-daemon/all.svg?style=flat-square)](https://github.com/singnet/snet-daemon/releases)
 [![LICENSE](https://img.shields.io/github/license/singnet/snet-daemon.svg?style=flat-square)](https://github.com/singnet/snet-daemon/blob/main/LICENSE)
@@ -31,8 +31,8 @@ Precompiled binaries are published with each release,
 download [from releases page](https://github.com/singnet/snet-daemon/releases) or use terminal:
 
 ```bash
-curl -LJO https://github.com/singnet/snet-daemon/releases/download/v5.1.6/snetd-linux-amd64-v5.1.6
-chmod +x snetd-linux-amd64-v5.1.6 
+curl -LJO https://github.com/singnet/snet-daemon/releases/download/v5.2/snetd-linux-amd64-v5.2
+chmod +x snetd-linux-amd64-v5.2 
 ```
 
 #### Generate basic config file
@@ -40,7 +40,7 @@ chmod +x snetd-linux-amd64-v5.1.6
 For most users, a simple config is enough:
 
 ```bash
-./snetd-linux-amd64-v5.1.6 init 
+./snetd-linux-amd64-v5.2 init 
 ```
 
 This command will generate a file `snetd.config.json` in which you will need to
@@ -49,19 +49,19 @@ change [some parameters](#main_properties).
 #### Generate default full config file
 
 ```bash
-./snetd-linux-amd64-v5.1.6 init-full
+./snetd-linux-amd64-v5.2 init-full
 ```
 
 #### Run Daemon
 
 ```bash
-./snetd-linux-amd64-v5.1.6
+./snetd-linux-amd64-v5.2
 ```
 
 Specifying the path to the config using the '-c' argument:
 
 ```bash
-./snetd-linux-amd64-v5.1.6 -c name_of_config.json
+./snetd-linux-amd64-v5.2 -c name_of_config.json
 ```
 
 ## Configuration <a name="configuration"></a>
@@ -288,13 +288,13 @@ end [Example of MPE](https://github.com/singnet/wiki/tree/master/multiPartyEscro
 At the moment treasurer server is a part of snet-daemon command line interface.
 
 ```bash
-./snetd-linux-amd64-v5.1.6 claim --channel-id 0
+./snetd-linux-amd64-v5.2 claim --channel-id 0
 ```
 
 **Full list of commands, use --help to get more information:**
 
 ```bash
-./snetd-linux-amd64-v5.1.6 --help
+./snetd-linux-amd64-v5.2 --help
 
 Usage:
   snetd [flags]
@@ -363,13 +363,13 @@ part of the build. You need to pass the version as shown in the example below:
 Bash:
 
 ```bash
-./scripts/build linux amd64 v5.1.6
+./scripts/build linux amd64 v5.2
 ```
 
 Powershell:
 
 ```powershell
-./scripts/build.ps1 linux amd64 v5.1.6
+./scripts/build.ps1 linux amd64 v5.2
 ```
 
 The final binaries will be in the `/build` folder.

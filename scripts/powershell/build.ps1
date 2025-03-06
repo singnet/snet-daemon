@@ -1,3 +1,6 @@
+#!/usr/bin/env pwsh
+#Requires -Version 7.0
+
 # set strict mode
 Set-StrictMode -Version Latest
 
@@ -16,10 +19,12 @@ if ($args.Count -lt 3)
 
 $GOOS = $args[0] # linux
 $GOARCH = $args[1] # amd64
-$Version = $args[2] # v5.1.4
+$Version = $args[2] # v5.1.2
 
 # change directory
 Push-Location $ParentPath
+$ParentPath = Split-Path $ParentPath
+Set-Location ..
 
 # create build directory if not exists
 $BuildDirectory = Join-Path $ParentPath "build"

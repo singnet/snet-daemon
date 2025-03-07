@@ -12,13 +12,14 @@ import (
 func TestCompareWithLatestBlockNumber(t *testing.T) {
 	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Validate()
-	currentBlockNum, _ := CurrentBlock()
-	err := CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(13)))
-	assert.Equal(t, err.Error(), "authentication failed as the signature passed has expired")
+	currentBlockNum, err := CurrentBlock()
+	assert.Nil(t, err)
 
-	currentBlockNum, _ = CurrentBlock()
-	err = CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(1)))
+	err = CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(2)))
 	assert.Equal(t, nil, err)
+
+	err = CompareWithLatestBlockNumber(currentBlockNum.Sub(currentBlockNum, big.NewInt(13)))
+	assert.Equal(t, err.Error(), "authentication failed as the signature passed has expired")
 }
 
 func TestVerifyAddress(t *testing.T) {

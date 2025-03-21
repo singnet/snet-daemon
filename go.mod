@@ -8,7 +8,7 @@ require (
 	github.com/emicklei/proto v1.14.0
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
-	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/rpc v1.2.1
 	github.com/gorilla/websocket v1.5.3

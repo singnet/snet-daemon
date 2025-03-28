@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"net/http"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -50,21 +49,21 @@ func TestCheckSuccessfulResponse(t *testing.T) {
 	assert.Equal(t, status, false)
 }
 
-func TestGetSize(t *testing.T) {
-	strt1 := struct {
-		title string
-	}{
-		title: "abcd",
-	}
-	assert.Equal(t, strconv.FormatUint(GetSize(strt1), 10), "20")
-
-	strt2 := struct {
-		title string
-	}{
-		title: "abcdeefffffffffffffffff",
-	}
-	assert.Equal(t, strconv.FormatUint(GetSize(strt2), 10), "39")
-}
+//func TestGetSize(t *testing.T) {
+//	strt1 := struct {
+//		title string
+//	}{
+//		title: "abcd",
+//	}
+//	assert.Equal(t, strconv.FormatUint(GetSize(strt1), 10), "20")
+//
+//	strt2 := struct {
+//		title string
+//	}{
+//		title: "abcdeefffffffffffffffff",
+//	}
+//	assert.Equal(t, strconv.FormatUint(GetSize(strt2), 10), "39")
+//}
 
 func TestGetEpochTime(t *testing.T) {
 	currentEpoch := getEpochTime()

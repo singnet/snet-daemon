@@ -3,16 +3,15 @@ package metrics
 import (
 	"github.com/magiconair/properties/assert"
 	"github.com/singnet/snet-daemon/v5/config"
-	"google.golang.org/grpc/metadata"
 	"testing"
 	"time"
 )
 
-func TestSetDataFromContext(t *testing.T) {
-	md := metadata.Pairs("user-agent", "Test user agent", "time", "2018-09-93", "content-type", "application/")
-	request := &RequestStats{}
-	request.setDataFromContext(md)
-}
+//func TestSetDataFromContext(t *testing.T) {
+//	md := metadata.Pairs("user-agent", "Test user agent", "time", "2018-09-93", "content-type", "application/")
+//	request := &RequestStats{}
+//	request.setDataFromContext(md)
+//}
 
 func TestCreateRequestStat(t *testing.T) {
 	arrivalTime := time.Now()

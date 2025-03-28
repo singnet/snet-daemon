@@ -2,8 +2,6 @@ package metrics
 
 import (
 	"github.com/singnet/snet-daemon/v5/config"
-	"google.golang.org/grpc/metadata"
-	"strconv"
 )
 
 // Request stats that will be captured
@@ -26,10 +24,9 @@ type RequestStats struct {
 	ChannelId                  string `json:"channel_id"`
 }
 
-func (request *RequestStats) setDataFromContext(md metadata.MD) {
-	request.InputDataSize = strconv.FormatUint(GetSize(md), 10)
-
-}
+//func (request *RequestStats) setDataFromContext(md metadata.MD) {
+//	request.InputDataSize = strconv.FormatUint(GetSize(md), 10)
+//}
 
 func createRequestStat(commonStat *CommonStats) *RequestStats {
 	request := &RequestStats{

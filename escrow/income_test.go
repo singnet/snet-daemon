@@ -45,8 +45,7 @@ func TestIncomeValidate(t *testing.T) {
 
 	income.Sub(price, one)
 	err = incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: &handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "test"}}})
-	msg := fmt.Sprintf("income %s does not equal to price %s", income, price)
-	assert.Equal(t, NewPaymentError(Unauthenticated, msg), err)
+	assert.Equal(t, NewPaymentError(Unauthenticated, "income %s does not equal to price %s", income, price), err)
 
 	income.Set(price)
 	err = incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: &handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "test"}}})
@@ -54,8 +53,7 @@ func TestIncomeValidate(t *testing.T) {
 
 	income.Add(price, one)
 	err = incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: &handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "test"}}})
-	msg = fmt.Sprintf("income %s does not equal to price %s", income, price)
-	assert.Equal(t, NewPaymentError(Unauthenticated, msg), err)
+	assert.Equal(t, NewPaymentError(Unauthenticated, "income %s does not equal to price %s", income, price), err)
 }
 
 type MockPriceErrorType struct {

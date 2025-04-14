@@ -111,7 +111,7 @@ func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getDetailsFromJsonOrConfig(dynamicBinding[tt.network].(map[string]any)[tt.name], tt.name); got != tt.want {
-				t.Errorf("Failed getDetailsFromJsonOrConfig")
+				t.Errorf("Failed getDetailsFromJsonOrConfig wanted %s but got %s", wantEthEndpoint, got)
 			}
 		})
 	}

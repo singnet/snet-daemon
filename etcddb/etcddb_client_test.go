@@ -3,8 +3,8 @@ package etcddb
 import (
 	"testing"
 
-	"github.com/magiconair/properties/assert"
 	"github.com/singnet/snet-daemon/v5/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_checkIfHttps(t *testing.T) {

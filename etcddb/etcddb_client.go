@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-collections/collections/set"
 	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/storage"
@@ -351,7 +350,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 	defer ctx.Done()
-	startime := time.Now()
+	//startime := time.Now()
 	txn := client.etcdv3.KV.Txn(ctx)
 	var txnResp *clientv3.TxnResponse
 	conditionKeys := transaction.ConditionKeys
@@ -377,9 +376,9 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 	}
 	txnResp, err = txn.If(ifCompares...).Then(thenOps...).Else(elseOps...).Commit()
 
-	endtime := time.Now()
+	//endtime := time.Now()
+	//zap.L().Debug("etcd transaction time", zap.Any("time", endtime.Sub(startime)))
 
-	zap.L().Debug("etcd transaction time", zap.Any("time", endtime.Sub(startime)))
 	if err != nil {
 		return false, err
 	}
@@ -401,13 +400,14 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 	return txnResp.Succeeded, nil
 }
 
-func (client *EtcdClient) checkTxnResponse(keys []string, txnResp *clientv3.TxnResponse) (latestStateArray []keyValueVersion, err error) {
-	keySet := set.New()
+func (client *EtcdClient) checkTxnResponse(keys []string, txnResp *clientv3.TxnResponse) ([]keyValueVersion, error) {
+	keySet := make(map[string]struct{})
 	for _, key := range keys {
-		keySet.Insert(key)
+		keySet[key] = struct{}{}
 	}
-	// FIXME: allocate len(keys) array
-	latestStateArray = make([]keyValueVersion, 0)
+
+	latestStateArray := make([]keyValueVersion, 0, len(keys))
+
 	for _, response := range txnResp.Responses {
 		txnGetValue := (*clientv3.GetResponse)(response.GetResponseRange())
 		latestValues, err := client.getState(keySet, txnGetValue)
@@ -416,26 +416,28 @@ func (client *EtcdClient) checkTxnResponse(keys []string, txnResp *clientv3.TxnR
 		}
 		latestStateArray = append(latestStateArray, latestValues...)
 	}
-	keySet.Do(func(elem any) {
+
+	for key := range keySet {
 		latestStateArray = append(latestStateArray, keyValueVersion{
-			Key:     elem.(string),
+			Key:     key,
 			Present: false,
 		})
-	})
-	return latestStateArray, nil
+	}
 
+	return latestStateArray, nil
 }
 
-func (client *EtcdClient) getState(keySet *set.Set, getResp *clientv3.GetResponse) (latestStateArray []keyValueVersion, err error) {
-	latestStateArray = make([]keyValueVersion, len(getResp.Kvs))
+func (client *EtcdClient) getState(keySet map[string]struct{}, getResp *clientv3.GetResponse) ([]keyValueVersion, error) {
+	latestStateArray := make([]keyValueVersion, len(getResp.Kvs))
 	for i, eachResponse := range getResp.Kvs {
+		key := string(eachResponse.Key)
 		state := keyValueVersion{
 			Present: true,
 			Version: eachResponse.ModRevision,
 			Value:   string(eachResponse.Value),
-			Key:     string(eachResponse.Key),
+			Key:     key,
 		}
-		keySet.Remove(state.Key)
+		delete(keySet, key)
 		latestStateArray[i] = state
 	}
 	return latestStateArray, nil

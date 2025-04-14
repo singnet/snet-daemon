@@ -213,7 +213,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 	channel, ok, err := h.PaymentChannel(channelKey)
 	if err != nil {
 		zap.L().Error("StartPaymentTransaction, unable to get channel!", zap.Error(err), zap.Any("channelKey", channelKey))
-		return nil, NewPaymentError(Internal, "payment channel error:"+err.Error())
+		return nil, NewPaymentError(Internal, "payment channel error: %s", err.Error())
 	}
 	if !ok {
 		zap.L().Warn("Payment channel not found")

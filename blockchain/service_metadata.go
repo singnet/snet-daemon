@@ -1,10 +1,13 @@
 package blockchain
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
 	"github.com/singnet/snet-daemon/v5/errs"
+	"maps"
 	"math/big"
 	"os"
 	"slices"
@@ -259,7 +262,7 @@ func ServiceMetaData() *ServiceMetadata {
 		metadata = &ServiceMetadata{Encoding: "proto", ServiceType: "grpc"}
 		return metadata
 	}
-	ipfsHash, err = getServiceMetaDataURIfromRegistry()
+	ipfsHash, err = getServiceMetaDataURIFromRegistry()
 	if err != nil {
 		zap.L().Fatal(err.Error()+errs.ErrDescURL(errs.InvalidConfig),
 			zap.String("OrganizationId", config.GetString(config.OrganizationId)),
@@ -309,7 +312,7 @@ func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
 	return reg
 }
 
-func getServiceMetaDataURIfromRegistry() ([]byte, error) {
+func getServiceMetaDataURIFromRegistry() ([]byte, error) {
 	reg := getRegistryCaller()
 
 	orgId := StringToBytes32(config.GetString(config.OrganizationId))
@@ -479,6 +482,22 @@ func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useMode
 	return slices.Contains(metaData.TrainingMethods, methodFullName)
 }
 
+// getFileDescriptors converts text of proto files to bufbuild linker
+func getProtoDescriptors(protoFiles map[string]string) (linker.Files, error) {
+	accessor := protocompile.SourceAccessorFromMap(protoFiles)
+	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
+	compiler := protocompile.Compiler{
+		Resolver:       r,
+		SourceInfoMode: protocompile.SourceInfoStandard,
+	}
+	fds, err := compiler.Compile(context.Background(), slices.Collect(maps.Keys(protoFiles))...)
+	if err != nil || fds == nil {
+		zap.L().Error("failed to compile proto files"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
+		return nil, fmt.Errorf("failed to compile proto files: %v", err)
+	}
+	return fds, nil
+}
+
 func setServiceProto(metaData *ServiceMetadata) (err error) {
 	metaData.DynamicPriceMethodMapping = make(map[string]string, 0)
 	metaData.TrainingMethods = make([]string, 0)
@@ -495,15 +514,24 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 
 	if err != nil {
 		zap.L().Error("Error in retrieving file from filecoin/ipfs", zap.Error(err))
+		return err
 	}
 
-	metaData.ProtoFiles, err = ipfsutils.ReadFilesCompressed(rawFile)
+	metaData.ProtoFiles, err = ipfsutils.ReadProtoFilesCompressed(rawFile)
 	if err != nil {
 		return err
 	}
 
-	if metaData.ServiceType == "http" && len(metaData.ProtoFiles) > 1 {
-		zap.L().Fatal("Currently daemon support only one proto file for HTTP services!")
+	if metaData.ServiceType == "http" {
+
+		if config.GetBool(config.ModelTrainingEnabled) {
+			return errors.New("Training is not supported for HTTP services")
+		}
+
+		metaData.ProtoDescriptors, err = getProtoDescriptors(metaData.ProtoFiles)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, file := range metaData.ProtoFiles {

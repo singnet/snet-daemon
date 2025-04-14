@@ -14,7 +14,6 @@ import (
 	"github.com/singnet/snet-daemon/v5/authutils"
 	"github.com/singnet/snet-daemon/v5/config"
 
-	"github.com/OneOfOne/go-utils/memory"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/xid"
@@ -132,7 +131,7 @@ func getPrivateKeyForMetering() (privateKey *ecdsa.PrivateKey, err error) {
 		if err != nil {
 			return nil, err
 		}
-		zap.L().Info("Get public key for matering", zap.String("public key", crypto.PubkeyToAddress(privateKey.PublicKey).String()))
+		zap.L().Info("Get public key for metering", zap.String("public key", crypto.PubkeyToAddress(privateKey.PublicKey).String()))
 	}
 
 	return
@@ -196,10 +195,10 @@ func getTokenFromResponse(response *http.Response) (string, bool) {
 	return data.Data.Token, true
 }
 
-// Generic utility to determine the size of the srtuct passed
-func GetSize(v any) uint64 {
-	return memory.Sizeof(v)
-}
+//// Generic utility to determine the size of the srtuct passed
+//func GetSize(v any) uint64 {
+//	return memory.Sizeof(v)
+//}
 
 // returns the epoch UTC timestamp from the current system time
 func getEpochTime() int64 {

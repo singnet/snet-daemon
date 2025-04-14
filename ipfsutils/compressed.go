@@ -7,15 +7,15 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"io"
+	"strings"
 )
 
-// ReadFilesCompressed - read all files which have been compressed, there can be more than one file
-// support .tar & tar.gz
-func ReadFilesCompressed(compressedFile []byte) (protos map[string]string, err error) {
+// ReadProtoFilesCompressed reads proto files from tar or tar.gz archive
+func ReadProtoFilesCompressed(compressedFile []byte) (protos map[string]string, err error) {
 	var reader io.Reader = bytes.NewReader(compressedFile)
 
 	if isGzipFile(compressedFile) {
-		zap.L().Info("Detected gzip-compressed tar file, decompressing...")
+		zap.L().Debug("Detected gzip-compressed tar file, decompressing...")
 		gzr, err := gzip.NewReader(reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decompress gzip: %w", err)
@@ -37,20 +37,23 @@ func ReadFilesCompressed(compressedFile []byte) (protos map[string]string, err e
 			return nil, err
 		}
 
-		name := header.Name
 		switch header.Typeflag {
 		case tar.TypeDir:
-			zap.L().Warn("Directory found in archive, daemon don't support dirs", zap.String("name", name))
+			zap.L().Warn("Directory found in archive, daemon don't support dirs", zap.String("name", header.Name))
 		case tar.TypeReg:
-			zap.L().Debug("File found in archive", zap.String("name", name))
+			zap.L().Debug("File found in archive", zap.String("name", header.Name))
 			data, err := io.ReadAll(tarReader)
 			if err != nil {
 				zap.L().Error("Failed to read file from tar", zap.Error(err))
 				return nil, err
 			}
-			protos[name] = string(data)
+			if !strings.HasSuffix(header.Name, ".proto") { // ignoring not proto files
+				zap.L().Debug("Detected not .proto file in archive, skipping", zap.String("name", header.Name))
+				continue
+			}
+			protos[header.Name] = string(data)
 		default:
-			err := fmt.Errorf("unknown file type %c in file %s", header.Typeflag, name)
+			err := fmt.Errorf("unknown file type %c in file %s", header.Typeflag, header.Name)
 			zap.L().Error(err.Error())
 			return nil, err
 		}

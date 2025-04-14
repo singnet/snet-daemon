@@ -33,6 +33,7 @@ type RegisterDaemonPayload struct {
 	NetworkID int    `json:"netId"`
 	DaemonID  string `json:"daemonId"`
 }
+
 type TokenGenerated struct {
 	Status string `json:"status"`
 	Data   struct {

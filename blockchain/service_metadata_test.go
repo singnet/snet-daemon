@@ -82,12 +82,12 @@ func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
 
 func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
 	config.Validate()
-	_, err := getServiceMetaDataURIfromRegistry()
+	_, err := getServiceMetaDataURIFromRegistry()
 	assert.NotNil(t, err)
 	config.Vip().Set(config.ServiceId, "sepolia")
 	config.Vip().Set(config.ServiceId, "semyon_dev")
 	config.Vip().Set(config.OrganizationId, "semyon_dev")
-	_, err = getServiceMetaDataURIfromRegistry()
+	_, err = getServiceMetaDataURIFromRegistry()
 	assert.Nil(t, err)
 }
 

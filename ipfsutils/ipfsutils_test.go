@@ -29,7 +29,7 @@ func (suite *IpfsUtilsTestSuite) TestGetProtoFiles() {
 	data, err := ReadFile(hash)
 	assert.Nil(suite.T(), err)
 	assert.NotNil(suite.T(), data)
-	protoFiles, err := ReadFilesCompressed(data)
+	protoFiles, err := ReadProtoFilesCompressed(data)
 	assert.Nil(suite.T(), err)
 	assert.NotNil(suite.T(), protoFiles)
 }
@@ -55,7 +55,7 @@ func (suite *IpfsUtilsTestSuite) TestReadFiles() {
 	assert.NotNil(suite.T(), data)
 	assert.Nil(suite.T(), err)
 
-	protoFiles, err := ReadFilesCompressed(data)
+	protoFiles, err := ReadProtoFilesCompressed(data)
 
 	assert.Nil(suite.T(), err)
 	assert.NotNil(suite.T(), protoFiles)

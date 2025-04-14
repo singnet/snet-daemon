@@ -6,11 +6,11 @@ $VerbosePreference = "Continue"
 #Set-PSDebug -Trace 2
 
 # Determine the parent directory of the script
-$ScriptPath = $MyInvocation.MyCommand.Path
-$ParentPath = Split-Path -Parent (Split-Path -Parent $ScriptPath)
-
-# Change to the parent directory
-Push-Location -Path $ParentPath
+#$ScriptPath = $MyInvocation.MyCommand.Path
+#$ParentPath = Split-Path -Parent (Split-Path -Parent $ScriptPath)
+#
+## Change to the parent directory
+#Push-Location -Path $ParentPath
 
 Write-Output "Install the required Go tools:"
 Write-Output "go install protoc-gen-go@latest"

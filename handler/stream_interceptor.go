@@ -123,13 +123,18 @@ func (err *GrpcError) String() string {
 // and message
 func NewGrpcError(code codes.Code, message string) *GrpcError {
 	return &GrpcError{
-		Status: status.Newf(code, message),
+		Status: status.New(code, message),
 	}
 }
 
 // NewGrpcErrorf returns new error which contains gRPC status with provided
 // code and message formed from format string and args.
 func NewGrpcErrorf(code codes.Code, format string, args ...any) *GrpcError {
+	if len(args) == 0 {
+		return &GrpcError{
+			Status: status.New(code, format),
+		}
+	}
 	return &GrpcError{
 		Status: status.Newf(code, format, args...),
 	}

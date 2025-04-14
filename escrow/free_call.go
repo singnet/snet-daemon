@@ -69,7 +69,7 @@ func (h *lockingFreeCallUserService) GetFreeCallUserKey(payment *FreeCallPayment
 func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeCallPayment) (transaction FreeCallTransaction, err error) {
 	userKey, err := h.GetFreeCallUserKey(payment)
 	if err != nil {
-		return nil, NewPaymentError(Internal, "payment freeCallUserKey error:"+err.Error())
+		return nil, NewPaymentError(Internal, "payment freeCallUserKey error: %s", err.Error())
 	}
 	freeCallUserData, ok, err := h.FreeCallUser(userKey)
 	//todo , will remove this line once all data is re initialized
@@ -78,7 +78,7 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 	freeCallUserData.GroupID = userKey.GroupID
 
 	if err != nil {
-		return nil, NewPaymentError(Internal, "payment freeCallUserData error:"+err.Error())
+		return nil, NewPaymentError(Internal, "payment freeCallUserData error: %s", err.Error())
 	}
 	if !ok {
 		zap.L().Warn("Payment freeCallUserData not found")

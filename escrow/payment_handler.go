@@ -157,5 +157,5 @@ func paymentErrorToGrpcError(err error) *handler.GrpcError {
 		grpcCode = codes.Internal
 	}
 
-	return handler.NewGrpcErrorf(grpcCode, err.(*PaymentError).Message)
+	return handler.NewGrpcError(grpcCode, err.(*PaymentError).Message)
 }

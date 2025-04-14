@@ -159,6 +159,9 @@ type PaymentError struct {
 // NewPaymentError constructs new PaymentError instance with given error code
 // and message.
 func NewPaymentError(code PaymentErrorCode, format string, msg ...any) *PaymentError {
+	if len(msg) == 0 {
+		return &PaymentError{Code: code, Message: format}
+	}
 	return &PaymentError{Code: code, Message: fmt.Sprintf(format, msg...)}
 }
 

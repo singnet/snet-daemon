@@ -267,7 +267,7 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 		return err.Err()
 	}
 
-	zap.L().Debug("[streamIntercept] New gRPC call received", zap.Any("context", context))
+	//zap.L().Debug("[streamIntercept] New gRPC call received", zap.Any("context", context))
 
 	paymentHandler, err := interceptor.getPaymentHandler(context)
 	if err != nil {

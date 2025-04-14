@@ -97,7 +97,7 @@ func getTestWallet(chainID *big.Int) (privateKey *ecdsa.PrivateKey, wallet *bind
 }
 
 func deployContracts(env *SimulatedEthereumEnvironment) {
-	tokenAddress, _, token, err := DeployFetchToken(EstimateGas(env.SingnetWallet), env.Backend.Client(), "Fetch Token", "ASI")
+	tokenAddress, _, token, err := DeployFetchToken(EstimateGas(env.SingnetWallet), env.Backend.Client(), "Fetch Token", "ASI", big.NewInt(1000000000))
 	if err != nil {
 		panic(fmt.Sprintf("Unable to deploy FetchToken contract, error: %v", err))
 	}

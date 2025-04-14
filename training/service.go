@@ -88,12 +88,12 @@ func (ds *DaemonService) CreateModel(ctx context.Context, request *NewModelReque
 	}
 
 	if responseModelID.ModelId == "" {
-		zap.L().Error("[CreateModel] CreateModel returned empty modelID")
+		zap.L().Error("[CreateModel] CreateModel returned empty modelID from service provider")
 		return &ModelResponse{Status: Status_ERRORED}, ErrEmptyModelID
 	}
 
 	//store the details in etcd
-	zap.L().Debug("Creating model based on response from CreateModel of training service")
+	//zap.L().Debug("Creating model based on response from CreateModel of training service")
 
 	data, err := ds.createModelDetails(request, responseModelID)
 	if err != nil {
@@ -117,6 +117,7 @@ func (ds *DaemonService) getPendingModelIds() (*PendingModelData, error) {
 
 func (ds *DaemonService) startUpdateModelStatusWorker(ctx context.Context, modelId string) {
 	modelKey := ds.storage.buildModelKey(modelId)
+	//zap.L().Debug("[startUpdateModelStatusWorker]", zap.String("modelID", modelId))
 	currentModelData, ok, err := ds.storage.Get(modelKey)
 	if err != nil {
 		zap.L().Error("[startUpdateModelStatusWorker] err in getting modelData from storage", zap.Error(err))
@@ -150,9 +151,8 @@ func (ds *DaemonService) startUpdateModelStatusWorker(ctx context.Context, model
 		// if status don't changed yet we skip it
 		return
 	}
-
-	currentModelData.Status = response.Status
 	zap.L().Debug("[startUpdateModelStatusWorker]", zap.String("current status", currentModelData.Status.String()), zap.String("new status", response.Status.String()))
+	currentModelData.Status = response.Status
 	err = ds.storage.Put(modelKey, currentModelData)
 	if err != nil {
 		zap.L().Debug("[startUpdateModelStatusWorker] error in updating model status", zap.Bool("isOK", ok), zap.Error(err))
@@ -175,13 +175,9 @@ func (ds *DaemonService) ManageUpdateModelStatusWorkers(ctx context.Context, int
 	ticker := time.NewTicker(interval)
 
 	tasks := make(chan string)
-	//numWorkers := 1docker
 	var wg sync.WaitGroup
 
-	//for i := 0; i < numWorkers; i++ {
-	//	wg.Add(1)
 	go ds.updateModelStatusWorker(ctx, tasks, &wg)
-	//}
 
 	defer ticker.Stop()
 
@@ -189,15 +185,18 @@ func (ds *DaemonService) ManageUpdateModelStatusWorkers(ctx context.Context, int
 		select {
 		case <-ticker.C:
 			data, err := ds.getPendingModelIds()
+			if data == nil || len(data.ModelIDs) == 0 {
+				continue
+			}
+			zap.L().Debug("Pending models", zap.Strings("id's", data.ModelIDs))
 			if err != nil {
 				zap.L().Error("Error in getting pending model IDs", zap.Error(err))
 				return
 			}
-			if data == nil {
-				continue
-			}
 			for _, modelID := range data.ModelIDs {
-				tasks <- modelID
+				if modelID != "" {
+					tasks <- modelID
+				}
 			}
 		case <-ctx.Done():
 			wg.Wait()
@@ -265,7 +264,7 @@ func (ds *DaemonService) UploadAndValidate(clientStream Daemon_UploadAndValidate
 
 	for {
 		req, err := clientStream.Recv()
-		if err == io.EOF {
+		if err == io.EOF && req == nil {
 			zap.L().Debug("[UploadAndValidate] received EOF")
 			stResp, err = providerStream.CloseAndRecv()
 			if err != nil {
@@ -273,15 +272,18 @@ func (ds *DaemonService) UploadAndValidate(clientStream Daemon_UploadAndValidate
 			}
 			break
 		}
-		if req == nil {
-			continue
-		}
-		zap.L().Debug("[UploadAndValidate] received", zap.String("modelID", req.UploadInput.ModelId))
+
 		if err != nil {
-			zap.L().Debug("[UploadAndValidate]", zap.Bool("req is nil", req == nil))
+			zap.L().Debug("[UploadAndValidate]", zap.Bool("req is nil?", req == nil))
 			zap.L().Error("[UploadAndValidate] error in receiving upload request", zap.Error(err))
 			return err
 		}
+
+		if req == nil {
+			continue
+		}
+
+		zap.L().Debug("[UploadAndValidate] received", zap.String("modelID", req.UploadInput.ModelId))
 
 		if req.Authorization == nil {
 			providerStream.CloseSend()
@@ -298,10 +300,12 @@ func (ds *DaemonService) UploadAndValidate(clientStream Daemon_UploadAndValidate
 			return WrapError(ErrAccessToModel, err.Error())
 		}
 
+		zap.L().Debug(fmt.Sprintf("[UploadAndValidate] filesize: %v", req.UploadInput.FileSize))
+
 		modelID = req.UploadInput.ModelId
 
 		if modelID == "" {
-			return errors.New("modelID can't be empty")
+			return WrapError(ErrEmptyModelID, ErrEmptyModelID.Error())
 		}
 
 		err = providerStream.SendMsg(req.UploadInput)
@@ -315,6 +319,7 @@ func (ds *DaemonService) UploadAndValidate(clientStream Daemon_UploadAndValidate
 	}
 	zap.L().Debug("[UploadAndValidate] Received file for model %s with size %d bytes", zap.String("modelID", modelID), zap.Int("len", fullData.Len()))
 	closeConn(providerConn)
+
 	go func() {
 		err := ds.pendingStorage.AddPendingModelId(ds.pendingStorage.buildPendingModelKey(), modelID)
 		if err != nil {
@@ -1058,7 +1063,7 @@ func (ds *DaemonService) GetModel(ctx context.Context, request *CommonRequest) (
 }
 
 // getFileDescriptors converts text of proto files to bufbuild linker
-func getFileDescriptorsWithTraining(protoFiles map[string]string) linker.Files {
+func getFileDescriptorsWithTraining(protoFiles map[string]string) (linker.Files, error) {
 	protoFiles["training.proto"] = TrainingProtoEmbeded
 	accessor := protocompile.SourceAccessorFromMap(protoFiles)
 	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
@@ -1068,9 +1073,10 @@ func getFileDescriptorsWithTraining(protoFiles map[string]string) linker.Files {
 	}
 	fds, err := compiler.Compile(context.Background(), slices.Collect(maps.Keys(protoFiles))...)
 	if err != nil || fds == nil {
-		zap.L().Fatal("failed to analyze protofile"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
+		zap.L().Error("failed to compile proto files"+errs.ErrDescURL(errs.InvalidProto), zap.Error(err))
+		return nil, fmt.Errorf("failed to compile proto files: %v", err)
 	}
-	return fds
+	return fds, nil
 }
 
 // NewTrainingService daemon self server
@@ -1078,7 +1084,12 @@ func NewTrainingService(b blockchain.Processor, serMetaData *blockchain.ServiceM
 	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage,
 	pendingStorage *PendingModelStorage, publicStorage *PublicModelStorage) DaemonServer {
 
-	serMetaData.ProtoDescriptors = getFileDescriptorsWithTraining(serMetaData.ProtoFiles)
+	var err error
+	serMetaData.ProtoDescriptors, err = getFileDescriptorsWithTraining(serMetaData.ProtoFiles)
+	if err != nil {
+		zap.L().Error("[getFileDescriptorsWithTraining] can't init training", zap.Error(err))
+		return &NoTrainingDaemonServer{}
+	}
 
 	methodsMD, trainMD, err := parseTrainingMetadata(serMetaData.ProtoDescriptors)
 	if err != nil {

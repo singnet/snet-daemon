@@ -135,6 +135,7 @@ func (service *TokenService) verifySignature(request *TokenRequest, channel *Pay
 	}
 	return nil
 }
+
 func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest) (reply *TokenReply, err error) {
 
 	//Check for update state

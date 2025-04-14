@@ -44,13 +44,10 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 	switch updateUsageType {
 	case USED_AMOUNT:
 		conditionFunc = IncrementUsedAmount
-
 	case PLANNED_AMOUNT:
 		conditionFunc = IncrementPlannedAmount
-
 	case REFUND_AMOUNT:
 		conditionFunc = IncrementRefundAmount
-
 	default:
 		return fmt.Errorf("Unknow Update type %v", updateUsageType)
 	}

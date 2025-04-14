@@ -235,7 +235,11 @@ func (d *daemon) start() {
 			if isGrpcWebReq {
 				grpcWebServer.ServeHTTP(resp, req)
 			} else {
-				switch strings.Split(req.URL.Path, "/")[1] {
+				var path string
+				if len(strings.Split(req.URL.Path, "/")) > 0 {
+					path = strings.Split(req.URL.Path, "/")[1]
+				}
+				switch path {
 				case "encoding":
 					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
 				case "heartbeat":

@@ -58,6 +58,7 @@ var FreeCallUserCmd = &cobra.Command{
 const (
 	UnlockChannelFlag = "unlock"
 	UserIdFlag        = "user-id"
+	AddressFlag       = "address"
 )
 
 var (
@@ -84,6 +85,7 @@ var (
 	claimTimeout     string
 	paymentChannelId string
 	freeCallUserId   string
+	freeCallAddress  string
 )
 
 func init() {
@@ -108,7 +110,9 @@ func init() {
 
 	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
 	FreeCallUserResetCmd.Flags().StringVarP(&freeCallUserId, UserIdFlag, "u", "", "resets the free call usage count to zero for the user with the given ID")
+	FreeCallUserResetCmd.Flags().StringVarP(&freeCallAddress, AddressFlag, "a", "", "resets the free call usage count to zero for the user with the given address")
 	FreeCallUserUnLockCmd.Flags().StringVarP(&freeCallUserId, UserIdFlag, "u", "", "unlocks the free call user with the given ID")
+	FreeCallUserUnLockCmd.Flags().StringVarP(&freeCallAddress, AddressFlag, "a", "", "unlocks the free call user with the given address")
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))

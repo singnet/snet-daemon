@@ -6,6 +6,7 @@
 package metrics
 
 import (
+	context2 "context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -56,6 +57,11 @@ type DaemonHeartbeat struct {
 	BlockchainEnabled        bool              `json:"blockchainEnabled"`
 	BlockchainNetwork        string            `json:"blockchainNetwork"`
 	StorageClientCertDetails StorageClientCert `json:"storageClientCertDetails"`
+}
+
+func (service *DaemonHeartbeat) List(ctx context2.Context, request *grpc_health_v1.HealthListRequest) (*grpc_health_v1.HealthListResponse, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 // Converts the enum index into enum names

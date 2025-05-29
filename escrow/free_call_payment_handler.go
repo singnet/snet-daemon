@@ -4,6 +4,7 @@ import (
 	"github.com/singnet/snet-daemon/v5/blockchain"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/handler"
+	"go.uber.org/zap"
 )
 
 const (
@@ -20,7 +21,6 @@ type freeCallPaymentHandler struct {
 	serviceMetadata          *blockchain.ServiceMetadata
 }
 
-// NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func FreeCallPaymentHandler(
 	freeCallService FreeCallUserService, processor blockchain.Processor, metadata *blockchain.OrganizationMetaData,
 	pServiceMetaData *blockchain.ServiceMetadata) handler.StreamPaymentHandler {
@@ -29,7 +29,7 @@ func FreeCallPaymentHandler(
 		orgMetadata:     metadata,
 		serviceMetadata: pServiceMetaData,
 		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock,
-			pServiceMetaData.FreeCallSignerAddress()),
+			pServiceMetaData.FreeCallSignerAddress(), nil, config.GetTrustedFreeCallSignersAddresses()),
 	}
 }
 
@@ -58,10 +58,9 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 
 func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *FreeCallPayment, err *handler.GrpcError) {
 
-	organizationId := config.GetString(config.OrganizationId)
-	serviceId := config.GetString(config.ServiceId)
+	userID, _ := handler.GetSingleValue(context.MD, handler.FreeCallUserIdHeader)
 
-	userID, err := handler.GetSingleValue(context.MD, handler.FreeCallUserIdHeader)
+	userAddress, err := handler.GetSingleValue(context.MD, handler.FreeCallUserAddressHeader)
 	if err != nil {
 		return
 	}
@@ -70,12 +69,7 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 	if err != nil {
 		return
 	}
-
-	authTokenExpiryDate, err := handler.GetBigInt(context.MD, handler.FreeCallAuthTokenExpiryBlockNumberHeader)
-	if err != nil {
-		return
-	}
-
+	
 	signature, err := handler.GetBytes(context.MD, handler.PaymentChannelSignatureHeader)
 	if err != nil {
 		return
@@ -86,14 +80,22 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 		return
 	}
 
+	parsedToken, blockExpiration, err2 := ParseFreeCallToken(authToken)
+	if err2 != nil {
+		zap.L().Debug(err2.Error())
+		return
+	}
+
 	return &FreeCallPayment{
-		OrganizationId:             organizationId,
-		ServiceId:                  serviceId,
-		UserId:                     userID,
+		OrganizationId:             config.GetString(config.OrganizationId),
+		ServiceId:                  config.GetString(config.ServiceId),
+		UserID:                     userID,
+		Address:                    userAddress,
 		CurrentBlockNumber:         blockNumber,
 		Signature:                  signature,
-		AuthTokenExpiryBlockNumber: authTokenExpiryDate,
+		AuthTokenExpiryBlockNumber: blockExpiration,
 		AuthToken:                  authToken,
+		AuthTokenParsed:            parsedToken,
 		GroupId:                    h.orgMetadata.GetGroupIdString(),
 	}, nil
 }

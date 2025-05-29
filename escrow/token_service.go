@@ -156,9 +156,8 @@ func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest
 	}
 
 	plannedAmount, ok, err := service.prePaidUsageService.GetUsage(PrePaidDataKey{ChannelID: channelID, UsageType: PLANNED_AMOUNT})
-
 	if !ok {
-		return nil, fmt.Errorf("Unable to retrieve planned Amount ")
+		return nil, fmt.Errorf("unable to retrieve planned Amount %v", err)
 	}
 	if err != nil {
 		return nil, err

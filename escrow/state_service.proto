@@ -13,21 +13,21 @@ option go_package = "../escrow";
 // These values may be or may be not padded by zeros, service supports both
 // options.
 service PaymentChannelStateService {
-    // GetChannelState method returns a channel state by channel id.
-    rpc GetChannelState(ChannelStateRequest) returns (ChannelStateReply) {}
+  // GetChannelState method returns a channel state by channel id.
+  rpc GetChannelState(ChannelStateRequest) returns (ChannelStateReply) {}
 }
 
 // ChanelStateRequest is a request for channel state.
 message ChannelStateRequest {
-    // channel_id contains id of the channel which state is requested.
-    bytes channel_id = 1;
+  // channel_id contains id of the channel which state is requested.
+  bytes channel_id = 1;
 
-    // signature is a client signature of the message which contains
-    // channel_id. It is used for client authorization.
-    bytes signature = 2;
+  // signature is a client signature of the message which contains
+  // channel_id. It is used for client authorization.
+  bytes signature = 2;
 
-    //current block number (signature will be valid only for short time around this block number)
-    uint64 current_block = 3;
+  //current block number (signature will be valid only for short time around this block number)
+  uint64 current_block = 3;
 }
 
 // ChannelStateReply message contains a latest channel state. current_nonce and
@@ -35,59 +35,89 @@ message ChannelStateRequest {
 // server started withdrawing funds froms channel but transaction is still not
 // finished.
 message ChannelStateReply {
-    // current_nonce is a latest nonce of the payment channel.
-    bytes current_nonce = 1;
+  // current_nonce is a latest nonce of the payment channel.
+  bytes current_nonce = 1;
 
-    // current_signed_amount is a last amount which were signed by client with current_nonce
-    //it could be absent if none message was signed with current_nonce
-    bytes current_signed_amount = 2;
+  // current_signed_amount is a last amount which were signed by client with current_nonce
+  //it could be absent if none message was signed with current_nonce
+  bytes current_signed_amount = 2;
 
-    // current_signature is a last signature sent by client with current_nonce
-    // it could be absent if none message was signed with current nonce
-    bytes current_signature = 3;
+  // current_signature is a last signature sent by client with current_nonce
+  // it could be absent if none message was signed with current nonce
+  bytes current_signature = 3;
 
-    // last amount which was signed by client with nonce=current_nonce - 1
-    bytes old_nonce_signed_amount = 4;
+  // last amount which was signed by client with nonce=current_nonce - 1
+  bytes old_nonce_signed_amount = 4;
 
-    // last signature sent by client with nonce = current_nonce - 1
-    bytes old_nonce_signature = 5;
+  // last signature sent by client with nonce = current_nonce - 1
+  bytes old_nonce_signature = 5;
 
-    //If the client / user chooses to sign upfront , the planned amount in cogs will be indicative of this.
-    //For pay per use, this will be zero
-    uint64 planned_amount = 6;
+  //If the client / user chooses to sign upfront , the planned amount in cogs will be indicative of this.
+  //For pay per use, this will be zero
+  uint64 planned_amount = 6;
 
-    //If the client / user chooses to sign upfront , the usage amount in cogs will be indicative of how much of the
-    //planned amount has actually been used.
-    //For pay per use, this will be zero
-    uint64 used_amount = 7;
-
- }
+  //If the client / user chooses to sign upfront , the usage amount in cogs will be indicative of how much of the
+  //planned amount has actually been used.
+  //For pay per use, this will be zero
+  uint64 used_amount = 7;
+}
 
 //Used to determine free calls available for a given user.
 service FreeCallStateService {
-    rpc GetFreeCallsAvailable(FreeCallStateRequest) returns (FreeCallStateReply) {}
+  rpc GetFreeCallsAvailable(FreeCallStateRequest) returns (FreeCallStateReply) {}
+  rpc GetFreeCallToken(GetFreeCallTokenRequest) returns (FreeCallToken) {}
+}
+
+message GetFreeCallTokenRequest{
+  // required for all calls
+  string address = 1;
+
+  //  ("__prefix_free_trial", address, user_id, organization_id, service_id, group_id, current_block)
+  bytes signature = 2;
+
+  uint64 current_block = 3;
+
+  // only for calls for trusted signers
+  optional string user_id = 4;
+
+  // Duration of the token's validity, measured in blocks.
+  // For example, if the average block time is ~12 seconds, then 100 blocks ≈ 20 minutes.
+  // Max value: 172800
+  optional uint64 token_lifetime_in_blocks = 5;
+}
+
+
+message FreeCallToken{
+  // Token with expiration block encoded in the format: <signature>_<blockNumber>
+  // Example: [binary signature][0x5f][ascii decimal block number]
+  bytes token = 1;
+
+  // Hex-encoded representation of the `token` field
+  string token_hex = 2;
+
+  // token_expiration_block = currentBlock + token_lifetime_in_blocks (deadline block)
+  uint64 token_expiration_block = 3;
 }
 
 message FreeCallStateRequest {
-    //Has the user email id
-    string user_id = 1;
-    //signer-token = (user@mail, user-public-key, token_issue_date), this is generated my Market place Dapp
-    //to leverage free calls from SDK/ snet-cli, you will need this signer-token to be downloaded from Dapp
-    bytes token_for_free_call = 2;
-    //Token expiration date in Block number
-    uint64 token_expiry_date_block = 3 ;
-    //Signature is made up of the below, user signs with the private key corresponding with the public key used to generate the authorized token
-    //free-call-metadata = ("__prefix_free_trial",user_id,organization_id,service_id,group_id,current_block,authorized_token)
-    bytes signature = 4;
-    //current block number (signature will be valid only for short time around this block number)
-    uint64 current_block = 5;
+  string address = 1;
 
+  // optional, specify if you trusted signer
+  optional string user_id = 2;
+
+  // Previously issued token from GetFreeCallToken
+  bytes free_call_token = 3;
+
+  // Signature is made up of the below, user signs with the private key corresponding with the public key used to generate the authorized token
+  // ("__prefix_free_trial", address, user_id, organization_id, service_id, group_id, current_block, token)
+  bytes signature = 4;
+
+  //current block number (signature will be valid only for short time around this block number)
+  uint64 current_block = 5;
 }
 
 message FreeCallStateReply {
-    //Has the user email id
-    string user_id = 1;
-    //Balance number of free calls available
-    uint64 free_calls_available = 2;
+  // number of free calls available
+  uint64 free_calls_available = 1;
 }
 

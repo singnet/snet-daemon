@@ -33,6 +33,7 @@ var FreeCallUserResetCmd = &cobra.Command{
 type freeCallUserUnLockCommand struct {
 	lockStorage *storage.PrefixedAtomicStorage
 	userId      string
+	address     string
 	orgMetadata *blockchain.OrganizationMetaData
 }
 
@@ -40,19 +41,21 @@ type freeCallUserUnLockCommand struct {
 type freeCallUserResetCountCommand struct {
 	lockStorage *storage.PrefixedAtomicStorage
 	userStorage *escrow.FreeCallUserStorage
-	userId      string
+	userID      string
+	address     string
 	orgMetadata *blockchain.OrganizationMetaData
 }
 
 // initializes and returns the new unlock user of free calls command object
 func newFreeCallUserUnLockCommandCommand(cmd *cobra.Command, args []string, pComponents *Components) (command Command, err error) {
-	userID, err := getUserId(cmd)
+	userID, address, err := getFreeCallIDs(cmd)
 	if err != nil {
 		return
 	}
 	command = &freeCallUserUnLockCommand{
 		lockStorage: pComponents.FreeCallLockerStorage(),
 		userId:      userID,
+		address:     address,
 		orgMetadata: pComponents.OrganizationMetaData(),
 	}
 	return
@@ -60,20 +63,21 @@ func newFreeCallUserUnLockCommandCommand(cmd *cobra.Command, args []string, pCom
 
 // initializes and returns the new reset count for free call user command object
 func newFreeCallResetCountCommand(cmd *cobra.Command, args []string, pComponents *Components) (command Command, err error) {
-	userID, err := getUserId(cmd)
+	userID, address, err := getFreeCallIDs(cmd)
 	if err != nil {
 		return
 	}
 	command = &freeCallUserResetCountCommand{
 		userStorage: pComponents.FreeCallUserStorage(),
-		userId:      userID,
+		userID:      userID,
+		address:     address,
 		orgMetadata: pComponents.OrganizationMetaData(),
 	}
 	return
 }
 
-func getUserId(*cobra.Command) (userId string, err error) {
-	return freeCallUserId, nil
+func getFreeCallIDs(*cobra.Command) (userId, address string, err error) {
+	return freeCallUserId, freeCallAddress, nil
 }
 
 // command's run method
@@ -86,7 +90,7 @@ func (command *freeCallUserUnLockCommand) Run() (err error) {
 
 // command's run method
 func (command *freeCallUserResetCountCommand) Run() (err error) {
-	if command.userId == "" {
+	if command.userID == "" {
 		return fmt.Errorf("reset -u or reset -user-id must be set")
 	}
 	return command.resetUserForFreeCalls()
@@ -128,7 +132,7 @@ func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error
 		fmt.Printf("Error: Free Call user %s is not found\n", key.String())
 		return
 	}
-	updatedData := &escrow.FreeCallUserData{UserId: key.UserId, FreeCallsMade: 0}
+	updatedData := &escrow.FreeCallUserData{Address: key.Address, UserID: key.UserId, FreeCallsMade: 0}
 	updatedData.OrganizationId = key.OrganizationId
 	updatedData.ServiceId = key.ServiceId
 	updatedData.GroupID = key.GroupID
@@ -170,11 +174,10 @@ func (command *listFreeCallUsersCommand) Run() (err error) {
 	}
 
 	if len(users) == 0 {
-		fmt.Println("no users of free calls ,yet in storage")
+		fmt.Println("no users of free calls, yet in storage")
 	}
 
 	for _, user := range users {
-
 		fmt.Printf("%v\n", user.String())
 	}
 

@@ -191,7 +191,7 @@ func getTokenFromResponse(response *http.Response) (string, bool) {
 		zap.L().Error("Can't unmarshal TokenGenerated", zap.Error(err))
 		return "", false
 	}
-	//close the body
+	// close the body
 	return data.Data.Token, true
 }
 

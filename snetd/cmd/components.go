@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v5/utils"
 	"io"
 	"net/http"
 	"os"
@@ -557,10 +559,22 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 		return components.freeCallStateService
 	}
 
-	components.freeCallStateService = escrow.NewFreeCallStateService(components.OrganizationMetaData(),
-		components.ServiceMetaData(), components.FreeCallUserService(),
-		escrow.NewFreeCallPaymentValidator(components.Blockchain().CurrentBlock,
-			components.ServiceMetaData().FreeCallSignerAddress()))
+	tokenInstance, err := blockchain.NewFetchToken(common.HexToAddress(config.GetTokenAddress()), components.Blockchain().GetEthHttpClient())
+	if err != nil {
+		return &escrow.BlockChainDisabledFreeCallStateService{}
+	}
+
+	components.freeCallStateService = escrow.NewFreeCallStateService(
+		components.OrganizationMetaData(),
+		components.ServiceMetaData(),
+		components.FreeCallUserService(),
+		escrow.NewFreeCallPaymentValidator(
+			components.Blockchain().CurrentBlock,
+			components.ServiceMetaData().FreeCallSignerAddress(),
+			utils.ParsePrivateKey(config.GetString(config.PvtKeyForFreeCalls)),
+			config.GetTrustedFreeCallSignersAddresses()),
+		tokenInstance,
+		config.GetBigInt(config.MinBalanceForFreeCall))
 	return components.freeCallStateService
 }
 
@@ -656,7 +670,9 @@ func (components *Components) TrainingService() training.DaemonServer {
 	if components.trainingService != nil {
 		return components.trainingService
 	}
-
+	if !config.GetBool(config.BlockchainEnabledKey) {
+		return &training.NoTrainingDaemonServer{}
+	}
 	components.trainingService = training.NewTrainingService(components.blockchain, components.ServiceMetaData(),
 		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage())
 	return components.trainingService

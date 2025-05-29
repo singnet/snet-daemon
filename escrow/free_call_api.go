@@ -5,45 +5,53 @@ import (
 	"math/big"
 )
 
-// To Support Free calls
 type FreeCallPayment struct {
-	// Has the ID of the user making the call
-	UserId string
-	// Service ID
-	ServiceId string
-	// Organization Id
-	OrganizationId string
-	// Current block number
+	// Address of the user or trusted backend making the request.
+	// In Web3 flow, this is the user's wallet address.
+	// In Web2 (e.g., marketplace), this is the backend's signing address (must be trusted).
+	Address string
+
+	UserID             string
+	ServiceId          string
+	OrganizationId     string
 	CurrentBlockNumber *big.Int
+
 	// Signature passed
 	Signature []byte
-	// Group ID
+
 	GroupId string
+
 	// Auth Token Passed
 	AuthToken []byte
+
+	// Auth token without block
+	AuthTokenParsed []byte
+
 	// Token expiration date in blocks
 	AuthTokenExpiryBlockNumber *big.Int
 }
 
 func (key *FreeCallPayment) String() string {
-	return fmt.Sprintf("{ID:%v/%v/%v}", key.UserId, key.OrganizationId,
+	return fmt.Sprintf("{ID:%v/%v/%v/%v}", key.Address, key.UserID, key.OrganizationId,
 		key.ServiceId)
 }
 
 type FreeCallUserKey struct {
 	UserId         string
+	Address        string
 	OrganizationId string
 	ServiceId      string
 	GroupID        string
 }
 
 func (key *FreeCallUserKey) String() string {
-	return fmt.Sprintf("{ID:%v/%v/%v/%v}", key.UserId, key.OrganizationId,
+	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.Address, key.UserId, key.OrganizationId,
 		key.ServiceId, key.GroupID)
 }
 
 type FreeCallUserData struct {
-	UserId         string
+	Address        string
+	UserID         string
 	FreeCallsMade  int
 	OrganizationId string
 	ServiceId      string
@@ -51,7 +59,7 @@ type FreeCallUserData struct {
 }
 
 func (data *FreeCallUserData) String() string {
-	return fmt.Sprintf("{User %v has made %v free calls for org_id=%v, service_id=%v, group_id=%v }", data.UserId,
+	return fmt.Sprintf("{Addr:%v (id:%v) has made %v free calls for org_id=%v, service_id=%v, group_id=%v }", data.Address, data.UserID,
 		data.FreeCallsMade, data.OrganizationId, data.ServiceId, data.GroupID)
 }
 
@@ -78,6 +86,6 @@ type FreeCallUserUpdate func(user *FreeCallUserData)
 
 var (
 	IncrementFreeCallCount FreeCallUserUpdate = func(user *FreeCallUserData) {
-		user.FreeCallsMade = user.FreeCallsMade + 1
+		user.FreeCallsMade += 1
 	}
 )

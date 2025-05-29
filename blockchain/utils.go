@@ -38,7 +38,7 @@ func HexToBytes(str string) []byte {
 	return common.FromHex(str)
 }
 
-// HexToAddress converts hex string to Ethreum address.
+// HexToAddress converts hex string to Ethereum address.
 func HexToAddress(str string) common.Address {
 	return common.BytesToAddress(HexToBytes(str))
 }

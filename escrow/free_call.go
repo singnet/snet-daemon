@@ -35,7 +35,7 @@ func (h *lockingFreeCallUserService) FreeCallUser(key *FreeCallUserKey) (freeCal
 		return
 	}
 	if !ok {
-		return &FreeCallUserData{FreeCallsMade: 0, UserId: key.UserId, GroupID: key.GroupID, ServiceId: key.ServiceId, OrganizationId: key.OrganizationId}, true, nil
+		return &FreeCallUserData{FreeCallsMade: 0, UserID: key.UserId, Address: key.Address, GroupID: key.GroupID, ServiceId: key.ServiceId, OrganizationId: key.OrganizationId}, true, nil
 	}
 	return
 }
@@ -62,7 +62,7 @@ func (transaction *freeCallTransaction) FreeCallUser() *FreeCallUserData {
 
 func (h *lockingFreeCallUserService) GetFreeCallUserKey(payment *FreeCallPayment) (userKey *FreeCallUserKey, err error) {
 	groupId, err := h.replicaGroupID()
-	return &FreeCallUserKey{UserId: payment.UserId, OrganizationId: payment.OrganizationId,
+	return &FreeCallUserKey{UserId: payment.UserID, Address: payment.Address, OrganizationId: payment.OrganizationId,
 		ServiceId: payment.ServiceId, GroupID: blockchain.BytesToBase64(groupId[:])}, err
 }
 
@@ -105,7 +105,7 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 	}(lock)
 
 	var countFreeCallsAllowed int
-	if countFreeCallsAllowed = config.GetFreeCallsCount(freeCallUserData.UserId); countFreeCallsAllowed <= 0 {
+	if countFreeCallsAllowed = config.GetFreeCallsAllowed(freeCallUserData.Address); countFreeCallsAllowed <= 0 {
 		countFreeCallsAllowed = h.serviceMetadata.GetFreeCallsAllowed()
 	}
 

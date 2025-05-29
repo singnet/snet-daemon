@@ -16,9 +16,9 @@ import (
 
 /*
 This metadata structure defines the organization to group mappings.
-Please note , that groups are logical bucketing of managing payments ( same recipient for each group across the services in an organization)
-A given Organization will be associated with multiple groups and every group will be associated to a payment
-Sample example of the JSON structure from the block chain is given below .
+Please note that groups are logical bucketing of managing payments (the same recipient for each group across the services in an organization)
+A given Organization will be associated with multiple groups, and every group will be associated to a payment
+Sample example of the JSON structure from the blockchain is given below.
 Please note that all the services that belong to a given group in an organization will have the same recipient address.
 */
 
@@ -136,9 +136,8 @@ func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
 		return err
 	}
 	metaData.daemonGroupID, err = ConvertBase64Encoding(metaData.daemonGroup.GroupID)
-	//use the checksum address ( convert the address in to a checksum address and set it back)
+	//use the checksum address (convert the address in to a checksum address and set it back)
 	metaData.daemonGroup.PaymentDetails.PaymentAddress = ToChecksumAddress(metaData.daemonGroup.PaymentDetails.PaymentAddress)
-
 	metaData.recipientPaymentAddress = common.HexToAddress(metaData.daemonGroup.PaymentDetails.PaymentAddress)
 
 	return err

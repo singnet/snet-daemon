@@ -17,6 +17,7 @@ type NetworkSelected struct {
 	EthereumJSONRPCWSEndpoint   string
 	NetworkId                   string
 	RegistryAddressKey          string
+	TokenAddress                string // now only for free calls
 }
 
 const (
@@ -44,7 +45,13 @@ func determineNetworkSelected(data []byte) (err error) {
 	networkSelected.EthereumJSONRPCWSEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[EthereumJsonRpcWSEndpointKey], EthereumJsonRpcWSEndpointKey)
 	networkSelected.NetworkId = fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]any)[NetworkId])
 
-	return err
+	fetchTokenData := map[string]map[string]any{}
+	if err = json.Unmarshal(contracts.GetNetworksClean(contracts.FetchToken), &fetchTokenData); err != nil {
+		return err
+	}
+	networkSelected.TokenAddress = fetchTokenData[networkSelected.NetworkId]["address"].(string)
+
+	return nil
 }
 
 // Check if the value set in the  config file, if yes, then we use it as is
@@ -62,6 +69,10 @@ func getDetailsFromJsonOrConfig(details any, configName string) string {
 // Get the Network ID associated  with the network selected
 func GetNetworkId() string {
 	return networkSelected.NetworkId
+}
+
+func GetTokenAddress() string {
+	return networkSelected.TokenAddress
 }
 
 // GetBlockChainHTTPEndPoint - Get the blockchain endpoint associated with the Network selected

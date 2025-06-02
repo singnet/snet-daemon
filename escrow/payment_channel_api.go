@@ -12,13 +12,13 @@ import (
 // Payment contains MultiPartyEscrow payment details
 type Payment struct {
 	// MpeContractAddress is an address of the MultiPartyEscrow contract which
-	// were used to open the payment channel.
+	// was used to open the payment channel.
 	MpeContractAddress common.Address
 	// ChannelID is an id of the payment channel used.
 	ChannelID *big.Int
-	// ChannelNonce is a nonce of the payment channel.
+	// ChannelNonce is nonce of the payment channel.
 	ChannelNonce *big.Int
-	// Amount is an amount of the payment.
+	// Amount is the amount of the payment.
 	Amount *big.Int
 	// Signature is a signature of the payment.
 	Signature []byte
@@ -71,24 +71,24 @@ func (state PaymentChannelState) String() string {
 type PaymentChannelData struct {
 	// ChannelID is an id of the channel
 	ChannelID *big.Int
-	// Nonce is a nonce of this channel state
+	// Nonce is nonce of this channel state
 	Nonce *big.Int
 	// State is a payment channel state: Open or Closed.
 	State PaymentChannelState
 	// Sender is an Ethereum address of the client which created the channel.
-	// It is and address to be charged for RPC call.
+	// It is an address to be charged for RPC call.
 	Sender common.Address
-	// Recipient is an address which can claim funds from channel using
+	// The Recipient is an address that can claim funds from a channel using
 	// signature. It is an address of service provider.
 	Recipient common.Address
 	// GroupID is an id of the group of service replicas which share the same
 	// payment channel.
 	GroupID [32]byte
-	// FullAmount is an amount which is deposited in channel by Sender.
+	// FullAmount is an amount deposited in the channel by Sender.
 	FullAmount *big.Int
 	// Expiration is a time at which channel will be expired. This time is
 	// expressed in Ethereum block number. Since this block is added to
-	// blockchain Sender can withdraw tokens from channel.
+	// blockchain Sender can withdraw tokens from the channel.
 	Expiration *big.Int
 	// Signer is and address to be used to sign the payments. Usually it is
 	// equal to channel sender.

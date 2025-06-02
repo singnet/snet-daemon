@@ -408,7 +408,7 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 }
 
 func setFreeCallData(metaData *ServiceMetadata) error {
-	if metaData.defaultGroup.FreeCalls > 0 {
+	if metaData.defaultGroup.FreeCalls >= 0 {
 		metaData.isfreeCallAllowed = true
 		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
 		//If the signer address is not a valid address, then return back an error

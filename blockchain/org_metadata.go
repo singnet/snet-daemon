@@ -194,7 +194,7 @@ func getMetaDataURI() []byte {
 	return organizationRegistered.OrgMetadataURI[:]
 }
 
-// Get the Group ID the Daemon needs to associate itself to , requests belonging to a different group if will be rejected
+// GetGroupIdString Get the Group ID the Daemon needs to associate itself to, requests belonging to a different group if will be rejected
 func (metaData OrganizationMetaData) GetGroupIdString() string {
 	return metaData.daemonGroup.GroupID
 }

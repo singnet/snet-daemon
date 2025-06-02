@@ -36,7 +36,7 @@ func (alert *Notification) Send() bool {
 	serviceURL := config.GetString(config.NotificationServiceEndpoint)
 	// convert the notification struct to json
 	jsonAlert, err := ConvertStructToJSON(alert)
-	zap.L().Info("send notifiction", zap.Any("json", jsonAlert))
+	zap.L().Info("send notification", zap.Any("json", jsonAlert))
 	if err != nil {
 		zap.L().Warn("json conversion error", zap.Error(err))
 		return false

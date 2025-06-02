@@ -70,12 +70,12 @@ func NewPaymentChannelStateService(channelService PaymentChannelService, payment
 // GetChannelState returns the latest state of the channel which id is passed
 // in request. To authenticate sender request should also contain correct
 // signature of the channel id.
-/*Simple case current_nonce == blockchain_nonce
+/* Simple case current_nonce == blockchain_nonce
 unspent_amount = blockchain_value - current_signed_amount
 Complex case current_nonce != blockchain_nonce
 Taking into account our assumptions, we know that current_nonce = blockchain_nonce + 1.
 
-unspent_amount = blockchain_value - oldnonce_signed_amount - current_signed_amount
+Unspent_amount = blockchain_value - oldnonce_signed_amount - current_signed_amount
 It should be noted that in this case the server could send us smaller old nonce_signed_amount (not the actually last one which was used for channelClaim).
 In this case, the server can only make us believe that we have more money in the channel then we actually have.
 That means that one possible attack via unspent_amount is to make us believe that we have less tokens than we truly have,

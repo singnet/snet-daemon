@@ -53,7 +53,7 @@ func (service *FreeCallStateService) GetFreeCallToken(ctx context.Context, reque
 	}
 
 	if *signer != common.HexToAddress(request.GetAddress()) {
-		return nil, fmt.Errorf("invalid signer")
+		return nil, fmt.Errorf("invalid signer, %v (from request) is not equal to %v (signer)", request.GetAddress(), signer)
 	}
 
 	err = service.freeCallValidator.compareWithLatestBlockNumber(big.NewInt(0).SetUint64(request.GetCurrentBlock()))
@@ -119,7 +119,7 @@ func (service *FreeCallStateService) GetFreeCallsAvailable(context context.Conte
 	if err != nil {
 		return &FreeCallStateReply{}, err
 	}
-	return &FreeCallStateReply{FreeCallsAvailable: uint64(availableCalls)}, nil
+	return &FreeCallStateReply{FreeCallsAvailable: availableCalls}, nil
 }
 
 func (service *FreeCallStateService) verify(payment *FreeCallPayment) (err error) {
@@ -129,7 +129,7 @@ func (service *FreeCallStateService) verify(payment *FreeCallPayment) (err error
 	return nil
 }
 
-func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment) (callsAvailable int, err error) {
+func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment) (callsAvailable uint64, err error) {
 	//Now get the state from etcd for this user, if there are no records, then return the free calls
 	key, err := service.freeCallService.GetFreeCallUserKey(payment)
 	if err != nil {
@@ -142,10 +142,17 @@ func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment)
 	if err != nil {
 		return 0, err
 	}
+
 	if freeCallsAllowed := config.GetFreeCallsAllowed(key.Address); freeCallsAllowed > 0 {
-		return freeCallsAllowed - data.FreeCallsMade, err
+		if freeCallsAllowed-data.FreeCallsMade < 0 {
+			return 0, nil
+		}
+		return uint64(freeCallsAllowed - data.FreeCallsMade), err
 	}
-	return service.serviceMetadata.GetFreeCallsAllowed() - data.FreeCallsMade, nil
+	if service.serviceMetadata.GetFreeCallsAllowed()-data.FreeCallsMade < 0 {
+		return 0, nil
+	}
+	return uint64(service.serviceMetadata.GetFreeCallsAllowed() - data.FreeCallsMade), nil
 }
 
 func (service *FreeCallStateService) getFreeCallPayment(request *FreeCallStateRequest) (*FreeCallPayment, error) {

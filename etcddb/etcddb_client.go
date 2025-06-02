@@ -19,6 +19,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const etcdTTL = 10
+
 // EtcdClientMutex mutex struct for etcd client
 type EtcdClientMutex struct {
 	mutex *concurrency.Mutex
@@ -36,10 +38,10 @@ func (mutex *EtcdClientMutex) Unlock(ctx context.Context) (err error) {
 
 // EtcdClient struct has some useful methods to work with an etcd client
 type EtcdClient struct {
-	hotReaload bool
-	timeout    time.Duration
-	session    *concurrency.Session
-	etcdv3     *clientv3.Client
+	hotReload bool
+	timeout   time.Duration
+	session   *concurrency.Session
+	etcd      *clientv3.Client
 }
 
 // NewEtcdClient create new etcd storage client.
@@ -56,7 +58,7 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 		return nil, err
 	}
 
-	zap.L().Info("Creating new payment storage client (etcdv3)",
+	zap.L().Info("Creating new payment storage client (etcd)",
 		zap.String("ConnectionTimeout", conf.ConnectionTimeout.String()),
 		zap.String("RequestTimeout", conf.RequestTimeout.String()),
 		zap.Strings("Endpoints", conf.Endpoints))
@@ -86,18 +88,23 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), conf.RequestTimeout)
-	defer cancel()
-	session, err := concurrency.NewSession(etcdv3, concurrency.WithContext(ctx))
+	session, err := concurrency.NewSession(etcdv3, concurrency.WithTTL(etcdTTL))
 	if err != nil {
 		return nil, fmt.Errorf("can't connect to etcddb: %v", err)
 	}
 
+	go func() {
+		select {
+		case <-session.Done():
+			zap.L().Debug("etcd session closed")
+		}
+	}()
+
 	client = &EtcdClient{
-		hotReaload: conf.HotReload,
-		timeout:    conf.RequestTimeout,
-		session:    session,
-		etcdv3:     etcdv3,
+		hotReload: conf.HotReload,
+		timeout:   conf.RequestTimeout,
+		session:   session,
+		etcd:      etcdv3,
 	}
 	return
 }
@@ -131,12 +138,12 @@ func getTlsConfig() (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
-// Get gets value from etcd by key
+// Get - get value from etcd by key
 func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
-	response, err := client.etcdv3.Get(ctx, key)
+	response, err := client.etcd.Get(ctx, key)
 
 	if err != nil {
 		zap.L().Error("Unable to get value by key",
@@ -156,14 +163,14 @@ func (client *EtcdClient) Get(key string) (value string, ok bool, err error) {
 	return
 }
 
-// GetByKeyPrefix gets all values which have the same key prefix
+// GetByKeyPrefix gets all values that have the same key prefix
 func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, err error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
 	keyEnd := clientv3.GetPrefixRangeEnd(key)
-	response, err := client.etcdv3.Get(ctx, key, clientv3.WithRange(keyEnd))
+	response, err := client.etcd.Get(ctx, key, clientv3.WithRange(keyEnd))
 
 	if err != nil {
 		zap.L().Error("Unable to get value by key prefix",
@@ -185,7 +192,7 @@ func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, err error
 // Put puts key and value to etcd
 func (client *EtcdClient) Put(key string, value string) (err error) {
 
-	etcdv3 := client.etcdv3
+	etcdv3 := client.etcd
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
@@ -204,11 +211,10 @@ func (client *EtcdClient) Put(key string, value string) (err error) {
 // Delete deletes the existing key and value from etcd
 func (client *EtcdClient) Delete(key string) error {
 
-	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
-	_, err := etcdv3.Delete(ctx, key)
+	_, err := client.etcd.Delete(ctx, key)
 	if err != nil {
 		zap.L().Error("Unable to delete value by key",
 			zap.Error(err),
@@ -251,7 +257,6 @@ func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue 
 // Transaction uses CAS operation to compare and set multiple key values
 func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValue) (ok bool, err error) {
 
-	etcdv3 := client.etcdv3
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
 
@@ -266,17 +271,17 @@ func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValu
 		ops[index] = clientv3.OpPut(op.key, op.value)
 	}
 
-	response, err := etcdv3.KV.Txn(ctx).If(cmps...).Then(ops...).Commit()
+	response, err := client.etcd.KV.Txn(ctx).If(cmps...).Then(ops...).Commit()
 
 	if err != nil {
-		keys := []string{}
+		keys := make([]string, 0, len(compare))
 		for _, keyValue := range compare {
 			keys = append(keys, keyValue.key)
 		}
-		zap.L().Error("Unable to compare and swap value by keys",
+		zap.L().Error("Unable to Transaction",
 			zap.Error(err),
 			zap.String("keys", strings.Join(keys, ", ")),
-			zap.String("func", "CompareAndSwap"),
+			zap.String("func", "Transaction"),
 			zap.Any("client", client))
 		return false, err
 	}
@@ -351,7 +356,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 	defer cancel()
 	defer ctx.Done()
 	//startime := time.Now()
-	txn := client.etcdv3.KV.Txn(ctx)
+	txn := client.etcd.KV.Txn(ctx)
 	var txnResp *clientv3.TxnResponse
 	conditionKeys := transaction.ConditionKeys
 
@@ -443,20 +448,17 @@ func (client *EtcdClient) getState(keySet map[string]struct{}, getResp *clientv3
 	return latestStateArray, nil
 }
 
-// Close closes etcd client
 func (client *EtcdClient) Close() {
-	defer func(etcdv3 *clientv3.Client) {
-		err := etcdv3.Close()
-		if err != nil {
-			zap.L().Error("close etcd client failed", zap.Error(err))
-		}
-	}(client.etcdv3)
-	defer func(session *concurrency.Session) {
-		err := session.Close()
-		if err != nil {
+	if client.session != nil {
+		if err := client.session.Close(); err != nil {
 			zap.L().Error("close session failed", zap.Error(err))
 		}
-	}(client.session)
+	}
+	if client.etcd != nil {
+		if err := client.etcd.Close(); err != nil {
+			zap.L().Error("close etcd client failed", zap.Error(err))
+		}
+	}
 }
 
 func (client *EtcdClient) StartTransaction(keys []string) (_transaction storage.Transaction, err error) {
@@ -471,7 +473,7 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction storage.
 		ops[i] = clientv3.OpGet(key)
 	}
 
-	txn := client.etcdv3.KV.Txn(ctx)
+	txn := client.etcd.KV.Txn(ctx)
 	txn.Then(ops...)
 	txnResp, err := txn.Commit()
 
@@ -491,7 +493,7 @@ func (client *EtcdClient) StartTransaction(keys []string) (_transaction storage.
 }
 
 func (client *EtcdClient) IsHotReloadEnabled() bool {
-	return client.hotReaload
+	return client.hotReload
 }
 
 type keyValueVersion struct {

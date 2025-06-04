@@ -115,7 +115,7 @@ func PublishChannelStats(payment handler.Payment) (grpcErr *handler.GrpcError) {
 		Nonce:            paymentTransaction.Channel().Nonce,
 		GroupID:          blockchain.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
 	}
-	meteringURL := config.GetString(config.MeteringEndPoint) + "/contract-api/channel/" + channelStats.ChannelId.String() + "/balance"
+	meteringURL := config.GetString(config.MeteringEndpoint) + "/contract-api/channel/" + channelStats.ChannelId.String() + "/balance"
 
 	channelStats.OrganizationID = config.GetString(config.OrganizationId)
 	channelStats.ServiceID = config.GetString(config.ServiceId)

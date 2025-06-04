@@ -5,6 +5,7 @@ import (
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/singnet/snet-daemon/v5/handler"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -69,7 +70,7 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 	if err != nil {
 		return
 	}
-	
+
 	signature, err := handler.GetBytes(context.MD, handler.PaymentChannelSignatureHeader)
 	if err != nil {
 		return
@@ -83,7 +84,7 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 	parsedToken, blockExpiration, err2 := ParseFreeCallToken(authToken)
 	if err2 != nil {
 		zap.L().Debug(err2.Error())
-		return
+		return nil, handler.NewGrpcErrorf(codes.InvalidArgument, "invalid token: %v", err2)
 	}
 
 	return &FreeCallPayment{

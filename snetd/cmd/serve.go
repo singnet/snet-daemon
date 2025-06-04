@@ -116,9 +116,9 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndPoint))
+	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndpoint))
 	if err != nil {
-		return d, errors.Wrap(err, "Expected format of daemon_endpoint is <host>:<port>.Error binding to the endpoint:"+config.GetString(config.DaemonEndPoint))
+		return d, errors.Wrap(err, "Expected format of daemon_endpoint is <host>:<port>.Error binding to the endpoint:"+config.GetString(config.DaemonEndpoint))
 	}
 
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)

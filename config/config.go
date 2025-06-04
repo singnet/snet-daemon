@@ -30,10 +30,10 @@ const (
 	ConfigPathKey             = "config_path"
 	DaemonGroupName           = "daemon_group_name"
 	DaemonTypeKey             = "daemon_type" // http/grpc
-	DaemonEndPoint            = "daemon_endpoint"
+	DaemonEndpoint            = "daemon_endpoint"
 	ExecutablePathKey         = "executable_path"
 	EnableDynamicPricing      = "enable_dynamic_pricing"
-	IpfsEndPoint              = "ipfs_endpoint"
+	IpfsEndpoint              = "ipfs_endpoint"
 	LighthouseEndpoint        = "lighthouse_endpoint"
 	IpfsTimeout               = "ipfs_timeout"
 	LogKey                    = "log"
@@ -63,7 +63,7 @@ const (
 	// Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_endpoint"
-	MeteringEndPoint            = "metering_endpoint"
+	MeteringEndpoint            = "metering_endpoint"
 	PvtKeyForMetering           = "private_key_for_metering"
 	PvtKeyForFreeCalls          = "private_key_for_free_calls"
 	NotificationServiceEndpoint = "notification_endpoint"
@@ -181,6 +181,29 @@ func init() {
 	vip.AddConfigPath(".")
 }
 
+// support old deprecated alias
+func migrateDeprecatedParams(v *viper.Viper) {
+
+	deprecated := map[string]string{
+		"daemon_end_point":           DaemonEndpoint,
+		"ipfs_end_point":             IpfsEndpoint,
+		"passthrough_endpoint":       ServiceEndpointKey,
+		"metering_end_point":         MeteringEndpoint,
+		"heartbeat_svc_end_point":    HeartbeatServiceEndpoint,
+		"notification_svc_end_point": NotificationServiceEndpoint,
+		"pvt_key_for_metering":       PvtKeyForMetering,
+		"pvt_key_for_free_calls":     PvtKeyForFreeCalls,
+	}
+
+	for oldKey, newKey := range deprecated {
+		if v.IsSet(oldKey) {
+			val := v.Get(oldKey)
+			v.Set(newKey, val)
+			zap.L().Warn(fmt.Sprintf("Config parameter '%s' is deprecated, use '%s' instead", oldKey, newKey))
+		}
+	}
+}
+
 // SetVip allows setting a new Viper instance.
 // This is useful for testing, where you may want to change the configuration.
 func SetVip(newVip *viper.Viper) {
@@ -207,6 +230,9 @@ func Vip() *viper.Viper {
 }
 
 func Validate() error {
+
+	migrateDeprecatedParams(Vip())
+
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
 	case "http":
@@ -224,7 +250,7 @@ func Validate() error {
 
 	// Validate metrics URL and set state
 	passEndpoint := vip.GetString(ServiceEndpointKey)
-	daemonEndpoint := vip.GetString(DaemonEndPoint)
+	daemonEndpoint := vip.GetString(DaemonEndpoint)
 	err := ValidateEndpoints(daemonEndpoint, passEndpoint)
 	if err != nil {
 		return err
@@ -295,7 +321,7 @@ func allowedUserConfigurationChecks() error {
 }
 
 func validateMeteringChecks() (err error) {
-	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndPoint)) {
+	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndpoint)) {
 		return errors.New("to Support Metering you need to have a valid Metering End point")
 	}
 	return nil
@@ -391,14 +417,13 @@ var DisplayKeys = map[string]bool{
 	strings.ToUpper(ConfigPathKey):                  true,
 	strings.ToUpper(DaemonGroupName):                true,
 	strings.ToUpper(DaemonTypeKey):                  true,
-	strings.ToUpper(DaemonEndPoint):                 true,
+	strings.ToUpper(DaemonEndpoint):                 true,
 	strings.ToUpper(ExecutablePathKey):              true,
-	strings.ToUpper(IpfsEndPoint):                   true,
+	strings.ToUpper(IpfsEndpoint):                   true,
 	strings.ToUpper(LighthouseEndpoint):             true,
 	strings.ToUpper(IpfsTimeout):                    false,
 	strings.ToUpper(LogKey):                         true,
 	strings.ToUpper(MaxMessageSizeInMB):             true,
-	strings.ToUpper(MeteringEnabled):                true,
 	strings.ToUpper(OrganizationId):                 true,
 	strings.ToUpper(ServiceId):                      true,
 	strings.ToUpper(PassthroughEnabledKey):          true,
@@ -414,7 +439,8 @@ var DisplayKeys = map[string]bool{
 	strings.ToUpper(PaymentChannelStorageServerKey): true,
 	strings.ToUpper(AlertsEMail):                    true,
 	strings.ToUpper(HeartbeatServiceEndpoint):       true,
-	strings.ToUpper(MeteringEndPoint):               true,
+	strings.ToUpper(MeteringEnabled):                true,
+	strings.ToUpper(MeteringEndpoint):               true,
 	strings.ToUpper(NotificationServiceEndpoint):    true,
 	strings.ToUpper(ServiceHeartbeatType):           true,
 }

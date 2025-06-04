@@ -7,7 +7,7 @@ import (
 )
 
 func TestComponents_verifyMeteringConfigurations(t *testing.T) {
-	config.Vip().Set(config.MeteringEndPoint, "http://demo5343751.mockable.io")
+	config.Vip().Set(config.MeteringEndpoint, "http://demo5343751.mockable.io")
 
 	component := &Components{}
 	ok, err := component.verifyAuthenticationSetUpForFreeCall("http://demo5343751.mockable.io/verify",

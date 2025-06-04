@@ -99,7 +99,7 @@ func Test_convertToConfigurationType(t *testing.T) {
 func Test_getCurrentConfig(t *testing.T) {
 
 	currentConfig := getCurrentConfig()
-	assert.NotEmpty(t, currentConfig[config.DaemonEndPoint])
+	assert.NotEmpty(t, currentConfig[config.DaemonEndpoint])
 	config.Vip().Set(config.PvtKeyForMetering, "HIDDEN")
 	currentConfig = getCurrentConfig()
 	assert.Empty(t, currentConfig[config.PvtKeyForMetering])

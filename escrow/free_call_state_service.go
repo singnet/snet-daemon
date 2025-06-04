@@ -76,7 +76,6 @@ func (service *FreeCallStateService) GetFreeCallToken(ctx context.Context, reque
 	}
 
 	token, block := service.freeCallValidator.NewFreeCallToken(request.Address, request.UserId, request.TokenLifetimeInBlocks)
-	token = append(token, []byte("_"+block.String())...)
 	return &FreeCallToken{
 		TokenHex:             hex.EncodeToString(token), // string
 		Token:                token,                     // bytes

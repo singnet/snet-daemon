@@ -403,7 +403,7 @@ func (components *Components) GrpcStreamInterceptor() grpc.StreamServerIntercept
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
 
-		meteringUrl := config.GetString(config.MeteringEndPoint) + "/metering/verify"
+		meteringUrl := config.GetString(config.MeteringEndpoint) + "/metering/verify"
 		if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
 			components.OrganizationMetaData().GetGroupIdString()); !ok {
 			zap.L().Panic("Metering authentication failed.Please verify the configuration"+
@@ -485,7 +485,7 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 	if strings.Compare(responseBody.Data, "success") != 0 {
 		return false, fmt.Errorf("Error returned by by Metering Service %s Verification,"+
 			" pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
-			"to the private key in Daemon config.", config.GetString(config.MeteringEndPoint)+"/verify")
+			"to the private key in Daemon config.", config.GetString(config.MeteringEndpoint)+"/verify")
 	}
 
 	return true, nil

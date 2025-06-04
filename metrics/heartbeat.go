@@ -102,7 +102,6 @@ func ValidateHeartbeatConfig() error {
 }
 func getStorageCertificateDetails() (cert StorageClientCert) {
 	cert = StorageClientCert{}
-	zap.L().Debug("enabling SSL support via X509 keypair")
 	certificate, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
 	if err != nil {
 		zap.L().Error("unable to load specific SSL X509 keypair for storage certificate", zap.Error(err))

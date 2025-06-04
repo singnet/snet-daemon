@@ -169,7 +169,7 @@ func Test_IsAllowedUser(t *testing.T) {
 }
 
 func Test_validateMeteringChecks(t *testing.T) {
-	vip.Set(MeteringEndPoint, "http://demo8325345.mockable.io")
+	vip.Set(MeteringEndpoint, "http://demo8325345.mockable.io")
 	tests := []struct {
 		name    string
 		wantErr bool
@@ -179,7 +179,7 @@ func Test_validateMeteringChecks(t *testing.T) {
 		{"", true, func() {
 			vip.Set(MeteringEnabled, true)
 
-			vip.Set(MeteringEndPoint, "badurl")
+			vip.Set(MeteringEndpoint, "badurl")
 		}},
 	}
 	for _, tt := range tests {

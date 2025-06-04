@@ -60,13 +60,15 @@ func (validator *FreeCallPaymentValidator) NewFreeCallToken(userAddress string, 
 
 	message := BuildFreeCallTokenStruct(&userAddr, deadlineBlockOfToken, userID)
 
-	return authutils.GetSignature(message, validator.freeCallSigner), deadlineBlockOfToken
+	signedToken := authutils.GetSignature(message, validator.freeCallSigner)
+	signedToken = append(signedToken, []byte("_"+deadlineBlockOfToken.String())...)
+	return signedToken, deadlineBlockOfToken
 }
 
 func ParseFreeCallToken(token []byte) (sig []byte, block *big.Int, err error) {
 	i := bytes.LastIndexByte(token, '_')
 	if i == -1 {
-		return nil, nil, fmt.Errorf("invalid token format: no '_' found")
+		return nil, nil, fmt.Errorf("no '_' found")
 	}
 
 	sig = token[:i]
@@ -230,7 +232,6 @@ func BuildFreeCallTokenStruct(addr *common.Address, expirationBlock *big.Int, us
 	if userID == nil {
 		userID = new(string)
 	}
-	zap.L().Debug("", zap.String("userID", *userID))
 
 	message := bytes.Join([][]byte{
 		[]byte(config.GetString(config.OrganizationId)),

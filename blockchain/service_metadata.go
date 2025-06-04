@@ -408,10 +408,10 @@ func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
 }
 
 func setFreeCallData(metaData *ServiceMetadata) error {
-	if metaData.defaultGroup.FreeCalls >= 0 {
+	if metaData.defaultGroup.FreeCallSigner != "" {
 		metaData.isfreeCallAllowed = true
 		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
-		//If the signer address is not a valid address, then return back an error
+		// If the signer address is not a valid address, then return an error
 		if !common.IsHexAddress(metaData.defaultGroup.FreeCallSigner) {
 			return fmt.Errorf("metadata does not have 'free_call_signer_address defined correctly")
 		}

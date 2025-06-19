@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 )
 
 // Request stats that will be captured

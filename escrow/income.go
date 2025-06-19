@@ -3,13 +3,13 @@ package escrow
 import (
 	"errors"
 	"fmt"
-	"github.com/singnet/snet-daemon/v5/pricing"
-	"github.com/singnet/snet-daemon/v5/training"
+	"github.com/singnet/snet-daemon/v6/pricing"
+	"github.com/singnet/snet-daemon/v6/training"
 	"go.uber.org/zap"
 	"math/big"
 	"strings"
 
-	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v6/handler"
 )
 
 // IncomeStreamData is used to pass information to the pricing validation system.

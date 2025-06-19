@@ -2,7 +2,7 @@ package escrow
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/v5/storage"
+	"github.com/singnet/snet-daemon/v6/storage"
 	"math/big"
 	"strings"
 )

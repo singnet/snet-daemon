@@ -1,7 +1,7 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/v5/storage"
+	"github.com/singnet/snet-daemon/v6/storage"
 	"reflect"
 )
 

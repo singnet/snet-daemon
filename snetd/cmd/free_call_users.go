@@ -3,10 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/escrow"
-	"github.com/singnet/snet-daemon/v5/storage"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/spf13/cobra"
 )
 

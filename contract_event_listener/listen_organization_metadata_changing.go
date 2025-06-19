@@ -4,8 +4,8 @@ import (
 	"context"
 	"slices"
 
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/etcddb"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/etcddb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/gorilla/websocket"

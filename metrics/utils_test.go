@@ -2,8 +2,8 @@ package metrics
 
 import (
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/v5/authutils"
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/authutils"
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
 	"go/types"
 	"google.golang.org/grpc/metadata"

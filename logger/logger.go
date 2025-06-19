@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"

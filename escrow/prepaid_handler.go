@@ -1,11 +1,11 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/handler"
-	"github.com/singnet/snet-daemon/v5/pricing"
-	"github.com/singnet/snet-daemon/v5/token"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/pricing"
+	"github.com/singnet/snet-daemon/v6/token"
 	"go.uber.org/zap"
 )
 

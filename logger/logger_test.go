@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 )
 
 const defaultLogConfigJSON = `

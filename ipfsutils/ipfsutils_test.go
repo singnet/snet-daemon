@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
-	_ "github.com/singnet/snet-daemon/v5/config"
+	_ "github.com/singnet/snet-daemon/v6/config"
 )
 
 type IpfsUtilsTestSuite struct {

@@ -1,7 +1,7 @@
 package pricing
 
 import (
-	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v6/handler"
 	"math/big"
 )
 

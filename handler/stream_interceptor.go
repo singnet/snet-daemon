@@ -3,11 +3,11 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/configuration_service"
-	"github.com/singnet/snet-daemon/v5/metrics"
-	"github.com/singnet/snet-daemon/v5/ratelimit"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/configuration_service"
+	"github.com/singnet/snet-daemon/v6/metrics"
+	"github.com/singnet/snet-daemon/v6/ratelimit"
 	"go.uber.org/zap"
 
 	"math/big"

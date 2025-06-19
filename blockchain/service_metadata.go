@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v5/errs"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"maps"
 	"math/big"
 	"os"
@@ -17,8 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/ipfsutils"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/ipfsutils"
 	"go.uber.org/zap"
 )
 

@@ -1,15 +1,15 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"math/big"
 	"reflect"
 	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc/codes"

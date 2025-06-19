@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v5/errs"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"io"
 	"net/http"
 	"net/url"
@@ -27,9 +27,9 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/codec"
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/codec"
+	"github.com/singnet/snet-daemon/v6/config"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}

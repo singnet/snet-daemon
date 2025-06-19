@@ -7,7 +7,7 @@ package metrics
 
 import (
 	"errors"
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

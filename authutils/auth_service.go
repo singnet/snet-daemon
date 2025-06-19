@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"

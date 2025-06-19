@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"math/big"
 	"testing"
 

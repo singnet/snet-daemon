@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/kubo/client/rpc"
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
 
 	"io"

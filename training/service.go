@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v5/errs"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"io"
 	"maps"
 	"net/url"
@@ -19,11 +19,11 @@ import (
 	"time"
 
 	_ "embed"
-	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

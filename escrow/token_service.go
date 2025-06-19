@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/v5/authutils"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/token"
+	"github.com/singnet/snet-daemon/v6/authutils"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/token"
 	"golang.org/x/net/context"
 	"math/big"
 )

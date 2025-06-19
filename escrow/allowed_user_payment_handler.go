@@ -2,8 +2,8 @@ package escrow
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/handler"
 	"google.golang.org/grpc/codes"
 )
 

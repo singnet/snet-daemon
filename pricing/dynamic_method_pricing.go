@@ -7,10 +7,10 @@ import (
 	"math/big"
 	"net/url"
 
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/codec"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/codec"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/handler"
 
 	"go.uber.org/zap"
 	"golang.org/x/net/context"

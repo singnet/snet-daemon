@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"crypto/ecdsa"
+	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/v5/config"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -55,6 +59,31 @@ var FreeCallUserCmd = &cobra.Command{
 		"unlock will release the lock on the given user ",
 }
 
+var GenerateEvmKeys = &cobra.Command{
+	Use:   "generate-key",
+	Short: "Generate new pair of keys",
+	Long:  "Generate new pair of ethereum keys (private key and address)",
+	Run: func(cmd *cobra.Command, args []string) {
+		privateKey, err := crypto.GenerateKey()
+		if err != nil {
+			fmt.Printf("Failed to generate private key: %v", err)
+		}
+
+		privateKeyBytes := crypto.FromECDSA(privateKey)
+		fmt.Printf("Private Key: %s\n", hexutil.Encode(privateKeyBytes)[2:]) // cut "0x"
+
+		publicKey := privateKey.Public()
+		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+		if !ok {
+			fmt.Println("Failed to cast public key to ECDSA")
+		}
+
+		address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
+		fmt.Printf("Address: %s\n", address)
+		fmt.Println("⚠️ Save these keys or add them to the daemon config. The daemon doesn't store or publish these keys anywhere!")
+	},
+}
+
 const (
 	UnlockChannelFlag = "unlock"
 	UserIdFlag        = "user-id"
@@ -100,6 +129,7 @@ func init() {
 	RootCmd.AddCommand(ChannelCmd)
 	RootCmd.AddCommand(VersionCmd)
 	RootCmd.AddCommand(FreeCallUserCmd)
+	RootCmd.AddCommand(GenerateEvmKeys)
 
 	FreeCallUserCmd.AddCommand(FreeCallUserUnLockCmd)
 	FreeCallUserCmd.AddCommand(FreeCallUserResetCmd)

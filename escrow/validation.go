@@ -3,6 +3,7 @@ package escrow
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -42,7 +43,7 @@ func NewFreeCallPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int,
 	}
 }
 
-func (validator *FreeCallPaymentValidator) NewFreeCallToken(userAddress string, userID *string, tokenExp *uint64) ([]byte, *big.Int) {
+func (validator *FreeCallPaymentValidator) NewFreeCallToken(userAddress string, userID *string, tokenLifetimeBlocks *uint64) ([]byte, *big.Int) {
 
 	userAddr := common.HexToAddress(userAddress)
 
@@ -52,8 +53,8 @@ func (validator *FreeCallPaymentValidator) NewFreeCallToken(userAddress string, 
 	}
 
 	blockExpiration := big.NewInt(FreeCallTokenLifetime)
-	if tokenExp != nil && *tokenExp <= FreeCallTokenLifetime {
-		blockExpiration.SetUint64(*tokenExp)
+	if tokenLifetimeBlocks != nil && *tokenLifetimeBlocks <= FreeCallTokenLifetime {
+		blockExpiration.SetUint64(*tokenLifetimeBlocks)
 	}
 
 	deadlineBlockOfToken := latestBlockNumber.Add(latestBlockNumber, blockExpiration)
@@ -68,19 +69,20 @@ func (validator *FreeCallPaymentValidator) NewFreeCallToken(userAddress string, 
 func ParseFreeCallToken(token []byte) (sig []byte, block *big.Int, err error) {
 	i := bytes.LastIndexByte(token, '_')
 	if i == -1 {
-		return nil, nil, fmt.Errorf("no '_' found")
+		return nil, nil, errors.New("no '_' found")
 	}
 
 	sig = token[:i]
 	block = new(big.Int)
 	if _, ok := block.SetString(string(token[i+1:]), 10); !ok {
-		return nil, nil, fmt.Errorf("invalid block number")
+		return nil, nil, errors.New("invalid block number")
 	}
 
 	return sig, block, nil
 }
 
 func getAddressFromSignatureForNewFreeCallToken(request *GetFreeCallTokenRequest, groupID string) (signer *common.Address, err error) {
+
 	message := bytes.Join([][]byte{
 		[]byte(FreeCallPrefixSignature),
 		[]byte(request.GetAddress()),
@@ -254,13 +256,14 @@ func (validator *FreeCallPaymentValidator) getSignerOfAuthTokenForFreeCall(payme
 		return nil, fmt.Errorf("unauthorized signer: %v not equal %v, maybe invalid signature struct", payment.Address, signer.Hex())
 	}
 
-	zap.L().Debug("Signer of request will be passed to token", zap.String("address", signer.Hex()))
+	zap.L().Debug("Signer of useFreeCallRequest will be passed to token", zap.String("address", signer.Hex()))
 
 	message := BuildFreeCallTokenStruct(signer, payment.AuthTokenExpiryBlockNumber, &payment.UserID)
 	return authutils.GetSignerAddressFromMessage(message, payment.AuthTokenParsed)
 }
 
 func getAddressFromSigForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
+
 	message := bytes.Join([][]byte{
 		[]byte(FreeCallPrefixSignature),
 		[]byte(payment.Address),

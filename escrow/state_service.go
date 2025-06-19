@@ -68,7 +68,7 @@ func NewPaymentChannelStateService(channelService PaymentChannelService, payment
 }
 
 // GetChannelState returns the latest state of the channel which id is passed
-// in request. To authenticate sender request should also contain correct
+// in request. To authenticate sender request should also contain the correct
 // signature of the channel id.
 /* Simple case current_nonce == blockchain_nonce
 unspent_amount = blockchain_value - current_signed_amount

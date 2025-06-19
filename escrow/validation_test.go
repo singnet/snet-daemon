@@ -31,7 +31,7 @@ func SignTestPayment(payment *Payment, privateKey *ecdsa.PrivateKey) {
 func SignFreeTestPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey) {
 	message := bytes.Join([][]byte{
 		[]byte(FreeCallPrefixSignature),
-		[]byte(payment.UserId),
+		[]byte(payment.Address),
 		[]byte(config.GetString(config.OrganizationId)),
 		[]byte(config.GetString(config.ServiceId)),
 		[]byte(payment.GroupId),
@@ -40,15 +40,6 @@ func SignFreeTestPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey)
 	}, nil)
 
 	payment.Signature = getSignature(message, privateKey)
-}
-
-func GenerateFreeCallTokenPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey, userAddress common.Address) {
-	message := bytes.Join([][]byte{
-		[]byte(payment.UserId),
-		userAddress.Bytes(),
-		bigIntToBytes(payment.AuthTokenExpiryBlockNumber),
-	}, nil)
-	payment.AuthToken = getSignature(message, privateKey)
 }
 
 func getSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
@@ -108,20 +99,26 @@ func (suite *ValidationTestSuite) SetupSuite() {
 		currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 	}
-	suite.freeCallPaymentValidator = FreeCallPaymentValidator{freeCallSigner: suite.signerAddress,
-		currentBlock: func() (*big.Int, error) { return big.NewInt(8308168), nil }}
+	suite.freeCallPaymentValidator = FreeCallPaymentValidator{freeCallSignerAddress: suite.signerAddress, freeCallSigner: suite.signerPrivateKey,
+		currentBlock: func() (*big.Int, error) { return big.NewInt(99), nil }}
 }
 
 func (suite *ValidationTestSuite) FreeCallPayment() *FreeCallPayment {
 	payment := &FreeCallPayment{
-		UserId:                     "user1",
+		Address:                    suite.freeCallUserAddress.Hex(),
 		ServiceId:                  config.GetString(config.ServiceId),
 		OrganizationId:             config.GetString(config.OrganizationId),
-		CurrentBlockNumber:         big.NewInt(8308167),
-		AuthTokenExpiryBlockNumber: big.NewInt(83081670000),
+		CurrentBlockNumber:         big.NewInt(99),
+		AuthTokenExpiryBlockNumber: big.NewInt(120),
 		GroupId:                    "default_group",
 	}
-	GenerateFreeCallTokenPayment(payment, suite.signerPrivateKey, suite.freeCallUserAddress)
+	var tokenLifetimeBlocks uint64 = 21
+	//GenerateFreeCallTokenPayment(payment, suite.signerPrivateKey, suite.userAddress)
+	payment.AuthToken, payment.AuthTokenExpiryBlockNumber = suite.freeCallPaymentValidator.NewFreeCallToken(payment.Address, nil, &tokenLifetimeBlocks)
+	tokenParsed, block, err := ParseFreeCallToken(payment.AuthToken)
+	assert.Nil(suite.T(), err)
+	assert.NotNil(suite.T(), block)
+	payment.AuthTokenParsed = tokenParsed
 	SignFreeTestPayment(payment, suite.freeCallUserPrivateKey)
 	return payment
 }
@@ -150,6 +147,12 @@ func (suite *ValidationTestSuite) channel() *PaymentChannelData {
 		AuthorizedAmount: big.NewInt(12300),
 		Signature:        nil,
 	}
+}
+
+func (suite *ValidationTestSuite) TestFreeCallNewToken() {
+	payment := suite.FreeCallPayment()
+	_, deadlineBlock := suite.freeCallPaymentValidator.NewFreeCallToken(payment.Address, nil, nil)
+	assert.NotNil(suite.T(), deadlineBlock, "deadlineBlock can't be nil")
 }
 
 func (suite *ValidationTestSuite) TestFreeCallPaymentIsValid() {

@@ -6,7 +6,7 @@ import (
 )
 
 type FreeCallPayment struct {
-	// Address of the user or trusted backend making the request.
+	// Address of the user or trusted backend making the useFreeCallRequest.
 	// In Web3 flow, this is the user's wallet address.
 	// In Web2 (e.g., marketplace), this is the backend's signing address (must be trusted).
 	Address string

@@ -6,13 +6,14 @@
 package metrics
 
 import (
+	context2 "context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
 
 	"net/http"
@@ -58,6 +59,11 @@ type DaemonHeartbeat struct {
 	StorageClientCertDetails StorageClientCert `json:"storageClientCertDetails"`
 }
 
+func (service *DaemonHeartbeat) List(ctx context2.Context, request *grpc_health_v1.HealthListRequest) (*grpc_health_v1.HealthListResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // Converts the enum index into enum names
 func (state Status) String() string {
 	// declare an array of strings. operator counts how many items in the array (4)
@@ -96,7 +102,6 @@ func ValidateHeartbeatConfig() error {
 }
 func getStorageCertificateDetails() (cert StorageClientCert) {
 	cert = StorageClientCert{}
-	zap.L().Debug("enabling SSL support via X509 keypair")
 	certificate, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
 	if err != nil {
 		zap.L().Error("unable to load specific SSL X509 keypair for storage certificate", zap.Error(err))

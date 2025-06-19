@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/singnet/snet-daemon/v5/snetd/cmd"
+	"github.com/singnet/snet-daemon/v6/snetd/cmd"
 	"go.uber.org/zap"
 )
 

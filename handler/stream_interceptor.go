@@ -3,11 +3,11 @@ package handler
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/configuration_service"
-	"github.com/singnet/snet-daemon/v5/metrics"
-	"github.com/singnet/snet-daemon/v5/ratelimit"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/configuration_service"
+	"github.com/singnet/snet-daemon/v6/metrics"
+	"github.com/singnet/snet-daemon/v6/ratelimit"
 	"go.uber.org/zap"
 
 	"math/big"
@@ -56,15 +56,16 @@ const (
 	//Added for free call support in Daemon
 
 	//The user Id of the person making the call
-	FreeCallUserIdHeader = "snet-free-call-user-id"
+	FreeCallUserIdHeader      = "snet-free-call-user-id"
+	FreeCallUserAddressHeader = "snet-free-call-user-address"
 
 	//Will be used to check if the Signature is still valid
 	CurrentBlockNumberHeader = "snet-current-block-number"
 
 	//Place holder to set the free call Auth Token issued
 	FreeCallAuthTokenHeader = "snet-free-call-auth-token-bin"
-	//Block number on when the Token was issued , to track the expiry of the token , which is ~ 1 Month
-	FreeCallAuthTokenExpiryBlockNumberHeader = "snet-free-call-token-expiry-block"
+	//Block number on when the Token was issued, to track the expiry of the token, which is ~ 1 Month
+	//FreeCallAuthTokenExpiryBlockNumberHeader = "snet-free-call-token-expiry-block"
 
 	//Users may decide to sign upfront and make calls .Daemon generates and Auth Token
 	//Users/Clients will need to use this token to make calls for the amount signed upfront.
@@ -104,6 +105,10 @@ const (
 type GrpcError struct {
 	// Status is a gRPC call status
 	Status *status.Status
+}
+
+func (err *GrpcError) Error() string {
+	return err.String()
 }
 
 // Err returns error to return correct gRPC error to the caller
@@ -411,7 +416,7 @@ func NoOpInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	return handler(srv, ss)
 }
 
-// set Additional details on the metrics persisted , this is to keep track of how many calls were made per channel
+// set Additional details on the metrics persisted, this is to keep track of how many calls were made per channel
 func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
 	md := context.MD
 	if str, err := GetSingleValue(md, ClientTypeHeader); err == nil {

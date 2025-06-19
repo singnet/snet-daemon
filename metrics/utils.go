@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/singnet/snet-daemon/v5/authutils"
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/authutils"
+	"github.com/singnet/snet-daemon/v6/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -191,7 +191,7 @@ func getTokenFromResponse(response *http.Response) (string, bool) {
 		zap.L().Error("Can't unmarshal TokenGenerated", zap.Error(err))
 		return "", false
 	}
-	//close the body
+	// close the body
 	return data.Data.Token, true
 }
 

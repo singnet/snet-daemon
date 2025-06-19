@@ -4,23 +4,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/configuration_service"
-	"github.com/singnet/snet-daemon/v5/errs"
-	"github.com/singnet/snet-daemon/v5/escrow"
-	"github.com/singnet/snet-daemon/v5/etcddb"
-	"github.com/singnet/snet-daemon/v5/handler"
-	"github.com/singnet/snet-daemon/v5/metrics"
-	"github.com/singnet/snet-daemon/v5/pricing"
-	"github.com/singnet/snet-daemon/v5/storage"
-	"github.com/singnet/snet-daemon/v5/token"
-	"github.com/singnet/snet-daemon/v5/training"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/configuration_service"
+	"github.com/singnet/snet-daemon/v6/errs"
+	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/etcddb"
+	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/metrics"
+	"github.com/singnet/snet-daemon/v6/pricing"
+	"github.com/singnet/snet-daemon/v6/storage"
+	"github.com/singnet/snet-daemon/v6/token"
+	"github.com/singnet/snet-daemon/v6/training"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -401,7 +403,7 @@ func (components *Components) GrpcStreamInterceptor() grpc.StreamServerIntercept
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
 
-		meteringUrl := config.GetString(config.MeteringEndPoint) + "/metering/verify"
+		meteringUrl := config.GetString(config.MeteringEndpoint) + "/metering/verify"
 		if ok, err := components.verifyAuthenticationSetUpForFreeCall(meteringUrl,
 			components.OrganizationMetaData().GetGroupIdString()); !ok {
 			zap.L().Panic("Metering authentication failed.Please verify the configuration"+
@@ -483,7 +485,7 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 	if strings.Compare(responseBody.Data, "success") != 0 {
 		return false, fmt.Errorf("Error returned by by Metering Service %s Verification,"+
 			" pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
-			"to the private key in Daemon config.", config.GetString(config.MeteringEndPoint)+"/verify")
+			"to the private key in Daemon config.", config.GetString(config.MeteringEndpoint)+"/verify")
 	}
 
 	return true, nil
@@ -557,10 +559,22 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 		return components.freeCallStateService
 	}
 
-	components.freeCallStateService = escrow.NewFreeCallStateService(components.OrganizationMetaData(),
-		components.ServiceMetaData(), components.FreeCallUserService(),
-		escrow.NewFreeCallPaymentValidator(components.Blockchain().CurrentBlock,
-			components.ServiceMetaData().FreeCallSignerAddress()))
+	tokenInstance, err := blockchain.NewFetchToken(common.HexToAddress(config.GetTokenAddress()), components.Blockchain().GetEthHttpClient())
+	if err != nil {
+		return &escrow.BlockChainDisabledFreeCallStateService{}
+	}
+
+	components.freeCallStateService = escrow.NewFreeCallStateService(
+		components.OrganizationMetaData(),
+		components.ServiceMetaData(),
+		components.FreeCallUserService(),
+		escrow.NewFreeCallPaymentValidator(
+			components.Blockchain().CurrentBlock,
+			components.ServiceMetaData().FreeCallSignerAddress(),
+			utils.ParsePrivateKey(config.GetString(config.PvtKeyForFreeCalls)),
+			config.GetTrustedFreeCallSignersAddresses()),
+		tokenInstance,
+		config.GetBigInt(config.MinBalanceForFreeCall))
 	return components.freeCallStateService
 }
 
@@ -656,7 +670,9 @@ func (components *Components) TrainingService() training.DaemonServer {
 	if components.trainingService != nil {
 		return components.trainingService
 	}
-
+	if !config.GetBool(config.BlockchainEnabledKey) {
+		return &training.NoTrainingDaemonServer{}
+	}
 	components.trainingService = training.NewTrainingService(components.blockchain, components.ServiceMetaData(),
 		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage())
 	return components.trainingService

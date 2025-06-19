@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/singnet/snet-daemon/v5/escrow"
-	"github.com/singnet/snet-daemon/v5/storage"
+	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/spf13/cobra"
 )
 

@@ -1,7 +1,11 @@
 package cmd
 
 import (
-	"github.com/singnet/snet-daemon/v5/config"
+	"crypto/ecdsa"
+	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -55,9 +59,35 @@ var FreeCallUserCmd = &cobra.Command{
 		"unlock will release the lock on the given user ",
 }
 
+var GenerateEvmKeys = &cobra.Command{
+	Use:   "generate-key",
+	Short: "Generate new pair of keys",
+	Long:  "Generate new pair of ethereum keys (private key and address)",
+	Run: func(cmd *cobra.Command, args []string) {
+		privateKey, err := crypto.GenerateKey()
+		if err != nil {
+			fmt.Printf("Failed to generate private key: %v", err)
+		}
+
+		privateKeyBytes := crypto.FromECDSA(privateKey)
+		fmt.Printf("Private Key: %s\n", hexutil.Encode(privateKeyBytes)[2:]) // cut "0x"
+
+		publicKey := privateKey.Public()
+		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+		if !ok {
+			fmt.Println("Failed to cast public key to ECDSA")
+		}
+
+		address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
+		fmt.Printf("Address: %s\n", address)
+		fmt.Println("⚠️ Save these keys or add them to the daemon config. The daemon doesn't store or publish these keys anywhere!")
+	},
+}
+
 const (
 	UnlockChannelFlag = "unlock"
 	UserIdFlag        = "user-id"
+	AddressFlag       = "address"
 )
 
 var (
@@ -84,6 +114,7 @@ var (
 	claimTimeout     string
 	paymentChannelId string
 	freeCallUserId   string
+	freeCallAddress  string
 )
 
 func init() {
@@ -98,6 +129,7 @@ func init() {
 	RootCmd.AddCommand(ChannelCmd)
 	RootCmd.AddCommand(VersionCmd)
 	RootCmd.AddCommand(FreeCallUserCmd)
+	RootCmd.AddCommand(GenerateEvmKeys)
 
 	FreeCallUserCmd.AddCommand(FreeCallUserUnLockCmd)
 	FreeCallUserCmd.AddCommand(FreeCallUserResetCmd)
@@ -108,7 +140,9 @@ func init() {
 
 	ChannelCmd.Flags().StringVarP(&paymentChannelId, UnlockChannelFlag, "u", "", "unlocks the payment channel with the given ID, see \"list channels\"")
 	FreeCallUserResetCmd.Flags().StringVarP(&freeCallUserId, UserIdFlag, "u", "", "resets the free call usage count to zero for the user with the given ID")
+	FreeCallUserResetCmd.Flags().StringVarP(&freeCallAddress, AddressFlag, "a", "", "resets the free call usage count to zero for the user with the given address")
 	FreeCallUserUnLockCmd.Flags().StringVarP(&freeCallUserId, UserIdFlag, "u", "", "unlocks the free call user with the given ID")
+	FreeCallUserUnLockCmd.Flags().StringVarP(&freeCallAddress, AddressFlag, "a", "", "unlocks the free call user with the given address")
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))

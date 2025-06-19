@@ -3,7 +3,7 @@ package etcddb
 import (
 	"testing"
 
-	"github.com/singnet/snet-daemon/v5/utils"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/stretchr/testify/assert"
 )
 

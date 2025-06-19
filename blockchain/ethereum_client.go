@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"go.uber.org/zap"
 
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"

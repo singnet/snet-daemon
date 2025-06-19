@@ -3,7 +3,7 @@ package cmd
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/singnet/snet-daemon/v5/errs"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"net"
 	"net/http"
 	"os"
@@ -12,16 +12,16 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/configuration_service"
-	contractListener "github.com/singnet/snet-daemon/v5/contract_event_listener"
-	"github.com/singnet/snet-daemon/v5/escrow"
-	"github.com/singnet/snet-daemon/v5/handler"
-	"github.com/singnet/snet-daemon/v5/handler/httphandler"
-	"github.com/singnet/snet-daemon/v5/logger"
-	"github.com/singnet/snet-daemon/v5/metrics"
-	"github.com/singnet/snet-daemon/v5/training"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/configuration_service"
+	contractListener "github.com/singnet/snet-daemon/v6/contract_event_listener"
+	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/handler/httphandler"
+	"github.com/singnet/snet-daemon/v6/logger"
+	"github.com/singnet/snet-daemon/v6/metrics"
+	"github.com/singnet/snet-daemon/v6/training"
 
 	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
@@ -116,9 +116,9 @@ func newDaemon(components *Components) (daemon, error) {
 	d.components = components
 
 	var err error
-	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndPoint))
+	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndpoint))
 	if err != nil {
-		return d, errors.Wrap(err, "Expected format of daemon_endpoint is <host>:<port>.Error binding to the endpoint:"+config.GetString(config.DaemonEndPoint))
+		return d, errors.Wrap(err, "Expected format of daemon_endpoint is <host>:<port>.Error binding to the endpoint:"+config.GetString(config.DaemonEndpoint))
 	}
 
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)
@@ -280,8 +280,8 @@ func (d *daemon) start() {
 				handler.PaymentChannelAmountHeader,
 				handler.PaymentChannelNonceHeader,
 				handler.FreeCallUserIdHeader,
+				handler.FreeCallUserAddressHeader,
 				handler.FreeCallAuthTokenHeader,
-				handler.FreeCallAuthTokenExpiryBlockNumberHeader,
 				handler.UserInfoHeader,
 				handler.UserAgentHeader,
 				handler.DynamicPriceDerived,

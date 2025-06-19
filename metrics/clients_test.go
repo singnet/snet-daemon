@@ -49,6 +49,11 @@ const (
 type clientImplHeartBeat struct {
 }
 
+func (service *clientImplHeartBeat) List(ctx context.Context, request *pb.HealthListRequest) (*pb.HealthListResponse, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // Check implements `service Health`.
 func (service *clientImplHeartBeat) Check(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
 	return &pb.HealthCheckResponse{Status: pb.HealthCheckResponse_SERVING}, nil

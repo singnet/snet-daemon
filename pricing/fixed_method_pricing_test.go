@@ -1,13 +1,13 @@
 package pricing
 
 import (
-	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"google.golang.org/grpc"
 
 	"math/big"
 	"testing"
 
-	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/stretchr/testify/assert"
 )
 

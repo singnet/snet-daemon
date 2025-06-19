@@ -2,13 +2,16 @@ package escrow
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v5/authutils"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/authutils"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -20,18 +23,86 @@ const (
 	FreeCallPrefixSignature = "__prefix_free_trial"
 	//Agreed constant value
 	AllowedUserPrefixSignature = "__authorized_user"
+
+	FreeCallTokenLifetime = 172800 // in blocks
 )
 
 type FreeCallPaymentValidator struct {
-	currentBlock   func() (currentBlock *big.Int, err error)
-	freeCallSigner common.Address
+	currentBlock                   func() (currentBlock *big.Int, err error)
+	freeCallSignerAddress          common.Address
+	trustedFreeCallSignerAddresses []common.Address
+	freeCallSigner                 *ecdsa.PrivateKey
 }
 
-func NewFreeCallPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int, err error), signer common.Address) *FreeCallPaymentValidator {
+func NewFreeCallPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int, err error), signerAddress common.Address, signer *ecdsa.PrivateKey, trustedAddresses []common.Address) *FreeCallPaymentValidator {
 	return &FreeCallPaymentValidator{
-		currentBlock:   funcCurrentBlock,
-		freeCallSigner: signer,
+		currentBlock:                   funcCurrentBlock,
+		freeCallSignerAddress:          signerAddress,
+		trustedFreeCallSignerAddresses: trustedAddresses,
+		freeCallSigner:                 signer,
 	}
+}
+
+func (validator *FreeCallPaymentValidator) NewFreeCallToken(userAddress string, userID *string, tokenLifetimeBlocks *uint64) ([]byte, *big.Int) {
+
+	userAddr := common.HexToAddress(userAddress)
+
+	latestBlockNumber, err := validator.currentBlock()
+	if err != nil {
+		return nil, nil
+	}
+
+	blockExpiration := big.NewInt(FreeCallTokenLifetime)
+	if tokenLifetimeBlocks != nil && *tokenLifetimeBlocks <= FreeCallTokenLifetime {
+		blockExpiration.SetUint64(*tokenLifetimeBlocks)
+	}
+
+	deadlineBlockOfToken := latestBlockNumber.Add(latestBlockNumber, blockExpiration)
+
+	message := BuildFreeCallTokenStruct(&userAddr, deadlineBlockOfToken, userID)
+
+	signedToken := authutils.GetSignature(message, validator.freeCallSigner)
+	signedToken = append(signedToken, []byte("_"+deadlineBlockOfToken.String())...)
+	return signedToken, deadlineBlockOfToken
+}
+
+func ParseFreeCallToken(token []byte) (sig []byte, block *big.Int, err error) {
+	i := bytes.LastIndexByte(token, '_')
+	if i == -1 {
+		return nil, nil, errors.New("no '_' found")
+	}
+
+	sig = token[:i]
+	block = new(big.Int)
+	if _, ok := block.SetString(string(token[i+1:]), 10); !ok {
+		return nil, nil, errors.New("invalid block number")
+	}
+
+	return sig, block, nil
+}
+
+func getAddressFromSignatureForNewFreeCallToken(request *GetFreeCallTokenRequest, groupID string) (signer *common.Address, err error) {
+
+	message := bytes.Join([][]byte{
+		[]byte(FreeCallPrefixSignature),
+		[]byte(request.GetAddress()),
+		[]byte(request.GetUserId()),
+		[]byte(config.GetString(config.OrganizationId)),
+		[]byte(config.GetString(config.ServiceId)),
+		[]byte(groupID),
+		bigIntToBytes(big.NewInt(int64(request.GetCurrentBlock()))),
+	}, nil)
+
+	signer, err = authutils.GetSignerAddressFromMessage(message, request.Signature)
+	if err != nil {
+		zap.L().Error("Cannot get signer from message", zap.Error(err))
+		return nil, err
+	}
+	if err = checkCurationValidations(signer); err != nil {
+		zap.L().Error(err.Error())
+		return nil, err
+	}
+	return signer, err
 }
 
 type AllowedUserPaymentValidator struct {
@@ -42,25 +113,34 @@ func (validator *AllowedUserPaymentValidator) Validate(payment *Payment) (err er
 	return err
 }
 
+func (validator *FreeCallPaymentValidator) CompareSignerAddrs(addr common.Address) error {
+	if slices.ContainsFunc(validator.trustedFreeCallSignerAddresses, func(address common.Address) bool {
+		return addr == address
+	}) {
+		return nil
+	}
+
+	if addr == validator.freeCallSignerAddress {
+		return nil
+	}
+	return NewPaymentError(Unauthenticated, "payment signer %v is not valid", addr.Hex())
+}
+
 func (validator *FreeCallPaymentValidator) Validate(payment *FreeCallPayment) (err error) {
-	newSignature := true //this will be removed once dapp makes the changes to move to new Signature
-	signerAddress, err := validator.getSignerOfAuthTokenForFreeCall(payment)
-	if err != nil || *signerAddress != validator.freeCallSigner {
-		//Make sure the current Dapp is backward compatible, this will be removed once Dapp
-		//Makes the latest signature change with Token for Free calls
-		if signerAddress, err = validator.getSignerAddressForFreeCall(payment); err != nil {
-			return NewPaymentError(Unauthenticated, "payment signature is not valid")
-		}
-		newSignature = false
+	tokenSignerAddress, err := validator.getSignerOfAuthTokenForFreeCall(payment)
+	if err != nil {
+		return NewPaymentError(Unauthenticated, "sign is not valid: %v", err)
 	}
-	if *signerAddress != validator.freeCallSigner {
-		return NewPaymentError(Unauthenticated, "payment signer is not valid %v , %v", signerAddress.Hex(), validator.freeCallSigner.Hex())
+
+	// check that free call token signed by daemon
+	if *tokenSignerAddress != validator.freeCallSignerAddress {
+		return NewPaymentError(Unauthenticated, "token sign is not valid")
 	}
-	if newSignature {
-		if err := validator.CheckIfBlockExpired(payment.AuthTokenExpiryBlockNumber); err != nil {
-			return err
-		}
+
+	if err := validator.CheckIfBlockExpired(payment.AuthTokenExpiryBlockNumber); err != nil {
+		return err
 	}
+
 	//Check for the current block Number
 	if err := validator.compareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
 		return err
@@ -150,69 +230,44 @@ func (validator *FreeCallPaymentValidator) CheckIfBlockExpired(expiredBlock *big
 	return nil
 }
 
-// deprecated
-func (validator *FreeCallPaymentValidator) getSignerAddressForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
+func BuildFreeCallTokenStruct(addr *common.Address, expirationBlock *big.Int, userID *string) (token []byte) {
+	if userID == nil {
+		userID = new(string)
+	}
 
 	message := bytes.Join([][]byte{
-		[]byte(FreeCallPrefixSignature),
-		[]byte(payment.UserId),
 		[]byte(config.GetString(config.OrganizationId)),
-		[]byte(config.GetString(config.ServiceId)),
-		bigIntToBytes(payment.CurrentBlockNumber),
+		[]byte(config.GetString(config.DaemonGroupName)),
+		addr.Bytes(), // user or market app address
+		[]byte(*userID),
+		bigIntToBytes(expirationBlock),
 	}, nil)
 
-	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
-	if err != nil {
-		zap.L().Error("Cannot get signer from payment", zap.Any("payment", payment), zap.Error(err))
-		return nil, err
-	}
-	return signer, err
-}
-
-func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err error) {
-	message := bytes.Join([][]byte{
-		[]byte(PrefixInSignature),
-		payment.MpeContractAddress.Bytes(),
-		bigIntToBytes(payment.ChannelID),
-		bigIntToBytes(payment.ChannelNonce),
-		bigIntToBytes(payment.Amount),
-	}, nil)
-
-	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
-	if err != nil {
-		zap.L().Error("Cannot get signer from payment", zap.Error(err), zap.Any("payment", payment))
-		return nil, err
-	}
-	if err = checkCurationValidations(signer); err != nil {
-		zap.L().Error(err.Error())
-		return nil, err
-	}
-
-	return signer, err
+	return message
 }
 
 func (validator *FreeCallPaymentValidator) getSignerOfAuthTokenForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
-	//signer-token = (user@mail, user-public-key, token_issue_date), this is generated by Marketplace Dapp
-	signer, err = getUserAddressFromSignatureOfFreeCalls(payment)
+	signer, err = getAddressFromSigForFreeCall(payment)
 	if err != nil {
 		return nil, err
 	}
-	zap.L().Debug("signer of req - will be passed to token: ", zap.String("signer", signer.Hex()))
-	zap.L().Debug("AuthTokenExpiryBlockNumber", zap.Int64("value", payment.AuthTokenExpiryBlockNumber.Int64()))
-	message := bytes.Join([][]byte{
-		[]byte(payment.UserId),
-		signer.Bytes(), // user address
-		bigIntToBytes(payment.AuthTokenExpiryBlockNumber),
-	}, nil)
-	return authutils.GetSignerAddressFromMessage(message, payment.AuthToken)
+	// checking that address in the message is the same that in metadata
+	if common.HexToAddress(payment.Address) != *signer {
+		return nil, fmt.Errorf("unauthorized signer: %v not equal %v, maybe invalid signature struct", payment.Address, signer.Hex())
+	}
 
+	//zap.L().Debug("Signer of request will be passed to token", zap.String("address", signer.Hex()))
+
+	message := BuildFreeCallTokenStruct(signer, payment.AuthTokenExpiryBlockNumber, &payment.UserID)
+	return authutils.GetSignerAddressFromMessage(message, payment.AuthTokenParsed)
 }
 
-// user signs using his private key, the public address of this user should be in the token issued by Dapp
-func getUserAddressFromSignatureOfFreeCalls(payment *FreeCallPayment) (signer *common.Address, err error) {
+func getAddressFromSigForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
+
 	message := bytes.Join([][]byte{
 		[]byte(FreeCallPrefixSignature),
-		[]byte(payment.UserId),
+		[]byte(payment.Address),
+		[]byte(payment.UserID),
 		[]byte(config.GetString(config.OrganizationId)),
 		[]byte(config.GetString(config.ServiceId)),
 		[]byte(payment.GroupId),
@@ -242,11 +297,33 @@ func bytesToBigInt(bytes []byte) *big.Int {
 
 func checkCurationValidations(signer *common.Address) error {
 	//This is only to protect the Service provider in test environment from being
-	//hit by unknown users during curation process
+	//hit by unknown users during a curation process
 	if config.GetBool(config.AllowedUserFlag) {
 		if !config.IsAllowedUser(signer) {
 			return fmt.Errorf("you are not Authorized to call this service during curation process")
 		}
 	}
 	return nil
+}
+
+func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err error) {
+	message := bytes.Join([][]byte{
+		[]byte(PrefixInSignature),
+		payment.MpeContractAddress.Bytes(),
+		bigIntToBytes(payment.ChannelID),
+		bigIntToBytes(payment.ChannelNonce),
+		bigIntToBytes(payment.Amount),
+	}, nil)
+
+	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
+	if err != nil {
+		zap.L().Error("Cannot get signer from payment", zap.Error(err), zap.Any("payment", payment))
+		return nil, err
+	}
+	if err = checkCurationValidations(signer); err != nil {
+		zap.L().Error(err.Error())
+		return nil, err
+	}
+
+	return signer, err
 }

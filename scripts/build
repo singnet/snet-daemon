@@ -36,6 +36,7 @@ if [ "$1" == "windows" ]
 fi
 
 CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -ldflags "
+-s -w
 -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore
 -X github.com/singnet/snet-daemon/v5/config.sha1Revision=$githash
 -X github.com/singnet/snet-daemon/v5/config.versionTag=$3

@@ -7,10 +7,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/config"
-	"github.com/singnet/snet-daemon/v5/handler"
-	"github.com/singnet/snet-daemon/v5/metrics"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/metrics"
 )
 
 const (
@@ -115,7 +115,7 @@ func PublishChannelStats(payment handler.Payment) (grpcErr *handler.GrpcError) {
 		Nonce:            paymentTransaction.Channel().Nonce,
 		GroupID:          blockchain.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
 	}
-	meteringURL := config.GetString(config.MeteringEndPoint) + "/contract-api/channel/" + channelStats.ChannelId.String() + "/balance"
+	meteringURL := config.GetString(config.MeteringEndpoint) + "/contract-api/channel/" + channelStats.ChannelId.String() + "/balance"
 
 	channelStats.OrganizationID = config.GetString(config.OrganizationId)
 	channelStats.ServiceID = config.GetString(config.ServiceId)

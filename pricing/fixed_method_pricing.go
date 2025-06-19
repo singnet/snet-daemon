@@ -2,8 +2,8 @@ package pricing
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/handler"
 	"math/big"
 )
 

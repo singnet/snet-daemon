@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/kubo/client/rpc"
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
 
 	"io"
@@ -74,9 +74,9 @@ func GetIPFSClient() *rpc.HttpApi {
 	httpClient := http.Client{
 		Timeout: time.Duration(config.GetInt(config.IpfsTimeout)) * time.Second,
 	}
-	ifpsClient, err := rpc.NewURLApiWithClient(config.GetString(config.IpfsEndPoint), &httpClient)
+	ifpsClient, err := rpc.NewURLApiWithClient(config.GetString(config.IpfsEndpoint), &httpClient)
 	if err != nil {
-		zap.L().Fatal("Connection failed to IPFS", zap.String("IPFS", config.GetString(config.IpfsEndPoint)), zap.Error(err))
+		zap.L().Fatal("Connection failed to IPFS", zap.String("IPFS", config.GetString(config.IpfsEndpoint)), zap.Error(err))
 	}
 	return ifpsClient
 }

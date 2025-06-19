@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v5/authutils"
+	"github.com/singnet/snet-daemon/v6/authutils"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/v5/utils"
+	"github.com/singnet/snet-daemon/v6/utils"
 )
 
 var unifiedAuthMethods = map[string]struct{}{

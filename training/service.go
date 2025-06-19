@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v5/errs"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"io"
 	"maps"
 	"net/url"
@@ -19,11 +19,11 @@ import (
 	"time"
 
 	_ "embed"
-	"github.com/singnet/snet-daemon/v5/blockchain"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -920,7 +920,6 @@ func (ds *DaemonService) GetAllModels(ctx context.Context, request *AllModelsReq
 	filtered := modelDetailsArray[:0]
 
 	for _, v := range modelDetailsArray {
-		//zap.L().Debug("[GetAllModels] model", zap.String("id", v.ModelId), zap.String("status", v.Status.String()))
 		if strings.Contains(strings.ToLower(v.Name), strings.ToLower(request.Name)) &&
 			strings.Contains(v.GrpcMethodName, request.GrpcMethodName) &&
 			strings.Contains(v.GrpcServiceName, request.GrpcServiceName) &&

@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/v5/authutils"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/token"
+	"github.com/singnet/snet-daemon/v6/authutils"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/token"
 	"golang.org/x/net/context"
 	"math/big"
 )
@@ -156,9 +156,8 @@ func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest
 	}
 
 	plannedAmount, ok, err := service.prePaidUsageService.GetUsage(PrePaidDataKey{ChannelID: channelID, UsageType: PLANNED_AMOUNT})
-
 	if !ok {
-		return nil, fmt.Errorf("Unable to retrieve planned Amount ")
+		return nil, fmt.Errorf("unable to retrieve planned Amount %v", err)
 	}
 	if err != nil {
 		return nil, err

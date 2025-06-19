@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/v5/authutils"
+	"github.com/singnet/snet-daemon/v6/authutils"
 
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -99,7 +99,7 @@ func Test_convertToConfigurationType(t *testing.T) {
 func Test_getCurrentConfig(t *testing.T) {
 
 	currentConfig := getCurrentConfig()
-	assert.NotEmpty(t, currentConfig[config.DaemonEndPoint])
+	assert.NotEmpty(t, currentConfig[config.DaemonEndpoint])
 	config.Vip().Set(config.PvtKeyForMetering, "HIDDEN")
 	currentConfig = getCurrentConfig()
 	assert.Empty(t, currentConfig[config.PvtKeyForMetering])

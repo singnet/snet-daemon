@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -92,7 +92,7 @@ type ResponseStats struct {
 // If there is an error in the response received from the service, then send out a notification as well.
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error) bool {
 	response := createResponseStats(commonStats, duration, err)
-	return Publish(response, config.GetString(config.MeteringEndPoint)+"/metering/usage", commonStats)
+	return Publish(response, config.GetString(config.MeteringEndpoint)+"/metering/usage", commonStats)
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {

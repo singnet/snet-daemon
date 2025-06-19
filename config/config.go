@@ -30,19 +30,17 @@ const (
 	ConfigPathKey             = "config_path"
 	DaemonGroupName           = "daemon_group_name"
 	DaemonTypeKey             = "daemon_type" // http/grpc
-	DaemonEndPoint            = "daemon_endpoint"
+	DaemonEndpoint            = "daemon_endpoint"
 	ExecutablePathKey         = "executable_path"
 	EnableDynamicPricing      = "enable_dynamic_pricing"
-	IpfsEndPoint              = "ipfs_endpoint"
+	IpfsEndpoint              = "ipfs_endpoint"
 	LighthouseEndpoint        = "lighthouse_endpoint"
 	IpfsTimeout               = "ipfs_timeout"
 	LogKey                    = "log"
 	MaxMessageSizeInMB        = "max_message_size_in_mb"
 	MeteringEnabled           = "metering_enabled"
 	// ModelMaintenanceEndPoint This is for grpc server end point for Model Maintenance like Create, update, delete, status check
-	ModelMaintenanceEndPoint = "model_maintenance_endpoint"
-	// ModelTrainingEndpoint This is for directing any training calls on Models, as training calls are heavy on resources
-	//ModelTrainingEndpoint          = "model_training_endpoint"
+	ModelMaintenanceEndPoint       = "model_maintenance_endpoint"
 	ModelTrainingEnabled           = "model_training_enabled"
 	OrganizationId                 = "organization_id"
 	ServiceId                      = "service_id"
@@ -59,12 +57,15 @@ const (
 	PaymentChannelStorageClientKey = "payment_channel_storage_client"
 	PaymentChannelStorageServerKey = "payment_channel_storage_server"
 	BlockchainProviderApiKey       = "blockchain_provider_api_key"
-	FreeCallsUsers                 = "free_calls_users"
-	//configs for Daemon Monitoring and Notification
+	FreeCallsPerAddress            = "free_calls_per_address"
+	TrustedFreeCallSigners         = "trusted_free_call_signers"
+	MinBalanceForFreeCall          = "min_balance_for_free_call"
+	// Monitoring and Notification
 	AlertsEMail                 = "alerts_email"
 	HeartbeatServiceEndpoint    = "heartbeat_endpoint"
-	MeteringEndPoint            = "metering_endpoint"
-	PvtKeyForMetering           = "pvt_key_for_metering"
+	MeteringEndpoint            = "metering_endpoint"
+	PvtKeyForMetering           = "private_key_for_metering"
+	PvtKeyForFreeCalls          = "private_key_for_free_calls"
 	NotificationServiceEndpoint = "notification_endpoint"
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	TokenExpiryInMinutes        = "token_expiry_in_minutes"
@@ -82,7 +83,7 @@ const (
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/", 
 	"ipfs_timeout" : 30,
 	"passthrough_enabled": true,
-	"service_endpoint":"YOUR_SERVICE_ENDPOINT",
+	"service_endpoint":"http://localhost:5000",
 	"service_id": "YOUR_SERVICE_ID", 
 	"organization_id": "YOUR_ORG_ID",
 	"metering_enabled": false,
@@ -94,7 +95,10 @@ const (
 	"allowed_user_flag" :false,
 	"auto_ssl_domain": "",
 	"auto_ssl_cache_dir": ".certs",
-	"private_key": "",
+	"private_key_for_free_calls": "",
+	"min_balance_for_free_call" : "10",
+	"trusted_free_call_signers": ["0x3Bb9b2499c283cec176e7C707Ecb495B7a961ebf", "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F"],
+	"free_calls_per_address":{},
 	"log":  {
 		"level": "info",
 		"timezone": "UTC",
@@ -148,6 +152,9 @@ const (
 	"ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
 	"ipfs_endpoint": "https://ipfs.singularitynet.io:443",
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/",
+	"private_key_for_free_calls": "",
+	"min_balance_for_free_call" : 10,
+	"trusted_free_call_signers": ["0x3Bb9b2499c283cec176e7C707Ecb495B7a961ebf", "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F"],
 	"log": {
 		"output": {
 			"type": ["file", "stdout"]
@@ -172,6 +179,29 @@ func init() {
 	SetDefaultFromConfig(vip, defaults)
 
 	vip.AddConfigPath(".")
+}
+
+// support old deprecated alias
+func migrateDeprecatedParams(v *viper.Viper) {
+
+	deprecated := map[string]string{
+		"daemon_end_point":           DaemonEndpoint,
+		"ipfs_end_point":             IpfsEndpoint,
+		"passthrough_endpoint":       ServiceEndpointKey,
+		"metering_end_point":         MeteringEndpoint,
+		"heartbeat_svc_end_point":    HeartbeatServiceEndpoint,
+		"notification_svc_end_point": NotificationServiceEndpoint,
+		"pvt_key_for_metering":       PvtKeyForMetering,
+		"pvt_key_for_free_calls":     PvtKeyForFreeCalls,
+	}
+
+	for oldKey, newKey := range deprecated {
+		if v.IsSet(oldKey) {
+			val := v.Get(oldKey)
+			v.Set(newKey, val)
+			zap.L().Warn(fmt.Sprintf("Config parameter '%s' is deprecated, use '%s' instead", oldKey, newKey))
+		}
+	}
 }
 
 // SetVip allows setting a new Viper instance.
@@ -200,6 +230,9 @@ func Vip() *viper.Viper {
 }
 
 func Validate() error {
+
+	migrateDeprecatedParams(Vip())
+
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
 	case "http":
@@ -217,7 +250,7 @@ func Validate() error {
 
 	// Validate metrics URL and set state
 	passEndpoint := vip.GetString(ServiceEndpointKey)
-	daemonEndpoint := vip.GetString(DaemonEndPoint)
+	daemonEndpoint := vip.GetString(DaemonEndpoint)
 	err := ValidateEndpoints(daemonEndpoint, passEndpoint)
 	if err != nil {
 		return err
@@ -241,7 +274,34 @@ func Validate() error {
 		return err
 	}
 
+	if len(GetTrustedFreeCallSignersAddresses()) > 0 {
+		zap.L().Info("Free calls for Marketplace enabled")
+	} else {
+		zap.L().Warn("Free calls for Marketplace disabled")
+	}
+
 	return validateMeteringChecks()
+}
+
+func GetTrustedFreeCallSignersAddresses() []common.Address {
+	var addrs []common.Address
+
+	slice := vip.GetStringSlice(TrustedFreeCallSigners)
+	if len(slice) > 0 {
+		for _, addr := range slice {
+			if common.IsHexAddress(addr) {
+				addrs = append(addrs, common.HexToAddress(addr))
+			}
+		}
+		return addrs
+	}
+
+	addr := vip.GetString(TrustedFreeCallSigners)
+	if common.IsHexAddress(addr) {
+		return []common.Address{common.HexToAddress(addr)}
+	}
+
+	return addrs
 }
 
 // Feature in Daemon to restrict access to only certain users , this feature is useful,when you are
@@ -261,7 +321,7 @@ func allowedUserConfigurationChecks() error {
 }
 
 func validateMeteringChecks() (err error) {
-	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndPoint)) {
+	if GetBool(MeteringEnabled) && !IsValidUrl(GetString(MeteringEndpoint)) {
 		return errors.New("to Support Metering you need to have a valid Metering End point")
 	}
 	return nil
@@ -301,14 +361,22 @@ func GetStringMap(key string) map[string]any {
 	return vip.GetStringMap(key)
 }
 
-func GetFreeCallsCount(userID string) (countFreeCallsAllowed int) {
-	freeCallsUsers := GetStringMap(FreeCallsUsers)
-	if countFreeCalls, ok := freeCallsUsers[userID]; ok {
-		if count, countOk := countFreeCalls.(float64); countOk {
-			countFreeCallsAllowed = int(count)
-		}
+func normalizeMapKeysToLower(m map[string]any) map[string]any {
+	normalized := make(map[string]any, len(m))
+	for k, v := range m {
+		normalized[strings.ToLower(k)] = v
 	}
-	return
+	return normalized
+}
+
+func GetFreeCallsAllowed(userAddr string) int {
+	zap.L().Debug("GetFreeCallsAllowed", zap.String("addr", userAddr))
+	freeCallsUsers := normalizeMapKeysToLower(GetStringMap(FreeCallsPerAddress))
+	if countFreeCalls, ok := freeCallsUsers[strings.ToLower(userAddr)]; ok {
+		zap.L().Debug("GetFreeCallsAllowed", zap.String("addr", userAddr), zap.Float64("countFreeCalls", countFreeCalls.(float64)))
+		return int(countFreeCalls.(float64))
+	}
+	return 0
 }
 
 func GetStringSlice(key string) []string {
@@ -349,14 +417,13 @@ var DisplayKeys = map[string]bool{
 	strings.ToUpper(ConfigPathKey):                  true,
 	strings.ToUpper(DaemonGroupName):                true,
 	strings.ToUpper(DaemonTypeKey):                  true,
-	strings.ToUpper(DaemonEndPoint):                 true,
+	strings.ToUpper(DaemonEndpoint):                 true,
 	strings.ToUpper(ExecutablePathKey):              true,
-	strings.ToUpper(IpfsEndPoint):                   true,
+	strings.ToUpper(IpfsEndpoint):                   true,
 	strings.ToUpper(LighthouseEndpoint):             true,
 	strings.ToUpper(IpfsTimeout):                    false,
 	strings.ToUpper(LogKey):                         true,
 	strings.ToUpper(MaxMessageSizeInMB):             true,
-	strings.ToUpper(MeteringEnabled):                true,
 	strings.ToUpper(OrganizationId):                 true,
 	strings.ToUpper(ServiceId):                      true,
 	strings.ToUpper(PassthroughEnabledKey):          true,
@@ -372,7 +439,8 @@ var DisplayKeys = map[string]bool{
 	strings.ToUpper(PaymentChannelStorageServerKey): true,
 	strings.ToUpper(AlertsEMail):                    true,
 	strings.ToUpper(HeartbeatServiceEndpoint):       true,
-	strings.ToUpper(MeteringEndPoint):               true,
+	strings.ToUpper(MeteringEnabled):                true,
+	strings.ToUpper(MeteringEndpoint):               true,
 	strings.ToUpper(NotificationServiceEndpoint):    true,
 	strings.ToUpper(ServiceHeartbeatType):           true,
 }

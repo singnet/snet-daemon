@@ -1,15 +1,15 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/v5/config"
+	"github.com/singnet/snet-daemon/v6/config"
 	"math/big"
 	"reflect"
 	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v5/blockchain"
-	"github.com/singnet/snet-daemon/v5/handler"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc/codes"
@@ -162,11 +162,11 @@ func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
 			config.Vip().Set(config.ServiceId, "ExampleServiceId")
 			config.Vip().Set(config.MeteringEnabled, true)
 			config.Vip().Set(config.PvtKeyForMetering, "063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
-			config.Vip().Set(config.MeteringEndPoint, "https://bkq2d3zjl4.execute-api.eu-west-1.amazonaws.com/main")
+			config.Vip().Set(config.MeteringEndpoint, "https://bkq2d3zjl4.execute-api.eu-west-1.amazonaws.com/main")
 		}},
 
 		{name: "", wantErr: handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error"), setupFunc: func() {
-			config.Vip().Set(config.MeteringEndPoint, "badurl")
+			config.Vip().Set(config.MeteringEndpoint, "badurl")
 		}},
 	}
 	for _, tt := range tests {

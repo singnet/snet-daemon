@@ -920,7 +920,6 @@ func (ds *DaemonService) GetAllModels(ctx context.Context, request *AllModelsReq
 	filtered := modelDetailsArray[:0]
 
 	for _, v := range modelDetailsArray {
-		//zap.L().Debug("[GetAllModels] model", zap.String("id", v.ModelId), zap.String("status", v.Status.String()))
 		if strings.Contains(strings.ToLower(v.Name), strings.ToLower(request.Name)) &&
 			strings.Contains(v.GrpcMethodName, request.GrpcMethodName) &&
 			strings.Contains(v.GrpcServiceName, request.GrpcServiceName) &&

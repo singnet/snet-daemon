@@ -256,7 +256,7 @@ func (validator *FreeCallPaymentValidator) getSignerOfAuthTokenForFreeCall(payme
 		return nil, fmt.Errorf("unauthorized signer: %v not equal %v, maybe invalid signature struct", payment.Address, signer.Hex())
 	}
 
-	zap.L().Debug("Signer of useFreeCallRequest will be passed to token", zap.String("address", signer.Hex()))
+	//zap.L().Debug("Signer of request will be passed to token", zap.String("address", signer.Hex()))
 
 	message := BuildFreeCallTokenStruct(signer, payment.AuthTokenExpiryBlockNumber, &payment.UserID)
 	return authutils.GetSignerAddressFromMessage(message, payment.AuthTokenParsed)

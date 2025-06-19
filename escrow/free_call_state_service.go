@@ -41,8 +41,6 @@ func (service *FreeCallStateService) CheckBalanceForFreeCall(ctx context.Context
 	factor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(18)), nil)
 	threshold := new(big.Int).Mul(service.minBalanceForFreeCall, factor)
 
-	//zap.L().Debug("[GetFreeCallToken] balance", zap.String("amount", balance.String()), zap.String("addr", useFreeCallRequest.Address))
-
 	if balance.Cmp(threshold) < 0 {
 		return handler.NewGrpcErrorf(codes.PermissionDenied, "you must have at least %s FET (ASI) in your balance to use free calls", service.minBalanceForFreeCall.String())
 	}
@@ -57,7 +55,7 @@ func (service *FreeCallStateService) GetFreeCallToken(ctx context.Context, reque
 	}
 
 	if *signer != common.HexToAddress(request.GetAddress()) {
-		return nil, fmt.Errorf("invalid signer, %v (from useFreeCallRequest) is not equal to %v (signer)", request.GetAddress(), signer)
+		return nil, fmt.Errorf("invalid signer, %v (from request) is not equal to %v (signer)", request.GetAddress(), signer)
 	}
 
 	err = service.freeCallValidator.compareWithLatestBlockNumber(big.NewInt(0).SetUint64(request.GetCurrentBlock()))
@@ -65,7 +63,7 @@ func (service *FreeCallStateService) GetFreeCallToken(ctx context.Context, reque
 		return nil, err
 	}
 
-	// If address is not trusted we can't allow user-id in useFreeCallRequest
+	// If address is not trusted we can't allow user-id in request
 	if !slices.ContainsFunc(service.freeCallValidator.trustedFreeCallSignerAddresses,
 		func(addr common.Address) bool {
 			return *signer == addr
@@ -115,7 +113,7 @@ func (service *FreeCallStateService) GetFreeCallsAvailable(context context.Conte
 	}
 
 	if err = service.verify(payment); err != nil {
-		zap.L().Error("Error in authorizing the useFreeCallRequest", zap.Error(err))
+		zap.L().Error("Error in authorizing the request", zap.Error(err))
 		return nil, err
 	}
 

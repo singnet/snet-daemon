@@ -19,7 +19,7 @@ if ($args.Count -lt 3)
 
 $GOOS = $args[0] # linux
 $GOARCH = $args[1] # amd64
-$Version = $args[2] # v5.1.2
+$Version = $args[2] # v6.0.0
 
 # change directory
 Push-Location $ParentPath
@@ -63,10 +63,10 @@ if ($GOOS -eq "windows")
 $Env:CGO_ENABLED = 0; $Env:GOOS = $GOOS; $Env:GOARCH = $GOARCH; go build -ldflags "
 -s -w
 -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore
--X github.com/singnet/snet-daemon/v5/config.sha1Revision=$GitHash
--X github.com/singnet/snet-daemon/v5/config.versionTag=$Version
--X github.com/singnet/snet-daemon/v5/config.buildTime=$Now
--X 'github.com/singnet/snet-daemon/v5/config.networkIdNameMapping=$NetworkJson'" -o (Join-Path $BuildDirectory $BuildName) snetd/main.go
+-X github.com/singnet/snet-daemon/v6/config.sha1Revision=$GitHash
+-X github.com/singnet/snet-daemon/v6/config.versionTag=$Version
+-X github.com/singnet/snet-daemon/v6/config.buildTime=$Now
+-X 'github.com/singnet/snet-daemon/v6/config.networkIdNameMapping=$NetworkJson'" -o (Join-Path $BuildDirectory $BuildName) snetd/main.go
 
 # return to previous directory
 Pop-Location

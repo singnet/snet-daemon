@@ -54,7 +54,7 @@ func Test_getBuildTime(t *testing.T) {
 }
 
 func TestCheckVersionOfDaemon(t *testing.T) {
-	versionTag = "v5.1.2"
+	versionTag = "not-latest"
 	message, err := CheckVersionOfDaemon()
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "there is a newer version of the Daemon")

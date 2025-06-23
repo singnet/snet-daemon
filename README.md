@@ -71,7 +71,8 @@ can be set via environment variables or command line parameters see [table
 below](#table_conf). Use `--config` parameter with any command to set configuration file name. By default daemon
 use configuration file in JSON format `snetd.config.json` but other formats are
 also supported via [Viper](https://github.com/spf13/viper). Use `init-full` or `init`
-command to save configuration file with default values. The following configuration properties can be set using a configuration file.
+command to save configuration file with default values. The following configuration properties can be set using a
+configuration file.
 
 ### Main properties <a name="main_properties"></a>
 
@@ -125,13 +126,16 @@ These parameters are needed if you specified free_calls in the service metadata.
 
 * **private_key_for_free_calls** (required) —
   The private key is used to sign authorization tokens for free calls. This address is NOT required to have any tokens.
-  
-  ⚠️ This private key must correspond to the public address specified in your service_metadata.json under the free_calls.public_key field.
 
-  
-* **trusted_free_call_signers** (optional, default SingularityNET addresses) — A list of trusted public addresses that are allowed to issue free call tokens on your behalf (e.g. trusted centralized backends or marketplaces).
+  ⚠️ This private key must correspond to the public address specified in your service_metadata.json under the
+  free_calls.public_key field.
 
-  ⚠️  If this field is left empty, free calls will not work via the SingularityNET Marketplace, but will still be available for clients using the Web3 approach (e.g., via SDKs).
+
+* **trusted_free_call_signers** (optional, default SingularityNET addresses) — A list of trusted public addresses that
+  are allowed to issue free call tokens on your behalf (e.g. trusted centralized backends or marketplaces).
+
+  ⚠️ If this field is left empty, free calls will not work via the SingularityNET Marketplace, but will still be
+  available for clients using the Web3 approach (e.g., via SDKs).
 
   ```json
   "trusted_free_call_signers": [
@@ -139,7 +143,8 @@ These parameters are needed if you specified free_calls in the service metadata.
   "0x3Bb9b2499c283cec176e7C707Ecb495B7a961ebf" ]
   ```
 
-* **min_balance_for_free_call** (optional, default 10) — The minimum token (FET) balance (in whole tokens) required on the user's wallet to be eligible for free calls (Web3-based flow).
+* **min_balance_for_free_call** (optional, default 10) — The minimum token (FET) balance (in whole tokens) required on
+  the user's wallet to be eligible for free calls (Web3-based flow).
   ```json
   "min_balance_for_free_call": "1"
   ```
@@ -223,6 +228,14 @@ This options are less frequently needed.
 * **metering_endpoint** (optional; only applies if `metering_enabled` is set to true) —
   Needs to be a vaild url where the request and response stats are published as part of Metering
 
+* **private_key_for_metering** (optional; only applies if `metering_enabled` is set to true)
+  This is used for authentication between daemon and the metering service in the context publishing stats, Even the
+  latest Channel Status is published, this way the offline channel state balance can also be tracked.
+  Daemon will send a signature signed by this private key, metering service will already have the public key
+  corresponding
+  to this Daemon, metering service will ensure that the signer it receives matches the public key configured at its end.
+  This is mandatory only when metering is enabled.
+
 * **ssl_cert** (optional; default: `""`) —
   path to certificate to use for SSL.
 
@@ -237,14 +250,6 @@ This options are less frequently needed.
 
 * **payment_channel_storage_server** (optional) —
   see [etcd server configuration](./etcddb#etcd-server-configuration)
-
-* **pvt_key_for_metering** (optional;only applies if `metering_enabled` is set to true)
-  This is used for authentication between daemon and the metering service in the context publishing stats, Even the
-  latest Channel Status is published, this way the offline channel state balance can also be tracked.
-  Daemon will send a signature signed by this private key, metering service will already have the public key
-  corresponding
-  to this Daemon, metering service will ensure that the signer it receives matches the public key configured at its end.
-  This is mandatory only when metering is enabled.
 
 * **rate_limit_per_minute** (optional; default: `Infinity`) —
   see [rate limiting configuration](./ratelimit/README.md)

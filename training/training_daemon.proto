@@ -5,7 +5,7 @@ import "google/protobuf/descriptor.proto";  // Required for indicators to work
 import "google/protobuf/struct.proto";     // Required for google.protobuf.ListValue
 import "training.proto";
 import "google/protobuf/empty.proto";
-option go_package = "github.com/singnet/snet-daemon/v5/training";
+option go_package = "github.com/singnet/snet-daemon/v6/training";
 
 message AuthorizationDetails {
   // Check for relevance within a range of +/- N blocks

@@ -38,10 +38,10 @@ fi
 CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -ldflags "
 -s -w
 -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore
--X github.com/singnet/snet-daemon/v5/config.sha1Revision=$githash
--X github.com/singnet/snet-daemon/v5/config.versionTag=$3
--X github.com/singnet/snet-daemon/v5/config.buildTime=$now
--X 'github.com/singnet/snet-daemon/v5/config.networkIdNameMapping=$networkJson'
+-X github.com/singnet/snet-daemon/v6/config.sha1Revision=$githash
+-X github.com/singnet/snet-daemon/v6/config.versionTag=$3
+-X github.com/singnet/snet-daemon/v6/config.buildTime=$now
+-X 'github.com/singnet/snet-daemon/v6/config.networkIdNameMapping=$networkJson'
 " -o build/"$buildname" snetd/main.go
 popd
 

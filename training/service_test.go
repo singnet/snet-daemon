@@ -388,10 +388,11 @@ func (suite *DaemonServiceSuite) createAdditionalTestModel(modelName string, aut
 }
 
 func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
-	testAuthCreads := createTestAuthDetails(suite.currentBlock, "get_model")
-	badTestAuthCreads := creatBadTestAuthDetails(suite.currentBlock)
+	suite.currentBlock, _ = suite.blockchain.CurrentBlock() // update block
+	testAuthCreds := createTestAuthDetails(suite.currentBlock, "get_model")
+	badTestAuthCreds := creatBadTestAuthDetails(suite.currentBlock)
 
-	// check without request
+	// check without a request
 	response1, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), nil)
 	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response1.Status)
@@ -407,7 +408,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 
 	// check with bad auth
 	request3 := &CommonRequest{
-		Authorization: badTestAuthCreads,
+		Authorization: badTestAuthCreds,
 		ModelId:       "test_2_no_access",
 	}
 	response3, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request3)
@@ -416,7 +417,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 
 	// check modelId is not empty string
 	request4 := &CommonRequest{
-		Authorization: testAuthCreads,
+		Authorization: testAuthCreds,
 		ModelId:       "",
 	}
 	response4, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request4)
@@ -425,19 +426,19 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 	assert.Equal(suite.T(), Status_ERRORED, response4.Status)
 
 	b, _ := suite.blockchain.CurrentBlock()
-	testAuthCreads = createTestAuthDetails(b, "get_model")
+	testAuthCreds = createTestAuthDetails(b, "get_model")
 	// check without access to model
 	request5 := &CommonRequest{
-		Authorization: testAuthCreads,
+		Authorization: testAuthCreds,
 		ModelId:       "test_2_no_access",
 	}
 	response5, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request5)
 	assert.ErrorContains(suite.T(), err, ErrAccessToModel.Error())
 	assert.Equal(suite.T(), &ModelResponse{}, response5)
 
-	// check access to public model
+	// check access to the public model
 	request6 := &CommonRequest{
-		Authorization: testAuthCreads,
+		Authorization: testAuthCreds,
 		ModelId:       "test_1",
 	}
 	response6, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request6)
@@ -445,9 +446,9 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 	assert.NotEmpty(suite.T(), response6)
 	assert.Equal(suite.T(), true, response6.IsPublic)
 
-	//check access to non public model
+	//check access to the non-public model
 	request7 := &CommonRequest{
-		Authorization: testAuthCreads,
+		Authorization: testAuthCreds,
 		ModelId:       "test_3",
 	}
 	response7, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request7)

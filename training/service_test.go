@@ -388,6 +388,7 @@ func (suite *DaemonServiceSuite) createAdditionalTestModel(modelName string, aut
 }
 
 func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
+	suite.currentBlock, _ = suite.blockchain.CurrentBlock() // update block
 	testAuthCreds := createTestAuthDetails(suite.currentBlock, "get_model")
 	badTestAuthCreds := creatBadTestAuthDetails(suite.currentBlock)
 

@@ -1,7 +1,7 @@
 syntax = "proto3";
 import "google/protobuf/descriptor.proto";  // Required for indicators to work
 package training;
-option go_package = "github.com/singnet/snet-daemon/v5/training";
+option go_package = "github.com/singnet/snet-daemon/v6/training";
 
 // Methods that the service provider must implement
 service Model {

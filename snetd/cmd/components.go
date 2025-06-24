@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v6/utils"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
@@ -674,7 +675,7 @@ func (components *Components) TrainingService() training.DaemonServer {
 		return &training.NoTrainingDaemonServer{}
 	}
 	components.trainingService = training.NewTrainingService(components.blockchain, components.ServiceMetaData(),
-		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage())
+		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage(), training.DefaultAllowBlockDifference)
 	return components.trainingService
 }
 

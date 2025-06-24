@@ -4,6 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"math/big"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
@@ -11,11 +17,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"math/big"
-	"slices"
-	"strings"
-	"testing"
-	"time"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
@@ -100,6 +101,7 @@ func (suite *DaemonServiceSuite) SetupTest() {
 		userModelStorage,
 		pendingModelStorage,
 		publicModelStorage,
+		100,
 	)
 }
 
@@ -425,8 +427,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 	assert.ErrorContains(suite.T(), err, ErrEmptyModelID.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response4.Status)
 
-	b, _ := suite.blockchain.CurrentBlock()
-	testAuthCreds = createTestAuthDetails(b, "get_model")
+	testAuthCreds = createTestAuthDetails(suite.currentBlock, "get_model")
 	// check without access to model
 	request5 := &CommonRequest{
 		Authorization: testAuthCreds,

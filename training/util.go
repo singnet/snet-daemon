@@ -26,6 +26,9 @@ var unifiedAuthMethods = map[string]struct{}{
 	"get_model":            {},
 }
 
+const unifiedAllowBlockDifference = 600 // in blocks
+const DefaultAllowBlockDifference = 5   // in blocks
+
 func (ds *DaemonService) verifySignature(r *AuthorizationDetails, method any) error {
 	fullMethodName, ok := method.(string)
 	if !ok {
@@ -41,16 +44,15 @@ func (ds *DaemonService) verifySignature(r *AuthorizationDetails, method any) er
 	zap.L().Debug("Verifying signature", zap.String("methodName", methodName), zap.Bool("isUnifiedMethod", isUnifiedMethod), zap.String("msg", r.Message))
 
 	// good cases:
-	// methodName - get_model, msg - unified, allowDifference will be 60
-	// methodName - get_model, msg - get_model,  allowDifference will be 5
-	// methodName - train_model, msg - train_model,  allowDifference will be 5
-
+	// methodName - get_model, msg - unified, allowDifference will be 600
+	// methodName - get_model, msg - get_model, allowDifference will be 5
+	// methodName - train_model, msg - train_model, allowDifference will be 5
 	var allowDifference uint64
 
 	if strings.EqualFold(methodName, r.Message) {
-		allowDifference = 5
+		allowDifference = ds.allowBlockDifference
 	} else if isUnifiedMethod && strings.EqualFold(r.Message, "unified") {
-		allowDifference = 600
+		allowDifference = unifiedAllowBlockDifference
 	} else {
 		return fmt.Errorf("unsupported message: %s for this method", r.Message)
 	}

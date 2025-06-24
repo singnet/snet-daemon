@@ -7,9 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/bufbuild/protocompile"
-	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v6/errs"
 	"io"
 	"maps"
 	"net/url"
@@ -18,7 +15,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bufbuild/protocompile"
+	"github.com/bufbuild/protocompile/linker"
+	"github.com/singnet/snet-daemon/v6/errs"
+
 	_ "embed"
+
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -44,6 +46,7 @@ type DaemonService struct {
 	serviceUrl           string
 	trainingMetadata     *TrainingMetadata
 	methodsMetadata      map[string]*MethodMetadata
+	allowBlockDifference uint64 // default 5
 }
 
 func (ds *DaemonService) CreateModel(ctx context.Context, request *NewModelRequest) (*ModelResponse, error) {
@@ -1081,7 +1084,7 @@ func getFileDescriptorsWithTraining(protoFiles map[string]string) (linker.Files,
 // NewTrainingService daemon self server
 func NewTrainingService(b blockchain.Processor, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage,
-	pendingStorage *PendingModelStorage, publicStorage *PublicModelStorage) DaemonServer {
+	pendingStorage *PendingModelStorage, publicStorage *PublicModelStorage, allowBlockDifference uint64) DaemonServer {
 
 	var err error
 	serMetaData.ProtoDescriptors, err = getFileDescriptorsWithTraining(serMetaData.ProtoFiles)
@@ -1133,6 +1136,7 @@ func NewTrainingService(b blockchain.Processor, serMetaData *blockchain.ServiceM
 			serviceUrl:           serviceURL,
 			trainingMetadata:     trainMD,
 			methodsMetadata:      methodsMD,
+			allowBlockDifference: allowBlockDifference,
 		}
 		go daemonService.ManageUpdateModelStatusWorkers(context.Background(), 3*time.Second)
 		return daemonService

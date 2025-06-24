@@ -2,7 +2,7 @@
 
 ![ci/cd build]( https://github.com/singnet/snet-daemon/actions/workflows/build.yml/badge.svg)
 ![ci/cd build]( https://github.com/singnet/snet-daemon/actions/workflows/test.yml/badge.svg)
-[![Go Report Card](https://goreportcard.com/badge/github.com/singnet/snet-daemon/v5)](https://goreportcard.com/report/github.com/singnet/snet-daemon/v5)
+[![Go Report Card](https://goreportcard.com/badge/github.com/singnet/snet-daemon/v6)](https://goreportcard.com/report/github.com/singnet/snet-daemon/v6)
 [![Coverage](https://coveralls.io/repos/github/singnet/snet-daemon/badge.svg?branch=master)](https://coveralls.io/github/singnet/snet-daemon?branch=master)
 [![Releases](https://img.shields.io/github/release/singnet/snet-daemon/all.svg?style=flat-square)](https://github.com/singnet/snet-daemon/releases)
 [![LICENSE](https://img.shields.io/github/license/singnet/snet-daemon.svg?style=flat-square)](https://github.com/singnet/snet-daemon/blob/main/LICENSE)

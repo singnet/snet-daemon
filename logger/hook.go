@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/smtp"
+	"slices"
 	"time"
 )
 
@@ -93,10 +94,8 @@ func initHookByConfig(conf *viper.Viper) (hook zap.Option, err error) {
 	}
 
 	return zap.Hooks(func(entry zapcore.Entry) error {
-		for _, level := range levels {
-			if level == entry.Level {
-				return internalHook.call(entry)
-			}
+		if slices.Contains(levels, entry.Level) {
+			return internalHook.call(entry)
 		}
 		return nil
 	}), nil

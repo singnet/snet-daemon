@@ -465,7 +465,7 @@ func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err er
 	return
 }
 
-// isValidUrl tests a string to determine if it is a url or not.
+// IsValidUrl tests a string to determine if it is a url or not.
 func IsValidUrl(urlToTest string) bool {
 	_, err := url.ParseRequestURI(urlToTest)
 	if err != nil {

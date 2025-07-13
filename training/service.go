@@ -1064,7 +1064,7 @@ func (ds *DaemonService) GetModel(ctx context.Context, request *CommonRequest) (
 	return
 }
 
-// getFileDescriptors converts text of proto files to bufbuild linker
+// getFileDescriptorsWithTraining converts text of proto files to bufbuild linker
 func getFileDescriptorsWithTraining(protoFiles map[string]string) (linker.Files, error) {
 	protoFiles["training.proto"] = TrainingProtoEmbeded
 	accessor := protocompile.SourceAccessorFromMap(protoFiles)

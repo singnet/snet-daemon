@@ -97,7 +97,7 @@ type IncomeUnaryData struct {
 	GrpcContext *handler.GrpcUnaryContext
 }
 
-// NewIncomeValidator returns new income validator instance
+// NewTrainValidator returns new income validator instance
 func NewTrainValidator(storage *training.ModelStorage) (validator IncomeUnaryValidator) {
 	return &trainUnaryValidator{storage: storage}
 }

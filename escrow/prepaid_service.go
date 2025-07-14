@@ -49,7 +49,7 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 	case REFUND_AMOUNT:
 		conditionFunc = IncrementRefundAmount
 	default:
-		return fmt.Errorf("Unknow Update type %v", updateUsageType)
+		return fmt.Errorf("Unknown Update type %v", updateUsageType)
 	}
 
 	typedUpdateFunc := func(conditionValues []storage.TypedKeyValueData) (update []storage.TypedKeyValueData, ok bool, err error) {

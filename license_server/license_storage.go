@@ -220,7 +220,7 @@ type ServiceMethodCostDetails struct {
 }
 
 func (s ServiceMethodCostDetails) String() string {
-	return fmt.Sprintf("{Valididty:%v,Details:%v,Discount:%v}",
+	return fmt.Sprintf("{Validity:%v,Details:%v,Discount:%v}",
 		s.PlanName, s.ServiceName, s.MethodName)
 }
 
@@ -300,7 +300,7 @@ func (s Subscription) IsUserEligible(user string) (bool, error) {
 }
 
 func (s Subscription) String() string {
-	return fmt.Sprintf("{Valididty:%v,Details:%v,Discount:%v}",
+	return fmt.Sprintf("{Validity:%v,Details:%v,Discount:%v}",
 		s.Validity.String(), s.Details.String(), s.Discount.String())
 }
 

@@ -125,7 +125,7 @@ message ConfigurationResponse {
     //Holds the current configuration of the Daemon
     map<string, string> current_configuration = 2;
 
-    //Holds the current static configuration of Daemon ( Various details of of every leaf level attribute )
+    //Holds the current static configuration of Daemon ( Various details of every leaf level attribute )
     //of Daemon.
     ConfigurationSchema schema = 3;
 }

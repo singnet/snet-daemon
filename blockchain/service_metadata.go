@@ -482,7 +482,7 @@ func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useMode
 	return slices.Contains(metaData.TrainingMethods, methodFullName)
 }
 
-// getFileDescriptors converts text of proto files to bufbuild linker
+// getProtoDescriptors converts text of proto files to bufbuild linker
 func getProtoDescriptors(protoFiles map[string]string) (linker.Files, error) {
 	accessor := protocompile.SourceAccessorFromMap(protoFiles)
 	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})

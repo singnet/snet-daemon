@@ -6,7 +6,7 @@
 
 ###rate limiting configuration 
    * **rate_limit_per_minute** (optional; default: `Infinity`) 
-   Defines the the rate r at which the bucket is filled with tokesn per minute.
+   Defines the rate r at which the bucket is filled with tokesn per minute.
    By default this parameter is set to infinity, effectively having no rate limiting.
 
    * **burst_size** (optional; default: `Infinity`) -

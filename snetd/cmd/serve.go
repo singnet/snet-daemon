@@ -60,7 +60,7 @@ var ServeCmd = &cobra.Command{
 		var d daemon
 		d, err = newDaemon(components)
 		if err != nil {
-			zap.L().Fatal("Unable to initialize daemon"+errs.ErrDescURL(errs.InvalidConfig), zap.Error(err))
+			zap.L().Fatal(fmt.Sprintf("Unable to initialize daemon: %v %v ", err, errs.ErrDescURL(errs.InvalidConfig)))
 		}
 
 		d.start()

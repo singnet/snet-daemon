@@ -48,6 +48,15 @@ func ParsePrivateKey(privateKeyString string) (privateKey *ecdsa.PrivateKey) {
 	return nil
 }
 
+func GetAddressFromPrivateKeyECDSA(privateKeyECDSA *ecdsa.PrivateKey) common.Address {
+	publicKey := privateKeyECDSA.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA)
+}
+
 func CheckIfHttps(endpoints []string) bool {
 	for _, endpoint := range endpoints {
 		if strings.Contains(endpoint, "https") {

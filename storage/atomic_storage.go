@@ -281,7 +281,7 @@ func (storage *TypedAtomicStorageImpl) GetAll() (array any, err error) {
 	return values.Interface(), nil
 }
 
-// Put implementor TypedAtomicStorage.Put
+// Put implementer TypedAtomicStorage.Put
 func (storage *TypedAtomicStorageImpl) Put(key any, value any) (err error) {
 	keyString, err := storage.keySerializer(key)
 	if err != nil {

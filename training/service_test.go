@@ -59,7 +59,7 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 
 	// init service metadata and organization metadata
 	serviceMetadata, err := blockchain.InitServiceMetaDataFromJson([]byte(testJsonServiceData))
-	suite.blockchain, err = blockchain.NewProcessor(serviceMetadata)
+	suite.blockchain = blockchain.NewMockProcessor(true)
 	if err != nil {
 		suite.T().Fatalf("can't connect to blockchain: %v", err)
 	}

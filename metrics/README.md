@@ -133,7 +133,7 @@ Sample Payload for response stats
   will have to post all the captured metrics.
 
 * **monitoring_enabled** (optional. ```true|false, default value is true```) - Enables or disables daemon monitoring. By
-  default it is set to true. When enabled DAemon captures the request and resposne metrics and post to the end point.
+  default it is set to true. When enabled DAemon captures the request and response metrics and post to the end point.
 
 ##### Service endpoint
 

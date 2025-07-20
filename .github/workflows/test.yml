@@ -1,13 +1,9 @@
-name: tests
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
     branches: [ "master", "dev" ]
+  pull_request:
+    branches: [ "master" ]
   workflow_dispatch:
-
-env:
-  GOLANG_PROTOBUF_REGISTRATION_CONFLICT: warn
 
 jobs:
   run_tests:
@@ -24,7 +20,7 @@ jobs:
       - name: install protoc (protobuf)
         uses: arduino/setup-protoc@v3
         with:
-          version: "29.3"
+          version: "31.1"
           include-pre-releases: false
 
       - name: chmod to allow run script

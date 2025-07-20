@@ -1,13 +1,10 @@
 name: build
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
     branches: [ "master", "dev" ]
+  pull_request:
+    branches: [ "master" ]
   workflow_dispatch:
-
-#env:
-#  GOLANG_PROTOBUF_REGISTRATION_CONFLICT: ignore
 
 jobs:
   build:
@@ -25,7 +22,7 @@ jobs:
       - name: install protoc (protobuf)
         uses: arduino/setup-protoc@v3
         with:
-          version: "29.3"
+          version: "31.1"
           include-pre-releases: false
 
       - name: chmod +x
@@ -36,6 +33,9 @@ jobs:
 
       - name: build linux
         run: ./scripts/build linux amd64 dev
+
+      - name: run binary version check
+        run: ./build/snetd-linux-amd64-dev version
 
       - name: build darwin
         run: ./scripts/build darwin amd64 dev

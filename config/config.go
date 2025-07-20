@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"math/big"
 	"net"
 	"net/url"
@@ -274,10 +275,10 @@ func Validate() error {
 		return err
 	}
 
-	if len(GetTrustedFreeCallSignersAddresses()) > 0 {
-		zap.L().Info("Free calls for Marketplace enabled")
-	} else {
-		zap.L().Warn("Free calls for Marketplace disabled")
+	if GetString(PvtKeyForFreeCalls) != "" {
+		if utils.ParsePrivateKey(GetString(PvtKeyForFreeCalls)) == nil {
+			return errors.New("invalid " + PvtKeyForFreeCalls)
+		}
 	}
 
 	return validateMeteringChecks()

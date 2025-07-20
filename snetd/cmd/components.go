@@ -565,6 +565,28 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 		return &escrow.BlockChainDisabledFreeCallStateService{}
 	}
 
+	if config.GetString(config.PvtKeyForFreeCalls) == "" {
+		zap.L().Warn(fmt.Sprintf("Free calls disabled: no %s in the config", config.PvtKeyForFreeCalls))
+		return &escrow.BlockChainDisabledFreeCallStateService{}
+	}
+
+	privateKey := utils.ParsePrivateKey(config.GetString(config.PvtKeyForFreeCalls))
+	addrFromPrvKey := utils.GetAddressFromPrivateKeyECDSA(privateKey)
+	freeCallSignerAddr := components.ServiceMetaData().FreeCallSignerAddress()
+	if addrFromPrvKey != freeCallSignerAddr {
+		zap.L().Error(fmt.Sprintf("Free calls disabled: %s does not match expected free_call_signer_address from srvMetadata", config.PvtKeyForFreeCalls),
+			zap.String("expected signer", freeCallSignerAddr.Hex()), zap.String("parsed addr from conf", addrFromPrvKey.Hex()))
+		return &escrow.BlockChainDisabledFreeCallStateService{}
+	}
+
+	zap.L().Info("Free calls enabled")
+
+	if len(config.GetTrustedFreeCallSignersAddresses()) > 0 {
+		zap.L().Info("Free calls for Marketplace enabled")
+	} else {
+		zap.L().Warn("Free calls for Marketplace disabled: no trusted signer addresses configured")
+	}
+
 	components.freeCallStateService = escrow.NewFreeCallStateService(
 		components.OrganizationMetaData(),
 		components.ServiceMetaData(),
@@ -572,7 +594,7 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 		escrow.NewFreeCallPaymentValidator(
 			components.Blockchain().CurrentBlock,
 			components.ServiceMetaData().FreeCallSignerAddress(),
-			utils.ParsePrivateKey(config.GetString(config.PvtKeyForFreeCalls)),
+			privateKey,
 			config.GetTrustedFreeCallSignersAddresses()),
 		tokenInstance,
 		config.GetBigInt(config.MinBalanceForFreeCall))

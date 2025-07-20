@@ -135,6 +135,10 @@ func GetSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byt
 		crypto.Keccak256(message),
 	)
 
+	if privateKey == nil {
+		return nil
+	}
+
 	signature, err := crypto.Sign(hash, privateKey)
 	if err != nil {
 		zap.L().Fatal(fmt.Sprintf("Cannot sign test message: %v", err))

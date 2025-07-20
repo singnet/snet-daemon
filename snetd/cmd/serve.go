@@ -264,7 +264,7 @@ func (d *daemon) start() {
 				http.MethodConnect,
 			},
 			AllowCredentials: true,
-			Debug:            true,
+			Debug:            "debug" == config.GetString(logger.LogLevelKey),
 			AllowOriginRequestFunc: func(r *http.Request, origin string) bool {
 				return true
 			},

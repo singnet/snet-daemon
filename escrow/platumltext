@@ -30,6 +30,6 @@ D -> D: verify r,s,v from the Signature passed 0-32,32-64 and 65th byte
 D -> E: crypto.SigToPub(messageHash, signature)
 activate E
 return publickey
-D -> D: Verify if the publick key is the one expected ( say the channel's sender / signer)
+D -> D: Verify if the public key is the one expected ( say the channel's sender / signer)
 
 @enduml

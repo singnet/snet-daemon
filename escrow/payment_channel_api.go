@@ -39,7 +39,7 @@ func PaymentID(channelID *big.Int, channelNonce *big.Int) string {
 
 // PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
 // consists of two parts: channel id and channel nonce. Channel nonce is
-// incremented each time when amount of tokens in channel descreases. Nonce
+// incremented each time when amount of tokens in channel decreases. Nonce
 // allows reusing channel id without risk of overexpenditure.
 type PaymentChannelKey struct {
 	ID *big.Int

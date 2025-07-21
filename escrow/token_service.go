@@ -69,7 +69,7 @@ func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId
 		return fmt.Errorf("channel is not found, channelId: %v", channelId)
 	}
 	if err != nil {
-		return fmt.Errorf("error:%v was seen on retreiving details of channelID:%v",
+		return fmt.Errorf("error:%v was seen on retrieving details of channelID:%v",
 			err.Error(), channelId)
 	}
 	if channel.AuthorizedAmount.Cmp(latestAuthorizedAmount) > 0 {

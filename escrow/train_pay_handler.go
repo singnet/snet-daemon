@@ -94,7 +94,7 @@ func (t trainStreamPaymentHandler) getPaymentFromContext(md metadata.MD) (paymen
 	}, nil
 }
 
-// NewTrainPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewTrainUnaryPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewTrainUnaryPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
@@ -106,7 +106,7 @@ func NewTrainUnaryPaymentHandler(
 	}
 }
 
-// NewTrainPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewTrainStreamPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewTrainStreamPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,

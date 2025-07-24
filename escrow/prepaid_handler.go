@@ -37,7 +37,7 @@ func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (err
 	return validator.tokenManager.VerifyToken(payment.AuthToken, payment.ChannelID)
 }
 
-// NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewPrePaidPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewPrePaidPaymentHandler(
 	PrePaidService PrePaidService, metadata *blockchain.OrganizationMetaData,
 	pServiceMetaData *blockchain.ServiceMetadata, pricing *pricing.PricingStrategy, manager token.Manager) handler.StreamPaymentHandler {

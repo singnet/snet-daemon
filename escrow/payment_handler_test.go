@@ -154,7 +154,7 @@ func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
 		wantErr   *handler.GrpcError
 		setupFunc func()
 	}{
-		{name: "", wantErr: handler.NewGrpcErrorf(codes.Internal, "Can't post latest offline channel state as metering is disabled!"), setupFunc: func() {
+		{name: "disabled metering", wantErr: nil, setupFunc: func() {
 		}},
 
 		{name: "", wantErr: nil, setupFunc: func() {

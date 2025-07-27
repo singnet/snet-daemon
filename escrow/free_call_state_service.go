@@ -180,7 +180,7 @@ type BlockChainDisabledFreeCallStateService struct {
 }
 
 func (service *BlockChainDisabledFreeCallStateService) GetFreeCallToken(ctx context.Context, request *GetFreeCallTokenRequest) (*FreeCallToken, error) {
-	return &FreeCallToken{}, fmt.Errorf("error in generating token because blockchain is disabled, contact service prodiver")
+	return &FreeCallToken{}, fmt.Errorf("error in generating token because blockchain is disabled, contact service provider")
 }
 
 func (service *BlockChainDisabledFreeCallStateService) mustEmbedUnimplementedFreeCallStateServiceServer() {
@@ -189,5 +189,5 @@ func (service *BlockChainDisabledFreeCallStateService) mustEmbedUnimplementedFre
 }
 
 func (service *BlockChainDisabledFreeCallStateService) GetFreeCallsAvailable(context.Context, *FreeCallStateRequest) (*FreeCallStateReply, error) {
-	return &FreeCallStateReply{FreeCallsAvailable: 0}, fmt.Errorf("error in determining free calls because blockchain is disabled, contact service prodiver")
+	return &FreeCallStateReply{FreeCallsAvailable: 0}, fmt.Errorf("error in determining free calls because blockchain is disabled, contact service provider")
 }

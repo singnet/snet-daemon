@@ -240,7 +240,7 @@ func (payment *paymentTransaction) Commit() error {
 			zap.L().Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.",
 				zap.Error(err), zap.Any("payment", payment))
 		} else {
-			zap.L().Debug("Channel unlocked")
+			zap.L().Debug("Channel unlocked", zap.Int64("channelID", payment.channel.ChannelID.Int64()))
 		}
 	}(payment)
 
@@ -265,7 +265,7 @@ func (payment *paymentTransaction) Commit() error {
 		return NewPaymentError(Internal, "unable to store new payment channel state")
 	}
 
-	zap.L().Debug("Payment completed")
+	zap.L().Debug("Payment completed", zap.Uint64("channel.ChannelID", payment.channel.ChannelID.Uint64()), zap.Uint64("payment.ChannelID", payment.payment.ChannelID.Uint64()))
 	return nil
 }
 

@@ -45,20 +45,23 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 	lastSlash := strings.LastIndex(info.FullMethod, "/")
 	methodName := info.FullMethod[lastSlash+1:]
 
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		zap.L().Error("Invalid metadata", zap.Any("info", info))
+		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata").Err()
+	}
+
+	md.Set("user-address", "from unaryIntercept")
+
 	// pass non training requests and free requests
 	if methodName != "validate_model" && methodName != "train_model" {
+		ctx = metadata.NewIncomingContext(ctx, md)
 		resp, e := handler(ctx, req)
 		if e != nil {
 			zap.L().Warn("gRPC handler returned error", zap.Error(e))
 			return resp, e
 		}
 		return resp, e
-	}
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		zap.L().Error("Invalid metadata", zap.Any("info", info))
-		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata").Err()
 	}
 
 	c := &GrpcUnaryContext{

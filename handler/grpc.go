@@ -515,22 +515,32 @@ type WrapperServerStream struct {
 	stream           grpc.ServerStream
 	recvMessage      any
 	sentMessage      any
+	Ctx              context.Context
 }
 
 func (f *WrapperServerStream) SetTrailer(md metadata.MD) {
 	f.stream.SetTrailer(md)
 }
 
-func NewWrapperServerStream(stream grpc.ServerStream) (grpc.ServerStream, error) {
+func NewWrapperServerStream(stream grpc.ServerStream, ctx context.Context) (grpc.ServerStream, error) {
 	m := &codec.GrpcFrame{}
 	err := stream.RecvMsg(m)
 	f := &WrapperServerStream{
 		stream:           stream,
 		recvMessage:      m,
 		sendHeaderCalled: false,
+		Ctx:              ctx, // save modified ctx
 	}
 	return f, err
 }
+
+func (f *WrapperServerStream) Context() context.Context {
+	return f.Ctx // return modified context
+}
+
+//func (f *WrapperServerStream) Context() context.Context {
+//	return f.stream.Context()
+//}
 
 func (f *WrapperServerStream) SetHeader(md metadata.MD) error {
 	return f.stream.SetHeader(md)
@@ -544,11 +554,6 @@ func (f *WrapperServerStream) SendHeader(md metadata.MD) error {
 	}
 	f.sendHeaderCalled = true
 	return f.stream.SendHeader(md)
-
-}
-
-func (f *WrapperServerStream) Context() context.Context {
-	return f.stream.Context()
 }
 
 func (f *WrapperServerStream) SendMsg(m any) error {

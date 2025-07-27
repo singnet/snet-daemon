@@ -24,6 +24,7 @@ jobs:
         with:
           version: "31.1"
           include-pre-releases: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: chmod +x
         run: chmod +x ./scripts/install_deps && chmod +x ./scripts/build

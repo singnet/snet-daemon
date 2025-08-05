@@ -5,7 +5,7 @@ Apart from heartbeat, it will expose few custom metrics as mentioned below metri
 <br/>
 The critical daemon updates, warning, or errors can be reported to a pre-configured email using a default
 notification service offered by SingularityNet. It's just an optional service. Service providers are free to choose
-thier own endpoints/web hooks for sending alerts.
+their own endpoints/web hooks for sending alerts.
 
 ### Registration
 

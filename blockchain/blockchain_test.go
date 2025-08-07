@@ -1,9 +1,10 @@
 package blockchain
 
 import (
-	"github.com/singnet/snet-daemon/v6/config"
 	"math/big"
 	"testing"
+
+	"github.com/singnet/snet-daemon/v6/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -27,7 +28,7 @@ func (suite *ProcessorTestSuite) SetupSuite() {
 	suite.processor = NewMockProcessor(true)
 }
 
-// ✅ Test: If the block number difference is within the allowed limit → no error
+// Test: If the block number difference is within the allowed limit → no error
 func (suite *ProcessorTestSuite) TestCompareWithLatestBlockNumber_WithinLimit() {
 	latestBlock, err := suite.processor.CurrentBlock()
 	suite.Require().NoError(err, "CurrentBlock() should not return an error")
@@ -40,7 +41,7 @@ func (suite *ProcessorTestSuite) TestCompareWithLatestBlockNumber_WithinLimit() 
 	assert.NoError(suite.T(), err, "Expected no error when block difference is within the limit")
 }
 
-// ❌ Test: If the block number difference exceeds the allowed limit → return an error
+// Test: If the block number difference exceeds the allowed limit → return an error
 func (suite *ProcessorTestSuite) TestCompareWithLatestBlockNumber_ExceedsLimit() {
 	latestBlock, err := suite.processor.CurrentBlock()
 	suite.Require().NoError(err, "CurrentBlock() should not return an error")

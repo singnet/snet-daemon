@@ -3,6 +3,9 @@ package blockchain
 import (
 	"context"
 	"encoding/base64"
+	"strings"
+
+	"github.com/singnet/snet-daemon/v6/utils"
 	"go.uber.org/zap"
 
 	"github.com/singnet/snet-daemon/v6/config"
@@ -22,20 +25,47 @@ func basicAuth(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-func CreateEthereumClient() (*EthereumClient, error) {
-	ethereumHttpClient, err := CreateHTTPEthereumClient()
-	if err != nil {
-		return nil, err
+// getAuthOption returns the appropriate RPC auth option based on endpoint and apiKey.
+// - Infura requires Basic Auth with an empty username and apiKey as password. Also can be replaced with jwt token.
+// - Other providers (e.g. Alchemy) use Bearer token in the Authorization header.
+// - If apiKey is empty, no auth header is added.
+func getAuthOption(endpoint, apiKey string) rpc.ClientOption {
+
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey == "" {
+		return nil
 	}
-	return ethereumHttpClient, nil
+
+	// infura can accept jwt
+	if utils.IsJWT(apiKey) {
+		return rpc.WithHeader("Authorization", "Bearer "+apiKey)
+	}
+	// infura need Basic auth for a classic secret key
+	if strings.Contains(endpoint, "infura") {
+		return rpc.WithHeader("Authorization", "Basic "+basicAuth("", apiKey))
+	}
+
+	// other ways use Bearer for most providers
+	return rpc.WithHeader("Authorization", "Bearer "+apiKey)
 }
 
 func CreateHTTPEthereumClient() (*EthereumClient, error) {
+
+	opts := getAuthOption(config.GetBlockChainHTTPEndPoint(), config.GetString(config.BlockchainProviderApiKey))
+
 	ethereumHttpClient := new(EthereumClient)
-	httpClient, err := rpc.DialOptions(
-		context.Background(),
-		config.GetBlockChainHTTPEndPoint(),
-		rpc.WithHeader("Authorization", "Basic "+basicAuth("", config.GetString(config.BlockchainProviderApiKey))))
+	var httpClient *rpc.Client
+	var err error
+	if opts == nil {
+		httpClient, err = rpc.DialOptions(
+			context.Background(),
+			config.GetBlockChainHTTPEndPoint())
+	} else {
+		httpClient, err = rpc.DialOptions(
+			context.Background(),
+			config.GetBlockChainHTTPEndPoint(), opts)
+	}
+
 	if err != nil {
 		zap.L().Error("Error creating ethereum client", zap.Error(err), zap.String("endpoint", config.GetBlockChainHTTPEndPoint()))
 		return nil, errors.Wrap(err, "error creating RPC client")

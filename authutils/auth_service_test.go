@@ -2,11 +2,12 @@
 package authutils
 
 import (
+	"math/big"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
-	"math/big"
-	"testing"
 )
 
 func TestCompareWithLatestBlockNumber(t *testing.T) {

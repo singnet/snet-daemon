@@ -71,7 +71,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	}
 
 	// Setup ethereum client
-	if ethHttpClients, err := CreateEthereumClient(); err != nil {
+	if ethHttpClients, err := CreateHTTPEthereumClient(); err != nil {
 		return &p, errors.Wrap(err, "error creating RPC client")
 	} else {
 		p.rawHttpClient = ethHttpClients.RawClient

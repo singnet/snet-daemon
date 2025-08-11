@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/configuration_service"
@@ -329,14 +330,11 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata")
 	}
 
-	// Копируем метаданные и добавляем новый адрес
 	mdCopy := md.Copy()
 	mdCopy.Set("user-address", "getGrpcContext()")
 
-	// Создаём новый контекст с модифицированными метаданными
 	newCtx := metadata.NewIncomingContext(serverStream.Context(), mdCopy)
 
-	// Оборачиваем stream, чтобы Context() возвращал newCtx
 	wrappedStream := &WrapperServerStream{
 		stream: serverStream,
 		Ctx:    newCtx,
@@ -345,7 +343,7 @@ func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo)
 	return &GrpcStreamContext{
 		MD:       mdCopy,
 		Info:     info,
-		InStream: wrappedStream, // обязательно вернуть обёрнутый stream
+		InStream: wrappedStream,
 	}, nil
 }
 

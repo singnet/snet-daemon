@@ -8,35 +8,55 @@ package metrics
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/soheilhy/cmux"
-	"github.com/stretchr/testify/suite"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/training"
+	"github.com/soheilhy/cmux"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
 type HeartBeatTestSuite struct {
 	suite.Suite
-	serviceURL string
-	server     *grpc.Server
+	serviceURL   string
+	server       *grpc.Server
+	viper        *viper.Viper
+	currentBlock func() (*big.Int, error)
+	trainingMD   func() (*training.TrainingMetadata, error)
 }
 
 func (suite *HeartBeatTestSuite) TearDownSuite() {
 	suite.server.GracefulStop()
 }
+
 func (suite *HeartBeatTestSuite) SetupSuite() {
-	SetNoHeartbeatURLState(false)
+
+	suite.viper = config.Vip()
+	suite.viper.Set(config.ServiceId, "YOUR_SERVICE_ID")
+	suite.viper.Set(config.OrganizationId, "YOUR_ORG_ID")
+	suite.viper.Set(config.DaemonGroupName, "default_group")
+
 	suite.serviceURL = "http://localhost:1111"
+	suite.currentBlock = blockchain.NewMockProcessor(true).CurrentBlock
 	suite.server = setAndServe()
+	suite.trainingMD = func() (*training.TrainingMetadata, error) {
+		return &training.TrainingMetadata{TrainingInProto: true, TrainingEnabled: true}, nil
+	}
 }
+
 func setAndServe() (server *grpc.Server) {
 	server = grpc.NewServer()
 	ch := make(chan int)
@@ -88,9 +108,9 @@ func (suite *HeartBeatTestSuite) TestStatus_String() {
 }
 
 func (suite *HeartBeatTestSuite) TestHeartbeatHandler() {
-	SetNoHeartbeatURLState(false)
-	// Creating a request to pass to the handler.  third parameter is nil since we are not passing any parameters to service
-	request, err := http.NewRequest("GET", "/heartbeat", nil)
+	config.Vip().Set(config.HeartbeatServiceEndpoint, suite.serviceURL)
+	// Creating a request to pass to the handler.  the third parameter is nil since we are not passing any parameters to service
+	request, err := http.NewRequest("GET", suite.serviceURL+"/heartbeat", nil)
 	if err != nil {
 		assert.Fail(suite.T(), "Unable to create request payload for testing the Heartbeat Handler")
 	}
@@ -98,32 +118,33 @@ func (suite *HeartBeatTestSuite) TestHeartbeatHandler() {
 	// Creating a ResponseRecorder to record the response.
 	response := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		HeartbeatHandler(writer, true, nil, nil)
+		HeartbeatHandler(writer, func() (*training.TrainingMetadata, error) {
+			return nil, nil
+		}, nil, suite.currentBlock)
 	})
 
-	// Since it is basic http handler, we can call ServeHTTP method directly and pass request and response.
+	// Since it is a basic http handler, we can call ServeHTTP method directly and pass request and response.
 	handler.ServeHTTP(response, request)
 
 	// test the responses
 	assert.Equal(suite.T(), http.StatusOK, response.Code, "handler returned wrong status code")
 	heartbeat, err := io.ReadAll(response.Body)
-	assert.Nil(suite.T(), err)
+	assert.NoError(suite.T(), err)
 
 	var dHeartbeat DaemonHeartbeat
 	err = json.Unmarshal(heartbeat, &dHeartbeat)
-	assert.False(suite.T(), err != nil)
-	assert.True(suite.T(), dHeartbeat.TrainingInProto)
+	assert.NoError(suite.T(), err)
+	assert.True(suite.T(), dHeartbeat.TrainingMetadataData.TrainingInProto)
 	assert.NotNil(suite.T(), dHeartbeat, "heartbeat must not be nil")
 
-	assert.Equal(suite.T(), dHeartbeat.Status, Warning.String(), "Invalid State")
-	assert.NotEqual(suite.T(), dHeartbeat.Status, Offline.String(), "Invalid State")
+	assert.Equal(suite.T(), Warning.String(), dHeartbeat.Status, "Invalid State")
+	assert.NotEqual(suite.T(), Offline.String(), dHeartbeat.Status, "Invalid State")
 
 	assert.Equal(suite.T(), "20e986a77adb1ab0900dce6f554128496aa26be1e212d682f37898bae226fcfc", dHeartbeat.DaemonID,
 		"Incorrect daemon ID")
 
 	assert.NotEqual(suite.T(), dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
-	assert.Equal(suite.T(), dHeartbeat.ServiceHeartbeat, `{"serviceID":"YOUR_SERVICE_ID","status":"NOT_SERVING"}`,
-		"Unexpected service heartbeat")
+	assert.Equal(suite.T(), `{"serviceID":"YOUR_SERVICE_ID","status":"NOT_SERVING"}`, dHeartbeat.ServiceHeartbeat, "Unexpected service heartbeat")
 }
 
 func (suite *HeartBeatTestSuite) Test_GetHeartbeat() {
@@ -131,17 +152,17 @@ func (suite *HeartBeatTestSuite) Test_GetHeartbeat() {
 	serviceType := "http"
 	serviveID := "SERVICE001"
 
-	dHeartbeat, _ := GetHeartbeat(serviceURL, serviceType, serviveID, false, nil, nil)
+	dHeartbeat, _ := GetHeartbeat(serviceURL, serviceURL, serviceType, serviveID, suite.trainingMD, nil, suite.currentBlock)
 	assert.NotNil(suite.T(), dHeartbeat, "heartbeat must not be nil")
 
 	assert.Equal(suite.T(), dHeartbeat.Status, Online.String(), "Invalid State")
 	assert.NotEqual(suite.T(), dHeartbeat.Status, Offline.String(), "Invalid State")
 
-	assert.Equal(suite.T(), dHeartbeat.DaemonID, "20e986a77adb1ab0900dce6f554128496aa26be1e212d682f37898bae226fcfc",
+	assert.Equal(suite.T(), "20e986a77adb1ab0900dce6f554128496aa26be1e212d682f37898bae226fcfc", dHeartbeat.DaemonID,
 		"Incorrect daemon ID")
 
 	assert.NotEqual(suite.T(), dHeartbeat.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
-	assert.Equal(suite.T(), dHeartbeat.ServiceHeartbeat, `{"serviceID":"SERVICE001","status":"SERVING"}`,
+	assert.Equal(suite.T(), `{"serviceID":"SERVICE001","status":"SERVING"}`, dHeartbeat.ServiceHeartbeat,
 		"Unexpected service heartbeat")
 
 	var sHeartbeat DaemonHeartbeat
@@ -151,13 +172,12 @@ func (suite *HeartBeatTestSuite) Test_GetHeartbeat() {
 
 	// check with some timeout URL
 	serviceURL = "http://localhost:1234"
-	SetNoHeartbeatURLState(false)
-	dHeartbeat2, _ := GetHeartbeat(serviceURL, serviceType, serviveID, true, nil, nil)
+	dHeartbeat2, _ := GetHeartbeat(serviceURL, serviceURL, serviceType, serviveID, suite.trainingMD, nil, suite.currentBlock)
 	assert.NotNil(suite.T(), dHeartbeat2, "heartbeat must not be nil")
 
 	assert.Equal(suite.T(), dHeartbeat2.Status, Warning.String(), "Invalid State")
 	assert.NotEqual(suite.T(), dHeartbeat2.Status, Online.String(), "Invalid State")
-	assert.True(suite.T(), dHeartbeat2.TrainingInProto)
+	assert.NotNil(suite.T(), dHeartbeat2.TrainingMetadataData)
 
 	assert.NotEqual(suite.T(), dHeartbeat2.ServiceHeartbeat, `{}`, "Service Heartbeat must not be empty.")
 	assert.Equal(suite.T(), dHeartbeat2.ServiceHeartbeat, `{"serviceID":"SERVICE001","status":"NOT_SERVING"}`,
@@ -178,16 +198,13 @@ func (suite *HeartBeatTestSuite) validateHeartbeat(dHeartbeat DaemonHeartbeat) {
 		"Unexpected service heartbeat")
 }
 
-func (suite *HeartBeatTestSuite) TestSetNoHeartbeatURLState() {
-	SetNoHeartbeatURLState(true)
-	assert.Equal(suite.T(), true, isNoHeartbeatURL)
-
-	SetNoHeartbeatURLState(false)
-	assert.Equal(suite.T(), false, isNoHeartbeatURL)
-}
-
 func (suite *HeartBeatTestSuite) TestValidateHeartbeatConfig() {
 	err := ValidateHeartbeatConfig()
-	assert.Nil(suite.T(), err)
-	assert.Equal(suite.T(), true, isNoHeartbeatURL)
+	assert.NoError(suite.T(), err)
+
+	suite.viper.Set(config.HeartbeatServiceEndpoint, "h://invalid_url")
+	suite.viper.Set(config.ServiceHeartbeatType, "http")
+	config.SetVip(suite.viper)
+	err = ValidateHeartbeatConfig()
+	assert.Error(suite.T(), err)
 }

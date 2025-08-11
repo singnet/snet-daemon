@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/utils"
 	"math/big"
 	"net"
 	"net/url"
@@ -12,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cast"
@@ -137,12 +138,12 @@ const (
 		"enabled": false
 	},
 	"alerts_email": "", 
-	"service_heartbeat_type": "http",
+	"service_heartbeat_type": "",
+	"heartbeat_endpoint": "",
     "token_expiry_in_minutes": 1440,
     "model_training_enabled": false
 }`
 	MinimumConfigJson string = `{
-	"blockchain_enabled": true,
 	"blockchain_network_selected": "sepolia",
 	"service_endpoint":"YOUR_SERVICE_ENDPOINT",
 	"service_id": "YOUR_SERVICE_ID", 

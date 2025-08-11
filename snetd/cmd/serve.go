@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/errs"
 	"net"
 	"net/http"
 	"os"
@@ -11,6 +11,9 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/singnet/snet-daemon/v6/errs"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
@@ -243,7 +246,12 @@ func (d *daemon) start() {
 				case "encoding":
 					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
 				case "heartbeat":
-					metrics.HeartbeatHandler(resp, d.components.DaemonHeartBeat().TrainingInProto, d.components.DaemonHeartBeat().TrainingMethods, d.components.DaemonHeartBeat().DynamicPricing)
+					metrics.HeartbeatHandler(resp,
+						func() (*training.TrainingMetadata, error) {
+							return d.components.TrainingService().GetTrainingMetadata(context.Background(), &emptypb.Empty{})
+						},
+						d.components.DaemonHeartBeat().DynamicPricing,
+						d.components.Blockchain().CurrentBlock)
 				default:
 					http.NotFound(resp, req)
 				}

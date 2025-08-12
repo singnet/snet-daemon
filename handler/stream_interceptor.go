@@ -231,39 +231,6 @@ func interceptMetering(
 	return nil
 }
 
-//func GrpcMeteringInterceptor() grpc.StreamServerInterceptor {
-//	return interceptMetering
-//}
-//
-//
-//// Monitor requests arrived and responses sent and publish these stats for Reporting
-//func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-//	var (
-//		err   error
-//		start time.Time
-//	)
-//	start = time.Now()
-//	//Get the method name
-//	methodName, _ := grpc.MethodFromServerStream(ss)
-//	//Get the Context
-//
-//	//Build common stats and use this to set request stats and response stats
-//	commonStats := metrics.BuildCommonStats(start, methodName)
-//	if context, err := getGrpcContext(ss, info); err == nil {
-//		setAdditionalDetails(context, commonStats)
-//	}
-//
-//	defer func() {
-//		go metrics.PublishResponseStats(commonStats, time.Since(start), err, block)
-//	}()
-//	err = handler(srv, ss)
-//	if err != nil {
-//		zap.L().Error(err.Error())
-//		return err
-//	}
-//	return nil
-//}
-
 func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
 	if interceptor.processRequest == configuration_service.StopProcessingAnyRequest {
@@ -281,8 +248,8 @@ func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream
 	return nil
 }
 
-// GrpcPaymentValidationInterceptor returns gRPC interceptor to validate payment. If
-// blockchain is disabled then noOpInterceptor is returned.
+// GrpcPaymentValidationInterceptor returns gRPC interceptor to validate payment.
+// If the blockchain is disabled, then noOpInterceptor is returned.
 func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, defaultPaymentHandler StreamPaymentHandler, paymentHandler ...StreamPaymentHandler) grpc.StreamServerInterceptor {
 	interceptor := &paymentValidationInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,

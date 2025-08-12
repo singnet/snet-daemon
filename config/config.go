@@ -306,10 +306,10 @@ func GetTrustedFreeCallSignersAddresses() []common.Address {
 	return addrs
 }
 
-// Feature in Daemon to restrict access to only certain users , this feature is useful,when you are
-// in a test environment and dont want everyone to make requests to your service.
-// Since this was flag was introduced to restrict users while in testing mode, we dont want this configuration
-// to be mistakenly set on mainnet
+// allowedUserConfigurationChecks restrict access to only certain users, this feature is useful when you are
+// in a test environment and don't want everyone to make requests to your service.
+// Since this was flag was introduced to restrict users while in testing mode, we don't want this configuration
+// to be mistakenly set on the mainnet
 func allowedUserConfigurationChecks() error {
 	if GetBool(AllowedUserFlag) {
 		if GetString(BlockChainNetworkSelected) == "main" {

@@ -225,11 +225,17 @@ func (service *DaemonHeartbeat) Check(ctx context.Context, req *grpc_health_v1.H
 	heartbeat, err := GetHeartbeat(config.GetString(config.ServiceEndpointKey), config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
 		config.GetString(config.ServiceId), service.TrainingMetadata, service.DynamicPricing, service.CurrentBlock)
 
+	if err != nil {
+		return &grpc_health_v1.HealthCheckResponse{
+			Status: grpc_health_v1.HealthCheckResponse_UNKNOWN,
+		}, fmt.Errorf("service heartbeat unknown: %w", err)
+	}
+
 	if strings.Compare(heartbeat.Status, Online.String()) == 0 {
 		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 	}
 
-	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN}, errors.New("Service heartbeat unknown " + err.Error())
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN}, errors.New("Service heartbeat unknown: " + heartbeat.Status)
 }
 
 // Watch implements `service Watch todo for later`.

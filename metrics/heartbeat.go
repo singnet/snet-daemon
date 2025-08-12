@@ -21,6 +21,7 @@ import (
 
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/training"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -79,18 +80,21 @@ func (state Status) String() string {
 }
 
 // ValidateHeartbeatConfig validates the heartbeat configurations
-func ValidateHeartbeatConfig() error {
+func ValidateHeartbeatConfig(heartbeatType, heartbeatEndpoint string) error {
 	// initialize the url state to false
 	// check if the configured type is not supported
-	hbType := config.GetString(config.ServiceHeartbeatType)
-	if hbType != "grpc" && hbType != "http" && hbType != "https" && hbType != "none" && hbType != "" {
-		return fmt.Errorf("unrecognized heartbet service type : '%+v'", hbType)
+	if heartbeatType != "grpc" && heartbeatType != "http" && heartbeatType != "https" && heartbeatType != "none" && heartbeatType != "" {
+		return fmt.Errorf("unrecognized heartbet service type : '%+v'", heartbeatType)
 	}
+
 	// if the URLs are empty, or hbtype is None or empty, consider it as not configured
-	if hbType == "" || hbType == "none" || config.GetString(config.HeartbeatServiceEndpoint) == "" {
+	if heartbeatType == "" || heartbeatType == "none" || heartbeatEndpoint == "" {
 		zap.L().Info("heartbeat service endpoint not configured, will be using service endpoint to ping the service")
-	} else if !config.IsValidUrl(config.GetString(config.HeartbeatServiceEndpoint)) {
-		return errors.New("service endpoint must be a valid URL")
+		return nil
+	}
+
+	if !utils.IsURLValid(heartbeatEndpoint) {
+		return errors.New("heartbeat endpoint must be a valid URL")
 	}
 	return nil
 }
@@ -144,7 +148,6 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 		heartbeat.TrainingMetadataData = md
 	}
 
-	var serviceHeartbeatBytes []byte
 	var curResp = &HeartStatus{Status: "NOT_SERVING", ServiceID: serviceID}
 	switch heartbeatType {
 	case "grpc":
@@ -152,13 +155,14 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 		response, err = callGrpcServiceHeartbeat(serviceHeartbeatURL)
 		//Standardize this as well on the response being sent
 		heartbeat.Status = response.String()
-		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("serviceHeartbeatBytes", string(serviceHeartbeatBytes)))
+		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("response", string(response)), zap.Error(err))
 	case "http":
 		fallthrough
 	case "https":
+		var serviceHeartbeatBytes []byte
 		serviceHeartbeatBytes, err = callHTTPServiceHeartbeat(serviceHeartbeatURL)
 		heartbeat.ServiceHeartbeat = string(serviceHeartbeatBytes)
-		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("serviceHeartbeatBytes", string(serviceHeartbeatBytes)))
+		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("serviceHeartbeatBytes", string(serviceHeartbeatBytes)), zap.Error(err))
 	case "none":
 		fallthrough
 	case "":

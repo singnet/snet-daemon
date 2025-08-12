@@ -251,9 +251,9 @@ func Validate() error {
 	}
 
 	// Validate metrics URL and set state
-	passEndpoint := vip.GetString(ServiceEndpointKey)
+	serviceEndpoint := vip.GetString(ServiceEndpointKey)
 	daemonEndpoint := vip.GetString(DaemonEndpoint)
-	err := ValidateEndpoints(daemonEndpoint, passEndpoint)
+	err := ValidateEndpoints(daemonEndpoint, serviceEndpoint)
 	if err != nil {
 		return err
 	}
@@ -467,14 +467,13 @@ func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err er
 	return
 }
 
-// IsValidUrl tests a string to determine if it is a url or not.
+// IsValidUrl tests a string to determine if it is url or not.
 func IsValidUrl(urlToTest string) bool {
 	_, err := url.ParseRequestURI(urlToTest)
 	if err != nil {
 		return false
-	} else {
-		return true
 	}
+	return true
 }
 
 // ValidateEmail validates an input email
@@ -483,9 +482,26 @@ func ValidateEmail(email string) bool {
 	return Re.MatchString(email)
 }
 
-func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error {
-	passthroughURL, err := url.Parse(passthroughEndpoint)
-	if err != nil || passthroughURL.Host == "" {
+// ValidateEndpoints checks that the daemon endpoint and the service endpoint
+// are valid and not pointing to the same address.
+//
+// It ensures:
+//   - serviceEndpoint has a URL scheme (adds "http://" if missing).
+//   - serviceEndpoint is a valid URL with a non-empty host.
+//   - daemonEndpoint can be split into host and port.
+//   - daemonEndpoint and serviceEndpoint do not have the same host and port.
+//   - Special case: if the daemon host is "0.0.0.0" and the service host is
+//     "127.0.0.1" or "localhost" with the same port, it is also considered invalid.
+//
+// Returns an error if validation fails, or nil if endpoints are valid.
+func ValidateEndpoints(daemonEndpoint string, serviceEndpoint string) error {
+
+	if !strings.Contains(serviceEndpoint, "://") {
+		serviceEndpoint = "http" + "://" + serviceEndpoint
+	}
+
+	serviceURL, err := url.Parse(serviceEndpoint)
+	if err != nil || serviceURL.Host == "" {
 		return errors.New("service_endpoint is the endpoint of your AI service in the daemon config and needs to be a valid url")
 	}
 
@@ -494,14 +510,14 @@ func ValidateEndpoints(daemonEndpoint string, passthroughEndpoint string) error 
 		return errors.New("couldn't split host:post of daemon endpoint")
 	}
 
-	if daemonHost == passthroughURL.Hostname() && daemonPort == passthroughURL.Port() {
-		return errors.New("passthrough endpoint can't be the same as daemon endpoint")
+	if daemonHost == serviceURL.Hostname() && daemonPort == serviceURL.Port() {
+		return errors.New("service_endpoint can't be the same as daemon endpoint")
 	}
 
-	if (daemonPort == passthroughURL.Port()) &&
+	if (daemonPort == serviceURL.Port()) &&
 		(daemonHost == "0.0.0.0") &&
-		(passthroughURL.Hostname() == "127.0.0.1" || passthroughURL.Hostname() == "localhost") {
-		return errors.New("passthrough endpoint can't be the same as daemon endpoint")
+		(serviceURL.Hostname() == "127.0.0.1" || serviceURL.Hostname() == "localhost") {
+		return errors.New("service_endpoint can't be the same as daemon endpoint")
 	}
 	return nil
 }
@@ -518,7 +534,7 @@ func IsAllowedUser(address *common.Address) bool {
 	return false
 }
 
-// Set the list of allowed users
+// SetAllowedUsers sets the list of allowed users
 func SetAllowedUsers() (err error) {
 	users := vip.GetStringSlice(AllowedUserAddresses)
 	if len(users) == 0 {

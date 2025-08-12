@@ -1,15 +1,17 @@
 package cmd
 
 import (
+	"testing"
+
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestComponents_verifyMeteringConfigurations(t *testing.T) {
 	config.Vip().Set(config.MeteringEndpoint, "http://demo5343751.mockable.io")
 
-	component := &Components{}
+	component := &Components{blockchain: blockchain.NewMockProcessor(true)}
 	ok, err := component.verifyAuthenticationSetUpForFreeCall("http://demo5343751.mockable.io/verify",
 		"testgroup")
 	ok, err = component.verifyAuthenticationSetUpForFreeCall("http://demo5343751.mockable.io/test", "")

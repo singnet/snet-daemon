@@ -107,7 +107,7 @@ func newDaemon(components *Components) (daemon, error) {
 	}
 
 	// validate heartbeat configuration
-	if err := metrics.ValidateHeartbeatConfig(); err != nil {
+	if err := metrics.ValidateHeartbeatConfig(config.GetString(config.ServiceHeartbeatType), config.GetString(config.HeartbeatServiceEndpoint)); err != nil {
 		return d, err
 	}
 
@@ -239,8 +239,8 @@ func (d *daemon) start() {
 				grpcWebServer.ServeHTTP(resp, req)
 			} else {
 				var path string
-				if len(strings.Split(req.URL.Path, "/")) > 0 {
-					path = strings.Split(req.URL.Path, "/")[1]
+				if parts := strings.Split(req.URL.Path, "/"); len(parts) > 1 {
+					path = parts[1]
 				}
 				switch path {
 				case "encoding":
@@ -254,6 +254,7 @@ func (d *daemon) start() {
 						d.components.Blockchain().CurrentBlock)
 				default:
 					http.NotFound(resp, req)
+					return
 				}
 			}
 			zap.L().Debug("http headers", zap.Any("headers", resp.Header()))

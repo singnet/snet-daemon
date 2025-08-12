@@ -1,12 +1,12 @@
 module github.com/singnet/snet-daemon/v6
 
-go 1.24.5
+go 1.24.6
 
 require (
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/emicklei/proto v1.14.2
-	github.com/ethereum/go-ethereum v1.16.1
-	github.com/golang-jwt/jwt/v5 v5.2.3
+	github.com/ethereum/go-ethereum v1.16.2
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/rpc v1.2.1
 	github.com/gorilla/websocket v1.5.3
@@ -24,14 +24,14 @@ require (
 	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
-	go.etcd.io/etcd/client/v3 v3.6.2
-	go.etcd.io/etcd/server/v3 v3.6.2
+	go.etcd.io/etcd/client/v3 v3.6.4
+	go.etcd.io/etcd/server/v3 v3.6.4
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.40.0
-	golang.org/x/net v0.42.0
+	golang.org/x/crypto v0.41.0
+	golang.org/x/net v0.43.0
 	golang.org/x/time v0.12.0
-	google.golang.org/grpc v1.73.0
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/grpc v1.74.2
+	google.golang.org/protobuf v1.36.7
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
@@ -76,7 +76,7 @@ require (
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/ferranbt/fastssz v0.1.2 // indirect
+	github.com/ferranbt/fastssz v0.1.4 // indirect
 	github.com/filecoin-project/go-clock v0.1.0 // indirect
 	github.com/flynn/noise v1.1.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
@@ -91,6 +91,7 @@ require (
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
@@ -230,9 +231,9 @@ require (
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
 	go.etcd.io/bbolt v1.4.2 // indirect
-	go.etcd.io/etcd/api/v3 v3.6.2 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.2 // indirect
-	go.etcd.io/etcd/pkg/v3 v3.6.2 // indirect
+	go.etcd.io/etcd/api/v3 v3.6.4 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.4 // indirect
+	go.etcd.io/etcd/pkg/v3 v3.6.4 // indirect
 	go.etcd.io/raft/v3 v3.6.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect
@@ -251,11 +252,11 @@ require (
 	go.uber.org/zap/exp v0.3.0 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/mod v0.25.0 // indirect
+	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
-	golang.org/x/tools v0.34.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
+	golang.org/x/tools v0.35.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gonum.org/v1/gonum v0.16.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect

@@ -65,7 +65,7 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 
 	var etcdv3 *clientv3.Client
 
-	if utils.CheckIfHttps(metaData.GetPaymentStorageEndPoints()) {
+	if utils.CheckIfHttps(conf.Endpoints) {
 		var tlsConfig *tls.Config
 		tlsConfig, err = getTlsConfig()
 		if err != nil {

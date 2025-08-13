@@ -226,7 +226,7 @@ This options are less frequently needed.
   when this flag is enabled
 
 * **metering_endpoint** (optional; only applies if `metering_enabled` is set to true) —
-  Needs to be a vaild url where the request and response stats are published as part of Metering
+  Needs to be a valid url where the request and response stats are published as part of Metering
 
 * **private_key_for_metering** (optional; only applies if `metering_enabled` is set to true)
   This is used for authentication between daemon and the metering service in the context publishing stats, Even the

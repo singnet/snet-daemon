@@ -17,7 +17,7 @@ metadata) and Daemon Endpoint.
 ```
 daemonID = SHA256(config.GetString(config.OrgnaizationId) + 
                   config.GetString(config.ServiceId) + 
-                  group_Id + //Groupd Id of daemon
+                  group_Id + //Group Id of daemon
                   config.GetString(config.DaemonEndPoint)
 ```
 

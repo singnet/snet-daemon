@@ -24,7 +24,6 @@ func (suite *RegisterTestSuite) TearDownSuite() {
 	suite.server.GracefulStop()
 }
 func (suite *RegisterTestSuite) SetupSuite() {
-	SetNoHeartbeatURLState(false)
 	suite.serviceURL = "http://localhost:1111"
 	suite.server = setAndServe()
 }

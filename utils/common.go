@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/gob"
+	"net/url"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -89,4 +90,15 @@ func IsJWT(token string) bool {
 		}
 	}
 	return true
+}
+
+func IsURLValid(endpoint string) bool {
+	u, err := url.ParseRequestURI(endpoint)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	return u.Host != ""
 }

@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v6/errs"
 	"io"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"strings"
 
+	"github.com/bufbuild/protocompile/linker"
 	"github.com/gorilla/rpc/v2/json2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -30,6 +29,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/codec"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/errs"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
@@ -113,9 +113,14 @@ func (srvCreds serviceCredentials) validate() error {
 }
 
 func (g grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
+
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "grpc" + "://" + endpoint
+	}
+
 	passthroughURL, err := url.Parse(endpoint)
-	if err != nil {
-		zap.L().Fatal(fmt.Sprintf("can't parse endpoint %v", errs.ErrDescURL(errs.InvalidConfig)), zap.String("endpoint", endpoint))
+	if err != nil || passthroughURL == nil {
+		zap.L().Fatal(fmt.Sprintf("can't parse service_endpoint %v", errs.ErrDescURL(errs.InvalidConfig)), zap.String("endpoint", endpoint))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
 		conn, err = grpc.NewClient(passthroughURL.Host,

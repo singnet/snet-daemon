@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/v6/authutils"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
 
@@ -18,10 +19,13 @@ import (
 	"golang.org/x/net/context"
 )
 
+const allowBlockDifference = 5
+
 type ConfigurationService struct {
 	//Has the authentication authenticationAddressList that will be used to validate any incoming requests for Configuration Service
 	authenticationAddressList []common.Address
 	broadcast                 *MessageBroadcaster
+	blockchainProc            blockchain.Processor
 }
 
 func (service ConfigurationService) mustEmbedUnimplementedConfigurationServiceServer() {
@@ -30,8 +34,8 @@ func (service ConfigurationService) mustEmbedUnimplementedConfigurationServiceSe
 }
 
 const (
-	START_PROCESSING_ANY_REQUEST = 1
-	STOP_PROCESING_ANY_REQUEST   = 0
+	StartProcessingAnyRequest = 1
+	StopProcessingAnyRequest  = 0
 )
 
 // Set the list of allowed users
@@ -51,7 +55,7 @@ func getAuthenticationAddress() []common.Address {
 	return userAddress
 }
 
-// TO DO Separate PRs will be submitted to implement all the function below
+// GetConfiguration returns the current configuration
 func (service ConfigurationService) GetConfiguration(ctx context.Context, request *EmptyRequest) (response *ConfigurationResponse, err error) {
 	//Authentication checks
 	if err = service.authenticate("_GetConfiguration", request.Auth); err != nil {
@@ -81,7 +85,7 @@ func (service ConfigurationService) StopProcessingRequests(ctx context.Context, 
 	if err = service.authenticate("_StopProcessingRequests", request.Auth); err != nil {
 		return nil, err
 	}
-	service.broadcast.trigger <- STOP_PROCESING_ANY_REQUEST
+	service.broadcast.trigger <- StopProcessingAnyRequest
 	return &StatusResponse{CurrentProcessingStatus: StatusResponse_HAS_STOPPED_PROCESSING_REQUESTS}, nil
 }
 
@@ -90,7 +94,7 @@ func (service ConfigurationService) StartProcessingRequests(ctx context.Context,
 	if err = service.authenticate("_StartProcessingRequests", request.Auth); err != nil {
 		return nil, err
 	}
-	service.broadcast.trigger <- START_PROCESSING_ANY_REQUEST
+	service.broadcast.trigger <- StartProcessingAnyRequest
 	return &StatusResponse{CurrentProcessingStatus: StatusResponse_REQUEST_IN_PROGRESS}, nil
 }
 
@@ -104,10 +108,10 @@ func (service ConfigurationService) IsDaemonProcessingRequests(ctx context.Conte
 
 func (service ConfigurationService) authenticate(prefix string, auth *CallerAuthentication) (err error) {
 
-	//Check if the Signature is not Expired only when block chain is enabled, current block number has no
-	//meaning when block chain is in Disabled mode
+	//Check if the Signature is not Expired only when the blockchain is enabled, the current block number has no
+	//meaning when the blockchain is in Disabled mode
 	if config.GetBool(config.BlockchainEnabledKey) {
-		if err = authutils.CompareWithLatestBlockNumber(big.NewInt(int64(auth.CurrentBlock))); err != nil {
+		if err = service.blockchainProc.CompareWithLatestBlockNumber(big.NewInt(int64(auth.CurrentBlock)), allowBlockDifference); err != nil {
 			return err
 		}
 	}
@@ -136,18 +140,20 @@ func (service ConfigurationService) checkAuthenticationAddress(signer common.Add
 
 }
 
-// You will be able to start the Daemon without an Authentication Address for now
-// but without Authentication authenticationAddressList , you cannot use the operator UI functionality
-func NewConfigurationService(messageBroadcaster *MessageBroadcaster) *ConfigurationService {
+// NewConfigurationService creates a new ConfigurationService instance.
+// The daemon can be started without providing an authentication address list,
+// but in that case the Operator UI functionality will be unavailable.
+func NewConfigurationService(messageBroadcaster *MessageBroadcaster, processor blockchain.Processor) *ConfigurationService {
 	service := &ConfigurationService{
 		authenticationAddressList: getAuthenticationAddress(),
 		broadcast:                 messageBroadcaster,
+		blockchainProc:            processor,
 	}
 	return service
 }
 
 // Message format has been agreed to be as the below ( prefix,block number,and authenticating authenticationAddressList)
-func (service *ConfigurationService) getMessageBytes(prefixMessage string, blockNumber uint64) []byte {
+func (service ConfigurationService) getMessageBytes(prefixMessage string, blockNumber uint64) []byte {
 	message := bytes.Join([][]byte{
 		[]byte(prefixMessage),
 		math.U256Bytes(big.NewInt(int64(blockNumber))),
@@ -155,7 +161,7 @@ func (service *ConfigurationService) getMessageBytes(prefixMessage string, block
 	return message
 }
 
-func (service *ConfigurationService) buildSchemaDetails() (schema *ConfigurationSchema, err error) {
+func (service ConfigurationService) buildSchemaDetails() (schema *ConfigurationSchema, err error) {
 	schema = &ConfigurationSchema{}
 
 	detailsFromConfig, err := config.GetConfigurationSchema()

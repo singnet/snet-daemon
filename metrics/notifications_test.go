@@ -7,10 +7,12 @@ package metrics
 
 import (
 	"errors"
-	"github.com/singnet/snet-daemon/v6/config"
-	"github.com/stretchr/testify/assert"
+	"math/big"
 	"testing"
 	"time"
+
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNotification_Send(t *testing.T) {
@@ -25,7 +27,7 @@ func TestNotification_Send(t *testing.T) {
 		DaemonID:  GetDaemonID(),
 		Level:     "ERROR",
 	}
-	result := notification.Send()
+	result := notification.Send(big.NewInt(100))
 	assert.False(t, result)
 }
 

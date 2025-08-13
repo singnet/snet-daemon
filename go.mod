@@ -72,6 +72,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/emicklei/dot v1.6.2 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.1 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5 // indirect

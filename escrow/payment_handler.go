@@ -24,6 +24,7 @@ type paymentChannelPaymentHandler struct {
 	service            PaymentChannelService
 	mpeContractAddress func() common.Address
 	incomeValidator    IncomeStreamValidator
+	currentBlock       func() (*big.Int, error)
 }
 
 // NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
@@ -34,6 +35,7 @@ func NewPaymentHandler(
 	return &paymentChannelPaymentHandler{
 		service:            service,
 		mpeContractAddress: processor.EscrowContractAddress,
+		currentBlock:       processor.CurrentBlock,
 		incomeValidator:    incomeValidator,
 	}
 }
@@ -97,18 +99,21 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil {
-		PublishChannelStats(payment)
+		go PublishChannelStats(payment, h.currentBlock)
 	}
 	return err
 }
 
-func PublishChannelStats(payment handler.Payment) (grpcErr *handler.GrpcError) {
+func PublishChannelStats(payment handler.Payment, currentBlock func() (*big.Int, error)) (grpcErr *handler.GrpcError) {
 	if !config.GetBool(config.MeteringEnabled) {
-		grpcErr = handler.NewGrpcErrorf(codes.Internal, "Can't post latest offline channel state as metering is disabled!")
-		zap.L().Warn("Can't post latest offline channel state as metering is disabled!", zap.Error(grpcErr.Err()))
-		return grpcErr
+		return nil
 	}
-	paymentTransaction := payment.(*paymentTransaction)
+
+	paymentTransaction, ok := payment.(*paymentTransaction)
+	if !ok {
+		return nil
+	}
+
 	channelStats := &metrics.ChannelStats{ChannelId: paymentTransaction.payment.ChannelID,
 		AuthorizedAmount: paymentTransaction.payment.Amount,
 		FullAmount:       paymentTransaction.Channel().FullAmount,
@@ -122,7 +127,12 @@ func PublishChannelStats(payment handler.Payment) (grpcErr *handler.GrpcError) {
 	zap.L().Debug("Payment channel payment handler is publishing channel statistics", zap.Any("ChannelStats", channelStats))
 	commonStats := &metrics.CommonStats{
 		GroupID: channelStats.GroupID, UserName: paymentTransaction.Channel().Sender.Hex()}
-	status := metrics.Publish(channelStats, meteringURL, commonStats)
+
+	block, err := currentBlock()
+	if err != nil {
+		return handler.NewGrpcErrorf(codes.Internal, "Unable to get latest block")
+	}
+	status := metrics.Publish(channelStats, meteringURL, commonStats, block)
 	if !status {
 		zap.L().Warn("Payment handler unable to post latest off-chain Channel state on contract API Endpoint for metering", zap.String("meteringURL", meteringURL))
 		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")

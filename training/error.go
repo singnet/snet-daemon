@@ -7,7 +7,7 @@ import (
 
 // Base Error
 var (
-	ErrInvalidRequest    = errors.New("invalud request")
+	ErrInvalidRequest    = errors.New("invalid request")
 	ErrUpdatingModel     = errors.New("error in updating model state")
 	ErrServiceInvocation = errors.New("error in invoking service for model training")
 	ErrServiceIssue      = errors.New("issue with service")

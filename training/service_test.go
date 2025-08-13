@@ -65,7 +65,7 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 	}
 	suite.currentBlock, err = suite.blockchain.CurrentBlock()
 	if err != nil {
-		suite.T().Fatalf("can't get lastest block: %v", err)
+		suite.T().Fatalf("can't get latest block: %v", err)
 	}
 
 	orgMetadata, err := blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgGroupData))
@@ -309,7 +309,7 @@ func (suite *DaemonServiceSuite) createTestModels() (*ModelStorage, *ModelUserSt
 		suite.T().Fatalf("error in putting model: %v", err)
 	}
 
-	// adding to user models sotrage
+	// adding to user models storage
 	userModelKey := &ModelUserKey{
 		OrganizationId: "YOUR_ORG_ID",
 		ServiceId:      "YOUR_SERVICE_ID",

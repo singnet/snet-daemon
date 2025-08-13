@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/gob"
+	"net/url"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -49,9 +51,18 @@ func ParsePrivateKey(privateKeyString string) (privateKey *ecdsa.PrivateKey) {
 }
 
 func GetAddressFromPrivateKeyECDSA(privateKeyECDSA *ecdsa.PrivateKey) common.Address {
+	if privateKeyECDSA == nil {
+		return common.Address{}
+	}
 	publicKey := privateKeyECDSA.Public()
+	if publicKey == nil {
+		return common.Address{}
+	}
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
+	if !ok || publicKeyECDSA == nil {
+		return common.Address{}
+	}
+	if publicKeyECDSA.X == nil || publicKeyECDSA.Y == nil {
 		return common.Address{}
 	}
 	return crypto.PubkeyToAddress(*publicKeyECDSA)
@@ -64,4 +75,30 @@ func CheckIfHttps(endpoints []string) bool {
 		}
 	}
 	return false
+}
+
+func IsJWT(token string) bool {
+	parts := strings.Split(token, ".")
+	// jwt always has 3 parts: header, payload, signature
+	if len(parts) != 3 {
+		return false
+	}
+	// check if each part is not empty
+	for _, part := range parts {
+		if len(part) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func IsURLValid(endpoint string) bool {
+	u, err := url.ParseRequestURI(endpoint)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	return u.Host != ""
 }

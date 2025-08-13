@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/bufbuild/protocompile"
-	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v6/errs"
 	"maps"
 	"math/big"
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/bufbuild/protocompile"
+	"github.com/bufbuild/protocompile/linker"
+	"github.com/singnet/snet-daemon/v6/errs"
 
 	pproto "github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
@@ -556,6 +557,7 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 	return nil
 }
 
+// deprecated
 func parseServiceProto(serviceProtoFile string) (*pproto.Proto, error) {
 	reader := strings.NewReader(serviceProtoFile)
 	parser := pproto.NewParser(reader)
@@ -566,6 +568,7 @@ func parseServiceProto(serviceProtoFile string) (*pproto.Proto, error) {
 	return parsedProto, nil
 }
 
+// deprecated
 func buildDynamicPricingMethodsMap(serviceProto *pproto.Proto) (dynamicPricingMethodMapping map[string]string,
 	trainingMethodPricing []string, err error) {
 	dynamicPricingMethodMapping = make(map[string]string, 0)

@@ -3,6 +3,8 @@ package escrow
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
@@ -50,6 +52,10 @@ type freeCallTransaction struct {
 	freeCallUserKey *FreeCallUserKey
 	service         *lockingFreeCallUserService
 	lock            Lock
+}
+
+func (transaction *freeCallTransaction) GetSender() common.Address {
+	return common.HexToAddress(transaction.payment.Address)
 }
 
 func (transaction *freeCallTransaction) String() string {

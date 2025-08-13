@@ -16,6 +16,12 @@ type GrpcUnaryContext struct {
 	Info *grpc.UnaryServerInfo
 }
 
+// SenderProvider allows retrieving the sender's Ethereum address,
+// independent of the specific type from pkg/escrow.
+type SenderProvider interface {
+	GetSender() common.Address
+}
+
 type UnaryPaymentHandler interface {
 	// Type is a content of PaymentTypeHeader field which triggers usage of the
 	// payment handler.
@@ -51,9 +57,7 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata").Err()
 	}
 
-	md.Set("user-address", "from unaryIntercept")
-
-	// pass non training requests and free requests
+	// pass non-training requests and free requests
 	if methodName != "validate_model" && methodName != "train_model" {
 		ctx = metadata.NewIncomingContext(ctx, md)
 		resp, e := handler(ctx, req)
@@ -64,13 +68,9 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 		return resp, e
 	}
 
-	c := &GrpcUnaryContext{
-		MD:   md,
-		Info: info,
-	}
+	c := &GrpcUnaryContext{MD: md.Copy(), Info: info}
 
 	zap.L().Debug("[unaryIntercept] grpc metadata", zap.Any("md", c.MD))
-
 	zap.L().Debug("[unaryIntercept] New gRPC call received", zap.Any("context", c))
 
 	paymentHandler, err := interceptor.getPaymentHandler(c)
@@ -81,6 +81,14 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 	payment, err := paymentHandler.Payment(c)
 	if err != nil {
 		return nil, err.Err()
+	}
+
+	if sp, ok := payment.(SenderProvider); ok {
+		outMD := c.MD.Copy()
+		ethAddr := sp.GetSender().Hex()
+		outMD.Set("user-address", ethAddr)
+		outMD.Set("daemon-debug", "unaryIntercept")
+		ctx = metadata.NewIncomingContext(ctx, outMD)
 	}
 
 	defer func() {

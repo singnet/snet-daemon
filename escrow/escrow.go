@@ -3,6 +3,8 @@ package escrow
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"go.uber.org/zap"
 )
 
@@ -178,6 +180,10 @@ type paymentTransaction struct {
 	channel *PaymentChannelData
 	service *lockingPaymentChannelService
 	lock    Lock
+}
+
+func (payment *paymentTransaction) GetSender() common.Address {
+	return payment.channel.Sender
 }
 
 func (payment *paymentTransaction) String() string {

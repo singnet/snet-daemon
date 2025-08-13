@@ -292,6 +292,22 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 		return err.Err()
 	}
 
+	if sp, ok := payment.(SenderProvider); ok {
+		// copy the original incoming MD
+		outMD := grpcCtx.MD.Copy()
+		// retrieve the address
+		ethAddr := sp.GetSender().Hex()
+		outMD.Set("user-address", ethAddr)
+		outMD.Set("daemon-debug", "streamIntercept")
+		// update the stored metadata in grpcCtx
+		grpcCtx.MD = outMD
+
+		// and update the context inside our WrapperServerStream
+		if ws, ok := wrapperStream.(*WrapperServerStream); ok {
+			ws.Ctx = metadata.NewIncomingContext(ws.Ctx, outMD)
+		}
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			zap.L().Warn("Service handler called panic(panicValue)", zap.Any("panicValue", r))
@@ -323,23 +339,31 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 	return nil
 }
 
-func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (*GrpcStreamContext, *GrpcError) {
+func getGrpcContext(
+	serverStream grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+) (*GrpcStreamContext, *GrpcError) {
 	md, ok := metadata.FromIncomingContext(serverStream.Context())
 	if !ok {
 		zap.L().Error("Invalid metadata", zap.Any("info", info))
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata")
 	}
 
+	// 2) Make a copy of the metadata so that we can modify it
 	mdCopy := md.Copy()
-	mdCopy.Set("user-address", "getGrpcContext()")
 
+	// 3) Create a new context based on the original, but with our copy of the metadata
 	newCtx := metadata.NewIncomingContext(serverStream.Context(), mdCopy)
 
+	// 4) Wrap the original ServerStream so that Context() returns our newCtx
 	wrappedStream := &WrapperServerStream{
-		stream: serverStream,
-		Ctx:    newCtx,
+		stream:           serverStream,
+		recvMessage:      nil, // nil here because we haven’t called RecvMsg yet
+		sendHeaderCalled: false,
+		Ctx:              newCtx,
 	}
 
+	// 5) Return a GrpcStreamContext with the metadata copy and the wrapped stream
 	return &GrpcStreamContext{
 		MD:       mdCopy,
 		Info:     info,

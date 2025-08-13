@@ -1,6 +1,7 @@
 package escrow
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
@@ -32,9 +33,13 @@ type PrePaidPaymentHandler struct {
 	serviceMetadata         *blockchain.ServiceMetadata
 }
 
-func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (err error) {
+func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (addr common.Address, err error) {
 	//Validate the token
-	return validator.tokenManager.VerifyToken(payment.AuthToken, payment.ChannelID)
+	userAddress, err := validator.tokenManager.VerifyToken(payment.AuthToken, payment.ChannelID)
+	if err != nil {
+		return [20]byte{}, err
+	}
+	return common.HexToAddress(userAddress), err
 }
 
 // NewPrePaidPaymentHandler returns new MultiPartyEscrow contract payment handler.
@@ -64,7 +69,7 @@ func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (tra
 	if priceError != nil {
 		return nil, paymentErrorToGrpcError(priceError)
 	}
-	validateErr := h.PrePaidPaymentValidator.Validate(prePaidPayment)
+	signer, validateErr := h.PrePaidPaymentValidator.Validate(prePaidPayment)
 	if validateErr != nil {
 		return nil, paymentErrorToGrpcError(validateErr)
 	}
@@ -72,7 +77,7 @@ func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (tra
 	if err := h.service.UpdateUsage(prePaidPayment.ChannelID, price, USED_AMOUNT); err != nil {
 		return nil, paymentErrorToGrpcError(err)
 	}
-	transaction = &prePaidTransactionImpl{price: price, channelId: prePaidPayment.ChannelID}
+	transaction = &prePaidTransactionImpl{price: price, channelId: prePaidPayment.ChannelID, signer: signer}
 	return transaction, nil
 }
 

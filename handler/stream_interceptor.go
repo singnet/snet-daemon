@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
-	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/configuration_service"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/ratelimit"
@@ -274,31 +273,50 @@ type paymentValidationInterceptor struct {
 
 func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
-	wrapperStream := ss
-	// check we need to have dynamic pricing here
-	// if yes, then use the wrapper Stream
-	if config.GetBool(config.EnableDynamicPricing) {
-		var streamError error
-		if wrapperStream, streamError = NewWrapperServerStream(ss); streamError != nil {
-			return streamError
+
+	// read ctx and prepare GrpcStreamContext
+	grpcCtx, err := getGrpcContext(ss, info)
+	if err != nil {
+		return err.Err()
+	}
+
+	//wrapperStream := ss
+
+	//if config.GetBool(config.EnableDynamicPricing) {
+	//var streamError error
+	wrapperStream, streamError := NewWrapperServerStream(ss, grpcCtx.InStream.Context())
+	if streamError != nil {
+		return streamError
+	}
+	//}
+
+	// Now we are working with grpcCtx and wrapperStream further
+	paymentHandler, err := interceptor.getPaymentHandler(grpcCtx)
+	if err != nil {
+		return err.Err()
+	}
+
+	zap.L().Debug("[streamIntercept] New gRPC call received", zap.Any("context", grpcCtx))
+
+	payment, err := paymentHandler.Payment(grpcCtx)
+	if err != nil {
+		return err.Err()
+	}
+
+	if sp, ok := payment.(SenderProvider); ok {
+		// copy the original incoming MD
+		outMD := grpcCtx.MD.Copy()
+		// retrieve the address
+		ethAddr := sp.GetSender().Hex()
+		outMD.Set("user-address", ethAddr)
+		outMD.Set("daemon-debug", "streamIntercept")
+		// update the stored metadata in grpcCtx
+		grpcCtx.MD = outMD
+
+		// and update the context inside our WrapperServerStream
+		if ws, ok := wrapperStream.(*WrapperServerStream); ok {
+			ws.Ctx = metadata.NewIncomingContext(ws.Ctx, outMD)
 		}
-	}
-
-	context, err := getGrpcContext(wrapperStream, info)
-	if err != nil {
-		return err.Err()
-	}
-
-	//zap.L().Debug("[streamIntercept] New gRPC call received", zap.Any("context", context))
-
-	paymentHandler, err := interceptor.getPaymentHandler(context)
-	if err != nil {
-		return err.Err()
-	}
-
-	payment, err := paymentHandler.Payment(context)
-	if err != nil {
-		return err.Err()
 	}
 
 	defer func() {
@@ -332,17 +350,35 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 	return nil
 }
 
-func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *GrpcStreamContext, err *GrpcError) {
+func getGrpcContext(
+	serverStream grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+) (*GrpcStreamContext, *GrpcError) {
 	md, ok := metadata.FromIncomingContext(serverStream.Context())
 	if !ok {
 		zap.L().Error("Invalid metadata", zap.Any("info", info))
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata")
 	}
 
+	// 2) Make a copy of the metadata so that we can modify it
+	mdCopy := md.Copy()
+
+	// 3) Create a new context based on the original, but with our copy of the metadata
+	newCtx := metadata.NewIncomingContext(serverStream.Context(), mdCopy)
+
+	// 4) Wrap the original ServerStream so that Context() returns our newCtx
+	wrappedStream := &WrapperServerStream{
+		stream:           serverStream,
+		recvMessage:      nil, // nil here because we haven’t called RecvMsg yet
+		sendHeaderCalled: false,
+		Ctx:              newCtx,
+	}
+
+	// 5) Return a GrpcStreamContext with the metadata copy and the wrapped stream
 	return &GrpcStreamContext{
-		MD:       md,
+		MD:       mdCopy,
 		Info:     info,
-		InStream: serverStream,
+		InStream: wrappedStream,
 	}, nil
 }
 

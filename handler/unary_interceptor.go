@@ -3,17 +3,25 @@ package handler
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"strings"
 )
 
 type GrpcUnaryContext struct {
 	MD   metadata.MD
 	Info *grpc.UnaryServerInfo
+}
+
+// SenderProvider allows retrieving the sender's Ethereum address,
+// independent of the specific type from pkg/escrow.
+type SenderProvider interface {
+	GetSender() common.Address
 }
 
 type UnaryPaymentHandler interface {
@@ -45,8 +53,15 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 	lastSlash := strings.LastIndex(info.FullMethod, "/")
 	methodName := info.FullMethod[lastSlash+1:]
 
-	// pass non training requests and free requests
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		zap.L().Error("Invalid metadata", zap.Any("info", info))
+		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata").Err()
+	}
+
+	// pass non-training requests and free requests
 	if methodName != "validate_model" && methodName != "train_model" {
+		ctx = metadata.NewIncomingContext(ctx, md)
 		resp, e := handler(ctx, req)
 		if e != nil {
 			zap.L().Warn("gRPC handler returned error", zap.Error(e))
@@ -55,19 +70,9 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 		return resp, e
 	}
 
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		zap.L().Error("Invalid metadata", zap.Any("info", info))
-		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata").Err()
-	}
-
-	c := &GrpcUnaryContext{
-		MD:   md,
-		Info: info,
-	}
+	c := &GrpcUnaryContext{MD: md.Copy(), Info: info}
 
 	zap.L().Debug("[unaryIntercept] grpc metadata", zap.Any("md", c.MD))
-
 	zap.L().Debug("[unaryIntercept] New gRPC call received", zap.Any("context", c))
 
 	paymentHandler, err := interceptor.getPaymentHandler(c)
@@ -78,6 +83,14 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 	payment, err := paymentHandler.Payment(c)
 	if err != nil {
 		return nil, err.Err()
+	}
+
+	if sp, ok := payment.(SenderProvider); ok {
+		outMD := c.MD.Copy()
+		ethAddr := sp.GetSender().Hex()
+		outMD.Set("user-address", ethAddr)
+		outMD.Set("daemon-debug", "unaryIntercept")
+		ctx = metadata.NewIncomingContext(ctx, outMD)
 	}
 
 	defer func() {

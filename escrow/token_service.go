@@ -4,12 +4,14 @@ package escrow
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/token"
 	"golang.org/x/net/context"
-	"math/big"
 )
 
 type TokenService struct {
@@ -62,49 +64,49 @@ func NewTokenService(paymentChannelService PaymentChannelService,
 }
 
 func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId *big.Int,
-	latestAuthorizedAmount *big.Int, request *TokenRequest) (err error) {
+	latestAuthorizedAmount *big.Int, request *TokenRequest) (singer *common.Address, err error) {
 	channel, ok, err := service.channelService.PaymentChannel(&PaymentChannelKey{ID: channelId})
 
 	if !ok {
-		return fmt.Errorf("channel is not found, channelId: %v", channelId)
+		return nil, fmt.Errorf("channel is not found, channelId: %v", channelId)
 	}
 	if err != nil {
-		return fmt.Errorf("error:%v was seen on retrieving details of channelID:%v",
+		return nil, fmt.Errorf("error:%v was seen on retreiving details of channelID:%v",
 			err.Error(), channelId)
 	}
 	if channel.AuthorizedAmount.Cmp(latestAuthorizedAmount) > 0 {
-		return fmt.Errorf("signed amount for token request needs to be greater than last signed amount")
+		return nil, fmt.Errorf("signed amount for token request needs to be greater than last signed amount")
 	}
 	if channel.FullAmount.Cmp(latestAuthorizedAmount) < 0 {
-		return fmt.Errorf("signed amount for token request cannot be greater than full amount in channel")
+		return nil, fmt.Errorf("signed amount for token request cannot be greater than full amount in channel")
 	}
 	//verify signature
-	if err = service.verifySignature(request, channel); err != nil {
-		return err
+	signer, err := service.verifySignature(request, channel)
+	if err != nil {
+		return nil, err
 	}
 	payment := service.getPayment(channelId, latestAuthorizedAmount, request)
 	if err = service.validator.Validate(payment, channel); err != nil {
-		return err
+		return nil, err
 	}
 	//update the channel Signature if you have a new Signed Amount received
 	if latestAuthorizedAmount.Cmp(channel.AuthorizedAmount) > 0 {
 		transaction, err := service.channelService.StartPaymentTransaction(payment)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if err = transaction.Commit(); err != nil {
-			return err
+			return nil, err
 		}
 		if err = service.prePaidUsageService.UpdateUsage(channelId, latestAuthorizedAmount.Sub(latestAuthorizedAmount, channel.AuthorizedAmount), PLANNED_AMOUNT); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return signer, nil
 }
 
 func (service *TokenService) getPayment(channelId *big.Int, latestAuthorizedAmount *big.Int, request *TokenRequest) *Payment {
-
 	return &Payment{
 		MpeContractAddress: service.serviceMetaData.GetMpeAddress(),
 		ChannelID:          channelId,
@@ -114,7 +116,7 @@ func (service *TokenService) getPayment(channelId *big.Int, latestAuthorizedAmou
 	}
 }
 
-func (service *TokenService) verifySignature(request *TokenRequest, channel *PaymentChannelData) (err error) {
+func (service *TokenService) verifySignature(request *TokenRequest, channel *PaymentChannelData) (send *common.Address, err error) {
 	message := bytes.Join([][]byte{
 		request.GetClaimSignature(),
 		math.U256Bytes(big.NewInt(int64(request.CurrentBlock))),
@@ -123,17 +125,17 @@ func (service *TokenService) verifySignature(request *TokenRequest, channel *Pay
 
 	sender, err := authutils.GetSignerAddressFromMessage(message, signature)
 	if err != nil {
-		return fmt.Errorf("incorrect signature")
+		return nil, fmt.Errorf("incorrect signature")
 	}
 
 	if channel.Signer != *sender && *sender != channel.Sender && *sender != channel.Recipient {
-		return fmt.Errorf("only channel signer/sender/receiver can get a Valid Token")
+		return nil, fmt.Errorf("only channel signer/sender/receiver can get a Valid Token")
 	}
 
 	if err = service.allowedBlockNumberCheck(big.NewInt(0).SetUint64(request.CurrentBlock)); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return sender, nil
 }
 
 func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest) (reply *TokenReply, err error) {
@@ -142,7 +144,8 @@ func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest
 	channelID := big.NewInt(0).SetUint64(request.ChannelId)
 	latestAuthorizedAmount := big.NewInt(0).SetUint64(request.SignedAmount)
 
-	if err = service.verifySignatureAndSignedAmountEligibility(channelID, latestAuthorizedAmount, request); err != nil {
+	signer, err := service.verifySignatureAndSignedAmountEligibility(channelID, latestAuthorizedAmount, request)
+	if err != nil {
 		return nil, err
 	}
 
@@ -162,7 +165,7 @@ func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest
 	if err != nil {
 		return nil, err
 	}
-	tokenGenerated, err := service.tokenManager.CreateToken(channelID)
+	tokenGenerated, err := service.tokenManager.CreateToken(channelID, signer.Hex())
 	return &TokenReply{ChannelId: request.ChannelId, Token: fmt.Sprintf("%v", tokenGenerated), PlannedAmount: plannedAmount.Amount.Uint64(),
 		UsedAmount: usageAmount.Uint64()}, err
 }

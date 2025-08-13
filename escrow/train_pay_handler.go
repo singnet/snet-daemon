@@ -1,10 +1,11 @@
 package escrow
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
-	"math/big"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/handler"
@@ -18,11 +19,13 @@ type trainUnaryPaymentHandler struct {
 	service            PaymentChannelService
 	mpeContractAddress func() common.Address
 	incomeValidator    IncomeUnaryValidator
+	currentBlock       func() (*big.Int, error)
 }
 
 type trainStreamPaymentHandler struct {
 	service            PaymentChannelService
 	mpeContractAddress func() common.Address
+	currentBlock       func() (*big.Int, error)
 	incomeValidator    IncomeStreamValidator
 }
 
@@ -55,7 +58,7 @@ func (t trainStreamPaymentHandler) Payment(context *handler.GrpcStreamContext) (
 
 func (t trainStreamPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil {
-		PublishChannelStats(payment)
+		go PublishChannelStats(payment, t.currentBlock)
 	}
 	return err
 }
@@ -94,7 +97,7 @@ func (t trainStreamPaymentHandler) getPaymentFromContext(md metadata.MD) (paymen
 	}, nil
 }
 
-// NewTrainPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewTrainUnaryPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewTrainUnaryPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
@@ -102,11 +105,12 @@ func NewTrainUnaryPaymentHandler(
 	return &trainUnaryPaymentHandler{
 		service:            service,
 		mpeContractAddress: processor.EscrowContractAddress,
+		currentBlock:       processor.CurrentBlock,
 		incomeValidator:    incomeValidator,
 	}
 }
 
-// NewTrainPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewTrainStreamPaymentHandler returns new MultiPartyEscrow contract payment handler.
 func NewTrainStreamPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
@@ -114,6 +118,7 @@ func NewTrainStreamPaymentHandler(
 	return &trainStreamPaymentHandler{
 		service:            service,
 		mpeContractAddress: processor.EscrowContractAddress,
+		currentBlock:       processor.CurrentBlock,
 		incomeValidator:    incomeValidator,
 	}
 }
@@ -178,7 +183,7 @@ func (h *trainUnaryPaymentHandler) getPaymentFromContext(md metadata.MD) (paymen
 
 func (h *trainUnaryPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil {
-		PublishChannelStats(payment)
+		go PublishChannelStats(payment, h.currentBlock)
 	}
 	return err
 }

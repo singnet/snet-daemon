@@ -17,6 +17,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	AllowedBlockChainDifference = 5
+)
+
 // PaymentChannelStateService is an implementation of PaymentChannelStateServiceServer gRPC interface
 type PaymentChannelStateService struct {
 	channelService               PaymentChannelService
@@ -58,12 +62,14 @@ func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonc
 }
 
 // NewPaymentChannelStateService returns new instance of PaymentChannelStateService
-func NewPaymentChannelStateService(channelService PaymentChannelService, paymentStorage *PaymentStorage, metaData *blockchain.ServiceMetadata) *PaymentChannelStateService {
+func NewPaymentChannelStateService(channelService PaymentChannelService, paymentStorage *PaymentStorage, processor blockchain.Processor) *PaymentChannelStateService {
 	return &PaymentChannelStateService{
-		channelService:               channelService,
-		paymentStorage:               paymentStorage,
-		mpeAddress:                   func() common.Address { return metaData.GetMpeAddress() },
-		compareWithLatestBlockNumber: authutils.CompareWithLatestBlockNumber,
+		channelService: channelService,
+		paymentStorage: paymentStorage,
+		mpeAddress:     processor.EscrowContractAddress,
+		compareWithLatestBlockNumber: func(blockNumberPassed *big.Int) error {
+			return processor.CompareWithLatestBlockNumber(blockNumberPassed, AllowedBlockChainDifference)
+		},
 	}
 }
 

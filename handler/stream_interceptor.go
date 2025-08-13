@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -12,7 +13,6 @@ import (
 
 	"math/big"
 	"strings"
-	"time"
 
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
@@ -174,7 +174,7 @@ func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaste
 	interceptor := &rateLimitInterceptor{
 		rateLimiter:                   *ratelimit.NewRateLimiter(),
 		messageBroadcaster:            broadcast,
-		processRequest:                configuration_service.START_PROCESSING_ANY_REQUEST,
+		processRequest:                configuration_service.StartProcessingAnyRequest,
 		requestProcessingNotification: broadcast.NewSubscriber(),
 	}
 	go interceptor.startOrStopProcessingAnyRequests()
@@ -187,30 +187,41 @@ func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests() {
 	}
 }
 
-func GrpcMeteringInterceptor() grpc.StreamServerInterceptor {
-	return interceptMetering
+func GrpcMeteringInterceptor(currentBlock func() (*big.Int, error)) grpc.StreamServerInterceptor {
+	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		return interceptMetering(srv, ss, info, handler, currentBlock)
+	}
 }
 
-// Monitor requests arrived and responses sent and publish these stats for Reporting
-func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+// Monitor requests arrived, and responses sent and publish these stats for Reporting
+func interceptMetering(
+	srv any,
+	ss grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler,
+	currentBlock func() (*big.Int, error),
+) error {
 	var (
 		err   error
 		start time.Time
 	)
 	start = time.Now()
-	//Get the method name
-	methodName, _ := grpc.MethodFromServerStream(ss)
-	//Get the Context
 
-	//Build common stats and use this to set request stats and response stats
+	methodName, _ := grpc.MethodFromServerStream(ss)
 	commonStats := metrics.BuildCommonStats(start, methodName)
-	if context, err := getGrpcContext(ss, info); err == nil {
-		setAdditionalDetails(context, commonStats)
+
+	if ctx, err := getGrpcContext(ss, info); err == nil {
+		setAdditionalDetails(ctx, commonStats)
 	}
 
 	defer func() {
-		go metrics.PublishResponseStats(commonStats, time.Since(start), err)
+		var block *big.Int
+		if currentBlock != nil {
+			block, _ = currentBlock()
+		}
+		go metrics.PublishResponseStats(commonStats, time.Since(start), err, block)
 	}()
+
 	err = handler(srv, ss)
 	if err != nil {
 		zap.L().Error(err.Error())
@@ -221,7 +232,7 @@ func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInf
 
 func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
-	if interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST {
+	if interceptor.processRequest == configuration_service.StopProcessingAnyRequest {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {
@@ -236,8 +247,8 @@ func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream
 	return nil
 }
 
-// GrpcPaymentValidationInterceptor returns gRPC interceptor to validate payment. If
-// blockchain is disabled then noOpInterceptor is returned.
+// GrpcPaymentValidationInterceptor returns gRPC interceptor to validate payment.
+// If the blockchain is disabled, then noOpInterceptor is returned.
 func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, defaultPaymentHandler StreamPaymentHandler, paymentHandler ...StreamPaymentHandler) grpc.StreamServerInterceptor {
 	interceptor := &paymentValidationInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,

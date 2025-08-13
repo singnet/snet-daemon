@@ -2,7 +2,7 @@
 // All rights reserved.
 // <<add licence terms for code reuse>>
 
-// package for monitoring and reporting the daemon metrics
+// Package metrics for monitoring and reporting the daemon metrics
 package metrics
 
 import (
@@ -12,29 +12,31 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/singnet/snet-daemon/v6/config"
-	"go.uber.org/zap"
+	"math/big"
+	"time"
 
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/training"
+	"github.com/singnet/snet-daemon/v6/utils"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-// status enum
+// Status enum
 type Status int
-
-// heartbeat URL Status
-var isNoHeartbeatURL bool
 
 const (
 	Offline  Status = 0 // Returns if none of the services are online
 	Online   Status = 1 // Returns if any of the services is online
-	Warning  Status = 2 // if daemon has issues in extracting the service state
+	Warning  Status = 2 // if the daemon has issues in extracting the service state
 	Critical Status = 3 // if the daemon main thread killed or any other critical issues
 )
 
@@ -43,25 +45,24 @@ type StorageClientCert struct {
 	ValidTill string `json:"validTill"`
 }
 
-// define heartbeat data model. Service Status JSON object Array marshalled to a string
+// DaemonHeartbeat data model. Service Status JSON object Array marshalled to a string
 type DaemonHeartbeat struct {
-	DaemonID                 string            `json:"daemonID"`
-	Timestamp                string            `json:"timestamp"`
-	Status                   string            `json:"status"`
-	ServiceHeartbeat         string            `json:"serviceheartbeat"`
-	DaemonVersion            string            `json:"daemonVersion"`
-	TrainingEnabled          bool              `json:"trainingEnabled"`
-	TrainingInProto          bool              `json:"trainingInProto"`
-	TrainingMethods          []string          `json:"trainingMethods"`
-	DynamicPricing           map[string]string `json:"dynamicPricing"`
-	BlockchainEnabled        bool              `json:"blockchainEnabled"`
-	BlockchainNetwork        string            `json:"blockchainNetwork"`
-	StorageClientCertDetails StorageClientCert `json:"storageClientCertDetails"`
+	DaemonID                 string                                     `json:"daemonID"`
+	Timestamp                string                                     `json:"timestamp"`
+	Status                   string                                     `json:"status"`
+	ServiceHeartbeat         string                                     `json:"serviceheartbeat"`
+	DaemonVersion            string                                     `json:"daemonVersion"`
+	DynamicPricing           map[string]string                          `json:"-"`
+	BlockchainEnabled        bool                                       `json:"blockchainEnabled"`
+	BlockchainNetwork        string                                     `json:"blockchainNetwork"`
+	StorageClientCertDetails StorageClientCert                          `json:"storageClientCertDetails"`
+	CurrentBlock             func() (*big.Int, error)                   `json:"-"`
+	TrainingMetadata         func() (*training.TrainingMetadata, error) `json:"-"`
+	TrainingMetadataData     *training.TrainingMetadata                 `json:"trainingMetadata,omitempty"`
 }
 
 func (service *DaemonHeartbeat) List(ctx context2.Context, request *grpc_health_v1.HealthListRequest) (*grpc_health_v1.HealthListResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
 }
 
 // Converts the enum index into enum names
@@ -78,28 +79,27 @@ func (state Status) String() string {
 	return listStatus[state]
 }
 
-// set the no heartbeat URL State
-func SetNoHeartbeatURLState(state bool) {
-	isNoHeartbeatURL = state
-}
-
-// validates the heartbeat configurations
-func ValidateHeartbeatConfig() error {
-	//initialize the url state to false
-	SetNoHeartbeatURLState(false)
+// ValidateHeartbeatConfig validates the heartbeat configurations
+func ValidateHeartbeatConfig(heartbeatType, heartbeatEndpoint string) error {
+	// initialize the url state to false
 	// check if the configured type is not supported
-	hbType := config.GetString(config.ServiceHeartbeatType)
-	if hbType != "grpc" && hbType != "http" && hbType != "https" && hbType != "none" && hbType != "" {
-		return fmt.Errorf("unrecognized heartbet service type : '%+v'", hbType)
+	if heartbeatType != "grpc" && heartbeatType != "http" && heartbeatType != "https" && heartbeatType != "none" && heartbeatType != "" {
+		return fmt.Errorf("unrecognized heartbet service type : '%+v'", heartbeatType)
 	}
-	// if the URLs are empty, or hbtype is None or empty consider it as not configured
-	if hbType == "" || hbType == "none" || config.GetString(config.HeartbeatServiceEndpoint) == "" {
-		SetNoHeartbeatURLState(true)
-	} else if !config.IsValidUrl(config.GetString(config.HeartbeatServiceEndpoint)) {
-		return errors.New("service endpoint must be a valid URL")
+
+	// if the URLs are empty, or hbtype is None or empty, consider it as not configured
+	if heartbeatType == "" || heartbeatType == "none" || heartbeatEndpoint == "" {
+		zap.L().Info("heartbeat service endpoint not configured, will be using service endpoint to ping the service")
+		return nil
+	}
+
+	if !utils.IsURLValid(heartbeatEndpoint) {
+		return errors.New("heartbeat endpoint must be a valid URL")
 	}
 	return nil
 }
+
+// getStorageCertificateDetails returns the storage certificate details
 func getStorageCertificateDetails() (cert StorageClientCert) {
 	cert = StorageClientCert{}
 	certificate, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
@@ -119,38 +119,67 @@ func getStorageCertificateDetails() (cert StorageClientCert) {
 	return
 }
 
-// prepares the heartbeat, which includes calling to underlying service DAemon is serving
-func GetHeartbeat(serviceURL string, serviceType string, serviceID string, trainingInProto bool, trainingMethods []string, dynamicPricing map[string]string) (heartbeat DaemonHeartbeat, err error) {
-	heartbeat = DaemonHeartbeat{
-		GetDaemonID(),
-		strconv.FormatInt(getEpochTime(), 10),
-		Online.String(),
-		"{}",
-		config.GetVersionTag(),
-		config.GetBool(config.ModelTrainingEnabled),
-		trainingInProto,
-		trainingMethods,
-		dynamicPricing,
-		config.GetBool(config.BlockchainEnabledKey),
-		config.GetString(config.BlockChainNetworkSelected),
-		getStorageCertificateDetails()}
+type HeartStatus struct {
+	ServiceID string `json:"serviceID"`
+	Status    string `json:"status"`
+}
 
-	var curResp = `{"serviceID":"` + serviceID + `","status":"NOT_SERVING"}`
-	if serviceType == "none" || serviceType == "" || isNoHeartbeatURL {
-		curResp = `{"serviceID":"` + serviceID + `","status":"SERVING"}`
-	} else {
-		var serviceHeartbeat []byte
-		if serviceType == "grpc" {
-			var response grpc_health_v1.HealthCheckResponse_ServingStatus
-			response, err = callgRPCServiceHeartbeat(serviceURL)
-			//Standardize this as well on the response being sent
-			heartbeat.Status = response.String()
-		} else if serviceType == "http" || serviceType == "https" {
-			serviceHeartbeat, err = callHTTPServiceHeartbeat(serviceURL)
-		}
+// GetHeartbeat prepares the heartbeat, which includes calling the underlying service Daemon is serving
+func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatType string, serviceID string, trainingMetadata func() (*training.TrainingMetadata, error), dynamicPricing map[string]string, currentBlock func() (*big.Int, error)) (heartbeat DaemonHeartbeat, err error) {
+	heartbeat = DaemonHeartbeat{
+		DaemonID:                 GetDaemonID(),
+		Timestamp:                strconv.FormatInt(getEpochTime(), 10),
+		Status:                   Offline.String(),
+		ServiceHeartbeat:         "",
+		DaemonVersion:            config.GetVersionTag(),
+		DynamicPricing:           dynamicPricing,
+		BlockchainEnabled:        config.GetBool(config.BlockchainEnabledKey),
+		BlockchainNetwork:        config.GetString(config.BlockChainNetworkSelected),
+		StorageClientCertDetails: getStorageCertificateDetails(),
+		CurrentBlock:             currentBlock,
+		TrainingMetadata:         trainingMetadata,
+	}
+
+	if trainingMetadata != nil {
+		md, err := trainingMetadata()
 		if err != nil {
-			heartbeat.Status = Warning.String()
-			// send the alert if service heartbeat fails
+			md = nil
+		}
+		heartbeat.TrainingMetadataData = md
+	}
+
+	var curResp = &HeartStatus{Status: "NOT_SERVING", ServiceID: serviceID}
+	switch heartbeatType {
+	case "grpc":
+		var response grpc_health_v1.HealthCheckResponse_ServingStatus
+		response, err = callGrpcServiceHeartbeat(serviceHeartbeatURL)
+		//Standardize this as well on the response being sent
+		heartbeat.Status = response.String()
+		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("response", string(response)), zap.Error(err))
+	case "http":
+		fallthrough
+	case "https":
+		var serviceHeartbeatBytes []byte
+		serviceHeartbeatBytes, err = callHTTPServiceHeartbeat(serviceHeartbeatURL)
+		heartbeat.ServiceHeartbeat = string(serviceHeartbeatBytes)
+		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("serviceHeartbeatBytes", string(serviceHeartbeatBytes)), zap.Error(err))
+	case "none":
+		fallthrough
+	case "":
+		// trying to ping the service with serviceEndpoint
+		err = tcpPingService(serviceEndpoint)
+		zap.L().Debug("Get heartbeat [tcpPingService]", zap.String("serviceEndpoint", serviceEndpoint), zap.Error(err))
+	}
+
+	if err == nil {
+		curResp.Status = "SERVING"
+		heartbeat.Status = Online.String()
+	}
+
+	if err != nil {
+		heartbeat.Status = Offline.String()
+		// send the alert if service heartbeat fails
+		if config.GetString(config.AlertsEMail) != "" {
 			notification := &Notification{
 				Recipient: config.GetString(config.AlertsEMail),
 				Details:   err.Error(),
@@ -160,24 +189,30 @@ func GetHeartbeat(serviceURL string, serviceType string, serviceID string, train
 				DaemonID:  GetDaemonID(),
 				Level:     "ERROR",
 			}
-			notification.Send()
-		} else {
-			zap.L().Debug("Get herbeat", zap.String("ServiceUrl", serviceURL), zap.String("Service", string(serviceHeartbeat)))
-			curResp = string(serviceHeartbeat)
+			c, err := currentBlock()
+			if err != nil {
+				zap.L().Error("Error getting current block", zap.Error(err))
+			}
+			go notification.Send(c)
 		}
 	}
-	heartbeat.ServiceHeartbeat = curResp
+
+	marshal, err := json.Marshal(curResp)
+	if err != nil {
+		return heartbeat, err
+	}
+	heartbeat.ServiceHeartbeat = string(marshal)
 	return heartbeat, err
 }
 
-// Heartbeat request handler function : upon request it will hit the service for status and
-// wraps the results in daemons heartbeat
-func HeartbeatHandler(rw http.ResponseWriter, trainingInProto bool, trainingMethods []string, dynamicPricing map[string]string) {
+// HeartbeatHandler request handler function: upon request it will hit the service for status and
+// wraps the results in daemon's heartbeat
+func HeartbeatHandler(rw http.ResponseWriter, trainingMetadata func() (*training.TrainingMetadata, error), dynamicPricing map[string]string, currentBlock func() (*big.Int, error)) {
 	// read the heartbeat service type and corresponding URL
-	serviceType := config.GetString(config.ServiceHeartbeatType)
+	heartbeatType := config.GetString(config.ServiceHeartbeatType)
 	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
 	serviceID := config.GetString(config.ServiceId)
-	heartbeat, _ := GetHeartbeat(serviceURL, serviceType, serviceID, trainingInProto, trainingMethods, dynamicPricing)
+	heartbeat, _ := GetHeartbeat(config.GetString(config.ServiceEndpointKey), serviceURL, heartbeatType, serviceID, trainingMetadata, dynamicPricing, currentBlock)
 	err := json.NewEncoder(rw).Encode(heartbeat)
 	if err != nil {
 		zap.L().Info("Failed to write heartbeat message.", zap.Error(err))
@@ -187,14 +222,20 @@ func HeartbeatHandler(rw http.ResponseWriter, trainingInProto bool, trainingMeth
 // Check implements `service Health`.
 func (service *DaemonHeartbeat) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 
-	heartbeat, err := GetHeartbeat(config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
-		config.GetString(config.ServiceId), service.TrainingInProto, service.TrainingMethods, service.DynamicPricing)
+	heartbeat, err := GetHeartbeat(config.GetString(config.ServiceEndpointKey), config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
+		config.GetString(config.ServiceId), service.TrainingMetadata, service.DynamicPricing, service.CurrentBlock)
+
+	if err != nil {
+		return &grpc_health_v1.HealthCheckResponse{
+			Status: grpc_health_v1.HealthCheckResponse_UNKNOWN,
+		}, fmt.Errorf("service heartbeat unknown: %w", err)
+	}
 
 	if strings.Compare(heartbeat.Status, Online.String()) == 0 {
 		return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 	}
 
-	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN}, errors.New("Service heartbeat unknown " + err.Error())
+	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVICE_UNKNOWN}, errors.New("Service heartbeat unknown: " + heartbeat.Status)
 }
 
 // Watch implements `service Watch todo for later`.

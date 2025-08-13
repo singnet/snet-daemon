@@ -262,7 +262,7 @@ This options are less frequently needed.
 * **alerts_email** (optional; default: `""`) — It must be a valid email. if it is empty, then it is considered as alerts
   disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
 
-* **service_heartbeat_type** (optional; default: `grpc`) — possible type configurations are ```none | grpc | http```. If
+* **service_heartbeat_type** (optional; default: `""`) — possible type configurations are ```none | grpc | http```. If
   it is left empty, then it is considered as none type. see [daemon heartbeats configuration](./metrics/README.md)
 
 * **heartbeat_endpoint** (optional; default: `""`) — It must be a valid URL. if it is empty, then service state

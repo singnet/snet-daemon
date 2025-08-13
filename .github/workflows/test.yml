@@ -1,7 +1,7 @@
 name: test
 on:
   push:
-    branches: [ "master", "dev" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
   workflow_dispatch:
@@ -23,6 +23,7 @@ jobs:
         with:
           version: "31.1"
           include-pre-releases: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: chmod to allow run script
         run: chmod +x ./scripts/install_deps

@@ -49,7 +49,7 @@ type processor struct {
 	ethWSClient             *ethclient.Client
 	rawWSClient             *rpc.Client
 	sigHasher               func([]byte) []byte
-	privateKey              *ecdsa.PrivateKey
+	privateKey              *ecdsa.PrivateKey // deprecated
 	address                 string
 	jobCompletionQueue      chan *jobInfo
 	escrowContractAddress   common.Address
@@ -71,7 +71,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	}
 
 	// Setup ethereum client
-	if ethHttpClients, err := CreateEthereumClient(); err != nil {
+	if ethHttpClients, err := CreateHTTPEthereumClient(); err != nil {
 		return &p, errors.Wrap(err, "error creating RPC client")
 	} else {
 		p.rawHttpClient = ethHttpClients.RawClient
@@ -79,7 +79,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	}
 
 	// TODO: if address is not in config, try to load it using network
-	//TODO: Read this from github
+	// TODO: Read this from github
 
 	p.escrowContractAddress = metadata.GetMpeAddress()
 
@@ -89,7 +89,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 		p.multiPartyEscrow = mpe
 	}
 
-	// set local signature hash creator
+	// set a local signature hash creator
 	p.sigHasher = func(i []byte) []byte {
 		return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 	}

@@ -4,12 +4,14 @@ package escrow
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/token"
 	"golang.org/x/net/context"
-	"math/big"
 )
 
 type TokenService struct {

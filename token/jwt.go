@@ -2,11 +2,12 @@ package token
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
-	"strings"
-	"time"
 )
 
 type customJWTokenServiceImpl struct {

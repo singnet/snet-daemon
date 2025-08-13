@@ -3,12 +3,14 @@ package handler
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"strings"
 )
 
 type GrpcUnaryContext struct {

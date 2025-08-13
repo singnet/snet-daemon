@@ -371,12 +371,30 @@ func normalizeMapKeysToLower(m map[string]any) map[string]any {
 	return normalized
 }
 
+// GetFreeCallsAllowed returns the number of free calls allowed for the given user address.
+//
+// It looks up the address in the free_calls_per_address configuration:
+//   - int: returned as-is.
+//   - float64: converted to int.
+//   - string "unlimited"/"infinity": returns -1 (unlimited).
+//
+// If no entry is found or the type is invalid, it returns 0.
 func GetFreeCallsAllowed(userAddr string) int {
-	zap.L().Debug("GetFreeCallsAllowed", zap.String("addr", userAddr))
 	freeCallsUsers := normalizeMapKeysToLower(GetStringMap(FreeCallsPerAddress))
 	if countFreeCalls, ok := freeCallsUsers[strings.ToLower(userAddr)]; ok {
-		zap.L().Debug("GetFreeCallsAllowed", zap.String("addr", userAddr), zap.Float64("countFreeCalls", countFreeCalls.(float64)))
-		return int(countFreeCalls.(float64))
+		switch countCasted := countFreeCalls.(type) {
+		case int:
+			return countCasted
+		case float64:
+			return int(countCasted)
+		case string:
+			if countCasted == "unlimited" || countCasted == "infinity" {
+				return -1
+			}
+		default:
+			zap.L().Error("Invalid free_calls_per_address param: ", zap.Any("invalid value", countFreeCalls))
+			return 0
+		}
 	}
 	return 0
 }

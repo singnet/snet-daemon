@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"slices"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -11,8 +14,6 @@ import (
 	"github.com/singnet/snet-daemon/v6/handler"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"math/big"
-	"slices"
 )
 
 type FreeCallStateService struct {
@@ -138,23 +139,31 @@ func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment)
 		return 0, err
 	}
 	data, ok, err := service.freeCallService.FreeCallUser(key)
-	if !ok {
-		return 0, fmt.Errorf("error in retrieving free call details from storage")
-	}
 	if err != nil {
 		return 0, err
 	}
+	if !ok {
+		return 0, fmt.Errorf("error in retrieving free call details from storage")
+	}
 
-	if freeCallsAllowed := config.GetFreeCallsAllowed(key.Address); freeCallsAllowed > 0 {
+	freeCallsAllowed := config.GetFreeCallsAllowed(key.Address)
+	if freeCallsAllowed == -1 {
+		return 99999999, nil
+	}
+
+	if freeCallsAllowed > 0 {
 		if freeCallsAllowed-data.FreeCallsMade < 0 {
 			return 0, nil
 		}
 		return uint64(freeCallsAllowed - data.FreeCallsMade), err
 	}
-	if service.serviceMetadata.GetFreeCallsAllowed()-data.FreeCallsMade < 0 {
+
+	freeCallsAllowed = service.serviceMetadata.GetFreeCallsAllowed() - data.FreeCallsMade
+	if freeCallsAllowed < 0 {
 		return 0, nil
 	}
-	return uint64(service.serviceMetadata.GetFreeCallsAllowed() - data.FreeCallsMade), nil
+
+	return uint64(freeCallsAllowed), nil
 }
 
 func (service *FreeCallStateService) getFreeCallPayment(request *FreeCallStateRequest) (*FreeCallPayment, error) {

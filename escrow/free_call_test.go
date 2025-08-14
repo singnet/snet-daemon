@@ -1,10 +1,11 @@
 package escrow
 
 import (
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/v6/storage"
-	"testing"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
@@ -95,7 +96,7 @@ func (suite *FreeCallServiceSuite) TestFreeCallUserTransaction() {
 	assert.Equal(suite.T(), freeCallUserDataAfter, freeCallUserDataBefore)
 	transaction, errA = suite.service.StartFreeCallUserTransaction(payment)
 	assert.NotNil(suite.T(), errA, "Unexpected error: %v", errA)
-	assert.Equal(suite.T(), "free call limit has been exceeded, calls made = 10,total free calls eligible = 10", errA.Error())
+	assert.Equal(suite.T(), "free call limit has been exceeded, calls made = 10, total free calls eligible = 10", errA.Error())
 }
 
 func (suite *FreeCallServiceSuite) TestFreeCallUserTransactionTestLock() {

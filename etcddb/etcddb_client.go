@@ -44,6 +44,8 @@ type EtcdClient struct {
 	etcd      *clientv3.Client
 }
 
+var _ storage.AtomicStorage = (*EtcdClient)(nil)
+
 // NewEtcdClient create new etcd storage client.
 func NewEtcdClient(metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
 	return NewEtcdClientFromVip(config.Vip(), metaData)
@@ -67,7 +69,7 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 
 	if utils.CheckIfHttps(conf.Endpoints) {
 		var tlsConfig *tls.Config
-		tlsConfig, err = getTlsConfig()
+		tlsConfig, err = getTLSConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -116,17 +118,17 @@ func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
 	return etcdClient, nil
 }
 
-func getTlsConfig() (*tls.Config, error) {
-	zap.L().Debug("enabling SSL support via X509 keypair")
+func getTLSConfig() (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
-
 	if err != nil {
-		panic("unable to load specific SSL X509 keypair for etcd")
+		zap.L().Error(fmt.Sprintf("unable to load specific SSL X509 keypair for etcd, recheck %s and %s:", config.PaymentChannelCertPath, config.PaymentChannelKeyPath))
+		return nil, err
 	}
 	caCert, err := os.ReadFile(config.GetString(config.PaymentChannelCaPath))
 	if err != nil {
 		return nil, err
 	}
+	zap.L().Debug("enabling SSL support via X509 keypair")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 	tlsConfig := &tls.Config{
@@ -173,7 +175,7 @@ func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, err error
 	if err != nil {
 		zap.L().Error("Unable to get value by key prefix",
 			zap.Error(err),
-			zap.String("func", "Get"),
+			zap.String("func", "GetByKeyPrefix"),
 			zap.String("key", key),
 			zap.Any("client", client))
 		return
@@ -240,7 +242,7 @@ func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue 
 		RetryTillSuccessOrError: false,
 		ConditionKeys:           []string{key},
 		Update: func(oldValues []storage.KeyValueData) (update []storage.KeyValueData, ok bool, err error) {
-			if oldValues[0].Present && strings.Compare(oldValues[0].Value, prevValue) == 0 {
+			if oldValues[0].Present && oldValues[0].Value == prevValue {
 				return []storage.KeyValueData{{
 					Key:   key,
 					Value: newValue,
@@ -276,7 +278,7 @@ func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValu
 		for _, keyValue := range compare {
 			keys = append(keys, keyValue.key)
 		}
-		zap.L().Error("Unable to Transaction",
+		zap.L().Error("Unable to execute transaction",
 			zap.Error(err),
 			zap.String("keys", strings.Join(keys, ", ")),
 			zap.String("func", "Transaction"),
@@ -343,17 +345,37 @@ func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok boo
 	}
 }
 
-// If there are no Old values in the transaction, to compare, then this method
-// can be used to write in the new values , if the key does not exist then put it in a transaction
+// CompleteTransaction atomically applies a set of updates conditioned on the state
+// captured by a previously started transaction.
+//
+// The _transaction argument must be an *etcdTransaction returned by StartTransaction;
+// otherwise the method returns an error. For each condition key:
+//   - If ConditionValues[i].Present is true, the compare checks ModRevision(key) == Version.
+//   - If Present is false, the compare checks CreateRevision(key) == 0 (the key must not exist).
+//
+// If all compares succeed, the method applies the updates in a single etcd txn:
+//   - For entries with Present == true, it performs OpPut(key, value).
+//   - For entries with Present == false, it performs OpDelete(key).
+//
+// If the compares fail, the method fetches the latest values for the condition keys
+// (Else branch), stores them back into the underlying etcdTransaction so the caller
+// can retry, and returns ok == false with err == nil.
+//
+// The returned ok is true only if the etcd transaction succeeded. A non-nil err
+// indicates an execution error (e.g., client error, commit failure). The operation
+// is bounded by the client's request timeout and logs the transaction latency at
+// DEBUG level.
 func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, update []storage.KeyValueData) (
 	ok bool, err error) {
 
-	var transaction *etcdTransaction = _transaction.(*etcdTransaction)
+	transaction, okType := _transaction.(*etcdTransaction)
+	if !okType {
+		return false, fmt.Errorf("unexpected transaction type: %T", _transaction)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
-	defer ctx.Done()
-	//startime := time.Now()
+	startTime := time.Now()
 	txn := client.etcd.KV.Txn(ctx)
 	var txnResp *clientv3.TxnResponse
 	conditionKeys := transaction.ConditionKeys
@@ -367,10 +389,13 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 		}
 	}
 
-	thenOps := make([]clientv3.Op, len(update))
-	for index, op := range update {
-		// TODO: add OpDelete if op.Present is false
-		thenOps[index] = clientv3.OpPut(op.Key, op.Value)
+	thenOps := make([]clientv3.Op, 0, len(update))
+	for _, op := range update {
+		if !op.Present {
+			thenOps = append(thenOps, clientv3.OpDelete(op.Key))
+			continue
+		}
+		thenOps = append(thenOps, clientv3.OpPut(op.Key, op.Value))
 	}
 
 	elseOps := make([]clientv3.Op, len(conditionKeys))
@@ -379,8 +404,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 	}
 	txnResp, err = txn.If(ifCompares...).Then(thenOps...).Else(elseOps...).Commit()
 
-	//endtime := time.Now()
-	//zap.L().Debug("etcd transaction time", zap.Any("time", endtime.Sub(startime)))
+	zap.L().Debug("etcd transaction time", zap.Duration("latency", time.Since(startTime)))
 
 	if err != nil {
 		return false, err
@@ -505,6 +529,8 @@ type etcdTransaction struct {
 	ConditionValues []keyValueVersion
 	ConditionKeys   []string
 }
+
+var _ storage.Transaction = (*etcdTransaction)(nil)
 
 func (transaction *etcdTransaction) GetConditionValues() ([]storage.KeyValueData, error) {
 	values := make([]storage.KeyValueData, len(transaction.ConditionValues))

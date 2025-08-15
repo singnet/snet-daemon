@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	AllowedBlockChainDifference = 5
+	AllowedBlockDifference = 5
 )
 
 // PaymentChannelStateService is an implementation of PaymentChannelStateServiceServer gRPC interface
@@ -68,7 +68,7 @@ func NewPaymentChannelStateService(channelService PaymentChannelService, payment
 		paymentStorage: paymentStorage,
 		mpeAddress:     processor.EscrowContractAddress,
 		compareWithLatestBlockNumber: func(blockNumberPassed *big.Int) error {
-			return processor.CompareWithLatestBlockNumber(blockNumberPassed, AllowedBlockChainDifference)
+			return processor.CompareWithLatestBlockNumber(blockNumberPassed, AllowedBlockDifference)
 		},
 	}
 }

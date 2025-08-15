@@ -55,7 +55,7 @@ func NewTokenService(paymentChannelService PaymentChannelService,
 				return err
 			}
 			differenceInBlockNumber := blockNumber.Sub(blockNumber, currentBlockNumber)
-			if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > authutils.AllowedBlockChainDifference {
+			if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > AllowedBlockDifference {
 				return fmt.Errorf("authentication failed as the signature passed has expired")
 			}
 			return nil

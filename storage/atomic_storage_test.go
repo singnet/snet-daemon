@@ -17,9 +17,15 @@ func dummyKeySerializer(key any) (string, error) {
 	return s, nil
 }
 
-// Dummy value deserializer: converts string back to string pointer
+// Dummy value deserializer: converts string back to *string, but errors on empty input
 func dummyValueDeserializer(serialized string, value any) error {
-	ptr := value.(*string)
+	if serialized == "" {
+		return fmt.Errorf("empty value")
+	}
+	ptr, ok := value.(*string)
+	if !ok {
+		return fmt.Errorf("expected *string, got %T", value)
+	}
 	*ptr = serialized
 	return nil
 }
@@ -179,4 +185,99 @@ func TestFindKeyValueByKey(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRemoveKeyValuePrefix_RemovesOnlyLeadingPrefix(t *testing.T) {
+	s := &PrefixedAtomicStorage{keyPrefix: "app"}
+
+	in := []KeyValueData{
+		{Key: "app/user", Value: "v1", Present: true},
+		{Key: "app/app/user", Value: "v2", Present: true},         // "app/" appears again inside the key
+		{Key: "app/user/app-profile", Value: "v3", Present: true}, // "app/" appears later in the key
+	}
+	got := s.removeKeyValuePrefix(in)
+
+	// Expect ONLY the leading "app/" to be removed
+	want := []KeyValueData{
+		{Key: "user", Value: "v1", Present: true},
+		{Key: "app/user", Value: "v2", Present: true},         // inner "app/" should remain
+		{Key: "user/app-profile", Value: "v3", Present: true}, // inner "app/" should remain
+	}
+
+	assert.Equal(t, want, got)
+}
+
+func TestRemoveKeyValuePrefix_NoChangeWhenNoLeadingPrefix(t *testing.T) {
+	s := &PrefixedAtomicStorage{keyPrefix: "app"}
+
+	in := []KeyValueData{
+		{Key: "xapp/user", Value: "v1", Present: true}, // contains "app/" but not as a leading prefix
+		{Key: "noapp/user", Value: "v2", Present: true},
+		{Key: "application/user", Value: "v3", Present: true},
+	}
+	got := s.removeKeyValuePrefix(in)
+
+	// Expect no changes (no leading "app/")
+	want := []KeyValueData{
+		{Key: "xapp/user", Value: "v1", Present: true},
+		{Key: "noapp/user", Value: "v2", Present: true},
+		{Key: "application/user", Value: "v3", Present: true},
+	}
+
+	assert.Equal(t, want, got)
+}
+
+func TestRemoveKeyValuePrefix_TrailingSlashInPrefix(t *testing.T) {
+	s := &PrefixedAtomicStorage{keyPrefix: "app/"} // trailing slash
+
+	in := []KeyValueData{
+		{Key: "app/user", Value: "v1", Present: true},
+		{Key: "app/app/user", Value: "v2", Present: true}, // inner "app/" should remain
+	}
+	got := s.removeKeyValuePrefix(in)
+
+	want := []KeyValueData{
+		{Key: "user", Value: "v1", Present: true},
+		{Key: "app/user", Value: "v2", Present: true},
+	}
+	assert.Equal(t, want, got)
+}
+
+func TestRemoveKeyValuePrefix_EmptyPrefixSymmetry(t *testing.T) {
+	s := &PrefixedAtomicStorage{keyPrefix: ""}
+
+	in := []KeyValueData{
+		{Key: "/user/1", Value: "v", Present: true}, // how a key may look when joined with an empty prefix
+		{Key: "user/1", Value: "v", Present: true},  // no leading "/"
+	}
+	got := s.removeKeyValuePrefix(in)
+
+	want := []KeyValueData{
+		{Key: "user/1", Value: "v", Present: true},
+		{Key: "user/1", Value: "v", Present: true},
+	}
+	assert.Equal(t, want, got)
+}
+
+func TestRemoveKeyValuePrefix_Idempotent(t *testing.T) {
+	s := &PrefixedAtomicStorage{keyPrefix: "app"}
+
+	in := []KeyValueData{
+		{Key: "app/a/b", Value: "v", Present: true},
+		{Key: "x/app/b", Value: "v", Present: true}, // no leading prefix
+	}
+	once := s.removeKeyValuePrefix(in)
+	twice := s.removeKeyValuePrefix(once)
+	assert.Equal(t, once, twice)
+}
+
+func TestPrefixRoundTrip_AppendThenRemove(t *testing.T) {
+	s := &PrefixedAtomicStorage{keyPrefix: "app"}
+	orig := []KeyValueData{
+		{Key: "a/b", Value: "v1", Present: true},
+		{Key: "c", Value: "v2", Present: false},
+	}
+	with := s.appendKeyValuePrefix(orig)
+	back := s.removeKeyValuePrefix(with)
+	assert.Equal(t, orig, back)
 }

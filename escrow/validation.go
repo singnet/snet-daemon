@@ -211,7 +211,7 @@ func (validator *FreeCallPaymentValidator) compareWithLatestBlockNumber(blockNum
 		return err
 	}
 	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
-	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > authutils.AllowedBlockChainDifference {
+	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > AllowedBlockDifference {
 		return fmt.Errorf("authentication failed as the signature passed has expired")
 	}
 	return nil

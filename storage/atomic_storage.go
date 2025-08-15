@@ -97,8 +97,11 @@ type prefixedTransactionImpl struct {
 	storage     *PrefixedAtomicStorage
 }
 
-func (transaction prefixedTransactionImpl) GetConditionValues() ([]KeyValueData, error) {
-	conditionKeyValues, err := transaction.GetConditionValues()
+// Compile-time check: prefixedTransactionImpl implements Transaction.
+var _ Transaction = (*prefixedTransactionImpl)(nil)
+
+func (transaction *prefixedTransactionImpl) GetConditionValues() ([]KeyValueData, error) {
+	conditionKeyValues, err := transaction.transaction.GetConditionValues()
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +115,7 @@ func (storage *PrefixedAtomicStorage) StartTransaction(conditionKeys []string) (
 	if err != nil {
 		return nil, err
 	}
-	return prefixedTransactionImpl{storage: storage, transaction: transaction}, nil
+	return &prefixedTransactionImpl{storage: storage, transaction: transaction}, nil
 }
 
 func (storage *PrefixedAtomicStorage) appendKeyPrefix(conditionKeys []string) (preFixedConditionKeys []string) {
@@ -136,13 +139,14 @@ func (storage *PrefixedAtomicStorage) appendKeyValuePrefix(update []KeyValueData
 	return prefixedKeyValueData
 }
 
-func (storage *PrefixedAtomicStorage) removeKeyValuePrefix(update []KeyValueData) []KeyValueData {
-	unprefixedKeyValueData := make([]KeyValueData, len(update))
-	copy(unprefixedKeyValueData, update)
-	for i, keyValue := range unprefixedKeyValueData {
-		unprefixedKeyValueData[i].Key = strings.Replace(keyValue.Key, storage.keyPrefix+"/", "", -1)
+func (storage *PrefixedAtomicStorage) removeKeyValuePrefix(in []KeyValueData) []KeyValueData {
+	out := make([]KeyValueData, len(in))
+	copy(out, in)
+	p := strings.TrimRight(storage.keyPrefix, "/") + "/"
+	for i := range out {
+		out[i].Key = strings.TrimPrefix(out[i].Key, p)
 	}
-	return unprefixedKeyValueData
+	return out
 }
 
 func (storage *PrefixedAtomicStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
@@ -187,7 +191,7 @@ type TypedTransaction interface {
 	GetConditionValues() ([]TypedKeyValueData, error)
 }
 
-// Best to change this to KeyValueData , will do this in the next commit
+// Best to change this to KeyValueData, will do this in the next commit
 type TypedUpdateFunc func(conditionValues []TypedKeyValueData) (update []TypedKeyValueData, ok bool, err error)
 
 type TypedCASRequest struct {
@@ -366,10 +370,10 @@ func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(conditionKeys 
 	return result, nil
 }
 
-func findKeyValueByKey(keyValueData []KeyValueData, key string) (keyValueString *KeyValueData, ok bool) {
-	for _, keyValueString := range keyValueData {
-		if keyValueString.Key == key {
-			return &keyValueString, true
+func findKeyValueByKey(data []KeyValueData, key string) (*KeyValueData, bool) {
+	for i := range data {
+		if data[i].Key == key {
+			return &data[i], true
 		}
 	}
 	return nil, false

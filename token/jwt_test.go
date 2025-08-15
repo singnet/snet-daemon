@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
 )
@@ -50,4 +51,43 @@ func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
 	}
 	_, err = tokenImpl2.VerifyToken(token, "any struct")
 	assert.Equal(t, "groupId GroupID is not associated with this Daemon", err.Error())
+}
+
+func Test_customJWTokenServiceImpl_checkJwtTokenClaims(t *testing.T) {
+	tokenImpl := &customJWTokenServiceImpl{
+		getGroupId: func() string {
+			return "GroupID"
+		},
+	}
+
+	// helper to create the claims map
+	createClaims := func(payload interface{}, orgId string, groupId string) jwt.MapClaims {
+		return jwt.MapClaims{
+			"payload": payload,
+			"orgId":   orgId,
+			"groupId": groupId,
+		}
+	}
+
+	// valid claims
+	claims := createClaims("payload1", "Org1", "GroupID")
+	tokenImpl.getGroupId = func() string { return "GroupID" }
+	config.Vip().Set(config.OrganizationId, "Org1")
+	err := tokenImpl.checkJwtTokenClaims(claims, "payload1")
+	assert.NoError(t, err)
+
+	// invalid payload
+	claims = createClaims("payload1", "Org1", "GroupID")
+	err = tokenImpl.checkJwtTokenClaims(claims, "payload2")
+	assert.EqualError(t, err, "payload payload1 used to generate the Token doesnt match expected values")
+
+	// invalid orgId
+	claims = createClaims("payload1", "Org2", "GroupID")
+	err = tokenImpl.checkJwtTokenClaims(claims, "payload1")
+	assert.EqualError(t, err, "organization Org2 is not associated with this Daemon")
+
+	// invalid groupId
+	claims = createClaims("payload1", "Org1", "GroupID2")
+	err = tokenImpl.checkJwtTokenClaims(claims, "payload1")
+	assert.EqualError(t, err, "groupId GroupID2 is not associated with this Daemon")
 }

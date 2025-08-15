@@ -10,7 +10,7 @@ type MemoryStorage struct {
 	mutex *sync.RWMutex
 }
 
-// NewMemStorage returns new in-memory atomic storage implementation
+// NewMemStorage returns a new in-memory atomic storage implementation
 func NewMemStorage() (storage *MemoryStorage) {
 	return &MemoryStorage{
 		data:  make(map[string]string),
@@ -132,17 +132,18 @@ func getValueDataForKey(key string, update []KeyValueData) (data KeyValueData, p
 	}
 	return data, false
 }
+
 func (storage *MemoryStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
 	originalValues := transaction.(*memoryStorageTransaction).ConditionValues
-	for _, olddata := range originalValues {
-		if olddata.Present {
+	for _, oldData := range originalValues {
+		if oldData.Present {
 			//make sure the current value is the same as the value last read
-			currentValue, ok, err := storage.Get(olddata.Key)
+			currentValue, ok, err := storage.Get(oldData.Key)
 			if !ok || err != nil {
 				return ok, err
 			}
-			if strings.Compare(currentValue, olddata.Value) == 0 {
-				if updatedData, ok := getValueDataForKey(olddata.Key, update); ok {
+			if strings.Compare(currentValue, oldData.Value) == 0 {
+				if updatedData, ok := getValueDataForKey(oldData.Key, update); ok {
 					if err = storage.Put(updatedData.Key, updatedData.Value); err != nil {
 						return false, err
 					}
@@ -151,7 +152,7 @@ func (storage *MemoryStorage) CompleteTransaction(transaction Transaction, updat
 			}
 
 		} else {
-			if updatedData, ok := getValueDataForKey(olddata.Key, update); ok {
+			if updatedData, ok := getValueDataForKey(oldData.Key, update); ok {
 				if ok, err := storage.PutIfAbsent(updatedData.Key, updatedData.Value); err != nil {
 					return false, err
 				} else if !ok {
@@ -164,33 +165,43 @@ func (storage *MemoryStorage) CompleteTransaction(transaction Transaction, updat
 	return true, nil
 }
 
+// ExecuteTransaction executes a transaction on the storage
 func (storage *MemoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
 	transaction, err := storage.StartTransaction(request.ConditionKeys)
 	if err != nil {
 		return false, err
 	}
-	for {
-		oldvalues, err := transaction.GetConditionValues()
+
+	maxRetries := 100
+	for attempts := 0; attempts < maxRetries; attempts++ {
+		oldValues, err := transaction.GetConditionValues()
 		if err != nil {
 			return false, err
 		}
-		newvalues, ok, err := request.Update(oldvalues)
+		newValues, ok, err := request.Update(oldValues)
 		if err != nil {
 			return false, err
 		}
-		ok, err = storage.CompleteTransaction(transaction, newvalues)
+		if !ok {
+			// If the transaction was not successful and retrying is true - continue
+			if request.RetryTillSuccessOrError {
+				continue
+			}
+			return false, nil
+		}
+		ok, err = storage.CompleteTransaction(transaction, newValues)
 		if err != nil {
 			return false, err
 		}
 		if ok {
 			return true, nil
 		}
-		if request.RetryTillSuccessOrError {
-			continue
+		if !request.RetryTillSuccessOrError {
+			return false, nil
 		}
 	}
-	// TODO: refactor this
-	return true, nil
+	// After exhausting retries, indicate failure without error to match expected semantics
+	return false, nil
 }
 
 type memoryStorageTransaction struct {

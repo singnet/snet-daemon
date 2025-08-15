@@ -2,9 +2,10 @@ package escrow
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/storage"
 	"math/big"
 	"strings"
+
+	"github.com/singnet/snet-daemon/v6/storage"
 )
 
 type lockingPrepaidService struct {
@@ -75,6 +76,7 @@ func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *b
 	}
 	return nil
 }
+
 func getAllKeys(channelId *big.Int) []any {
 	keys := make([]any, 3)
 	for i, usageType := range []string{REFUND_AMOUNT, PLANNED_AMOUNT, USED_AMOUNT} {

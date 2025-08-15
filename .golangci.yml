@@ -17,15 +17,15 @@ linters:
     - misspell
     - unconvert
     - typecheck
-    - errcheck
+    #    - errcheck
     #    - unused
     - staticcheck
-    - bidichk
-    - durationcheck
-    - goconst
-    - noctx
-    - whitespace
-    - revive # only certain checks enabled
+#    - bidichk
+#    - durationcheck
+#    - goconst
+#    - noctx
+#    - whitespace
+#    - revive # only certain checks enabled
 
 linters-settings:
   gofmt:

@@ -13,7 +13,6 @@ import (
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -155,8 +154,8 @@ type ChannelPaymentValidator struct {
 	paymentExpirationThreshold func() (threshold *big.Int)
 }
 
-// NewChannelPaymentValidator returns new payment validator instance
-func NewChannelPaymentValidator(processor blockchain.Processor, cfg *viper.Viper, metadata *blockchain.OrganizationMetaData) *ChannelPaymentValidator {
+// NewChannelPaymentValidator returns a new payment validator instance
+func NewChannelPaymentValidator(processor blockchain.Processor, metadata *blockchain.OrganizationMetaData) *ChannelPaymentValidator {
 	return &ChannelPaymentValidator{
 		currentBlock: processor.CurrentBlock,
 		paymentExpirationThreshold: func() *big.Int {

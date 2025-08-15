@@ -716,7 +716,7 @@ func (ds *DaemonService) updateModelDetails(request *UpdateModelRequest) (data *
 	oldAddresses := make([]string, len(data.AuthorizedAddresses))
 	copy(oldAddresses, data.AuthorizedAddresses)
 
-	if request.AddressList != nil && len(request.AddressList) > 0 {
+	if len(request.AddressList) > 0 {
 
 		// By default, add the creator to the Authorized list of addresses
 		if !sliceContainsEqualFold(data.AuthorizedAddresses, data.CreatedByAddress) {
@@ -868,7 +868,7 @@ func (ds *DaemonService) GetAllModels(ctx context.Context, request *AllModelsReq
 
 	zap.L().Debug("[GetAllModels]", zap.Any("request", request))
 
-	if request.Statuses == nil || len(request.Statuses) == 0 {
+	if len(request.Statuses) == 0 {
 		request.Statuses = []Status{Status_CREATED, Status_VALIDATING, Status_VALIDATED, Status_TRAINING, Status_READY_TO_USE, Status_ERRORED, Status_DELETED}
 	}
 

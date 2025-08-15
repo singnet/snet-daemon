@@ -3,6 +3,10 @@ package escrow
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"math/big"
+	"strings"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -10,9 +14,6 @@ import (
 	"github.com/singnet/snet-daemon/v6/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"math/big"
-	"strings"
-	"testing"
 )
 
 type TokenServiceTestSuite struct {
@@ -100,8 +101,8 @@ func (suite *TokenServiceTestSuite) SetupSuite() {
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
-		}, func() ([32]byte, error) {
-			return [32]byte{123}, nil
+		}, func() [32]byte {
+			return [32]byte{123}
 		})
 
 	tokenManager := token.NewJWTTokenService(*suite.orgMetaData)

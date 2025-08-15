@@ -2,11 +2,12 @@ package training
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
-	"reflect"
-	"strings"
 
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/singnet/snet-daemon/v6/utils"
@@ -275,8 +276,8 @@ func serializePendingModelKey(key any) (serialized string, err error) {
 	return pendingModelKey.String(), nil
 }
 
-func (storage *PendingModelStorage) Get(key *PendingModelKey) (state *PendingModelData, ok bool, err error) {
-	value, ok, err := storage.delegate.Get(key)
+func (pendingStorage *PendingModelStorage) Get(key *PendingModelKey) (state *PendingModelData, ok bool, err error) {
+	value, ok, err := pendingStorage.delegate.Get(key)
 	if err != nil || !ok {
 		return nil, ok, err
 	}
@@ -284,8 +285,8 @@ func (storage *PendingModelStorage) Get(key *PendingModelKey) (state *PendingMod
 	return value.(*PendingModelData), ok, err
 }
 
-func (storage *PendingModelStorage) GetAll() (states []*PendingModelData, err error) {
-	values, err := storage.delegate.GetAll()
+func (pendingStorage *PendingModelStorage) GetAll() (states []*PendingModelData, err error) {
+	values, err := pendingStorage.delegate.GetAll()
 	if err != nil {
 		return
 	}
@@ -293,15 +294,15 @@ func (storage *PendingModelStorage) GetAll() (states []*PendingModelData, err er
 	return values.([]*PendingModelData), nil
 }
 
-func (storage *PendingModelStorage) Put(key *PendingModelKey, state *PendingModelData) (err error) {
-	return storage.delegate.Put(key, state)
+func (pendingStorage *PendingModelStorage) Put(key *PendingModelKey, state *PendingModelData) (err error) {
+	return pendingStorage.delegate.Put(key, state)
 }
 
-func (storage *PendingModelStorage) buildPendingModelKey() *PendingModelKey {
+func (pendingStorage *PendingModelStorage) buildPendingModelKey() *PendingModelKey {
 	return &PendingModelKey{
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        storage.organizationMetaData.GetGroupIdString(),
+		GroupId:        pendingStorage.organizationMetaData.GetGroupIdString(),
 	}
 }
 
@@ -313,7 +314,7 @@ func (pendingStorage *PendingModelStorage) AddPendingModelId(key *PendingModelKe
 		}
 
 		// Fetch the current list of pending model IDs from the storage
-		currentValue, ok, err := pendingStorage.delegate.Get(key)
+		currentValue, _, err := pendingStorage.delegate.Get(key)
 		if err != nil {
 			return nil, false, err
 		}
@@ -426,13 +427,13 @@ func (pendingStorage *PendingModelStorage) RemovePendingModelId(key *PendingMode
 	return nil
 }
 
-func (storage *PendingModelStorage) PutIfAbsent(key *PendingModelKey, state *PendingModelData) (ok bool, err error) {
-	return storage.delegate.PutIfAbsent(key, state)
+func (pendingStorage *PendingModelStorage) PutIfAbsent(key *PendingModelKey, state *PendingModelData) (ok bool, err error) {
+	return pendingStorage.delegate.PutIfAbsent(key, state)
 }
 
-func (storage *PendingModelStorage) CompareAndSwap(key *PendingModelKey, prevState *PendingModelData,
+func (pendingStorage *PendingModelStorage) CompareAndSwap(key *PendingModelKey, prevState *PendingModelData,
 	newState *PendingModelData) (ok bool, err error) {
-	return storage.delegate.CompareAndSwap(key, prevState, newState)
+	return pendingStorage.delegate.CompareAndSwap(key, prevState, newState)
 }
 
 func serializePublicModelKey(key any) (serialized string, err error) {
@@ -440,8 +441,8 @@ func serializePublicModelKey(key any) (serialized string, err error) {
 	return pendingModelKey.String(), nil
 }
 
-func (storage *PublicModelStorage) Get(key *PublicModelKey) (state *PublicModelData, ok bool, err error) {
-	value, ok, err := storage.delegate.Get(key)
+func (publicStorage *PublicModelStorage) Get(key *PublicModelKey) (state *PublicModelData, ok bool, err error) {
+	value, ok, err := publicStorage.delegate.Get(key)
 	if err != nil || !ok {
 		return nil, ok, err
 	}
@@ -449,8 +450,8 @@ func (storage *PublicModelStorage) Get(key *PublicModelKey) (state *PublicModelD
 	return value.(*PublicModelData), ok, err
 }
 
-func (storage *PublicModelStorage) GetAll() (states []*PublicModelData, err error) {
-	values, err := storage.delegate.GetAll()
+func (publicStorage *PublicModelStorage) GetAll() (states []*PublicModelData, err error) {
+	values, err := publicStorage.delegate.GetAll()
 	if err != nil {
 		return
 	}
@@ -458,8 +459,8 @@ func (storage *PublicModelStorage) GetAll() (states []*PublicModelData, err erro
 	return values.([]*PublicModelData), nil
 }
 
-func (storage *PublicModelStorage) Put(key *PublicModelKey, state *PublicModelData) (err error) {
-	return storage.delegate.Put(key, state)
+func (publicStorage *PublicModelStorage) Put(key *PublicModelKey, state *PublicModelData) (err error) {
+	return publicStorage.delegate.Put(key, state)
 }
 
 func (publicStorage *PublicModelStorage) AddPublicModelId(key *PublicModelKey, modelId string) (err error) {
@@ -469,7 +470,7 @@ func (publicStorage *PublicModelStorage) AddPublicModelId(key *PublicModelKey, m
 		}
 
 		// Fetch the current list of public model IDs from the storage
-		currentValue, ok, err := publicStorage.delegate.Get(key)
+		currentValue, _, err := publicStorage.delegate.Get(key)
 		if err != nil {
 			return nil, false, err
 		}
@@ -522,19 +523,19 @@ func (publicStorage *PublicModelStorage) AddPublicModelId(key *PublicModelKey, m
 	return nil
 }
 
-func (storage *PublicModelStorage) PutIfAbsent(key *PublicModelKey, state *PublicModelData) (ok bool, err error) {
-	return storage.delegate.PutIfAbsent(key, state)
+func (publicStorage *PublicModelStorage) PutIfAbsent(key *PublicModelKey, state *PublicModelData) (ok bool, err error) {
+	return publicStorage.delegate.PutIfAbsent(key, state)
 }
 
-func (storage *PublicModelStorage) CompareAndSwap(key *PublicModelKey, prevState *PublicModelData,
+func (publicStorage *PublicModelStorage) CompareAndSwap(key *PublicModelKey, prevState *PublicModelData,
 	newState *PublicModelData) (ok bool, err error) {
-	return storage.delegate.CompareAndSwap(key, prevState, newState)
+	return publicStorage.delegate.CompareAndSwap(key, prevState, newState)
 }
 
-func (storage *PublicModelStorage) buildPublicModelKey() *PublicModelKey {
+func (publicStorage *PublicModelStorage) buildPublicModelKey() *PublicModelKey {
 	return &PublicModelKey{
 		OrganizationId: config.GetString(config.OrganizationId),
 		ServiceId:      config.GetString(config.ServiceId),
-		GroupId:        storage.organizationMetaData.GetGroupIdString(),
+		GroupId:        publicStorage.organizationMetaData.GetGroupIdString(),
 	}
 }

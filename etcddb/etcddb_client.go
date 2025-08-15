@@ -94,10 +94,8 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	}
 
 	go func() {
-		select {
-		case <-session.Done():
-			zap.L().Debug("etcd session closed")
-		}
+		<-session.Done()
+		zap.L().Debug("etcd session closed")
 	}()
 
 	client = &EtcdClient{

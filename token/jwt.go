@@ -14,7 +14,7 @@ type customJWTokenServiceImpl struct {
 	getGroupId func() string
 }
 
-// This will be used in components as a service to Create and Validate tokens
+// NewJWTTokenService service to Create and Validate JWT tokens
 func NewJWTTokenService(data blockchain.OrganizationMetaData) Manager {
 	return &customJWTokenServiceImpl{
 		getGroupId: func() string {
@@ -26,7 +26,7 @@ func NewJWTTokenService(data blockchain.OrganizationMetaData) Manager {
 func (service customJWTokenServiceImpl) CreateToken(payLoad PayLoad, userAddress string) (CustomToken, error) {
 	atClaims := jwt.MapClaims{}
 	atClaims["payload"] = fmt.Sprintf("%v", payLoad)
-	atClaims["userAddress"] = fmt.Sprintf("%s", userAddress)
+	atClaims["userAddress"] = userAddress
 	atClaims["orgId"] = config.GetString(config.OrganizationId)
 	atClaims["groupId"] = service.getGroupId()
 	//set the Expiry of the Token generated

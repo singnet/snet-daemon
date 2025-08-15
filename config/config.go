@@ -488,10 +488,7 @@ func GetBigIntFromViper(config *viper.Viper, key string) (value *big.Int, err er
 // IsValidUrl tests a string to determine if it is url or not.
 func IsValidUrl(urlToTest string) bool {
 	_, err := url.ParseRequestURI(urlToTest)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // ValidateEmail validates an input email

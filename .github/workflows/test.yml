@@ -9,6 +9,8 @@ on:
 jobs:
   run_tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read  # for GITHUB_TOKEN
     steps:
       - name: clone repo
         uses: actions/checkout@v4.3.0

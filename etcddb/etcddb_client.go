@@ -119,12 +119,22 @@ func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
 }
 
 func getTLSConfig() (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
+
+	certPath := config.GetString(config.PaymentChannelCertPath)
+	keyPath := config.GetString(config.PaymentChannelKeyPath)
+	caPath := config.GetString(config.PaymentChannelCaPath)
+
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
-		zap.L().Error(fmt.Sprintf("unable to load specific SSL X509 keypair for etcd, recheck %s and %s:", config.PaymentChannelCertPath, config.PaymentChannelKeyPath))
-		return nil, err
+		zap.L().Error("unable to load SSL X509 keypair for etcd",
+			zap.String("certPath", certPath),
+			zap.String("keyPath", keyPath),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("load x509 keypair: %w", err)
 	}
-	caCert, err := os.ReadFile(config.GetString(config.PaymentChannelCaPath))
+
+	caCert, err := os.ReadFile(caPath)
 	if err != nil {
 		return nil, err
 	}
@@ -345,26 +355,20 @@ func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok boo
 	}
 }
 
-// CompleteTransaction atomically applies a set of updates conditioned on the state
-// captured by a previously started transaction.
+// CompleteTransaction atomically applies updates if the etcd state still matches
+// the snapshot captured by StartTransaction. The _transaction must be an
+// *etcdTransaction; otherwise an error is returned.
 //
-// The _transaction argument must be an *etcdTransaction returned by StartTransaction;
-// otherwise the method returns an error. For each condition key:
-//   - If ConditionValues[i].Present is true, the compare checks ModRevision(key) == Version.
-//   - If Present is false, the compare checks CreateRevision(key) == 0 (the key must not exist).
+// Compare rules per condition key:
+//   - Present == true  → ModRevision(key) == Version
+//   - Present == false → CreateRevision(key) == 0 (key must not exist)
 //
-// If all compares succeed, the method applies the updates in a single etcd txn:
-//   - For entries with Present == true, it performs OpPut(key, value).
-//   - For entries with Present == false, it performs OpDelete(key).
+// On success, applies updates with OpPut(key, value) in a single txn.
+// Note: delete on update is not supported yet; `Present` only affects the compare stage.
 //
-// If the compares fail, the method fetches the latest values for the condition keys
-// (Else branch), stores them back into the underlying etcdTransaction so the caller
-// can retry, and returns ok == false with err == nil.
-//
-// The returned ok is true only if the etcd transaction succeeded. A non-nil err
-// indicates an execution error (e.g., client error, commit failure). The operation
-// is bounded by the client's request timeout and logs the transaction latency at
-// DEBUG level.
+// On compare failure, returns ok == false and refreshes ConditionValues for retry.
+// Returns ok == true on success; err != nil on client/commit errors. Respects the request timeout
+// and logs txn latency at DEBUG level.
 func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, update []storage.KeyValueData) (
 	ok bool, err error) {
 

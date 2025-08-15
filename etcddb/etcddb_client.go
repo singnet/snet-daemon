@@ -389,13 +389,15 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 		}
 	}
 
-	thenOps := make([]clientv3.Op, 0, len(update))
-	for _, op := range update {
-		if !op.Present {
-			thenOps = append(thenOps, clientv3.OpDelete(op.Key))
-			continue
-		}
-		thenOps = append(thenOps, clientv3.OpPut(op.Key, op.Value))
+	thenOps := make([]clientv3.Op, len(update))
+	for i, op := range update {
+		// NOTE: `Present` is only used for compare stage; updates always PUT for now.
+		// TODO: delete operation is not supported yet.
+		//if !op.Present {
+		//	thenOps = append(thenOps, clientv3.OpDelete(op.Key))
+		//	continue
+		//}
+		thenOps[i] = clientv3.OpPut(op.Key, op.Value)
 	}
 
 	elseOps := make([]clientv3.Op, len(conditionKeys))

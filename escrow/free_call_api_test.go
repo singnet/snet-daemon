@@ -1,8 +1,9 @@
 package escrow
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFreeCallUserKey_String(t *testing.T) {

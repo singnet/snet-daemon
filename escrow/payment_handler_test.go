@@ -1,11 +1,12 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/v6/config"
 	"math/big"
 	"reflect"
 	"strconv"
 	"testing"
+
+	"github.com/singnet/snet-daemon/v6/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -146,6 +147,7 @@ func (suite *PaymentHandlerTestSuite) TestValidatePaymentIncorrectIncome() {
 }
 
 func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
+	mocked := blockchain.NewMockProcessor(true)
 	payment := &paymentTransaction{payment: Payment{Amount: big.NewInt(10), ChannelID: big.NewInt(6),
 		ChannelNonce: big.NewInt(0)}, channel: &PaymentChannelData{FullAmount: big.NewInt(10), Nonce: big.NewInt(0)}}
 	tests := []struct {
@@ -172,7 +174,7 @@ func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
 	for _, tt := range tests {
 		tt.setupFunc()
 		t.Run(tt.name, func(t *testing.T) {
-			if gotErr := PublishChannelStats(payment); !reflect.DeepEqual(gotErr, tt.wantErr) {
+			if gotErr := PublishChannelStats(payment, mocked.CurrentBlock); !reflect.DeepEqual(gotErr, tt.wantErr) {
 				t.Errorf("paymentChannelPaymentHandler.PublishChannelStats() = %v, want %v", gotErr, tt.wantErr)
 			}
 		})

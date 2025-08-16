@@ -2,10 +2,11 @@ package blockchain
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/mock"
-	"math/big"
 )
 
 type MockProcessor struct {

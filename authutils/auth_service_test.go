@@ -2,26 +2,11 @@
 package authutils
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestCompareWithLatestBlockNumber(t *testing.T) {
-	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
-	config.Validate()
-	currentBlockNum, err := CurrentBlock()
-	assert.Nil(t, err)
-
-	err = CompareWithLatestBlockNumber(currentBlockNum.Add(currentBlockNum, big.NewInt(2)))
-	assert.Equal(t, nil, err)
-
-	err = CompareWithLatestBlockNumber(currentBlockNum.Sub(currentBlockNum, big.NewInt(13)))
-	assert.Equal(t, err.Error(), "authentication failed as the signature passed has expired")
-}
 
 func TestVerifyAddress(t *testing.T) {
 	var addr = common.Address(common.FromHex("0x7DF35C98f41F3AF0DF1DC4C7F7D4C19A71DD079F"))

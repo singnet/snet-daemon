@@ -7,21 +7,21 @@ import (
 
 // AtomicStorage is an interface to key-value storage with atomic operations.
 type AtomicStorage interface {
-	// Get returns value by key. ok value indicates whether passed key is
-	// present in the storage. err indicates storage error.
+	// Get returns value by key. Ok value indicates whether the passed key is
+	// present in the storage. Err indicates a storage error.
 	Get(key string) (value string, ok bool, err error)
-	// GetByKeyPrefix returns list of values which keys has given prefix.
+	// GetByKeyPrefix returns a list of values which keys have given prefix.
 	GetByKeyPrefix(prefix string) (values []string, err error)
-	// Put uncoditionally writes value by key in storage, err is not nil in
+	// Put unconditionally writes value by key in storage, err is not nil in
 	// case of storage error.
 	Put(key string, value string) (err error)
-	// PutIfAbsent writes value if and only if key is absent in storage. ok is
-	// true if key was absent and false otherwise. err indicates storage error.
+	// PutIfAbsent writes value if and only if the key is absent in storage. ok is
+	// true if the key was absent and false otherwise. err indicates a storage error.
 	PutIfAbsent(key string, value string) (ok bool, err error)
-	// CompareAndSwap atomically replaces prevValue by newValue. If ok flag is
-	// true and err is nil then operation was successful. If err is nil and ok
-	// is false then operation failed because prevValue is not equal to current
-	// value. err indicates storage error.
+	// CompareAndSwap atomically replaces prevValue by newValue. If an ok flag is
+	// true and err is nil, then the operation was successful. If err is nil and ok
+	// is false, then the operation failed because prevValue is not equal to the current
+	// value. err indicates a storage error.
 	CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error)
 	// Delete removes value by key
 	Delete(key string) (err error)
@@ -35,7 +35,6 @@ type Transaction interface {
 	GetConditionValues() ([]KeyValueData, error)
 }
 
-// Best to change this to KeyValueData , will do this in the next commit
 type UpdateFunc func(conditionValues []KeyValueData) (update []KeyValueData, ok bool, err error)
 
 type CASRequest struct {
@@ -50,14 +49,14 @@ type KeyValueData struct {
 	Present bool
 }
 
-// PrefixedAtomicStorage is decorator for atomic storage which adds a prefix to
+// PrefixedAtomicStorage is a decorator for atomic storage that adds a prefix to
 // the storage keys.
 type PrefixedAtomicStorage struct {
 	delegate  AtomicStorage
 	keyPrefix string
 }
 
-// It is recommended to use this function to create a PrefixedAtomicStorage
+// NewPrefixedAtomicStorage use this function to create a PrefixedAtomicStorage
 func NewPrefixedAtomicStorage(atomicStorage AtomicStorage, prefix string) *PrefixedAtomicStorage {
 	return &PrefixedAtomicStorage{
 		delegate:  atomicStorage,
@@ -74,17 +73,17 @@ func (storage *PrefixedAtomicStorage) GetByKeyPrefix(prefix string) (values []st
 	return storage.delegate.GetByKeyPrefix(storage.keyPrefix + "/" + prefix)
 }
 
-// Put is implementation of AtomicStorage.Put
+// Put is an implementation of AtomicStorage.Put
 func (storage *PrefixedAtomicStorage) Put(key string, value string) (err error) {
 	return storage.delegate.Put(storage.keyPrefix+"/"+key, value)
 }
 
-// PutIfAbsent is implementation of AtomicStorage.PutIfAbsent
+// PutIfAbsent is an implementation of AtomicStorage.PutIfAbsent
 func (storage *PrefixedAtomicStorage) PutIfAbsent(key string, value string) (ok bool, err error) {
 	return storage.delegate.PutIfAbsent(storage.keyPrefix+"/"+key, value)
 }
 
-// CompareAndSwap is implementation of AtomicStorage.CompareAndSwap
+// CompareAndSwap is an implementation of AtomicStorage.CompareAndSwap
 func (storage *PrefixedAtomicStorage) CompareAndSwap(key string, prevValue string, newValue string) (ok bool, err error) {
 	return storage.delegate.CompareAndSwap(storage.keyPrefix+"/"+key, prevValue, newValue)
 }
@@ -98,8 +97,11 @@ type prefixedTransactionImpl struct {
 	storage     *PrefixedAtomicStorage
 }
 
-func (transaction prefixedTransactionImpl) GetConditionValues() ([]KeyValueData, error) {
-	conditionKeyValues, err := transaction.GetConditionValues()
+// Compile-time check: prefixedTransactionImpl implements Transaction.
+var _ Transaction = (*prefixedTransactionImpl)(nil)
+
+func (transaction *prefixedTransactionImpl) GetConditionValues() ([]KeyValueData, error) {
+	conditionKeyValues, err := transaction.transaction.GetConditionValues()
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +115,7 @@ func (storage *PrefixedAtomicStorage) StartTransaction(conditionKeys []string) (
 	if err != nil {
 		return nil, err
 	}
-	return prefixedTransactionImpl{storage: storage, transaction: transaction}, nil
+	return &prefixedTransactionImpl{storage: storage, transaction: transaction}, nil
 }
 
 func (storage *PrefixedAtomicStorage) appendKeyPrefix(conditionKeys []string) (preFixedConditionKeys []string) {
@@ -137,13 +139,14 @@ func (storage *PrefixedAtomicStorage) appendKeyValuePrefix(update []KeyValueData
 	return prefixedKeyValueData
 }
 
-func (storage *PrefixedAtomicStorage) removeKeyValuePrefix(update []KeyValueData) []KeyValueData {
-	unprefixedKeyValueData := make([]KeyValueData, len(update))
-	copy(unprefixedKeyValueData, update)
-	for i, keyValue := range unprefixedKeyValueData {
-		unprefixedKeyValueData[i].Key = strings.Replace(keyValue.Key, storage.keyPrefix+"/", "", -1)
+func (storage *PrefixedAtomicStorage) removeKeyValuePrefix(in []KeyValueData) []KeyValueData {
+	out := make([]KeyValueData, len(in))
+	copy(out, in)
+	p := strings.TrimRight(storage.keyPrefix, "/") + "/"
+	for i := range out {
+		out[i].Key = strings.TrimPrefix(out[i].Key, p)
 	}
-	return unprefixedKeyValueData
+	return out
 }
 
 func (storage *PrefixedAtomicStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
@@ -152,7 +155,7 @@ func (storage *PrefixedAtomicStorage) CompleteTransaction(transaction Transactio
 
 func (storage *PrefixedAtomicStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
 	updateFunction := func(conditionKeyValues []KeyValueData) (update []KeyValueData, ok bool, err error) {
-		//the keys retrieved will have the storage prefix, we need to remove it ! else deserizalize of key will fail
+		//the keys retrieved will have the storage prefix, we need to remove it! else deserialize of a key will fail
 		originalKeyValues := storage.removeKeyValuePrefix(conditionKeyValues)
 		newValues, ok, err := request.Update(originalKeyValues)
 		return storage.appendKeyValuePrefix(newValues), ok, err
@@ -165,18 +168,18 @@ func (storage *PrefixedAtomicStorage) ExecuteTransaction(request CASRequest) (ok
 	return storage.delegate.ExecuteTransaction(prefixedRequest)
 }
 
-// TypedAtomicStorage is an atomic storage which automatically
+// TypedAtomicStorage is an atomic storage that automatically
 // serializes/deserializes values and keys
 type TypedAtomicStorage interface {
-	// Get returns value by key
+	// Get return value by key
 	Get(key any) (value any, ok bool, err error)
 	// GetAll returns an array which contains all values from storage
 	GetAll() (array any, err error)
 	// Put puts value by key unconditionally
 	Put(key any, value any) (err error)
-	// PutIfAbsent puts value by key if and only if key is absent in storage
+	// PutIfAbsent puts value by key if and only if the key is absent in storage
 	PutIfAbsent(key any, value any) (ok bool, err error)
-	// CompareAndSwap puts newValue by key if and only if previous value is equal
+	// CompareAndSwap puts newValue by key if and only if the previous value is equal
 	// to prevValue
 	CompareAndSwap(key any, prevValue any, newValue any) (ok bool, err error)
 	// Delete removes value by key
@@ -188,7 +191,7 @@ type TypedTransaction interface {
 	GetConditionValues() ([]TypedKeyValueData, error)
 }
 
-// Best to change this to KeyValueData , will do this in the next commit
+// Best to change this to KeyValueData, will do this in the next commit
 type TypedUpdateFunc func(conditionValues []TypedKeyValueData) (update []TypedKeyValueData, ok bool, err error)
 
 type TypedCASRequest struct {
@@ -342,6 +345,7 @@ func (storage *TypedAtomicStorageImpl) Delete(key any) (err error) {
 
 func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(conditionKeys []any, keyValueData []KeyValueData) (result []TypedKeyValueData, err error) {
 	result = make([]TypedKeyValueData, len(conditionKeys))
+
 	for i, conditionKey := range conditionKeys {
 		conditionKeyString, err := storage.keySerializer(conditionKey)
 		if err != nil {
@@ -351,15 +355,13 @@ func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(conditionKeys 
 			Key:     conditionKey,
 			Present: false,
 		}
+
 		keyValueString, ok := findKeyValueByKey(keyValueData, conditionKeyString)
-		if ok {
-			result[i].Present = keyValueString.Present
-		} else {
-			result[i].Present = false
-		}
-		if !keyValueString.Present {
+		if !ok || !keyValueString.Present {
+			// Either key wasn't found or value marked absent — skip deserialization
 			continue
 		}
+		result[i].Present = true
 		result[i].Value, err = storage.deserializeValue(keyValueString.Value)
 		if err != nil {
 			return nil, err
@@ -368,10 +370,10 @@ func (storage *TypedAtomicStorageImpl) convertKeyValueDataToTyped(conditionKeys 
 	return result, nil
 }
 
-func findKeyValueByKey(keyValueData []KeyValueData, key string) (keyValueString *KeyValueData, ok bool) {
-	for _, keyValueString := range keyValueData {
-		if keyValueString.Key == key {
-			return &keyValueString, true
+func findKeyValueByKey(data []KeyValueData, key string) (*KeyValueData, bool) {
+	for i := range data {
+		if data[i].Key == key {
+			return &data[i], true
 		}
 	}
 	return nil, false

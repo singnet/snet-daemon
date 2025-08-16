@@ -2,9 +2,10 @@ package handler
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
-	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/configuration_service"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/ratelimit"
@@ -12,7 +13,6 @@ import (
 
 	"math/big"
 	"strings"
-	"time"
 
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
@@ -174,7 +174,7 @@ func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaste
 	interceptor := &rateLimitInterceptor{
 		rateLimiter:                   *ratelimit.NewRateLimiter(),
 		messageBroadcaster:            broadcast,
-		processRequest:                configuration_service.START_PROCESSING_ANY_REQUEST,
+		processRequest:                configuration_service.StartProcessingAnyRequest,
 		requestProcessingNotification: broadcast.NewSubscriber(),
 	}
 	go interceptor.startOrStopProcessingAnyRequests()
@@ -187,30 +187,41 @@ func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests() {
 	}
 }
 
-func GrpcMeteringInterceptor() grpc.StreamServerInterceptor {
-	return interceptMetering
+func GrpcMeteringInterceptor(currentBlock func() (*big.Int, error)) grpc.StreamServerInterceptor {
+	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		return interceptMetering(srv, ss, info, handler, currentBlock)
+	}
 }
 
-// Monitor requests arrived and responses sent and publish these stats for Reporting
-func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+// Monitor requests arrived, and responses sent and publish these stats for Reporting
+func interceptMetering(
+	srv any,
+	ss grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler,
+	currentBlock func() (*big.Int, error),
+) error {
 	var (
 		err   error
 		start time.Time
 	)
 	start = time.Now()
-	//Get the method name
-	methodName, _ := grpc.MethodFromServerStream(ss)
-	//Get the Context
 
-	//Build common stats and use this to set request stats and response stats
+	methodName, _ := grpc.MethodFromServerStream(ss)
 	commonStats := metrics.BuildCommonStats(start, methodName)
-	if context, err := getGrpcContext(ss, info); err == nil {
-		setAdditionalDetails(context, commonStats)
+
+	if ctx, err := getGrpcContext(ss, info); err == nil {
+		setAdditionalDetails(ctx, commonStats)
 	}
 
 	defer func() {
-		go metrics.PublishResponseStats(commonStats, time.Since(start), err)
+		var block *big.Int
+		if currentBlock != nil {
+			block, _ = currentBlock()
+		}
+		go metrics.PublishResponseStats(commonStats, time.Since(start), err, block)
 	}()
+
 	err = handler(srv, ss)
 	if err != nil {
 		zap.L().Error(err.Error())
@@ -221,7 +232,7 @@ func interceptMetering(srv any, ss grpc.ServerStream, info *grpc.StreamServerInf
 
 func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 
-	if interceptor.processRequest == configuration_service.STOP_PROCESING_ANY_REQUEST {
+	if interceptor.processRequest == configuration_service.StopProcessingAnyRequest {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {
@@ -236,8 +247,8 @@ func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream
 	return nil
 }
 
-// GrpcPaymentValidationInterceptor returns gRPC interceptor to validate payment. If
-// blockchain is disabled then noOpInterceptor is returned.
+// GrpcPaymentValidationInterceptor returns gRPC interceptor to validate payment.
+// If the blockchain is disabled, then noOpInterceptor is returned.
 func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, defaultPaymentHandler StreamPaymentHandler, paymentHandler ...StreamPaymentHandler) grpc.StreamServerInterceptor {
 	interceptor := &paymentValidationInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,
@@ -262,31 +273,50 @@ type paymentValidationInterceptor struct {
 
 func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
-	wrapperStream := ss
-	// check we need to have dynamic pricing here
-	// if yes, then use the wrapper Stream
-	if config.GetBool(config.EnableDynamicPricing) {
-		var streamError error
-		if wrapperStream, streamError = NewWrapperServerStream(ss); streamError != nil {
-			return streamError
+
+	// read ctx and prepare GrpcStreamContext
+	grpcCtx, err := getGrpcContext(ss, info)
+	if err != nil {
+		return err.Err()
+	}
+
+	//wrapperStream := ss
+
+	//if config.GetBool(config.EnableDynamicPricing) {
+	//var streamError error
+	wrapperStream, streamError := NewWrapperServerStream(ss, grpcCtx.InStream.Context())
+	if streamError != nil {
+		return streamError
+	}
+	//}
+
+	// Now we are working with grpcCtx and wrapperStream further
+	paymentHandler, err := interceptor.getPaymentHandler(grpcCtx)
+	if err != nil {
+		return err.Err()
+	}
+
+	zap.L().Debug("[streamIntercept] New gRPC call received", zap.Any("context", grpcCtx))
+
+	payment, err := paymentHandler.Payment(grpcCtx)
+	if err != nil {
+		return err.Err()
+	}
+
+	if sp, ok := payment.(SenderProvider); ok {
+		// copy the original incoming MD
+		outMD := grpcCtx.MD.Copy()
+		// retrieve the address
+		ethAddr := sp.GetSender().Hex()
+		outMD.Set("user-address", ethAddr)
+		outMD.Set("daemon-debug", "streamIntercept")
+		// update the stored metadata in grpcCtx
+		grpcCtx.MD = outMD
+
+		// and update the context inside our WrapperServerStream
+		if ws, ok := wrapperStream.(*WrapperServerStream); ok {
+			ws.Ctx = metadata.NewIncomingContext(ws.Ctx, outMD)
 		}
-	}
-
-	context, err := getGrpcContext(wrapperStream, info)
-	if err != nil {
-		return err.Err()
-	}
-
-	//zap.L().Debug("[streamIntercept] New gRPC call received", zap.Any("context", context))
-
-	paymentHandler, err := interceptor.getPaymentHandler(context)
-	if err != nil {
-		return err.Err()
-	}
-
-	payment, err := paymentHandler.Payment(context)
-	if err != nil {
-		return err.Err()
 	}
 
 	defer func() {
@@ -320,17 +350,35 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 	return nil
 }
 
-func getGrpcContext(serverStream grpc.ServerStream, info *grpc.StreamServerInfo) (context *GrpcStreamContext, err *GrpcError) {
+func getGrpcContext(
+	serverStream grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+) (*GrpcStreamContext, *GrpcError) {
 	md, ok := metadata.FromIncomingContext(serverStream.Context())
 	if !ok {
 		zap.L().Error("Invalid metadata", zap.Any("info", info))
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata")
 	}
 
+	// 2) Make a copy of the metadata so that we can modify it
+	mdCopy := md.Copy()
+
+	// 3) Create a new context based on the original, but with our copy of the metadata
+	newCtx := metadata.NewIncomingContext(serverStream.Context(), mdCopy)
+
+	// 4) Wrap the original ServerStream so that Context() returns our newCtx
+	wrappedStream := &WrapperServerStream{
+		stream:           serverStream,
+		recvMessage:      nil, // nil here because we haven’t called RecvMsg yet
+		sendHeaderCalled: false,
+		Ctx:              newCtx,
+	}
+
+	// 5) Return a GrpcStreamContext with the metadata copy and the wrapped stream
 	return &GrpcStreamContext{
-		MD:       md,
+		MD:       mdCopy,
 		Info:     info,
-		InStream: serverStream,
+		InStream: wrappedStream,
 	}, nil
 }
 

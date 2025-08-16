@@ -2,10 +2,11 @@ package license_server
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/blockchain"
-	"github.com/singnet/snet-daemon/v6/storage"
 	"math/big"
 	"strings"
+
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/storage"
 )
 
 type LockingLicenseService struct {
@@ -15,7 +16,7 @@ type LockingLicenseService struct {
 	ServiceMetaData       *blockchain.ServiceMetadata
 }
 
-// Will be used in the components to create a new instance of LicenseService
+// NewLicenseService create a new instance of LicenseService
 func NewLicenseService(
 	detailsStorage storage.TypedAtomicStorage,
 	licenseStorage storage.TypedAtomicStorage, orgData *blockchain.OrganizationMetaData,
@@ -73,9 +74,8 @@ func (h *LockingLicenseService) UpdateLicenseForChannel(channelId *big.Int, serv
 	return h.LicenseDetailsStorage.Put(LicenseDetailsKey{ServiceID: serviceId, ChannelID: channelId}, &LicenseDetailsData{License: license})
 }
 
-// Defines the condition that needs to be met, it generates the respective typed Data when
-// conditions are satisfied, you define your own validations in here
-// It takes in the latest typed values read.
+// ConditionFuncForLicense defines the condition that needs to be met, it generates the respective typed Data when
+// conditions are satisfied. You define your own validations in here. It takes in the latest typed values read.
 type ConditionFuncForLicense func(conditionValues []storage.TypedKeyValueData,
 	incrementUsage *big.Int, channelId *big.Int, serviceId string) ([]storage.TypedKeyValueData, error)
 
@@ -212,7 +212,7 @@ var (
 		return BuildOldAndNewLicenseUsageValuesForCAS(newState)
 
 	}
-	//If there is no refund amount yet, put it , else add latest value in DB with the additional refund to be done
+	// IncrementRefundUsage If there is no refund amount yet, put it, else add the latest value in DB with the additional refund to be done
 	IncrementRefundUsage ConditionFuncForLicense = func(conditionValues []storage.TypedKeyValueData, incrementUsage *big.Int,
 		channelId *big.Int, serviceId string) (newValues []storage.TypedKeyValueData, err error) {
 		newState, err := convertTypedDataToLicenseDataUsage(conditionValues)
@@ -244,7 +244,7 @@ func updateLicenseUsageData(usageData *LicenseUsageData, key LicenseUsageTracker
 			usageData.Used.SetUsage(oldUsage.Add(oldUsage, usage))
 		}
 	case PLANNED:
-		//reset the counter, Planned Amount will be updated ONLY when the License is Purchased or Renewed
+		//to reset the counter, Planned Amount will be updated ONLY when the License is Purchased or Renewed
 		{
 			usageData.Planned.SetUsage(usage)
 			usageData.Used.SetUsage(big.NewInt(0))

@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/storage"
 	"math/big"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/singnet/snet-daemon/v6/storage"
 )
 
 type Key interface {
@@ -250,11 +251,11 @@ type TierPricingDetails struct {
 type PricingDetails struct {
 	CreditsInCogs        *big.Int
 	FeeInCogs            *big.Int
-	LockedPrice          *big.Int //Fixed Price that was defined at the time of creating a license contract
+	LockedPrice          *big.Int // Fixed Price that was defined at the time of creating a license contract
 	PlanName             string
 	ValidityInDays       uint8
 	ActualAmountSigned   *big.Int
-	ServiceMethodDetails *ServiceMethodCostDetails //If this is null , implies it applies to all methods of the Service or just the one defined here
+	ServiceMethodDetails *ServiceMethodCostDetails // If this is null, implies it applies to all methods of the Service or just the one defined here
 }
 
 func (s PricingDetails) String() string {

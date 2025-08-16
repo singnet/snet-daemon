@@ -54,7 +54,7 @@ func determineNetworkSelected(data []byte) (err error) {
 	return nil
 }
 
-// Check if the value set in the  config file, if yes, then we use it as is
+// Check if the value set in the config file, if yes, then we use it as is
 // else we derive the value from the JSON parsed
 func getDetailsFromJsonOrConfig(details any, configName string) string {
 	if len(GetString(configName)) > 0 {

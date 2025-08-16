@@ -1,0 +1,6 @@
+build
+dist
+**/*.md
+**/*.log
+**/*_test.go
+**/*.test

@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,4 +21,76 @@ func TestConvertBase64Encoding(t *testing.T) {
 func TestToChecksumAddress(t *testing.T) {
 	assert.Equal(t, "0xE9D09A6C296ACDd4C01b21F407aC93FDfC63e78c", ToChecksumAddress("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
 	assert.Equal(t, "0xE9D09A6C296ACDd4C01b21F407aC93FDfC63e78c", ToChecksumAddress("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
+}
+
+func TestParseSignature(t *testing.T) {
+	t.Run("valid signature", func(t *testing.T) {
+		sig := make([]byte, 65)
+		for i := 0; i < 65; i++ {
+			sig[i] = byte(i + 1)
+		}
+
+		v, r, s, err := ParseSignature(sig)
+		assert.NoError(t, err)
+
+		expectedV := (sig[64] % 27) + 27
+		assert.Equal(t, expectedV, v)
+		assert.True(t, bytes.Equal(r[:], sig[0:32]))
+		assert.True(t, bytes.Equal(s[:], sig[32:64]))
+	})
+
+	t.Run("too short signature", func(t *testing.T) {
+		sig := make([]byte, 10)
+		_, _, _, err := ParseSignature(sig)
+		assert.Error(t, err)
+		assert.Equal(t, "job signature incorrect length", err.Error())
+	})
+
+	t.Run("too long signature", func(t *testing.T) {
+		sig := make([]byte, 70)
+		_, _, _, err := ParseSignature(sig)
+		assert.Error(t, err)
+		assert.Equal(t, "job signature incorrect length", err.Error())
+	})
+
+	t.Run("v calculation", func(t *testing.T) {
+		sig := make([]byte, 65)
+		sig[64] = 28
+		v, _, _, err := ParseSignature(sig)
+		assert.NoError(t, err)
+
+		expectedV := (sig[64] % 27) + 27
+		assert.Equal(t, expectedV, v)
+	})
+}
+
+func TestMakeTopicFilterer(t *testing.T) {
+	t.Run("string shorter than 32 bytes", func(t *testing.T) {
+		input := "short"
+		filter := MakeTopicFilterer(input)
+		assert.Len(t, filter, 1)
+		assert.True(t, bytes.Equal(filter[0][:len(input)], []byte(input)))
+		assert.Equal(t, byte(0), filter[0][len(input)]) // remaining bytes are zero
+	})
+
+	t.Run("string exactly 32 bytes", func(t *testing.T) {
+		input := "12345678901234567890123456789012"
+		filter := MakeTopicFilterer(input)
+		assert.Len(t, filter, 1)
+		assert.True(t, bytes.Equal(filter[0][:], []byte(input)))
+	})
+
+	t.Run("string longer than 32 bytes", func(t *testing.T) {
+		input := "abcdefghijklmnopqrstuvwxyz1234567890"
+		filter := MakeTopicFilterer(input)
+		assert.Len(t, filter, 1)
+		assert.True(t, bytes.Equal(filter[0][:], []byte(input)[:32]))
+	})
+
+	t.Run("empty string", func(t *testing.T) {
+		input := ""
+		filter := MakeTopicFilterer(input)
+		assert.Len(t, filter, 1)
+		assert.Equal(t, [32]byte{}, filter[0])
+	})
 }

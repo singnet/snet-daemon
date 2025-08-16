@@ -54,12 +54,12 @@ func GenXid() string {
 }
 
 // convert the payload to JSON and publish it to the serviceUrl passed
-func Publish(payload any, serviceUrl string, commonStats *CommonStats) bool {
+func Publish(payload any, serviceUrl string, commonStats *CommonStats, currentBlock *big.Int) bool {
 	jsonBytes, err := ConvertStructToJSON(payload)
 	if err != nil {
 		return false
 	}
-	status := publishJson(jsonBytes, serviceUrl, true, commonStats)
+	status := publishJson(jsonBytes, serviceUrl, true, commonStats, currentBlock)
 	if !status {
 		zap.L().Warn("Unable to publish metrics", zap.Any("payload", jsonBytes), zap.Any("url", serviceUrl))
 	}
@@ -67,15 +67,15 @@ func Publish(payload any, serviceUrl string, commonStats *CommonStats) bool {
 }
 
 // Publish the json on the service end point, retry will be set to false when trying to re publish the payload
-func publishJson(json []byte, serviceURL string, reTry bool, commonStats *CommonStats) bool {
-	response, err := sendRequest(json, serviceURL, commonStats)
+func publishJson(json []byte, serviceURL string, reTry bool, commonStats *CommonStats, currentBlock *big.Int) bool {
+	response, err := sendRequest(json, serviceURL, commonStats, currentBlock)
 	if err != nil {
 		zap.L().Error(err.Error())
 	} else {
 		status, reRegister := checkForSuccessfulResponse(response)
 		if reRegister && reTry {
-			//if Daemon was registered successfully , retry to publish the payload
-			status = publishJson(json, serviceURL, false, commonStats)
+			//if Daemon was registered successfully, retry to publish the payload
+			status = publishJson(json, serviceURL, false, commonStats, currentBlock)
 		}
 		return status
 	}
@@ -83,7 +83,7 @@ func publishJson(json []byte, serviceURL string, reTry bool, commonStats *Common
 }
 
 // Set all the headers before publishing
-func sendRequest(json []byte, serviceURL string, commonStats *CommonStats) (*http.Response, error) {
+func sendRequest(json []byte, serviceURL string, commonStats *CommonStats, currentBlock *big.Int) (*http.Response, error) {
 	req, err := http.NewRequest("POST", serviceURL, bytes.NewBuffer(json))
 	if err != nil {
 		zap.L().Warn("Unable to create service request to publish stats", zap.Any("serviceURL", serviceURL))
@@ -97,19 +97,14 @@ func sendRequest(json []byte, serviceURL string, commonStats *CommonStats) (*htt
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Daemonid", GetDaemonID())
 	req.Header.Set("X-Token", daemonAuthorizationToken)
-	SignMessageForMetering(req, commonStats)
+	SignMessageForMetering(req, commonStats, currentBlock)
 
 	return client.Do(req)
 }
 
-func SignMessageForMetering(req *http.Request, commonStats *CommonStats) {
+func SignMessageForMetering(req *http.Request, commonStats *CommonStats, currentBlock *big.Int) {
 
 	privateKey, err := getPrivateKeyForMetering()
-	if err != nil {
-		zap.L().Error(err.Error())
-		return
-	}
-	currentBlock, err := authutils.CurrentBlock()
 	if err != nil {
 		zap.L().Error(err.Error())
 		return

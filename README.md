@@ -262,7 +262,7 @@ This options are less frequently needed.
 * **alerts_email** (optional; default: `""`) — It must be a valid email. if it is empty, then it is considered as alerts
   disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
 
-* **service_heartbeat_type** (optional; default: `grpc`) — possible type configurations are ```none | grpc | http```. If
+* **service_heartbeat_type** (optional; default: `""`) — possible type configurations are ```none | grpc | http```. If
   it is left empty, then it is considered as none type. see [daemon heartbeats configuration](./metrics/README.md)
 
 * **heartbeat_endpoint** (optional; default: `""`) — It must be a valid URL. if it is empty, then service state
@@ -351,8 +351,10 @@ These instructions are intended to facilitate the development and testing of Sin
 
 ### Prerequisites and dependencies
 
-* [Go 1.23+](https://golang.org/dl/)
-* [Protoc 27.0+](https://github.com/protocolbuffers/protobuf/releases)
+Recommended versions:
+
+* [Go 1.24+](https://golang.org/dl/)
+* [Protoc 31.1+](https://github.com/protocolbuffers/protobuf/releases)
 
 **Protoc (libprotoc), golang and $GOPATH/bin are recommended to be in environment variables.**
 
@@ -402,6 +404,48 @@ Powershell:
 
 The final binaries will be in the `/build` folder.
 
+#### Docker
+
+1. Build the docker image:
+
+```
+docker build -t snet-daemon:v6.1.0 --build-arg VERSION=v6.1.0 . 
+```
+
+2. Prepare config and certificates:
+
+```
+mkdir ./snet-config/
+```
+
+snet-config/
+
+```
+  snetd.config.json
+  ca.pem
+  client.pem
+  client-key.pem
+  localhost.crt
+  localhost.key
+  ...anything else your setup needs
+```
+
+3. Run the docker image:
+
+Port mapping must match daemon_endpoint.
+The daemon listens on the port specified in snetd.config.json → daemon_endpoint (e.g., 0.0.0.0:8080).
+When you run the container, the right-hand side of -p HOST:CONTAINER must equal that port.
+
+```bash
+docker run -d --rm --name snetd -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.1.0
+```
+
+powershell:
+
+```powershell
+docker run -d --rm --name snetd -v "$( PWD )\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.1.0
+```
+
 #### Multi-compiling
 
 If you want to build daemon for several platforms, run `./scripts/build-all <version>` instead
@@ -424,7 +468,7 @@ go test ./...
 
 ### Fixing errors
 
-If daemon panic with `panic: proto: file "record.proto" is already registered`
+If daemon panic with `panic: proto: file "?.proto" is already registered`
 you should set environment var `GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn`
 
 ### Blockchain network config

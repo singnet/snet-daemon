@@ -79,7 +79,7 @@ func (service *ProviderControlService) GetListUnclaimed(ctx context.Context, req
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
 		return nil, err
 	}
-	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), authutils.AllowedBlockChainDifference); err != nil {
+	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), AllowedBlockDifference); err != nil {
 		return nil, err
 	}
 	//Check if the signer is valid
@@ -89,20 +89,32 @@ func (service *ProviderControlService) GetListUnclaimed(ctx context.Context, req
 	return service.listChannels()
 }
 
-/*
-We need to have an ability to StartClaims for multiple channels too!
-The User makes a Daemon call to the get all the pending claims
-The user then needs to call the start claim for every channel that he intends to claim ( thus a new signature again ) for every invocation of StartClaim !
-PS You can make Multiple Claims in BlockChain in a single call multiChannelClaim
-You can now initiate multiple claims using this function StartClaimsOnMultipleChannels that takes a list of ChannelIds , What Daemon will do is invoke the StartClaim internally for every channel Id passed
-If an error is encountered , then we return back whatever was successful and stop with the channel ID that had an issue
-and return the error that was encountered.
-*/
+// StartClaimForMultipleChannels starts claim processes for multiple payment channels.
+//
+// Typical flow: a client first queries the daemon for all pending claims and then
+// initiates StartClaim for each selected channel. Each StartClaim requires a fresh
+// signature.
+//
+// This method:
+//  1. Validates the provided MPE address.
+//  2. Ensures the provided block number is within AllowedBlockDifference of the latest block.
+//  3. Verifies the signer for the multi-channel request.
+//  4. Removes payments that have already been claimed.
+//  5. Iterates over the channel IDs in the request and internally invokes StartClaim
+//     for each channel, in order.
+//
+// On error, processing stops at the first failing channel. The returned
+// PaymentsListReply contains all successfully started claims up to that point,
+// and the encountered error is returned alongside.
+//
+// Note: the underlying blockchain can settle multiple claims in a single transaction
+// (multiChannelClaim). This API only initiates the per-channel “start” phase; clients
+// may still aggregate on-chain settlement as needed.
 func (service *ProviderControlService) StartClaimForMultipleChannels(ctx context.Context, request *StartMultipleClaimRequest) (reply *PaymentsListReply, err error) {
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
 		return nil, err
 	}
-	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), authutils.AllowedBlockChainDifference); err != nil {
+	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), AllowedBlockDifference); err != nil {
 		return nil, err
 	}
 	if err := service.verifySignerForStartClaimForMultipleChannels(request); err != nil {
@@ -185,7 +197,7 @@ func (service *ProviderControlService) GetListInProgress(ctx context.Context, re
 	if err := service.checkMpeAddress(request.GetMpeAddress()); err != nil {
 		return nil, err
 	}
-	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), authutils.AllowedBlockChainDifference); err != nil {
+	if err := service.blockchain.CompareWithLatestBlockNumber(big.NewInt(int64(request.CurrentBlock)), AllowedBlockDifference); err != nil {
 		return nil, err
 	}
 	if err := service.verifySignerForListInProgress(request); err != nil {

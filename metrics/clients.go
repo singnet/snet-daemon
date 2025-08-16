@@ -9,10 +9,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"google.golang.org/grpc/credentials/insecure"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
+
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
@@ -26,7 +30,7 @@ type Response struct {
 }
 
 // Calls a gRPC endpoint for heartbeat (gRPC Client)
-func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
+func callGrpcServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
 	// Set up a connection to the server.
 	conn, err := grpc.NewClient(serviceUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -48,7 +52,7 @@ func callgRPCServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResp
 	return resp.Status, nil
 }
 
-// calls the service heartbeat and relay the message to daemon (HTTP client for heartbeat)
+// callHTTPServiceHeartbeat calls the service heartbeat and relay the message to daemon (HTTP client for heartbeat)
 func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	response, err := http.Get(serviceURL)
 	if err != nil {
@@ -61,12 +65,52 @@ func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 	}
 	// Read the response
 	serviceHeartbeat, _ := io.ReadAll(response.Body)
-	//Check if we got empty response
+	// Check if we got an empty response
 	if string(serviceHeartbeat) == "" {
 		return nil, errors.New("empty service response")
 	}
 	zap.L().Info("response received", zap.Any("response", serviceHeartbeat))
 	return serviceHeartbeat, nil
+}
+
+// tcpPingService attempts to verify if a service is up and reachable by
+// establishing a TCP connection to the host and port extracted from the given serviceURL.
+//
+// It parses the URL, defaults the port to 80 for "http" and 443 for "https" if not specified,
+// and tries to connect within a 10-second timeout.
+//
+// Returns an error if parsing fails or the TCP connection cannot be established.
+func tcpPingService(serviceURL string) error {
+	// Ensure the URL has a scheme for proper parsing
+	if !strings.HasPrefix(serviceURL, "http://") && !strings.HasPrefix(serviceURL, "https://") {
+		serviceURL = "http://" + serviceURL
+	}
+
+	parsedURL, err := url.Parse(serviceURL)
+	if err != nil {
+		return err
+	}
+
+	host := parsedURL.Host
+	if !strings.Contains(host, ":") {
+		// Add a default port based on a scheme if missing
+		switch parsedURL.Scheme {
+		case "https":
+			host += ":443"
+		case "http":
+			host += ":80"
+		default:
+			return errors.New("unsupported URL scheme for tcpPingService")
+		}
+	}
+
+	conn, err := net.DialTimeout("tcp", host, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	return nil
 }
 
 // calls the corresponding the service to send the registration information

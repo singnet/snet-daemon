@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v6/errs"
 	"io"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"strings"
 
+	"github.com/bufbuild/protocompile/linker"
 	"github.com/gorilla/rpc/v2/json2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -30,6 +29,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/codec"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/errs"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
@@ -113,9 +113,14 @@ func (srvCreds serviceCredentials) validate() error {
 }
 
 func (g grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
+
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "grpc" + "://" + endpoint
+	}
+
 	passthroughURL, err := url.Parse(endpoint)
-	if err != nil {
-		zap.L().Fatal(fmt.Sprintf("can't parse endpoint %v", errs.ErrDescURL(errs.InvalidConfig)), zap.String("endpoint", endpoint))
+	if err != nil || passthroughURL == nil {
+		zap.L().Fatal(fmt.Sprintf("can't parse service_endpoint %v", errs.ErrDescURL(errs.InvalidConfig)), zap.String("endpoint", endpoint))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
 		conn, err = grpc.NewClient(passthroughURL.Host,
@@ -515,22 +520,32 @@ type WrapperServerStream struct {
 	stream           grpc.ServerStream
 	recvMessage      any
 	sentMessage      any
+	Ctx              context.Context
 }
 
 func (f *WrapperServerStream) SetTrailer(md metadata.MD) {
 	f.stream.SetTrailer(md)
 }
 
-func NewWrapperServerStream(stream grpc.ServerStream) (grpc.ServerStream, error) {
+func NewWrapperServerStream(stream grpc.ServerStream, ctx context.Context) (grpc.ServerStream, error) {
 	m := &codec.GrpcFrame{}
 	err := stream.RecvMsg(m)
 	f := &WrapperServerStream{
 		stream:           stream,
 		recvMessage:      m,
 		sendHeaderCalled: false,
+		Ctx:              ctx, // save modified ctx
 	}
 	return f, err
 }
+
+func (f *WrapperServerStream) Context() context.Context {
+	return f.Ctx // return modified context
+}
+
+//func (f *WrapperServerStream) Context() context.Context {
+//	return f.stream.Context()
+//}
 
 func (f *WrapperServerStream) SetHeader(md metadata.MD) error {
 	return f.stream.SetHeader(md)
@@ -544,11 +559,6 @@ func (f *WrapperServerStream) SendHeader(md metadata.MD) error {
 	}
 	f.sendHeaderCalled = true
 	return f.stream.SendHeader(md)
-
-}
-
-func (f *WrapperServerStream) Context() context.Context {
-	return f.stream.Context()
 }
 
 func (f *WrapperServerStream) SendMsg(m any) error {

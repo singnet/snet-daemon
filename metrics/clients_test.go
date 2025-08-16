@@ -29,7 +29,6 @@ func (suite *ClientTestSuite) TearDownSuite() {
 	suite.server.GracefulStop()
 }
 func (suite *ClientTestSuite) SetupSuite() {
-	SetNoHeartbeatURLState(false)
 	suite.serviceURL = "http://localhost:1111"
 	suite.server = setAndServe()
 }
@@ -87,27 +86,27 @@ func (suite *ClientTestSuite) Test_callgRPCServiceHeartbeat() {
 	StartMockGrpcService()
 
 	serviceURL := "localhost" + testPort
-	heartbeat, err := callgRPCServiceHeartbeat(serviceURL)
-	assert.Equal(suite.T(), nil, err)
+	heartbeat, err := callGrpcServiceHeartbeat(serviceURL)
+	assert.NoError(suite.T(), err)
 
 	assert.NotEqual(suite.T(), `{}`, string(heartbeat), "Service Heartbeat must not be empty.")
 	assert.Equal(suite.T(), pb.HealthCheckResponse_SERVING.String(), heartbeat.String())
 
 	serviceURL = "localhost:26000"
-	heartbeat, err = callgRPCServiceHeartbeat(serviceURL)
-	assert.True(suite.T(), err != nil)
+	heartbeat, err = callGrpcServiceHeartbeat(serviceURL)
+	assert.Error(suite.T(), err)
 }
 
 func (suite *ClientTestSuite) Test_callHTTPServiceHeartbeat() {
 	serviceURL := suite.serviceURL + "/heartbeat"
 	heartbeat, err := callHTTPServiceHeartbeat(serviceURL)
-	assert.False(suite.T(), err != nil)
+	assert.NoError(suite.T(), err)
 	assert.NotEqual(suite.T(), string(heartbeat), `{}`, "Service Heartbeat must not be empty.")
 	assert.Equal(suite.T(), string(heartbeat), `{"serviceID":"SERVICE001","status":"SERVING"}`,
 		"Unexpected service heartbeat")
 
 	heartbeat, err = callHTTPServiceHeartbeat(suite.serviceURL)
-	assert.True(suite.T(), err != nil)
+	assert.Error(suite.T(), err)
 }
 
 // TODO: refactor register service

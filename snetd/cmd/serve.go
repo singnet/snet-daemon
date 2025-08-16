@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/errs"
 	"net"
 	"net/http"
 	"os"
@@ -11,6 +11,9 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/singnet/snet-daemon/v6/errs"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
@@ -104,7 +107,7 @@ func newDaemon(components *Components) (daemon, error) {
 	}
 
 	// validate heartbeat configuration
-	if err := metrics.ValidateHeartbeatConfig(); err != nil {
+	if err := metrics.ValidateHeartbeatConfig(config.GetString(config.ServiceHeartbeatType), config.GetString(config.HeartbeatServiceEndpoint)); err != nil {
 		return d, err
 	}
 
@@ -236,16 +239,22 @@ func (d *daemon) start() {
 				grpcWebServer.ServeHTTP(resp, req)
 			} else {
 				var path string
-				if len(strings.Split(req.URL.Path, "/")) > 0 {
-					path = strings.Split(req.URL.Path, "/")[1]
+				if parts := strings.Split(req.URL.Path, "/"); len(parts) > 1 {
+					path = parts[1]
 				}
 				switch path {
 				case "encoding":
 					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
 				case "heartbeat":
-					metrics.HeartbeatHandler(resp, d.components.DaemonHeartBeat().TrainingInProto, d.components.DaemonHeartBeat().TrainingMethods, d.components.DaemonHeartBeat().DynamicPricing)
+					metrics.HeartbeatHandler(resp,
+						func() (*training.TrainingMetadata, error) {
+							return d.components.TrainingService().GetTrainingMetadata(context.Background(), &emptypb.Empty{})
+						},
+						d.components.DaemonHeartBeat().DynamicPricing,
+						d.components.Blockchain().CurrentBlock)
 				default:
 					http.NotFound(resp, req)
+					return
 				}
 			}
 			zap.L().Debug("http headers", zap.Any("headers", resp.Header()))

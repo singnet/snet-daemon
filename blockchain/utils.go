@@ -3,6 +3,7 @@ package blockchain
 import (
 	"encoding/base64"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 )
@@ -16,24 +17,24 @@ func ParseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error)
 		return 0, r, s, fmt.Errorf("job signature incorrect length")
 	}
 
-	v := uint8(jobSignatureBytes[64])%27 + 27
+	v := (jobSignatureBytes[64])%27 + 27
 	copy(r[:], jobSignatureBytes[0:32])
 	copy(s[:], jobSignatureBytes[32:64])
 
 	return v, r, s, nil
 }
 
-// AddressToHex converts Ethereum address to hex string representation.
+// AddressToHex converts an Ethereum address to hex string representation.
 func AddressToHex(address *common.Address) string {
 	return address.Hex()
 }
 
-// BytesToBase64 converts array of bytes to base64 string.
+// BytesToBase64 converts an array of bytes to base64 string.
 func BytesToBase64(bytes []byte) string {
 	return base64.StdEncoding.EncodeToString(bytes)
 }
 
-// HexToBytes converts hex string to bytes array.
+// HexToBytes converts hex string to a byte array.
 func HexToBytes(str string) []byte {
 	return common.FromHex(str)
 }

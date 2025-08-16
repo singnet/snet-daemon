@@ -2,6 +2,8 @@ package escrow
 
 import (
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type PrePaidService interface {
@@ -19,6 +21,11 @@ type PrePaidTransaction interface {
 type prePaidTransactionImpl struct {
 	channelId *big.Int
 	price     *big.Int
+	signer    common.Address
+}
+
+func (transaction *prePaidTransactionImpl) GetSender() common.Address {
+	return transaction.signer
 }
 
 func (transaction prePaidTransactionImpl) ChannelId() *big.Int {

@@ -3,6 +3,9 @@ package escrow
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"math/big"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -11,8 +14,6 @@ import (
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"math/big"
-	"testing"
 )
 
 type FreeCallStateServiceSuite struct {

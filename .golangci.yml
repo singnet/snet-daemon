@@ -17,13 +17,13 @@ linters:
     - misspell
     - unconvert
     - typecheck
+    - staticcheck
+    - bidichk
+    - durationcheck
     #    - errcheck
     #    - unused
-    - staticcheck
-#    - bidichk
-#    - durationcheck
-#    - goconst
-#    - noctx
+    #    - goconst
+    #    - noctx
 #    - whitespace
 #    - revive # only certain checks enabled
 

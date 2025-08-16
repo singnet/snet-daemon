@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# Match your go.mod version
+# Match go.mod version
 ARG GO_VERSION=1.24.6
-ARG PORT=8080
 
 FROM golang:${GO_VERSION}-alpine AS build
 WORKDIR /src
@@ -37,8 +36,10 @@ COPY --from=build /out/snetd /usr/local/bin/snetd
 RUN mkdir -p /etc/singnet && chown -R snet /etc/singnet
 VOLUME ["/etc/singnet"]
 
-# Metadata only
-EXPOSE ${PORT}
+# Run as non-root for security (UID 10001).
+# If the mounted /etc/singnet is not readable by UID 10001, fix host perms
+# (chown/chmod) or override at runtime with `--user root`.
+# Only comment this line if you intentionally want to run as root.
 USER snet
 
 ENTRYPOINT ["snetd"]

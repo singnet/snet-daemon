@@ -432,13 +432,18 @@ snet-config/
 
 3. Run the docker image:
 
+Port mapping must match daemon_endpoint.
+The daemon listens on the port specified in snetd.config.json → daemon_endpoint (e.g., 0.0.0.0:8080).
+When you run the container, the right-hand side of -p HOST:CONTAINER must equal that port.
+
 ```bash
-docker run --rm -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.1.0
+docker run -d --rm --name snetd -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.1.0
 ```
 
 powershell:
+
 ```powershell
-docker run --rm -v "${PWD}\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.1.0
+docker run -d --rm --name snetd -v "$( PWD )\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.1.0
 ```
 
 #### Multi-compiling

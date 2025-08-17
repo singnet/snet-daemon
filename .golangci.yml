@@ -24,8 +24,8 @@ linters:
     #    - unused
     #    - goconst
     #    - noctx
-#    - whitespace
-#    - revive # only certain checks enabled
+    #    - whitespace
+    - revive # only certain checks enabled
 
 linters-settings:
   gofmt:

@@ -1,14 +1,52 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -ex
+# Variables (can be overridden by environment)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+IMAGE_NAME="${IMAGE_NAME:-snet-daemon}"
+VERSION="${VERSION:-v6.1.0}"
+TARGET_OS="${TARGET_OS:-linux}"
+TARGET_ARCH="${TARGET_ARCH:-amd64}"
+BUILD_DIR="${BUILD_DIR:-$PROJECT_ROOT/build}"
 
-PARENT_PATH=$(dirname $(cd $(dirname $0); pwd -P))
+echo "Project root: $PROJECT_ROOT"
+echo "Build directory: $BUILD_DIR"
+echo "Image name: $IMAGE_NAME"
+echo "Version: $VERSION"
+echo "Target OS: $TARGET_OS"
+echo "Target Arch: $TARGET_ARCH"
 
-pushd "$PARENT_PATH"
-mkdir -p build
-docker build -t snetd-linux-amd64:latest resources/linuxbuild
-docker run --name linux-build snetd-linux-amd64:latest
-docker cp linux-build:/snet-daemon/build/snetd-linux-amd64-dev ./build
-docker rm linux-build
-docker rmi snetd-linux-amd64:latest
-popd
+# Ensure build dir exists
+mkdir -p "$BUILD_DIR"
+
+# Cleanup possible leftovers
+TEMP_CONTAINER="snet-build-temp"
+docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
+docker rmi -f "${IMAGE_NAME}:${VERSION}" >/dev/null 2>&1 || true
+
+# Build Docker image
+echo "Building Docker image..."
+DOCKERFILE_PATH="$PROJECT_ROOT/docker/Dockerfile.build"
+docker build -f "$DOCKERFILE_PATH" -t "${IMAGE_NAME}:${VERSION}" "$PROJECT_ROOT"
+
+# Create a temporary container
+docker create --name "$TEMP_CONTAINER" "${IMAGE_NAME}:${VERSION}" >/dev/null
+
+# Copy binary from container to host
+BINARY_PATH="$BUILD_DIR/snetd-${TARGET_OS}-${TARGET_ARCH}-${VERSION}"
+docker cp "${TEMP_CONTAINER}:/out/snetd" "$BINARY_PATH"
+
+# Verify binary
+if [[ -f "$BINARY_PATH" ]]; then
+    echo "✅ Binary built: $BINARY_PATH"
+else
+    echo "❌ Build failed: binary not found at $BINARY_PATH"
+    docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
+    exit 1
+fi
+
+# Cleanup
+docker rm -f "$TEMP_CONTAINER" >/dev/null 2>&1 || true
+docker rmi -f "${IMAGE_NAME}:${VERSION}" >/dev/null 2>&1 || true
+
+echo "Done. Built binary is in $BUILD_DIR"

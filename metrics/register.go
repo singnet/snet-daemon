@@ -2,7 +2,7 @@
 // All rights reserved.
 // <<add licence terms for code reuse>>
 
-// package for monitoring and reporting the daemon metrics
+// Package metrics for monitoring and reporting the daemon metrics
 package metrics
 
 import (
@@ -45,12 +45,12 @@ var daemonGroupId string
 
 var daemonAuthorizationToken string
 
-// setter method for daemonGroupID
+// SetDaemonGrpId setter method for daemonGroupID
 func SetDaemonGrpId(grpId string) {
 	daemonGroupId = grpId
 }
 
-// New Daemon registration. Generates the DaemonID and use that as getting access token
+// RegisterDaemon New Daemon registration. Generates the DaemonID and use that as getting access token
 func RegisterDaemon(serviceURL string) bool {
 	daemonID := GetDaemonID()
 	status := false

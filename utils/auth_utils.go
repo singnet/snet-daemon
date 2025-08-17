@@ -1,5 +1,6 @@
-// Package authutils provides functions for all authentication and signature validation related operations
-package authutils
+package utils
+
+// auth_utils.go provides functions for all authentication and signature validation related operations
 
 import (
 	"bytes"
@@ -8,11 +9,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/singnet/snet-daemon/v6/blockchain"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
+)
+
+var (
+	// HashPrefix32Bytes is an Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
+	HashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
 )
 
 // VerifySigner Extracts the signer address from the signature given the signature
@@ -30,16 +34,16 @@ func VerifySigner(message []byte, signature []byte, signer common.Address) error
 }
 
 func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
-	messageFieldLog := zap.String("message", blockchain.BytesToBase64(message))
-	signatureFieldLog := zap.String("signature", blockchain.BytesToBase64(signature))
+	messageFieldLog := zap.String("message", BytesToBase64(message))
+	signatureFieldLog := zap.String("signature", BytesToBase64(signature))
 
 	messageHash := crypto.Keccak256(
-		blockchain.HashPrefix32Bytes,
+		HashPrefix32Bytes,
 		crypto.Keccak256(message),
 	)
 	messageHashFieldLog := zap.String("messageHash", hex.EncodeToString(messageHash))
 
-	v, _, _, err := blockchain.ParseSignature(signature)
+	v, _, _, err := ParseSignature(signature)
 	if err != nil {
 		zap.L().Warn("Error parsing signature", zap.Error(err), messageFieldLog, signatureFieldLog, messageHashFieldLog)
 		return nil, errors.New("incorrect signature length")
@@ -74,14 +78,14 @@ func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Addr
 // VerifyAddress Check if the payment address/signer passed matches to what is present in the metadata
 func VerifyAddress(address common.Address, otherAddress common.Address) error {
 	if otherAddress != address {
-		return fmt.Errorf("the address: %s does not match to what has been expected / registered", blockchain.AddressToHex(&address))
+		return fmt.Errorf("the address: %s does not match to what has been expected / registered", address.Hex())
 	}
 	return nil
 }
 
 func GetSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	hash := crypto.Keccak256(
-		blockchain.HashPrefix32Bytes,
+		HashPrefix32Bytes,
 		crypto.Keccak256(message),
 	)
 

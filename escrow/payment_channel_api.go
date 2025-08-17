@@ -5,8 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/utils"
 )
 
 // Payment contains MultiPartyEscrow payment details
@@ -26,7 +25,7 @@ type Payment struct {
 
 func (p *Payment) String() string {
 	return fmt.Sprintf("{MpeContractAddress: %v, ChannelID: %v, ChannelNonce: %v, Amount: %v, Signature: %v}",
-		blockchain.AddressToHex(&p.MpeContractAddress), p.ChannelID, p.ChannelNonce, p.Amount, blockchain.BytesToBase64(p.Signature))
+		utils.AddressToHex(&p.MpeContractAddress), p.ChannelID, p.ChannelNonce, p.Amount, utils.BytesToBase64(p.Signature))
 }
 
 func (p *Payment) ID() string {
@@ -104,7 +103,7 @@ type PaymentChannelData struct {
 
 func (data *PaymentChannelData) String() string {
 	return fmt.Sprintf("{ChannelID: %v, Nonce: %v, State: %v, Sender: %v, Recipient: %v, GroupId: %v, FullAmount: %v, Expiration: %v, Signer: %v, AuthorizedAmount: %v, Signature: %v",
-		data.ChannelID, data.Nonce, data.State, blockchain.AddressToHex(&data.Sender), blockchain.AddressToHex(&data.Recipient), blockchain.BytesToBase64(data.GroupID[:]), data.FullAmount, data.Expiration, blockchain.AddressToHex(&data.Signer), data.AuthorizedAmount, blockchain.BytesToBase64(data.Signature))
+		data.ChannelID, data.Nonce, data.State, utils.AddressToHex(&data.Sender), utils.AddressToHex(&data.Recipient), utils.BytesToBase64(data.GroupID[:]), data.FullAmount, data.Expiration, utils.AddressToHex(&data.Signer), data.AuthorizedAmount, utils.BytesToBase64(data.Signature))
 }
 
 // PaymentChannelService interface is API for payment channel functionality.

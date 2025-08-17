@@ -1,10 +1,11 @@
 package ipfsutils
 
 import (
-	"github.com/singnet/snet-daemon/v6/config"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
+
+	"github.com/singnet/snet-daemon/v6/config"
+	"go.uber.org/zap"
 )
 
 func GetLighthouseFile(cID string) ([]byte, error) {

@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/abigen"
-	contracts "github.com/singnet/snet-ecosystem-contracts"
 	"log"
 	"os"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/abigen"
+	contracts "github.com/singnet/snet-ecosystem-contracts"
 )
 
 // Generate smart-contracts golang bindings

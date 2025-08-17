@@ -15,11 +15,12 @@ import (
 	"sync"
 	"time"
 
+	_ "embed"
+
 	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
+	"github.com/singnet/snet-daemon/v6/ctxkeys"
 	"github.com/singnet/snet-daemon/v6/errs"
-
-	_ "embed"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"google.golang.org/grpc/credentials/insecure"
@@ -55,7 +56,13 @@ func (ds *DaemonService) CreateModel(ctx context.Context, request *NewModelReque
 		return &ModelResponse{Status: Status_ERRORED}, ErrNoAuthorization
 	}
 
-	if err := ds.verifySignature(request.Authorization, ctx.Value("method")); err != nil {
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return &ModelResponse{Status: Status_ERRORED}, ErrBadAuthorization
+	}
+
+	if err := ds.verifySignature(request.Authorization, method); err != nil {
 		zap.L().Error("unable to create model, bad authorization provided", zap.Error(err))
 		return &ModelResponse{Status: Status_ERRORED}, ErrBadAuthorization
 	}
@@ -218,7 +225,13 @@ func (ds *DaemonService) ValidateModelPrice(ctx context.Context, req *AuthValida
 		return nil, ErrEmptyModelID
 	}
 
-	if err := ds.verifySignature(req.Authorization, ctx.Value("method")); err != nil {
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return nil, WrapError(ErrBadAuthorization, "method not found in context")
+	}
+
+	if err := ds.verifySignature(req.Authorization, method); err != nil {
 		return nil, WrapError(ErrAccessToModel, err.Error())
 	}
 
@@ -236,10 +249,16 @@ func (ds *DaemonService) ValidateModelPrice(ctx context.Context, req *AuthValida
 		TrainingDataLink: req.TrainingDataLink,
 	})
 	closeConn(conn)
-	if err != nil || price == nil {
+	if err != nil {
 		zap.L().Error("[ValidateModelPrice] service issue", zap.Error(err))
 		return nil, WrapError(ErrServiceIssue, err.Error())
 	}
+
+	if price == nil {
+		zap.L().Error("[ValidateModelPrice] price is nil")
+		return nil, WrapError(ErrServiceIssue, "price is nil")
+	}
+
 	err = ds.updateModelPrices(req.ModelId, price, nil)
 	if err != nil {
 		zap.L().Debug("[ValidateModelPrice] can't update model prices")
@@ -353,7 +372,13 @@ func (ds *DaemonService) ValidateModel(ctx context.Context, req *AuthValidateReq
 		return nil, ErrEmptyModelID
 	}
 
-	if err := ds.verifySignature(req.Authorization, ctx.Value("method")); err != nil {
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return nil, WrapError(ErrBadAuthorization, "method not found in context")
+	}
+
+	if err := ds.verifySignature(req.Authorization, method); err != nil {
 		return nil, WrapError(ErrAccessToModel, err.Error())
 	}
 
@@ -409,7 +434,13 @@ func (ds *DaemonService) TrainModelPrice(ctx context.Context, req *CommonRequest
 		return nil, ErrEmptyModelID
 	}
 
-	if err := ds.verifySignature(req.Authorization, ctx.Value("method")); err != nil {
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return nil, WrapError(ErrBadAuthorization, "method not found in context")
+	}
+
+	if err := ds.verifySignature(req.Authorization, method); err != nil {
 		return nil, WrapError(ErrAccessToModel, err.Error())
 	}
 
@@ -445,7 +476,13 @@ func (ds *DaemonService) TrainModel(ctx context.Context, req *CommonRequest) (*S
 		return &StatusResponse{Status: Status_ERRORED}, ErrEmptyModelID
 	}
 
-	if err := ds.verifySignature(req.Authorization, ctx.Value("method")); err != nil {
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return nil, WrapError(ErrBadAuthorization, "method not found in context")
+	}
+
+	if err := ds.verifySignature(req.Authorization, method); err != nil {
 		return &StatusResponse{Status: Status_ERRORED},
 			WrapError(ErrAccessToModel, err.Error())
 	}
@@ -493,7 +530,14 @@ func (ds *DaemonService) UpdateModel(ctx context.Context, req *UpdateModelReques
 	if req == nil || req.Authorization == nil {
 		return &ModelResponse{Status: Status_ERRORED}, ErrNoAuthorization
 	}
-	if err := ds.verifySignature(req.Authorization, ctx.Value("method")); err != nil {
+
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return nil, WrapError(ErrBadAuthorization, "method not found in context")
+	}
+
+	if err := ds.verifySignature(req.Authorization, method); err != nil {
 		return &ModelResponse{Status: Status_ERRORED},
 			WrapError(ErrAccessToModel, err.Error())
 	}
@@ -862,7 +906,13 @@ func (ds *DaemonService) GetAllModels(ctx context.Context, request *AllModelsReq
 		return &ModelsResponse{}, ErrNoAuthorization
 	}
 
-	if err := ds.verifySignature(request.Authorization, ctx.Value("method")); err != nil {
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return nil, WrapError(ErrBadAuthorization, "method not found in context")
+	}
+
+	if err := ds.verifySignature(request.Authorization, method); err != nil {
 		return &ModelsResponse{}, ErrBadAuthorization
 	}
 
@@ -992,7 +1042,13 @@ func (ds *DaemonService) DeleteModel(ctx context.Context, req *CommonRequest) (*
 		return &StatusResponse{Status: Status_ERRORED}, ErrEmptyModelID
 	}
 
-	if err := ds.verifySignature(req.Authorization, ctx.Value("method")); err != nil {
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return nil, WrapError(ErrBadAuthorization, "method not found in context")
+	}
+
+	if err := ds.verifySignature(req.Authorization, method); err != nil {
 		return &StatusResponse{Status: Status_ERRORED},
 			WrapError(ErrAccessToModel, err.Error())
 	}
@@ -1027,7 +1083,14 @@ func (ds *DaemonService) GetModel(ctx context.Context, request *CommonRequest) (
 	if request == nil || request.Authorization == nil {
 		return &ModelResponse{Status: Status_ERRORED}, ErrNoAuthorization
 	}
-	if err = ds.verifySignature(request.Authorization, ctx.Value("method")); err != nil {
+
+	method, ok := ctx.Value(ctxkeys.MethodKey).(string)
+	if !ok {
+		zap.L().Error("method not found in context")
+		return nil, WrapError(ErrBadAuthorization, "method not found in context")
+	}
+
+	if err = ds.verifySignature(request.Authorization, method); err != nil {
 		return &ModelResponse{Status: Status_ERRORED}, ErrBadAuthorization
 	}
 	if request.ModelId == "" {

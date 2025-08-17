@@ -9,6 +9,7 @@ import (
 
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/ipfsutils"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
@@ -135,9 +136,9 @@ func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
 	if metaData.daemonGroup, err = getDaemonGroup(*metaData); err != nil {
 		return err
 	}
-	metaData.daemonGroupID, err = ConvertBase64Encoding(metaData.daemonGroup.GroupID)
+	metaData.daemonGroupID, err = utils.ConvertBase64Encoding(metaData.daemonGroup.GroupID)
 	//use the checksum address (convert the address in to a checksum address and set it back)
-	metaData.daemonGroup.PaymentDetails.PaymentAddress = ToChecksumAddress(metaData.daemonGroup.PaymentDetails.PaymentAddress)
+	metaData.daemonGroup.PaymentDetails.PaymentAddress = utils.ToChecksumAddressStr(metaData.daemonGroup.PaymentDetails.PaymentAddress)
 	metaData.recipientPaymentAddress = common.HexToAddress(metaData.daemonGroup.PaymentDetails.PaymentAddress)
 
 	return err
@@ -185,7 +186,7 @@ func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error)
 func getMetaDataURI() []byte {
 	// Blockchain call to get the hash of the metadata for the given Organization
 	reg := getRegistryCaller()
-	orgId := StringToBytes32(config.GetString(config.OrganizationId))
+	orgId := utils.StringToBytes32(config.GetString(config.OrganizationId))
 
 	organizationRegistered, err := reg.GetOrganizationById(nil, orgId)
 	if err != nil || !organizationRegistered.Found {

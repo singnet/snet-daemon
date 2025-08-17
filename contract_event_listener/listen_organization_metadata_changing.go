@@ -6,6 +6,7 @@ import (
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/etcddb"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/gorilla/websocket"
@@ -29,7 +30,7 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 	}
 
 	registryFilterer := blockchain.GetRegistryFilterer(ethWSClient)
-	orgIdFilter := blockchain.MakeTopicFilterer(l.CurrentOrganizationMetaData.OrgID)
+	orgIdFilter := utils.MakeTopicFilterer(l.CurrentOrganizationMetaData.OrgID)
 
 	eventContractChannel := make(chan *blockchain.RegistryOrganizationModified)
 	sub, err := registryFilterer.WatchOrganizationModified(watchOpts, eventContractChannel, orgIdFilter)

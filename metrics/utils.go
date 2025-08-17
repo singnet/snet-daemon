@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -23,7 +23,7 @@ import (
 
 const MeteringPrefix = "_usage"
 
-// Get the value of the first Pair
+// GetValue Get the value of the first Pair
 func GetValue(md metadata.MD, key string) string {
 	array := md.Get(key)
 	if len(array) == 0 {
@@ -32,7 +32,7 @@ func GetValue(md metadata.MD, key string) string {
 	return array[0]
 }
 
-// convert the given struct to its corresponding json.
+// ConvertStructToJSON convert the given struct to its corresponding json.
 func ConvertStructToJSON(payload any) ([]byte, error) {
 	if payload == nil {
 		return nil, errors.New("empty payload passed")
@@ -47,13 +47,13 @@ func ConvertStructToJSON(payload any) ([]byte, error) {
 	return b, nil
 }
 
-// Generate a unique global Id
+// GenXid Generate a unique global Id
 func GenXid() string {
 	id := xid.New()
 	return id.String()
 }
 
-// convert the payload to JSON and publish it to the serviceUrl passed
+// Publish convert the payload to JSON and publish it to the serviceUrl passed
 func Publish(payload any, serviceUrl string, commonStats *CommonStats, currentBlock *big.Int) bool {
 	jsonBytes, err := ConvertStructToJSON(payload)
 	if err != nil {
@@ -66,7 +66,7 @@ func Publish(payload any, serviceUrl string, commonStats *CommonStats, currentBl
 	return status
 }
 
-// Publish the json on the service end point, retry will be set to false when trying to re publish the payload
+// Publish the JSON on the service end point, retry will be set to false when trying to re publish the payload
 func publishJson(json []byte, serviceURL string, reTry bool, commonStats *CommonStats, currentBlock *big.Int) bool {
 	response, err := sendRequest(json, serviceURL, commonStats, currentBlock)
 	if err != nil {
@@ -143,7 +143,7 @@ func signForMeteringValidation(privateKey *ecdsa.PrivateKey, currentBlock *big.I
 		common.BigToHash(currentBlock).Bytes(),
 	}, nil)
 
-	return authutils.GetSignature(message, privateKey)
+	return utils.GetSignature(message, privateKey)
 }
 
 // Check if the response received was proper
@@ -154,7 +154,7 @@ func checkForSuccessfulResponse(response *http.Response) (status bool, retry boo
 	}
 	if response.StatusCode != http.StatusOK {
 		zap.L().Warn("Service call failed", zap.Int("StatusCode", response.StatusCode))
-		//if response returned was forbidden error , then re register Daemon with fresh token and submit the request / response
+		//if response returned was forbidden error, then re register Daemon with a fresh token and submit the request / response
 		//again ONLY if the Daemon was registered successfully
 
 		return false, false

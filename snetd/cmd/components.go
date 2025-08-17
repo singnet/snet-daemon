@@ -27,7 +27,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/training"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -232,7 +232,7 @@ func (components *Components) AtomicStorage() storage.AtomicStorage {
 }
 
 /*
-add new component MPESpecificStorage; it is also instance of PrefixedStorage using /<mpe_contract_address> as a prefix; as it is also based on storage from previous item the effective prefix is /<network_id>/<mpe_contract_address>; this guarantees that storages which are specific for MPE contract version don't intersect;
+MPESpecificStorage it is also instance of PrefixedStorage using /<mpe_contract_address> as a prefix; as it is also based on storage from previous item the effective prefix is /<network_id>/<mpe_contract_address>; this guarantees that storages which are specific for MPE contract version don't intersect;
 use MPESpecificStorage as base for PaymentChannelStorage, PaymentStorage, LockStorage for channels;
 */
 func (components *Components) MPESpecificStorage() *storage.PrefixedAtomicStorage {
@@ -410,11 +410,11 @@ func (components *Components) GrpcStreamInterceptor() grpc.StreamServerIntercept
 				" as part of service publication process", zap.Error(err))
 		}
 
-		components.grpcStreamInterceptor = grpc_middleware.ChainStreamServer(
+		components.grpcStreamInterceptor = grpcMiddleware.ChainStreamServer(
 			handler.GrpcMeteringInterceptor(components.Blockchain().CurrentBlock), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcStreamPaymentValidationInterceptor())
 	} else {
-		components.grpcStreamInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
+		components.grpcStreamInterceptor = grpcMiddleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcStreamPaymentValidationInterceptor())
 	}
 	return components.grpcStreamInterceptor
@@ -487,9 +487,9 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 	defer response.Body.Close()
 
 	if strings.Compare(responseBody.Data, "success") != 0 {
-		return false, fmt.Errorf("Error returned by by Metering Service %s Verification,"+
+		return false, fmt.Errorf("error returned by by Metering Service %s Verification,"+
 			" pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
-			"to the private key in Daemon config.", config.GetString(config.MeteringEndpoint)+"/verify")
+			"to the private key in Daemon config", config.GetString(config.MeteringEndpoint)+"/verify")
 	}
 
 	return true, nil

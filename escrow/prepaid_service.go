@@ -31,11 +31,10 @@ func (h *lockingPrepaidService) GetUsage(key PrePaidDataKey) (data *PrePaidData,
 		return nil, ok, err
 	}
 	return value.(*PrePaidData), ok, err
-
 }
 
-// Defines the condition that needs to be met, it generates the respective typed Data when
-// conditions are satisfied, you define your own validations in here
+// ConditionFunc Defines the condition that needs to be met, it generates the respective typed Data when
+// conditions are satisfied; you define your own validations in here
 // It takes in the latest typed values read.
 type ConditionFunc func(conditionValues []storage.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) ([]storage.TypedKeyValueData, error)
 

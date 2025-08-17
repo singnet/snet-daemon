@@ -31,12 +31,6 @@ func Deserialize(slice string, value any) (err error) {
 	return d.Decode(value)
 }
 
-func ToChecksumAddress(hexAddress string) common.Address {
-	address := common.HexToAddress(hexAddress)
-	mixedAddress := common.NewMixedcaseAddress(address)
-	return mixedAddress.Address()
-}
-
 func ParsePrivateKey(privateKeyString string) (privateKey *ecdsa.PrivateKey) {
 	if privateKeyString != "" {
 		privateKey, err := crypto.HexToECDSA(privateKeyString)

@@ -26,7 +26,7 @@ type EtcdClientMutex struct {
 	mutex *concurrency.Mutex
 }
 
-// Lock lock etcd key
+// Lock etcd key
 func (mutex *EtcdClientMutex) Lock(ctx context.Context) (err error) {
 	return mutex.mutex.Lock(ctx)
 }

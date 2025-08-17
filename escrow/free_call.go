@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
@@ -69,7 +70,7 @@ func (transaction *freeCallTransaction) FreeCallUser() *FreeCallUserData {
 func (h *lockingFreeCallUserService) GetFreeCallUserKey(payment *FreeCallPayment) (userKey *FreeCallUserKey, err error) {
 	groupId, err := h.replicaGroupID()
 	return &FreeCallUserKey{UserId: payment.UserID, Address: payment.Address, OrganizationId: payment.OrganizationId,
-		ServiceId: payment.ServiceId, GroupID: blockchain.BytesToBase64(groupId[:])}, err
+		ServiceId: payment.ServiceId, GroupID: utils.BytesToBase64(groupId[:])}, err
 }
 
 // StartFreeCallUserTransaction acquires a user-level lock and returns a transaction

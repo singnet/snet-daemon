@@ -5,9 +5,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 // ReadProtoFilesCompressed reads proto files from tar or tar.gz archive

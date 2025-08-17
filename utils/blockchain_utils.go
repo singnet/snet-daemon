@@ -1,4 +1,4 @@
-package blockchain
+package utils
 
 import (
 	"encoding/base64"
@@ -61,10 +61,16 @@ func ConvertBase64Encoding(str string) ([32]byte, error) {
 	return byte32, nil
 }
 
-func ToChecksumAddress(hexAddress string) string {
+func ToChecksumAddressStr(hexAddress string) string {
 	address := common.HexToAddress(hexAddress)
 	mixedAddress := common.NewMixedcaseAddress(address)
 	return mixedAddress.Address().String()
+}
+
+func ToChecksumAddress(hexAddress string) common.Address {
+	address := common.HexToAddress(hexAddress)
+	mixedAddress := common.NewMixedcaseAddress(address)
+	return mixedAddress.Address()
 }
 
 /*

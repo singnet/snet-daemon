@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -101,7 +101,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	}, nil)
 	signature := request.GetSignature()
 
-	sender, err := authutils.GetSignerAddressFromMessage(message, signature)
+	sender, err := utils.GetSignerAddressFromMessage(message, signature)
 	if err != nil {
 		return nil, errors.New("incorrect signature")
 	}

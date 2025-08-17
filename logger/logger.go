@@ -33,7 +33,7 @@ const (
 // instance.
 //
 // Function designed to configure a few different loggers with different
-// formatter and output settings. To achieve this viper configuration
+// formatter and output settings. To achieve, this viper configuration
 // contains separate sections for each logger, each output and
 // each formatter.
 

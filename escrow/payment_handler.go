@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
@@ -118,7 +119,7 @@ func PublishChannelStats(payment handler.Payment, currentBlock func() (*big.Int,
 		AuthorizedAmount: paymentTransaction.payment.Amount,
 		FullAmount:       paymentTransaction.Channel().FullAmount,
 		Nonce:            paymentTransaction.Channel().Nonce,
-		GroupID:          blockchain.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
+		GroupID:          utils.BytesToBase64(paymentTransaction.Channel().GroupID[:]),
 	}
 	meteringURL := config.GetString(config.MeteringEndpoint) + "/contract-api/channel/" + channelStats.ChannelId.String() + "/balance"
 

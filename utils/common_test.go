@@ -22,12 +22,6 @@ func TestSerializeDeserialize(t *testing.T) {
 	assert.Equal(t, original, decoded)
 }
 
-func TestToChecksumAddress(t *testing.T) {
-	lower := "0x52908400098527886E0F7030069857D2E4169EE7"
-	checksumAddr := ToChecksumAddress(lower)
-	assert.Equal(t, common.HexToAddress(lower), checksumAddr)
-}
-
 func TestParsePrivateKey(t *testing.T) {
 	validKey, err := crypto.GenerateKey()
 	assert.NoError(t, err)

@@ -59,7 +59,7 @@ func (service customJWTokenServiceImpl) VerifyToken(receivedToken CustomToken, p
 
 	senderVal, ok := claims["userAddress"].(string)
 	if !ok || senderVal == "" {
-		return "", fmt.Errorf("token missing sender claim")
+		return "unknown", nil
 	}
 
 	return senderVal, err

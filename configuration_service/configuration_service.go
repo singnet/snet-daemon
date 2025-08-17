@@ -7,9 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"go.uber.org/zap"
 
 	"math/big"
@@ -116,7 +116,7 @@ func (service ConfigurationService) authenticate(prefix string, auth *CallerAuth
 		}
 	}
 
-	signerFromMessage, err := authutils.GetSignerAddressFromMessage(service.getMessageBytes(prefix, auth.CurrentBlock), auth.GetSignature())
+	signerFromMessage, err := utils.GetSignerAddressFromMessage(service.getMessageBytes(prefix, auth.CurrentBlock), auth.GetSignature())
 	if err != nil {
 		zap.L().Error(err.Error())
 		return err

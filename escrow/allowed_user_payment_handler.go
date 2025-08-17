@@ -2,8 +2,8 @@ package escrow
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"google.golang.org/grpc/codes"
 )
 
@@ -72,7 +72,7 @@ func (h *allowedUserPaymentHandler) getPaymentFromContext(context *handler.GrpcS
 		ChannelNonce:       channelNonce,
 		Amount:             amount,
 		Signature:          signature,
-		MpeContractAddress: common.HexToAddress(blockchain.ToChecksumAddress(address)),
+		MpeContractAddress: utils.ToChecksumAddress(address),
 	}, nil
 }
 

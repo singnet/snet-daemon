@@ -8,9 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/token"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"golang.org/x/net/context"
 )
 
@@ -123,7 +123,7 @@ func (service *TokenService) verifySignature(request *TokenRequest, channel *Pay
 	}, nil)
 	signature := request.GetSignature()
 
-	sender, err := authutils.GetSignerAddressFromMessage(message, signature)
+	sender, err := utils.GetSignerAddressFromMessage(message, signature)
 	if err != nil {
 		return nil, fmt.Errorf("incorrect signature")
 	}

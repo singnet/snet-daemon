@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/ctxkeys"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -48,7 +49,7 @@ type paymentValidationUnaryInterceptor struct {
 func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, e error) {
 	var err *GrpcError
 
-	ctx = context.WithValue(ctx, "method", info.FullMethod)
+	ctx = context.WithValue(ctx, ctxkeys.MethodKey, info.FullMethod)
 
 	lastSlash := strings.LastIndex(info.FullMethod, "/")
 	methodName := info.FullMethod[lastSlash+1:]

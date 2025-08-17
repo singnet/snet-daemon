@@ -1,9 +1,10 @@
-package blockchain
+package utils
 
 import (
 	"bytes"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,9 +19,15 @@ func TestConvertBase64Encoding(t *testing.T) {
 	}
 }
 
+func TestToChecksumAddressStr(t *testing.T) {
+	assert.Equal(t, "0xE9D09A6C296ACDd4C01b21F407aC93FDfC63e78c", ToChecksumAddressStr("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
+	assert.Equal(t, "0xE9D09A6C296ACDd4C01b21F407aC93FDfC63e78c", ToChecksumAddressStr("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
+}
+
 func TestToChecksumAddress(t *testing.T) {
-	assert.Equal(t, "0xE9D09A6C296ACDd4C01b21F407aC93FDfC63e78c", ToChecksumAddress("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
-	assert.Equal(t, "0xE9D09A6C296ACDd4C01b21F407aC93FDfC63e78c", ToChecksumAddress("0xe9d09A6C296aCdd4c01b21f407ac93fdfC63E78C"))
+	lower := "0x52908400098527886E0F7030069857D2E4169EE7"
+	checksumAddr := ToChecksumAddress(lower)
+	assert.Equal(t, common.HexToAddress(lower), checksumAddr)
 }
 
 func TestParseSignature(t *testing.T) {

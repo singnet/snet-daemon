@@ -9,9 +9,9 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"go.uber.org/zap"
 )
@@ -60,7 +60,7 @@ func (validator *FreeCallPaymentValidator) NewFreeCallToken(userAddress string, 
 
 	message := BuildFreeCallTokenStruct(&userAddr, deadlineBlockOfToken, userID)
 
-	signedToken := authutils.GetSignature(message, validator.freeCallSigner)
+	signedToken := utils.GetSignature(message, validator.freeCallSigner)
 	signedToken = append(signedToken, []byte("_"+deadlineBlockOfToken.String())...)
 	return signedToken, deadlineBlockOfToken
 }
@@ -92,7 +92,7 @@ func getAddressFromSignatureForNewFreeCallToken(request *GetFreeCallTokenRequest
 		bigIntToBytes(big.NewInt(int64(request.GetCurrentBlock()))),
 	}, nil)
 
-	signer, err = authutils.GetSignerAddressFromMessage(message, request.Signature)
+	signer, err = utils.GetSignerAddressFromMessage(message, request.Signature)
 	if err != nil {
 		zap.L().Error("Cannot get signer from message", zap.Error(err))
 		return nil, err
@@ -180,7 +180,7 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 		return NewPaymentError(Unauthenticated, "payment signature is not valid")
 	}
 
-	signerAddressFieldLog := zap.String("signerAddress", blockchain.AddressToHex(signerAddress))
+	signerAddressFieldLog := zap.String("signerAddress", utils.AddressToHex(signerAddress))
 	if *signerAddress != channel.Signer && *signerAddress != channel.Sender {
 		zap.L().Warn("Channel signer is not equal to payment signer/sender", signerAddressFieldLog)
 		return NewPaymentError(Unauthenticated, "payment is not signed by channel signer/sender")
@@ -258,7 +258,7 @@ func (validator *FreeCallPaymentValidator) getSignerOfAuthTokenForFreeCall(payme
 	//zap.L().Debug("Signer of request will be passed to token", zap.String("address", signer.Hex()))
 
 	message := BuildFreeCallTokenStruct(signer, payment.AuthTokenExpiryBlockNumber, &payment.UserID)
-	return authutils.GetSignerAddressFromMessage(message, payment.AuthTokenParsed)
+	return utils.GetSignerAddressFromMessage(message, payment.AuthTokenParsed)
 }
 
 func getAddressFromSigForFreeCall(payment *FreeCallPayment) (signer *common.Address, err error) {
@@ -274,7 +274,7 @@ func getAddressFromSigForFreeCall(payment *FreeCallPayment) (signer *common.Addr
 		payment.AuthToken,
 	}, nil)
 
-	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
+	signer, err = utils.GetSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
 		zap.L().Error("Cannot get signer from payment", zap.Error(err), zap.Any("payment", payment))
 		return nil, err
@@ -314,7 +314,7 @@ func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err 
 		bigIntToBytes(payment.Amount),
 	}, nil)
 
-	signer, err = authutils.GetSignerAddressFromMessage(message, payment.Signature)
+	signer, err = utils.GetSignerAddressFromMessage(message, payment.Signature)
 	if err != nil {
 		zap.L().Error("Cannot get signer from payment", zap.Error(err), zap.Any("payment", payment))
 		return nil, err

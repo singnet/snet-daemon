@@ -3,12 +3,13 @@ package etcddb
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"time"
+
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/spf13/viper"
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.uber.org/zap"
-	"net/url"
-	"time"
 )
 
 // EtcdServer struct has some useful methods to work with etcd server
@@ -39,7 +40,7 @@ func IsEtcdServerEnabledInVip(vip *viper.Viper) (enabled bool, err error) {
 }
 
 // GetEtcdServer returns EtcdServer in case it is defined in the viper config
-// returns null if PAYMENT_CHANNEL_STORAGE property is not defined
+// returns null if the PAYMENT_CHANNEL_STORAGE property is not defined
 // in the config file or the ENABLED field of the PAYMENT_CHANNEL_STORAGE
 // is set to false
 func GetEtcdServer() (server *EtcdServer, err error) {

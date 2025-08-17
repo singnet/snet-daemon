@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -279,12 +279,12 @@ func (service *ProviderControlService) getMessageBytes(prefixMessage string, req
 }
 
 func (service *ProviderControlService) verifySigner(message []byte, signature []byte) error {
-	signer, err := authutils.GetSignerAddressFromMessage(message, signature)
+	signer, err := utils.GetSignerAddressFromMessage(message, signature)
 	if err != nil {
 		zap.L().Error(err.Error())
 		return err
 	}
-	if err = authutils.VerifyAddress(*signer, service.organizationMetaData.GetPaymentAddress()); err != nil {
+	if err = utils.VerifyAddress(*signer, service.organizationMetaData.GetPaymentAddress()); err != nil {
 		return err
 	}
 	return nil

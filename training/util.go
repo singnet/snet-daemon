@@ -10,14 +10,13 @@ import (
 	"strings"
 
 	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v6/authutils"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/singnet/snet-daemon/v6/utils"
 )
 
 var unifiedAuthMethods = map[string]struct{}{
@@ -58,13 +57,13 @@ func (ds *DaemonService) verifySignature(r *AuthorizationDetails, method any) er
 		return fmt.Errorf("unsupported message: %s for this method", r.Message)
 	}
 
-	if err := authutils.VerifySigner(ds.getMessageBytes(r.Message, r), r.GetSignature(), utils.ToChecksumAddress(r.SignerAddress)); err != nil {
+	if err := utils.VerifySigner(ds.getMessageBytes(r.Message, r), r.GetSignature(), utils.ToChecksumAddress(r.SignerAddress)); err != nil {
 		return err
 	}
 	return ds.blockchain.CompareWithLatestBlockNumber(big.NewInt(0).SetUint64(r.CurrentBlock), allowDifference)
 }
 
-// "user passed message	", user_address, current_block_number
+// "user passed message", user_address, current_block_number
 func (ds *DaemonService) getMessageBytes(prefixMessage string, request *AuthorizationDetails) []byte {
 	userAddress := utils.ToChecksumAddress(request.SignerAddress)
 	message := bytes.Join([][]byte{
@@ -95,12 +94,12 @@ func difference(oldAddresses []string, newAddresses []string) []string {
 					break
 				}
 			}
-			// String not found. We add it to return slice
+			// String not found. We add it to the return slice
 			if !found {
 				diff = append(diff, s1)
 			}
 		}
-		// Swap the slices, only if it was the first loop
+		// Swap the slices only if it was the first loop
 		if i == 0 {
 			oldAddresses, newAddresses = newAddresses, oldAddresses
 		}

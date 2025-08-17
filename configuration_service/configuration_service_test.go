@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +44,7 @@ func TestConfigurationService_authenticate(t *testing.T) {
 	currBlock, _ := service.blockchainProc.CurrentBlock()
 	publicKey := crypto.PubkeyToAddress(privateKey.PublicKey)
 	msg := service.getMessageBytes("__GetConfiguration", currBlock.Uint64())
-	sig := authutils.GetSignature(msg, privateKey)
+	sig := utils.GetSignature(msg, privateKey)
 	auth := &CallerAuthentication{CurrentBlock: currBlock.Uint64(), Signature: sig}
 	err := service.authenticate("__GetConfiguration", auth)
 	assert.Contains(t, err.Error(), "unauthorized access")

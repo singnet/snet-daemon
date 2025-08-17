@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/storage"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/stretchr/testify/assert"
@@ -55,7 +56,7 @@ func (suite *ControlServiceTestSuite) putChannel(channelId *big.Int) {
 		Expiration:       big.NewInt(100),
 		Signer:           suite.receiverAddress,
 		AuthorizedAmount: big.NewInt(10),
-		Signature:        blockchain.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
+		Signature:        utils.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	})
 }
 

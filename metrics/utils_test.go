@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 )
@@ -87,8 +87,9 @@ func Test_getPrivateKeyForMetering(t *testing.T) {
 		assert.Nil(t, err)
 
 		bytesForMetering := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix, &CommonStats{UserName: "test-user"})
-		signature := authutils.GetSignature(bytesForMetering, key)
-		signer, err := authutils.GetSignerAddressFromMessage(bytesForMetering, signature)
+		signature := utils.GetSignature(bytesForMetering, key)
+		signer, err := utils.GetSignerAddressFromMessage(bytesForMetering, signature)
+		assert.NotNil(t, signer)
 		assert.Equal(t, signer.String(), "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 		assert.Nil(t, err)
 	}

@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/storage"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/utils"
 )
 
 type paymentChannelServiceMock struct {
@@ -100,7 +101,7 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 	suite.signerPrivateKey = GenerateTestPrivateKey()
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
-	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
+	suite.mpeContractAddress = utils.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	suite.memoryStorage = storage.NewMemStorage()
 	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
 	suite.paymentStorage = NewPaymentStorage(suite.memoryStorage)

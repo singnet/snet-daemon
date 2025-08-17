@@ -75,7 +75,7 @@ func TestInitServiceMetaDataFromJson(t *testing.T) {
 }
 
 func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
-	metadata, err := ReadServiceMetaDataFromLocalFile("../service_metadata.json")
+	metadata, err := ReadServiceMetaDataFromLocalFile("../resources/testing/service_metadata.json")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, metadata.Version, 1)
 }
@@ -138,7 +138,7 @@ func TestServiceMetadata_parseServiceProto(t *testing.T) {
 }
 
 func TestServiceMetadata_addOns(t *testing.T) {
-	metadata, err := ReadServiceMetaDataFromLocalFile("../service_metadata.json")
+	metadata, err := ReadServiceMetaDataFromLocalFile("../resources/testing/service_metadata.json")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, metadata.Groups[0].AddOns[0].DiscountInPercentage, 4.0)
 }

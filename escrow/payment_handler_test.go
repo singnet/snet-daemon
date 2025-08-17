@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -35,7 +36,7 @@ func (suite *PaymentHandlerTestSuite) SetupSuite() {
 
 	suite.paymentHandler = paymentChannelPaymentHandler{
 		service:            suite.paymentChannelServiceMock,
-		mpeContractAddress: func() common.Address { return blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf") },
+		mpeContractAddress: func() common.Address { return utils.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf") },
 		incomeValidator:    suite.incomeValidatorMock,
 	}
 }

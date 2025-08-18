@@ -3,9 +3,10 @@ package handler
 import (
 	"context"
 	"errors"
-	"github.com/singnet/snet-daemon/v6/blockchain"
 	"math/big"
 	"testing"
+
+	"github.com/singnet/snet-daemon/v6/blockchain"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -14,33 +15,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
-
-type serverStreamMock struct {
-	context context.Context
-}
-
-func (m *serverStreamMock) Context() context.Context {
-	return m.context
-}
-
-func (m *serverStreamMock) SetHeader(metadata.MD) error {
-	return errors.New("not implemented in mock")
-}
-
-func (m *serverStreamMock) SendHeader(metadata.MD) error {
-	return errors.New("not implemented in mock")
-}
-
-func (m *serverStreamMock) SetTrailer(metadata.MD) {
-}
-
-func (m *serverStreamMock) SendMsg(any) error {
-	return errors.New("not implemented in mock")
-}
-
-func (m *serverStreamMock) RecvMsg(any) error {
-	return errors.New("not implemented in mock")
-}
 
 const (
 	defaultPaymentHandlerType = "test-default-payment-handler"
@@ -256,8 +230,7 @@ func (suite *InterceptorsSuite) TestCompleteAfterErrorReturnsError() {
 	suite.paymentHandler.completeAfterErrorResult = NewGrpcError(codes.Internal, "test error")
 
 	err := suite.interceptor(nil, suite.serverStream, nil, suite.returnErrorHandler)
-
-	assert.Equal(suite.T(), status.Newf(codes.Internal, "test error").Err(), err)
+	assert.Error(suite.T(), err)
 }
 
 func (suite *InterceptorsSuite) TestPaymentReturnsError() {

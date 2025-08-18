@@ -1,13 +1,11 @@
-#!/bin/bash
-
-# for debug:
-#set -ex
+#!/usr/bin/env bash
+set -ex
 
 PARENT_PATH="$(dirname "$(cd "$("dirname" "$0")"; pwd -P)")"
 
 if [ $# -lt 3 ]
   then
-    echo "arguments expected are of the form <OS> <PLATFORM> and <VERSION> for the build script , as an example: '/scripts/build linux amd64 v5.1.5'"
+    echo "arguments expected are of the form <OS> <PLATFORM> and <VERSION> for the build script , as an example: '/scripts/build linux amd64 v6.1.0'"
     exit 1
 fi
 pushd "$PARENT_PATH"

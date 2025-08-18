@@ -3,12 +3,15 @@ package handler
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/ctxkeys"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"strings"
 )
 
 type GrpcUnaryContext struct {
@@ -16,16 +19,21 @@ type GrpcUnaryContext struct {
 	Info *grpc.UnaryServerInfo
 }
 
+// SenderProvider allows retrieving the sender's Ethereum address,
+// independent of the specific type from pkg/escrow.
+type SenderProvider interface {
+	GetSender() common.Address
+}
+
 type UnaryPaymentHandler interface {
-	// Type is a content of PaymentTypeHeader field which triggers usage of the
+	// Type is a content of the PaymentTypeHeader field that triggers usage of the
 	// payment handler.
 	Type() (typ string)
 	// Payment extracts payment data from gRPC request context and checks
 	// validity of payment data. It returns nil if data is valid or
 	// appropriate gRPC status otherwise.
 	Payment(context *GrpcUnaryContext) (payment Payment, err *GrpcError)
-	// Complete completes payment if gRPC call was successfully proceeded by
-	// service.
+	// Complete completes payment if the service successfully processed the gRPC call
 	Complete(payment Payment) (err *GrpcError)
 	// CompleteAfterError completes payment if service returns error.
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
@@ -40,13 +48,20 @@ type paymentValidationUnaryInterceptor struct {
 func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, e error) {
 	var err *GrpcError
 
-	ctx = context.WithValue(ctx, "method", info.FullMethod)
+	ctx = context.WithValue(ctx, ctxkeys.MethodKey, info.FullMethod)
 
 	lastSlash := strings.LastIndex(info.FullMethod, "/")
 	methodName := info.FullMethod[lastSlash+1:]
 
-	// pass non training requests and free requests
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		zap.L().Error("Invalid metadata", zap.Any("info", info))
+		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata").Err()
+	}
+
+	// pass non-training requests and free requests
 	if methodName != "validate_model" && methodName != "train_model" {
+		ctx = metadata.NewIncomingContext(ctx, md)
 		resp, e := handler(ctx, req)
 		if e != nil {
 			zap.L().Warn("gRPC handler returned error", zap.Error(e))
@@ -55,19 +70,9 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 		return resp, e
 	}
 
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		zap.L().Error("Invalid metadata", zap.Any("info", info))
-		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata").Err()
-	}
-
-	c := &GrpcUnaryContext{
-		MD:   md,
-		Info: info,
-	}
+	c := &GrpcUnaryContext{MD: md.Copy(), Info: info}
 
 	zap.L().Debug("[unaryIntercept] grpc metadata", zap.Any("md", c.MD))
-
 	zap.L().Debug("[unaryIntercept] New gRPC call received", zap.Any("context", c))
 
 	paymentHandler, err := interceptor.getPaymentHandler(c)
@@ -78,6 +83,14 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 	payment, err := paymentHandler.Payment(c)
 	if err != nil {
 		return nil, err.Err()
+	}
+
+	if sp, ok := payment.(SenderProvider); ok {
+		outMD := c.MD.Copy()
+		ethAddr := sp.GetSender().Hex()
+		outMD.Set(SnetUserAddressHeader, ethAddr)
+		outMD.Set("snet-daemon-debug", "unaryIntercept")
+		ctx = metadata.NewIncomingContext(ctx, outMD)
 	}
 
 	defer func() {
@@ -147,7 +160,7 @@ func GrpcPaymentValidationUnaryInterceptor(serviceData *blockchain.ServiceMetada
 	return interceptor.unaryIntercept
 }
 
-// NoOpUnaryInterceptor is a gRPC interceptor which doesn't do payment checking.
+// NoOpUnaryInterceptor is a gRPC interceptor that doesn't do payment checking.
 func NoOpUnaryInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	return handler(ctx, req)
 }

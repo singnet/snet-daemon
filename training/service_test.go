@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/v6/ctxkeys"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -381,7 +382,7 @@ func (suite *DaemonServiceSuite) createAdditionalTestModel(modelName string, aut
 		Authorization: authDetails,
 		Model:         newModel,
 	}
-	response, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request)
+	response, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "create_model"), request)
 	if err != nil {
 		suite.T().Fatalf("error in creating additional test model: %v", err)
 	}
@@ -395,7 +396,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 	badTestAuthCreds := creatBadTestAuthDetails(suite.currentBlock)
 
 	// check without a request
-	response1, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), nil)
+	response1, err := suite.daemonService.GetModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_model"), nil)
 	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response1.Status)
 
@@ -404,7 +405,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 		Authorization: nil,
 		ModelId:       "test_2_no_access",
 	}
-	response2, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request2)
+	response2, err := suite.daemonService.GetModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_model"), request2)
 	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response2.Status)
 
@@ -413,7 +414,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 		Authorization: badTestAuthCreds,
 		ModelId:       "test_2_no_access",
 	}
-	response3, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request3)
+	response3, err := suite.daemonService.GetModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_model"), request3)
 	assert.ErrorContains(suite.T(), err, ErrBadAuthorization.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response3.Status)
 
@@ -422,7 +423,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 		Authorization: testAuthCreds,
 		ModelId:       "",
 	}
-	response4, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request4)
+	response4, err := suite.daemonService.GetModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_model"), request4)
 	assert.NotNil(suite.T(), err)
 	assert.ErrorContains(suite.T(), err, ErrEmptyModelID.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response4.Status)
@@ -433,7 +434,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 		Authorization: testAuthCreds,
 		ModelId:       "test_2_no_access",
 	}
-	response5, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request5)
+	response5, err := suite.daemonService.GetModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_model"), request5)
 	assert.ErrorContains(suite.T(), err, ErrAccessToModel.Error())
 	assert.Equal(suite.T(), &ModelResponse{}, response5)
 
@@ -442,7 +443,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 		Authorization: testAuthCreds,
 		ModelId:       "test_1",
 	}
-	response6, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request6)
+	response6, err := suite.daemonService.GetModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_model"), request6)
 	assert.Nil(suite.T(), err)
 	assert.NotEmpty(suite.T(), response6)
 	assert.Equal(suite.T(), true, response6.IsPublic)
@@ -452,7 +453,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetModel() {
 		Authorization: testAuthCreds,
 		ModelId:       "test_3",
 	}
-	response7, err := suite.daemonService.GetModel(context.WithValue(context.Background(), "method", "get_model"), request7)
+	response7, err := suite.daemonService.GetModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_model"), request7)
 	assert.Nil(suite.T(), err)
 	assert.NotEmpty(suite.T(), response7)
 	assert.Equal(suite.T(), false, response7.IsPublic)
@@ -480,7 +481,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 	newEmptyModel := &NewModel{}
 
 	// check without request
-	response1, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), nil)
+	response1, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "create_model"), nil)
 	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response1.Status)
 
@@ -498,7 +499,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 		Authorization: badTestAuthCreads,
 		Model:         newModel,
 	}
-	response3, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request3)
+	response3, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "create_model"), request3)
 	assert.ErrorContains(suite.T(), err, ErrBadAuthorization.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response3.Status)
 
@@ -509,7 +510,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 		Authorization: testAuthCreads,
 		Model:         newEmptyModel,
 	}
-	response4, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request4)
+	response4, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "create_model"), request4)
 	assert.ErrorContains(suite.T(), err, ErrNoGRPCServiceOrMethod.Error())
 	assert.Equal(suite.T(), Status_ERRORED, response4.Status)
 
@@ -518,7 +519,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_CreateModel() {
 		Authorization: testAuthCreads,
 		Model:         newModel,
 	}
-	response5, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), "method", "create_model"), request5)
+	response5, err := suite.daemonService.CreateModel(context.WithValue(context.Background(), ctxkeys.MethodKey, "create_model"), request5)
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), Status_CREATED, response5.Status)
 
@@ -560,7 +561,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetAllModels() {
 	expectedModelIds := []string{"test_1", "test_3", newAdditionalTestModelId}
 
 	// check without request
-	response1, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), "method", "get_all_models"), nil)
+	response1, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_all_models"), nil)
 	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
 	assert.Nil(suite.T(), response1.ListOfModels)
 
@@ -568,7 +569,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetAllModels() {
 	request2 := &AllModelsRequest{
 		Authorization: nil,
 	}
-	response2, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), "method", "get_all_models"), request2)
+	response2, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_all_models"), request2)
 	assert.ErrorContains(suite.T(), err, ErrNoAuthorization.Error())
 	assert.Nil(suite.T(), response2.ListOfModels)
 
@@ -576,7 +577,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetAllModels() {
 	request3 := &AllModelsRequest{
 		Authorization: badTestAuthCreads,
 	}
-	response3, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), "method", "get_all_models"), request3)
+	response3, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_all_models"), request3)
 	assert.ErrorContains(suite.T(), err, ErrBadAuthorization.Error())
 	assert.Nil(suite.T(), response3.ListOfModels)
 
@@ -586,7 +587,7 @@ func (suite *DaemonServiceSuite) TestDaemonService_GetAllModels() {
 	}
 
 	// from 0x3432cBa6BF635Df5fBFD1f1a794fA66D412b8774
-	response4, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), "method", "get_all_models"), request4)
+	response4, err := suite.daemonService.GetAllModels(context.WithValue(context.Background(), ctxkeys.MethodKey, "get_all_models"), request4)
 	assert.Nil(suite.T(), err)
 	modelIds := []string{}
 	for _, model := range response4.ListOfModels {

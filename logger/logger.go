@@ -33,7 +33,7 @@ const (
 // instance.
 //
 // Function designed to configure a few different loggers with different
-// formatter and output settings. To achieve this viper configuration
+// formatter and output settings. To achieve, this viper configuration
 // contains separate sections for each logger, each output and
 // each formatter.
 
@@ -123,6 +123,8 @@ func createEncoderConfig() (*zapcore.EncoderConfig, error) {
 	if slices.Contains(config.GetStringSlice(LogOutputTypeKey), "file") {
 		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	}
+
+	encoderConfig.EncodeDuration = zapcore.StringDurationEncoder // "12.345ms"
 
 	return &encoderConfig, nil
 }

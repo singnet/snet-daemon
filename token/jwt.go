@@ -2,18 +2,19 @@ package token
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
-	"strings"
-	"time"
 )
 
 type customJWTokenServiceImpl struct {
 	getGroupId func() string
 }
 
-// This will be used in components as a service to Create and Validate tokens
+// NewJWTTokenService service to Create and Validate JWT tokens
 func NewJWTTokenService(data blockchain.OrganizationMetaData) Manager {
 	return &customJWTokenServiceImpl{
 		getGroupId: func() string {
@@ -22,9 +23,10 @@ func NewJWTTokenService(data blockchain.OrganizationMetaData) Manager {
 	}
 }
 
-func (service customJWTokenServiceImpl) CreateToken(payLoad PayLoad) (CustomToken, error) {
+func (service customJWTokenServiceImpl) CreateToken(payLoad PayLoad, userAddress string) (CustomToken, error) {
 	atClaims := jwt.MapClaims{}
 	atClaims["payload"] = fmt.Sprintf("%v", payLoad)
+	atClaims["userAddress"] = userAddress
 	atClaims["orgId"] = config.GetString(config.OrganizationId)
 	atClaims["groupId"] = service.getGroupId()
 	//set the Expiry of the Token generated
@@ -34,24 +36,33 @@ func (service customJWTokenServiceImpl) CreateToken(payLoad PayLoad) (CustomToke
 	return jwtToken.SignedString([]byte(config.GetString(config.TokenSecretKey)))
 }
 
-func (service customJWTokenServiceImpl) VerifyToken(receivedToken CustomToken, payLoad PayLoad) (err error) {
+func (service customJWTokenServiceImpl) VerifyToken(receivedToken CustomToken, payLoad PayLoad) (userAddress string, err error) {
 	tokenString := fmt.Sprintf("%v", receivedToken)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method : %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(config.GetString(config.TokenSecretKey)), nil
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		if err = service.checkJwtTokenClaims(claims, payLoad); err != nil {
-			return err
-		}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return "", fmt.Errorf("invalid token")
 	}
-	return nil
+
+	if err := service.checkJwtTokenClaims(claims, payLoad); err != nil {
+		return "", err
+	}
+
+	senderVal, ok := claims["userAddress"].(string)
+	if !ok || senderVal == "" {
+		return "unknown", nil
+	}
+
+	return senderVal, err
 }
 
 func (service customJWTokenServiceImpl) checkJwtTokenClaims(claims jwt.MapClaims, payload PayLoad) (err error) {

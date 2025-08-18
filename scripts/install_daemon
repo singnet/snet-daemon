@@ -1,12 +1,12 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 set -ex
 
 #sometimes, the git link doesnt return a response and hence we pass in release number too
-SNETD_VERSION=$(curl -s https://api.github.com/repos/singnet/snet-daemon/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' || echo "v5.1.4")
+SNETD_VERSION=$(curl -s https://api.github.com/repos/singnet/snet-daemon/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' || echo "v6.1.0")
 
 echo 'version' "$SNETD_VERSION"
 
 wget https://github.com/singnet/snet-daemon/releases/download/"${SNETD_VERSION}"/snetd-linux-amd64-"${SNETD_VERSION}"
+chmod +x snetd-linux-amd64-"${SNETD_VERSION}"
 WITH_SUDO=$([ "$EUID" != 0 ] && echo "sudo" || echo "")
 $WITH_SUDO mv snetd-linux-amd64-"${SNETD_VERSION}" /usr/bin/snetd

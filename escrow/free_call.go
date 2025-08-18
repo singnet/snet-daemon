@@ -3,6 +3,9 @@ package escrow
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v6/utils"
+
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
@@ -52,6 +55,10 @@ type freeCallTransaction struct {
 	lock            Lock
 }
 
+func (transaction *freeCallTransaction) GetSender() common.Address {
+	return common.HexToAddress(transaction.payment.Address)
+}
+
 func (transaction *freeCallTransaction) String() string {
 	return fmt.Sprintf("{FreeCallPayment: %v, FreeCallUser: %v}", transaction.payment.String(), transaction.freeCallUser.String())
 }
@@ -63,27 +70,34 @@ func (transaction *freeCallTransaction) FreeCallUser() *FreeCallUserData {
 func (h *lockingFreeCallUserService) GetFreeCallUserKey(payment *FreeCallPayment) (userKey *FreeCallUserKey, err error) {
 	groupId, err := h.replicaGroupID()
 	return &FreeCallUserKey{UserId: payment.UserID, Address: payment.Address, OrganizationId: payment.OrganizationId,
-		ServiceId: payment.ServiceId, GroupID: blockchain.BytesToBase64(groupId[:])}, err
+		ServiceId: payment.ServiceId, GroupID: utils.BytesToBase64(groupId[:])}, err
 }
 
+// StartFreeCallUserTransaction acquires a user-level lock and returns a transaction
+// handle for free-call. It validates the per-address/global free-call
+// limits (where -1 means unlimited) and fails if the limit is exceeded.
+// The returned transaction keeps the lock and must be finalized elsewhere.
 func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeCallPayment) (transaction FreeCallTransaction, err error) {
+
 	userKey, err := h.GetFreeCallUserKey(payment)
 	if err != nil {
 		return nil, NewPaymentError(Internal, "payment freeCallUserKey error: %s", err.Error())
 	}
-	freeCallUserData, ok, err := h.FreeCallUser(userKey)
-	//todo , will remove this line once all data is re initialized
-	freeCallUserData.ServiceId = userKey.ServiceId
-	freeCallUserData.OrganizationId = userKey.OrganizationId
-	freeCallUserData.GroupID = userKey.GroupID
 
+	freeCallUserData, ok, err := h.FreeCallUser(userKey)
 	if err != nil {
 		return nil, NewPaymentError(Internal, "payment freeCallUserData error: %s", err.Error())
 	}
+
 	if !ok {
 		zap.L().Warn("Payment freeCallUserData not found")
 		return nil, NewPaymentError(Unauthenticated, "payment freeCallUserData \"%v\" not found", userKey)
 	}
+
+	freeCallUserData.ServiceId = userKey.ServiceId
+	freeCallUserData.OrganizationId = userKey.OrganizationId
+	freeCallUserData.GroupID = userKey.GroupID
+	freeCallUserData.Address = userKey.Address
 
 	lock, ok, err := h.locker.Lock(userKey.String())
 	if err != nil {
@@ -96,7 +110,7 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 		if err != nil {
 			e := lock.Unlock()
 			if e != nil {
-				//todo send a notification to the developer ( contact email is in service metadata)
+				// todo send a notification to the developer ( contact email is in service metadata)
 				zap.L().Error("Transaction is cancelled because of err, but freeCallUserData cannot be unlocked. All other transactions on this freeCallUserData will be blocked until unlock. Please unlock freeCallUserData manually.",
 					zap.Any("userKey", userKey),
 					zap.Error(err))
@@ -104,16 +118,22 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 		}
 	}(lock)
 
-	var countFreeCallsAllowed int
-	if countFreeCallsAllowed = config.GetFreeCallsAllowed(freeCallUserData.Address); countFreeCallsAllowed <= 0 {
-		countFreeCallsAllowed = h.serviceMetadata.GetFreeCallsAllowed()
+	// Check if free calls are allowed for this user
+	allowed := config.GetFreeCallsAllowed(userKey.Address)
+	if allowed == 0 {
+		allowed = h.serviceMetadata.GetFreeCallsAllowed() // meta is >= 0 by contract
 	}
 
-	// Check if free calls are allowed or not on this user
-	if freeCallUserData.FreeCallsMade >= countFreeCallsAllowed {
-		return nil, fmt.Errorf("free call limit has been exceeded, calls made "+
-			"= %v,total free calls eligible = %v", freeCallUserData.FreeCallsMade, countFreeCallsAllowed)
+	if allowed != -1 {
+		made := freeCallUserData.FreeCallsMade
+		if made >= allowed {
+			return nil, fmt.Errorf(
+				"free call limit has been exceeded, calls made = %d, total free calls eligible = %d",
+				made, allowed,
+			)
+		}
 	}
+
 	return &freeCallTransaction{
 		payment:         *payment,
 		freeCallUserKey: userKey,

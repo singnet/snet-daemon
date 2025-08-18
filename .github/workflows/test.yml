@@ -9,21 +9,23 @@ on:
 jobs:
   run_tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read  # for GITHUB_TOKEN
     steps:
       - name: clone repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.3.0
 
       - name: download and install
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.5'
+          go-version: '1.24.6'
 
       - name: install protoc (protobuf)
         uses: arduino/setup-protoc@v3
         with:
-          version: "31.1"
+          version: "32.0"
           include-pre-releases: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: chmod to allow run script
         run: chmod +x ./scripts/install_deps

@@ -33,17 +33,15 @@ func (cr *CertReloader) GetCertificate() *tls.Certificate {
 	return cr.cachedCert
 }
 
+// TODO pass ctx here
 func (cr *CertReloader) Listen() {
 	ticker := time.NewTicker(3 * time.Second)
-
 	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				err := cr.reloadCertificate()
-				if err != nil {
-					zap.L().Error("Error in reloading ssl certificates", zap.Error(err))
-				}
+		defer ticker.Stop()
+		for range ticker.C {
+			err := cr.reloadCertificate()
+			if err != nil {
+				zap.L().Error("Error in reloading ssl certificates", zap.Error(err))
 			}
 		}
 	}()

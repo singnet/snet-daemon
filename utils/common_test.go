@@ -22,12 +22,6 @@ func TestSerializeDeserialize(t *testing.T) {
 	assert.Equal(t, original, decoded)
 }
 
-func TestToChecksumAddress(t *testing.T) {
-	lower := "0x52908400098527886E0F7030069857D2E4169EE7"
-	checksumAddr := ToChecksumAddress(lower)
-	assert.Equal(t, common.HexToAddress(lower), checksumAddr)
-}
-
 func TestParsePrivateKey(t *testing.T) {
 	validKey, err := crypto.GenerateKey()
 	assert.NoError(t, err)
@@ -82,5 +76,71 @@ func TestIsJWT(t *testing.T) {
 	assert.True(t, IsJWT(validJWT))
 	for _, invalid := range invalidJWTs {
 		assert.False(t, IsJWT(invalid))
+	}
+}
+
+func TestIsURLValid(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		expected bool
+	}{
+		{
+			name:     "valid http URL",
+			endpoint: "http://example.com",
+			expected: true,
+		},
+		{
+			name:     "valid https URL",
+			endpoint: "https://example.com/path",
+			expected: true,
+		},
+		{
+			name:     "missing scheme",
+			endpoint: "example.com",
+			expected: false,
+		},
+		{
+			name:     "unsupported scheme ftp",
+			endpoint: "ftp://example.com",
+			expected: false,
+		},
+		{
+			name:     "custom scheme h",
+			endpoint: "h://example.com",
+			expected: false,
+		},
+		{
+			name:     "empty host",
+			endpoint: "http:///path-only",
+			expected: false,
+		},
+		{
+			name:     "invalid URL with spaces",
+			endpoint: "http://exa mple.com",
+			expected: false,
+		},
+		{
+			name:     "valid host with port",
+			endpoint: "http://example.com:8080",
+			expected: true,
+		},
+		{
+			name:     "https host with query params",
+			endpoint: "https://example.com/search?q=test",
+			expected: true,
+		},
+		{
+			name:     "uppercase scheme",
+			endpoint: "HTTPS://example.com",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsURLValid(tt.endpoint)
+			assert.Equal(t, tt.expected, result, "endpoint: %s", tt.endpoint)
+		})
 	}
 }

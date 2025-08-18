@@ -1,17 +1,18 @@
 package metrics
 
 import (
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/singnet/snet-daemon/v6/authutils"
-	"github.com/singnet/snet-daemon/v6/config"
-	"github.com/stretchr/testify/assert"
 	"go/types"
-	"google.golang.org/grpc/metadata"
 	"math/big"
 	"net/http"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/utils"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestGenXid(t *testing.T) {
@@ -29,16 +30,16 @@ func TestGetValue(t *testing.T) {
 }
 
 func TestPublish(t *testing.T) {
-	status := Publish(nil, "", nil)
+	status := Publish(nil, "", nil, big.NewInt(0))
 	assert.Equal(t, status, false)
-	status = Publish(nil, "http://localhost:8080", nil)
+	status = Publish(nil, "http://localhost:8080", nil, big.NewInt(0))
 	assert.Equal(t, status, false)
 
 	status = Publish(struct {
 		title string
 	}{
 		title: "abcd",
-	}, "http://localhost:8080", &CommonStats{})
+	}, "http://localhost:8080", &CommonStats{}, big.NewInt(0))
 	assert.Equal(t, status, false)
 }
 
@@ -86,10 +87,10 @@ func Test_getPrivateKeyForMetering(t *testing.T) {
 		assert.Nil(t, err)
 
 		bytesForMetering := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix, &CommonStats{UserName: "test-user"})
-		signature := authutils.GetSignature(bytesForMetering, key)
-		signer, err := authutils.GetSignerAddressFromMessage(bytesForMetering, signature)
+		signature := utils.GetSignature(bytesForMetering, key)
+		signer, err := utils.GetSignerAddressFromMessage(bytesForMetering, signature)
+		assert.NotNil(t, signer)
 		assert.Equal(t, signer.String(), "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 		assert.Nil(t, err)
 	}
-
 }

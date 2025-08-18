@@ -13,6 +13,7 @@ import (
 	"github.com/bufbuild/protocompile"
 	"github.com/bufbuild/protocompile/linker"
 	"github.com/singnet/snet-daemon/v6/errs"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	pproto "github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
@@ -251,10 +252,6 @@ func getRegistryAddressKey() common.Address {
 	return common.HexToAddress(address)
 }
 
-func (metaData ServiceMetadata) GetDefaultPricing() Pricing {
-	return metaData.defaultPricing
-}
-
 func ServiceMetaData() *ServiceMetadata {
 	var metadata *ServiceMetadata
 	var err error
@@ -316,8 +313,8 @@ func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
 func getServiceMetaDataURIFromRegistry() ([]byte, error) {
 	reg := getRegistryCaller()
 
-	orgId := StringToBytes32(config.GetString(config.OrganizationId))
-	serviceId := StringToBytes32(config.GetString(config.ServiceId))
+	orgId := utils.StringToBytes32(config.GetString(config.OrganizationId))
+	serviceId := utils.StringToBytes32(config.GetString(config.ServiceId))
 
 	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
 	if err != nil || !serviceRegistration.Found {
@@ -343,14 +340,14 @@ func InitServiceMetaDataFromJson(jsonData []byte) (*ServiceMetadata, error) {
 		return nil, err
 	}
 
-	if err := setDerivedFields(metaData); err != nil {
+	if err := metaData.setDerivedFields(); err != nil {
 		return nil, err
 	}
-	if err := setFreeCallData(metaData); err != nil {
+	if err := metaData.setFreeCallData(); err != nil {
 		return nil, err
 	}
 
-	if err := setServiceProto(metaData); err != nil {
+	if err := metaData.setServiceProto(); err != nil {
 		return nil, err
 	}
 
@@ -365,16 +362,20 @@ func InitServiceMetaDataFromJson(jsonData []byte) (*ServiceMetadata, error) {
 	return metaData, err
 }
 
-func setDerivedFields(metaData *ServiceMetadata) (err error) {
-	if err = setDefaultPricing(metaData); err != nil {
+func (metaData *ServiceMetadata) GetDefaultPricing() Pricing {
+	return metaData.defaultPricing
+}
+
+func (metaData *ServiceMetadata) setDerivedFields() (err error) {
+	if err = metaData.setDefaultPricing(); err != nil {
 		return err
 	}
-	setMultiPartyEscrowAddress(metaData)
+	metaData.setMultiPartyEscrowAddress()
 
 	return nil
 }
 
-func setGroup(metaData *ServiceMetadata) (err error) {
+func (metaData *ServiceMetadata) setGroup() (err error) {
 	groupName := config.GetString(config.DaemonGroupName)
 	for _, group := range metaData.Groups {
 		if strings.Compare(group.GroupName, groupName) == 0 {
@@ -388,8 +389,8 @@ func setGroup(metaData *ServiceMetadata) (err error) {
 	return err
 }
 
-func setDefaultPricing(metaData *ServiceMetadata) (err error) {
-	if err = setGroup(metaData); err != nil {
+func (metaData *ServiceMetadata) setDefaultPricing() (err error) {
+	if err = metaData.setGroup(); err != nil {
 		return err
 	}
 	for _, pricing := range metaData.defaultGroup.Pricing {
@@ -403,12 +404,12 @@ func setDefaultPricing(metaData *ServiceMetadata) (err error) {
 	return err
 }
 
-func setMultiPartyEscrowAddress(metaData *ServiceMetadata) {
-	metaData.MpeAddress = ToChecksumAddress(metaData.MpeAddress)
+func (metaData *ServiceMetadata) setMultiPartyEscrowAddress() {
+	metaData.MpeAddress = utils.ToChecksumAddressStr(metaData.MpeAddress)
 	metaData.multiPartyEscrowAddress = common.HexToAddress(metaData.MpeAddress)
 }
 
-func setFreeCallData(metaData *ServiceMetadata) error {
+func (metaData *ServiceMetadata) setFreeCallData() error {
 	if metaData.defaultGroup.FreeCallSigner != "" {
 		metaData.isfreeCallAllowed = true
 		metaData.freeCallsAllowed = metaData.defaultGroup.FreeCalls
@@ -416,7 +417,7 @@ func setFreeCallData(metaData *ServiceMetadata) error {
 		if !common.IsHexAddress(metaData.defaultGroup.FreeCallSigner) {
 			return fmt.Errorf("metadata does not have 'free_call_signer_address defined correctly")
 		}
-		metaData.freeCallSignerAddress = common.HexToAddress(ToChecksumAddress(metaData.defaultGroup.FreeCallSigner))
+		metaData.freeCallSignerAddress = utils.ToChecksumAddress(metaData.defaultGroup.FreeCallSigner)
 	}
 	return nil
 }
@@ -457,11 +458,11 @@ func (metaData *ServiceMetadata) GetLicenses() Licenses {
 	return metaData.defaultGroup.Licenses
 }
 
-// methodFullName , ex "/example_service.Calculator/add"
+// GetDynamicPricingMethodAssociated accept methodFullName, example "/example_service.Calculator/add"
 func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullName string) (pricingMethod string, isDynamicPricingEligible bool) {
-	// Check if Method Level Options are defined, for the given Service and method,
+	// Check if Method Level Options are defined for the given Service and method,
 	// If Defined check if it's in the format supported, then return the full method Name
-	// i.e /package.service/method format , this will be directly fed in to the grpc called to made to
+	// i.e., /package.service/method format; this will be directly fed in to the grpc called to made to
 	// determine dynamic pricing
 	if !config.GetBool(config.EnableDynamicPricing) {
 		return
@@ -475,7 +476,7 @@ func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullNam
 	return
 }
 
-// IsModelTraining methodFullName , ex "/example_service.Calculator/add"
+// IsModelTraining accept methodFullName, example "/example_service.Calculator/add"
 func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useModelTrainingEndPoint bool) {
 	if !config.GetBool(config.ModelTrainingEnabled) {
 		return false
@@ -499,7 +500,7 @@ func getProtoDescriptors(protoFiles map[string]string) (linker.Files, error) {
 	return fds, nil
 }
 
-func setServiceProto(metaData *ServiceMetadata) (err error) {
+func (metaData *ServiceMetadata) setServiceProto() (err error) {
 	metaData.DynamicPriceMethodMapping = make(map[string]string, 0)
 	metaData.TrainingMethods = make([]string, 0)
 	var rawFile []byte
@@ -557,6 +558,7 @@ func setServiceProto(metaData *ServiceMetadata) (err error) {
 	return nil
 }
 
+// deprecated
 func parseServiceProto(serviceProtoFile string) (*pproto.Proto, error) {
 	reader := strings.NewReader(serviceProtoFile)
 	parser := pproto.NewParser(reader)
@@ -567,6 +569,7 @@ func parseServiceProto(serviceProtoFile string) (*pproto.Proto, error) {
 	return parsedProto, nil
 }
 
+// deprecated
 func buildDynamicPricingMethodsMap(serviceProto *pproto.Proto) (dynamicPricingMethodMapping map[string]string,
 	trainingMethodPricing []string, err error) {
 	dynamicPricingMethodMapping = make(map[string]string, 0)

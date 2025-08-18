@@ -1,9 +1,10 @@
 package etcddb
 
 import (
-	"go.uber.org/zap"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
@@ -47,6 +48,10 @@ func GetEtcdClientConf(vip *viper.Viper, metaData *blockchain.OrganizationMetaDa
 
 	if confFromVip.ConnectionTimeout != 0 {
 		conf.ConnectionTimeout = confFromVip.ConnectionTimeout
+	}
+
+	if len(confFromVip.Endpoints) != 0 {
+		conf.Endpoints = confFromVip.Endpoints
 	}
 
 	conf.HotReload = confFromVip.HotReload

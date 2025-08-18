@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+FROM alpine:3.20
+
+ARG VERSION=v6.1.0
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
+RUN apk add --no-cache ca-certificates tzdata curl \
+ && adduser -D -u 10001 snet
+
+WORKDIR /app
+
+RUN curl -f -L -o  /usr/local/bin/snetd \
+    "https://github.com/singnet/snet-daemon/releases/download/${VERSION}/snetd-${TARGETOS}-${TARGETARCH}-${VERSION}" \
+ && chmod +x /usr/local/bin/snetd && apk del curl
+
+RUN mkdir -p /etc/singnet && chown -R snet /etc/singnet
+VOLUME ["/etc/singnet"]
+
+USER snet
+
+ENTRYPOINT ["snetd"]
+CMD ["serve","-c","/etc/singnet/snetd.config.json"]

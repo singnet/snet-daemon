@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/gob"
+	"net/url"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -28,12 +29,6 @@ func Deserialize(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	return d.Decode(value)
-}
-
-func ToChecksumAddress(hexAddress string) common.Address {
-	address := common.HexToAddress(hexAddress)
-	mixedAddress := common.NewMixedcaseAddress(address)
-	return mixedAddress.Address()
 }
 
 func ParsePrivateKey(privateKeyString string) (privateKey *ecdsa.PrivateKey) {
@@ -89,4 +84,15 @@ func IsJWT(token string) bool {
 		}
 	}
 	return true
+}
+
+func IsURLValid(endpoint string) bool {
+	u, err := url.ParseRequestURI(endpoint)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	return u.Host != ""
 }

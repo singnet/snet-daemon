@@ -2,9 +2,10 @@ package codec
 
 import (
 	"fmt"
+
 	"google.golang.org/grpc/encoding"
 	_ "google.golang.org/grpc/encoding/gzip"
-	_ "google.golang.org/grpc/encoding/proto" // ensure default "proto" codec is registered first
+	_ "google.golang.org/grpc/encoding/proto" // ensure the default "proto" codec is registered first
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/protoadapt"
 )

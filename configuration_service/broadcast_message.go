@@ -10,7 +10,7 @@ type MessageBroadcaster struct {
 	trigger     chan int
 	quit        chan int
 	subscribers []chan int
-	//This will be used to make sure, we don't interfere with other threads
+	//This will be used to make sure we don't interfere with other threads
 	mutex sync.Mutex
 }
 
@@ -21,7 +21,7 @@ func NewChannelBroadcaster() *MessageBroadcaster {
 	return broadcaster
 }
 
-// Create a New Subscriber for this broadcaster message
+// NewSubscriber Create a New Subscriber for this broadcaster message
 // Interceptors or health checks  can subscribe to this and react accordingly
 func (broadcast *MessageBroadcaster) NewSubscriber() chan int {
 	ch := make(chan int, 1)

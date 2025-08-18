@@ -15,6 +15,7 @@ const (
 	InvalidServiceCredentials
 	InvalidConfig
 	ReceiveMsgError
+	BlockchainProviderLimitsExceed
 )
 
 func ErrDescURL(code int) string {

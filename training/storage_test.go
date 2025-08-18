@@ -2,16 +2,17 @@ package training
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/singnet/snet-daemon/v6/blockchain"
-	base_storage "github.com/singnet/snet-daemon/v6/storage"
+	basestorage "github.com/singnet/snet-daemon/v6/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"testing"
 )
 
 type ModelStorageSuite struct {
 	suite.Suite
-	memoryStorage        *base_storage.MemoryStorage
+	memoryStorage        *basestorage.MemoryStorage
 	storage              *ModelStorage
 	userStorage          *ModelUserStorage
 	pendingStorage       *PendingModelStorage
@@ -86,7 +87,7 @@ func (suite *ModelStorageSuite) SetupSuite() {
 	if err != nil {
 		panic(err)
 	}
-	suite.memoryStorage = base_storage.NewMemStorage()
+	suite.memoryStorage = basestorage.NewMemStorage()
 	suite.organizationMetaData = metadata
 	suite.storage = NewModelStorage(suite.memoryStorage, suite.organizationMetaData)
 	suite.userStorage = NewUserModelStorage(suite.memoryStorage, suite.organizationMetaData)
@@ -181,7 +182,8 @@ func (suite *ModelStorageSuite) TestModelStorage_CompareAndSwap() {
 	key1 := suite.getModelKey("1")
 	data1 := suite.getModelData("1")
 	data2 := suite.getModelData("2")
-	suite.storage.Put(key1, data1)
+	err := suite.storage.Put(key1, data1)
+	assert.Nil(suite.T(), err)
 	ok, err := suite.storage.CompareAndSwap(key1, data1, data2)
 	assert.Equal(suite.T(), ok, true)
 	assert.Equal(suite.T(), err, nil)

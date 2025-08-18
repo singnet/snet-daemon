@@ -1,12 +1,12 @@
-#!/bin/bash
-#set -ex
+#!/usr/bin/env bash
+set -ex
 PARENT_PATH="$(dirname "$(cd "$("dirname" "$0")"; pwd -P)")"
 pushd "$PARENT_PATH"
 
 
 if [ $# -lt 1 ]
   then
-    echo "arguments expected are of the form <VERSION> for the build script , as an example: '/scripts/build-all v5.1.6'"
+    echo "arguments expected are of the form <VERSION> for the build script , as an example: '/scripts/build-all v6.1.0'"
     exit 1
 fi
 

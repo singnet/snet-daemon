@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bufbuild/protocompile/linker"
-	"github.com/singnet/snet-daemon/v6/errs"
 	"io"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"strings"
 
+	"github.com/bufbuild/protocompile/linker"
 	"github.com/gorilla/rpc/v2/json2"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -30,6 +29,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/codec"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/errs"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
@@ -113,9 +113,14 @@ func (srvCreds serviceCredentials) validate() error {
 }
 
 func (g grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
+
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "grpc" + "://" + endpoint
+	}
+
 	passthroughURL, err := url.Parse(endpoint)
-	if err != nil {
-		zap.L().Fatal(fmt.Sprintf("can't parse endpoint %v", errs.ErrDescURL(errs.InvalidConfig)), zap.String("endpoint", endpoint))
+	if err != nil || passthroughURL == nil {
+		zap.L().Fatal(fmt.Sprintf("can't parse service_endpoint %v", errs.ErrDescURL(errs.InvalidConfig)), zap.String("endpoint", endpoint))
 	}
 	if strings.Compare(passthroughURL.Scheme, "https") == 0 {
 		conn, err = grpc.NewClient(passthroughURL.Host,
@@ -355,11 +360,10 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 		zap.String("method", "POST"))
 
 	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonBody))
-	httpReq.Header = headers
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request: %+v%v", err, errs.ErrDescURL(errs.HTTPRequestBuildError))
 	}
-
+	httpReq.Header = headers
 	httpReq.Header.Set("content-type", "application/json")
 
 	httpResp, err := http.DefaultClient.Do(httpReq)
@@ -515,40 +519,43 @@ type WrapperServerStream struct {
 	stream           grpc.ServerStream
 	recvMessage      any
 	sentMessage      any
+	Ctx              context.Context
 }
 
 func (f *WrapperServerStream) SetTrailer(md metadata.MD) {
 	f.stream.SetTrailer(md)
 }
 
-func NewWrapperServerStream(stream grpc.ServerStream) (grpc.ServerStream, error) {
+func NewWrapperServerStream(stream grpc.ServerStream, ctx context.Context) (grpc.ServerStream, error) {
 	m := &codec.GrpcFrame{}
 	err := stream.RecvMsg(m)
 	f := &WrapperServerStream{
 		stream:           stream,
 		recvMessage:      m,
 		sendHeaderCalled: false,
+		Ctx:              ctx, // save modified ctx
 	}
 	return f, err
+}
+
+func (f *WrapperServerStream) Context() context.Context {
+	// old way return f.stream.Context()
+	return f.Ctx // return modified context
 }
 
 func (f *WrapperServerStream) SetHeader(md metadata.MD) error {
 	return f.stream.SetHeader(md)
 }
+
 func (f *WrapperServerStream) SendHeader(md metadata.MD) error {
 	//this is more of a hack to support dynamic pricing
-	// when the service method returns the price in cogs, the SendHeader, will be called,
-	// we dont want this as the SendHeader can be called just once in the ServerStream
+	// when the service method returns the price in cogs, the SendHeader will be called,
+	// we don't want this as the SendHeader can be called just once in the ServerStream
 	if !f.sendHeaderCalled {
 		return nil
 	}
 	f.sendHeaderCalled = true
 	return f.stream.SendHeader(md)
-
-}
-
-func (f *WrapperServerStream) Context() context.Context {
-	return f.stream.Context()
 }
 
 func (f *WrapperServerStream) SendMsg(m any) error {

@@ -94,7 +94,7 @@ type BlockchainChannelReader struct {
 	recipientPaymentAddress   func() common.Address
 }
 
-// NewBlockchainChannelReader returns new instance of blockchain channel reader
+// NewBlockchainChannelReader returns a new instance of blockchain channel reader
 func NewBlockchainChannelReader(processor blockchain.Processor, cfg *viper.Viper,
 	orgMetadata *blockchain.OrganizationMetaData) *BlockchainChannelReader {
 	return &BlockchainChannelReader{

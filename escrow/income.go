@@ -3,11 +3,12 @@ package escrow
 import (
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/singnet/snet-daemon/v6/pricing"
 	"github.com/singnet/snet-daemon/v6/training"
 	"go.uber.org/zap"
-	"math/big"
-	"strings"
 
 	"github.com/singnet/snet-daemon/v6/handler"
 )
@@ -17,9 +18,9 @@ import (
 // income received.
 type IncomeStreamData struct {
 	// Income is a difference between previous authorized amount and amount
-	// which was received with current call.
+	// which was received with the current call.
 	Income *big.Int
-	// GrpcContext contains gRPC stream context information. For instance
+	// GrpcContext contains gRPC stream context information. For instance,
 	// metadata could be used to pass invoice id to check pricing.
 	GrpcContext *handler.GrpcStreamContext
 }
@@ -97,7 +98,7 @@ type IncomeUnaryData struct {
 	GrpcContext *handler.GrpcUnaryContext
 }
 
-// NewTrainValidator returns new income validator instance
+// NewTrainValidator returns a new income validator instance
 func NewTrainValidator(storage *training.ModelStorage) (validator IncomeUnaryValidator) {
 	return &trainUnaryValidator{storage: storage}
 }

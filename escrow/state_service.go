@@ -8,13 +8,17 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/singnet/snet-daemon/v6/authutils"
 	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
+)
+
+const (
+	AllowedBlockDifference = 5
 )
 
 // PaymentChannelStateService is an implementation of PaymentChannelStateServiceServer gRPC interface
@@ -58,12 +62,14 @@ func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonc
 }
 
 // NewPaymentChannelStateService returns new instance of PaymentChannelStateService
-func NewPaymentChannelStateService(channelService PaymentChannelService, paymentStorage *PaymentStorage, metaData *blockchain.ServiceMetadata) *PaymentChannelStateService {
+func NewPaymentChannelStateService(channelService PaymentChannelService, paymentStorage *PaymentStorage, processor blockchain.Processor) *PaymentChannelStateService {
 	return &PaymentChannelStateService{
-		channelService:               channelService,
-		paymentStorage:               paymentStorage,
-		mpeAddress:                   func() common.Address { return metaData.GetMpeAddress() },
-		compareWithLatestBlockNumber: authutils.CompareWithLatestBlockNumber,
+		channelService: channelService,
+		paymentStorage: paymentStorage,
+		mpeAddress:     processor.EscrowContractAddress,
+		compareWithLatestBlockNumber: func(blockNumberPassed *big.Int) error {
+			return processor.CompareWithLatestBlockNumber(blockNumberPassed, AllowedBlockDifference)
+		},
 	}
 }
 
@@ -95,7 +101,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 	}, nil)
 	signature := request.GetSignature()
 
-	sender, err := authutils.GetSignerAddressFromMessage(message, signature)
+	sender, err := utils.GetSignerAddressFromMessage(message, signature)
 	if err != nil {
 		return nil, errors.New("incorrect signature")
 	}

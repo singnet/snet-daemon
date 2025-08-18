@@ -4,17 +4,19 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/config"
-	"github.com/singnet/snet-daemon/v6/storage"
 	"math/big"
 	"testing"
+
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/storage"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/utils"
 )
 
 type paymentChannelServiceMock struct {
@@ -99,7 +101,7 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 	suite.signerPrivateKey = GenerateTestPrivateKey()
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
-	suite.mpeContractAddress = blockchain.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
+	suite.mpeContractAddress = utils.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 	suite.memoryStorage = storage.NewMemStorage()
 	suite.storage = NewPaymentChannelStorage(suite.memoryStorage)
 	suite.paymentStorage = NewPaymentStorage(suite.memoryStorage)
@@ -125,8 +127,8 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
-		}, func() ([32]byte, error) {
-			return [32]byte{123}, nil
+		}, func() [32]byte {
+			return [32]byte{123}
 		},
 	)
 }
@@ -289,22 +291,22 @@ func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 
 	service := suite.service
 	service.(*lockingPaymentChannelService).replicaGroupID =
-		func() ([32]byte, error) {
-			return [32]byte{125}, nil
+		func() [32]byte {
+			return [32]byte{125}
 		}
-	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
+	//GroupId check will be applied only the first time when a channel is added to storage from the blockchain.
 	//Group ID is different
 	channel, ok, err := service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
-	assert.Equal(suite.T(), errors.New("Channel received belongs to another group of replicas, current group: [125 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
+	assert.Equal(suite.T(), errors.New("channel received belongs to another group of replicas, current group: [125 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
 	assert.NotNil(suite.T(), err)
-	//GroupId check will be applied only first time when channel is added to storage from the blockchain.
-	//Group ID is the same ( no error should happen)
+	//GroupId check will be applied only the first time when the channel is added to storage from the blockchain.
+	//Group ID is the same (no error should happen)
 	//also re setting the value here again to make sure the original state is retained
 	service.(*lockingPaymentChannelService).replicaGroupID =
-		func() ([32]byte, error) {
-			return [32]byte{123}, nil
+		func() [32]byte {
+			return [32]byte{123}
 		}
 	channel, ok, err = suite.service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
 	assert.True(suite.T(), ok)

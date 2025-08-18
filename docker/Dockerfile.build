@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1
+
+ARG GO_VERSION=1.24.6
+FROM golang:${GO_VERSION}-alpine AS build
+
+WORKDIR /src
+
+RUN apk add --no-cache git bash ca-certificates && update-ca-certificates
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG VERSION=6.1.0
+
+RUN chmod +x scripts/build \
+ && ./scripts/build "${TARGETOS}" "${TARGETARCH}" "${VERSION}" \
+ && mkdir -p /out \
+ && cp "build/snetd-${TARGETOS}-${TARGETARCH}-${VERSION}" /out/snetd
+
+FROM alpine:3.20
+COPY --from=build /out/snetd /out/snetd

@@ -3,6 +3,8 @@ package escrow
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"go.uber.org/zap"
 )
 
@@ -15,17 +17,17 @@ type lockingPaymentChannelService struct {
 	blockchainReader *BlockchainChannelReader
 	locker           Locker
 	validator        *ChannelPaymentValidator
-	replicaGroupID   func() ([32]byte, error)
+	replicaGroupID   func() [32]byte
 }
 
-// NewPaymentChannelService returns instance of PaymentChannelService to work
+// NewPaymentChannelService returns an instance of PaymentChannelService to work
 // with payments via MultiPartyEscrow contract.
 func NewPaymentChannelService(
 	storage *PaymentChannelStorage,
 	paymentStorage *PaymentStorage,
 	blockchainReader *BlockchainChannelReader,
 	locker Locker,
-	channelPaymentValidator *ChannelPaymentValidator, groupIdReader func() ([32]byte, error)) PaymentChannelService {
+	channelPaymentValidator *ChannelPaymentValidator, groupIdReader func() [32]byte) PaymentChannelService {
 
 	return &lockingPaymentChannelService{
 		storage:          storage,
@@ -51,9 +53,9 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 
 	if !storageOk {
 		// Group ID check is only done for the first time, when the channel is added to storage from the blockchain,
-		// if the channel is already present in the storage the group ID check is skipped.
+		// if the channel is already present in the storage, the group ID check is skipped.
 		if blockchainChannel != nil {
-			blockChainGroupID, err := h.replicaGroupID()
+			blockChainGroupID := h.replicaGroupID()
 			if err = h.verifyGroupId(blockChainGroupID, blockchainChannel.GroupID); err != nil {
 				return nil, false, err
 			}
@@ -71,7 +73,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 func (h *lockingPaymentChannelService) verifyGroupId(configGroupID [32]byte, blockChainGroupID [32]byte) error {
 	if blockChainGroupID != configGroupID {
 		zap.L().Warn("Channel received belongs to another group of replicas", zap.Any("configGroupId", configGroupID))
-		return fmt.Errorf("Channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, blockChainGroupID)
+		return fmt.Errorf("channel received belongs to another group of replicas, current group: %v, channel group: %v", configGroupID, blockChainGroupID)
 	}
 	return nil
 }
@@ -180,6 +182,10 @@ type paymentTransaction struct {
 	lock    Lock
 }
 
+func (payment *paymentTransaction) GetSender() common.Address {
+	return payment.channel.Sender
+}
+
 func (payment *paymentTransaction) String() string {
 	return fmt.Sprintf("{payment: %v, channel: %v}", payment.payment, payment.channel)
 }
@@ -240,7 +246,7 @@ func (payment *paymentTransaction) Commit() error {
 			zap.L().Error("Channel cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.",
 				zap.Error(err), zap.Any("payment", payment))
 		} else {
-			zap.L().Debug("Channel unlocked")
+			zap.L().Debug("Channel unlocked", zap.Int64("channelID", payment.channel.ChannelID.Int64()))
 		}
 	}(payment)
 
@@ -265,7 +271,7 @@ func (payment *paymentTransaction) Commit() error {
 		return NewPaymentError(Internal, "unable to store new payment channel state")
 	}
 
-	zap.L().Debug("Payment completed")
+	zap.L().Debug("Payment completed", zap.Uint64("channel.ChannelID", payment.channel.ChannelID.Uint64()), zap.Uint64("payment.ChannelID", payment.payment.ChannelID.Uint64()))
 	return nil
 }
 

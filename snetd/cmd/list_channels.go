@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"go.uber.org/zap"
 
 	"github.com/spf13/cobra"
@@ -9,7 +10,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/escrow"
 )
 
-// ListChannelsCmd shows list of channels from shared storage
+// ListChannelsCmd shows the list of channels from shared storage
 var ListChannelsCmd = &cobra.Command{
 	Use:   "channels",
 	Short: "List payment channels",

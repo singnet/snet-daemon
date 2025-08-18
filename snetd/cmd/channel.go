@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ListChannelsCmd shows list of channels from shared storage
+// ChannelCmd manage operations on payment channels
 var ChannelCmd = &cobra.Command{
 	Use:   "channel",
 	Short: "Manage operations on payment channels",
@@ -51,7 +51,6 @@ func getPaymentChannelId(*cobra.Command) (id *big.Int, err error) {
 	return value, nil
 }
 
-// command's run method
 func (command *channelCommand) Run() (err error) {
 	if command.paymentChannelId == nil {
 		return fmt.Errorf("--unlock channel-id must be set")

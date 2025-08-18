@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,7 +27,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/training"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -231,7 +232,7 @@ func (components *Components) AtomicStorage() storage.AtomicStorage {
 }
 
 /*
-add new component MPESpecificStorage; it is also instance of PrefixedStorage using /<mpe_contract_address> as a prefix; as it is also based on storage from previous item the effective prefix is /<network_id>/<mpe_contract_address>; this guarantees that storages which are specific for MPE contract version don't intersect;
+MPESpecificStorage it is also instance of PrefixedStorage using /<mpe_contract_address> as a prefix; as it is also based on storage from previous item the effective prefix is /<network_id>/<mpe_contract_address>; this guarantees that storages which are specific for MPE contract version don't intersect;
 use MPESpecificStorage as base for PaymentChannelStorage, PaymentStorage, LockStorage for channels;
 */
 func (components *Components) MPESpecificStorage() *storage.PrefixedAtomicStorage {
@@ -282,9 +283,8 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 		components.PaymentStorage(),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.OrganizationMetaData()),
 		escrow.NewEtcdLocker(components.LockerStorage()),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()), func() ([32]byte, error) {
-			s := components.OrganizationMetaData().GetGroupId()
-			return s, nil
+		escrow.NewChannelPaymentValidator(components.Blockchain(), components.OrganizationMetaData()), func() [32]byte {
+			return components.OrganizationMetaData().GetGroupId()
 		},
 	)
 
@@ -395,12 +395,11 @@ func (components *Components) PrePaidService() escrow.PrePaidService {
 	return components.prepaidUserService
 }
 
-// Add a chain of interceptors
+// GrpcStreamInterceptor - Add a chain of interceptors
 func (components *Components) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcStreamInterceptor != nil {
 		return components.grpcStreamInterceptor
 	}
-	// Metering is now mandatory in Daemon
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 	if components.Blockchain().Enabled() && config.GetBool(config.MeteringEnabled) {
 
@@ -411,11 +410,11 @@ func (components *Components) GrpcStreamInterceptor() grpc.StreamServerIntercept
 				" as part of service publication process", zap.Error(err))
 		}
 
-		components.grpcStreamInterceptor = grpc_middleware.ChainStreamServer(
-			handler.GrpcMeteringInterceptor(), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
+		components.grpcStreamInterceptor = grpcMiddleware.ChainStreamServer(
+			handler.GrpcMeteringInterceptor(components.Blockchain().CurrentBlock), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcStreamPaymentValidationInterceptor())
 	} else {
-		components.grpcStreamInterceptor = grpc_middleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
+		components.grpcStreamInterceptor = grpcMiddleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcStreamPaymentValidationInterceptor())
 	}
 	return components.grpcStreamInterceptor
@@ -447,9 +446,13 @@ func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL st
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-authtype", "verification")
 	req.Header.Set("Access-Control-Allow-Origin", "*")
+	block, err := components.Blockchain().CurrentBlock()
+	if err != nil {
+		return false, err
+	}
 	metrics.SignMessageForMetering(req,
 		&metrics.CommonStats{OrganizationID: config.GetString(config.OrganizationId), ServiceID: config.GetString(config.ServiceId),
-			GroupID: groupId, UserName: metrics.GetDaemonID()})
+			GroupID: groupId, UserName: metrics.GetDaemonID()}, block)
 
 	client := &http.Client{}
 
@@ -484,9 +487,9 @@ func checkResponse(response *http.Response) (allowed bool, err error) {
 	defer response.Body.Close()
 
 	if strings.Compare(responseBody.Data, "success") != 0 {
-		return false, fmt.Errorf("Error returned by by Metering Service %s Verification,"+
+		return false, fmt.Errorf("error returned by by Metering Service %s Verification,"+
 			" pls check the pvt_key_for_metering set up. The public key in metering does not correspond "+
-			"to the private key in Daemon config.", config.GetString(config.MeteringEndpoint)+"/verify")
+			"to the private key in Daemon config", config.GetString(config.MeteringEndpoint)+"/verify")
 	}
 
 	return true, nil
@@ -532,7 +535,7 @@ func (components *Components) PaymentChannelStateService() (service escrow.Payme
 	components.paymentChannelStateService = escrow.NewPaymentChannelStateService(
 		components.PaymentChannelService(),
 		components.PaymentStorage(),
-		components.ServiceMetaData())
+		components.Blockchain())
 
 	return components.paymentChannelStateService
 }
@@ -609,11 +612,13 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 
 	components.daemonHeartbeat = &metrics.DaemonHeartbeat{
-		TrainingInProto: len(components.ServiceMetaData().TrainingMethods) > 0,
-		TrainingMethods: components.ServiceMetaData().TrainingMethods,
-		DynamicPricing:  components.ServiceMetaData().DynamicPriceMethodMapping,
-		DaemonID:        metrics.GetDaemonID(),
-		DaemonVersion:   config.GetVersionTag(),
+		TrainingMetadata: func() (*training.TrainingMetadata, error) {
+			return components.TrainingService().GetTrainingMetadata(context.Background(), nil)
+		},
+		DynamicPricing: components.ServiceMetaData().DynamicPriceMethodMapping,
+		DaemonID:       metrics.GetDaemonID(),
+		DaemonVersion:  config.GetVersionTag(),
+		CurrentBlock:   components.Blockchain().CurrentBlock,
 	}
 
 	return components.daemonHeartbeat
@@ -644,7 +649,7 @@ func (components *Components) ConfigurationService() *configuration_service.Conf
 		return components.configurationService
 	}
 
-	components.configurationService = configuration_service.NewConfigurationService(components.ChannelBroadcast())
+	components.configurationService = configuration_service.NewConfigurationService(components.ChannelBroadcast(), components.Blockchain())
 
 	return components.configurationService
 }
@@ -696,7 +701,7 @@ func (components *Components) TrainingService() training.DaemonServer {
 	if !config.GetBool(config.BlockchainEnabledKey) {
 		return &training.NoTrainingDaemonServer{}
 	}
-	components.trainingService = training.NewTrainingService(components.blockchain, components.ServiceMetaData(),
+	components.trainingService = training.NewTrainingService(components.Blockchain(), components.ServiceMetaData(),
 		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage(), training.DefaultAllowBlockDifference)
 	return components.trainingService
 }
@@ -721,7 +726,7 @@ func (components *Components) TokenService() escrow.TokenServiceServer {
 
 	components.tokenService = escrow.NewTokenService(components.PaymentChannelService(),
 		components.PrePaidService(), components.TokenManager(),
-		escrow.NewChannelPaymentValidator(components.Blockchain(), config.Vip(), components.OrganizationMetaData()),
+		escrow.NewChannelPaymentValidator(components.Blockchain(), components.OrganizationMetaData()),
 		components.ServiceMetaData())
 
 	return components.tokenService

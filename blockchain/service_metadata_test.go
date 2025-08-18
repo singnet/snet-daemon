@@ -75,7 +75,7 @@ func TestInitServiceMetaDataFromJson(t *testing.T) {
 }
 
 func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
-	metadata, err := ReadServiceMetaDataFromLocalFile("../service_metadata.json")
+	metadata, err := ReadServiceMetaDataFromLocalFile("../resources/testing/service_metadata.json")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, metadata.Version, 1)
 }
@@ -92,15 +92,34 @@ func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
 }
 
 func Test_setDefaultPricing(t *testing.T) {
-	err := setDefaultPricing(&ServiceMetadata{})
+	// Test with empty metadata
+	meta := &ServiceMetadata{}
+	err := meta.setDefaultPricing()
 	assert.NotNil(t, err)
-	err = setDefaultPricing(&ServiceMetadata{Groups: []OrganizationGroup{{GroupName: "default_group"}}})
-	assert.Equal(t, err.Error(), "metadata does not have the default pricing set")
+	assert.Equal(t, "group name default_group in config is invalid, there was no group found with this name in the metadata", err.Error())
+
+	// Test with a group, but default pricing is not set
+	meta = &ServiceMetadata{
+		Groups: []OrganizationGroup{{GroupName: "default_group"}},
+	}
+	err = meta.setDefaultPricing()
+	assert.NotNil(t, err)
+	assert.Equal(t, "metadata does not have the default pricing set", err.Error())
+
+	// Test with a group, but pricing is set
+	meta = &ServiceMetadata{
+		Groups: []OrganizationGroup{{GroupName: "default_group", Pricing: []Pricing{{PriceModel: "fixed_price", Default: true, PriceInCogs: big.NewInt(2)}}}},
+	}
+	err = meta.setDefaultPricing()
+	assert.Nil(t, err)
 }
 
 func Test_setGroup(t *testing.T) {
-	err := setGroup(&ServiceMetadata{})
-	assert.Equal(t, err.Error(), "group name default_group in config is invalid, there was no group found with this name in the metadata")
+	// Test with empty metadata should return an error
+	meta := &ServiceMetadata{}
+	err := meta.setGroup()
+	assert.NotNil(t, err)
+	assert.Equal(t, "group name default_group in config is invalid, there was no group found with this name in the metadata", err.Error())
 }
 
 func TestServiceMetadata_parseServiceProto(t *testing.T) {
@@ -119,7 +138,7 @@ func TestServiceMetadata_parseServiceProto(t *testing.T) {
 }
 
 func TestServiceMetadata_addOns(t *testing.T) {
-	metadata, err := ReadServiceMetaDataFromLocalFile("../service_metadata.json")
+	metadata, err := ReadServiceMetaDataFromLocalFile("../resources/testing/service_metadata.json")
 	assert.Equal(t, err, nil)
 	assert.Equal(t, metadata.Groups[0].AddOns[0].DiscountInPercentage, 4.0)
 }

@@ -26,7 +26,7 @@ type EtcdClientMutex struct {
 	mutex *concurrency.Mutex
 }
 
-// Lock lock etcd key
+// Lock etcd key
 func (mutex *EtcdClientMutex) Lock(ctx context.Context) (err error) {
 	return mutex.mutex.Lock(ctx)
 }
@@ -44,12 +44,29 @@ type EtcdClient struct {
 	etcd      *clientv3.Client
 }
 
+var _ storage.AtomicStorage = (*EtcdClient)(nil)
+
 // NewEtcdClient create new etcd storage client.
 func NewEtcdClient(metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
 	return NewEtcdClientFromVip(config.Vip(), metaData)
 }
 
-// NewEtcdClientFromVip create new etcd storage client from viper.
+// NewEtcdClientFromVip creates a new EtcdClient using settings from the given Viper instance.
+// It performs a bounded-time health probe (Maintenance.Status) to fail fast when endpoints
+// are unreachable or the cluster is unhealthy, and then creates a long-lived etcd concurrency
+// session without attaching a per-call deadline (so shutdown can revoke the lease cleanly).
+//
+// Behavior:
+//   - Respects connection and request timeouts from config for dialing and the health probe.
+//   - If HTTPS endpoints are provided, a TLS config is built via getTLSConfig().
+//   - On any initialization error, the underlying client is closed before returning.
+//
+// Returns:
+//   - (*EtcdClient, nil) on success;
+//   - (nil, error) if dialing, health probe, or session creation fails.
+//
+// Note: The session is created without a custom context to avoid canceling it prematurely
+// during shutdown. Use EtcdClient.Close() to gracefully revoke the lease and close resources.
 func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
 
 	conf, err := GetEtcdClientConf(vip, metaData)
@@ -65,39 +82,52 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 
 	var etcdv3 *clientv3.Client
 
-	if utils.CheckIfHttps(metaData.GetPaymentStorageEndPoints()) {
+	cfg := clientv3.Config{
+		Endpoints:            conf.Endpoints,
+		DialTimeout:          conf.ConnectionTimeout,
+		DialKeepAliveTime:    10 * time.Second,
+		DialKeepAliveTimeout: 3 * time.Second,
+	}
+
+	if utils.CheckIfHttps(conf.Endpoints) {
 		var tlsConfig *tls.Config
-		tlsConfig, err = getTlsConfig()
+		tlsConfig, err = getTLSConfig()
 		if err != nil {
 			return nil, err
 		}
-		etcdv3, err = clientv3.New(clientv3.Config{
-			Endpoints:   conf.Endpoints,
-			DialTimeout: conf.ConnectionTimeout,
-			TLS:         tlsConfig,
-		})
-	} else {
-		// Regular http call
-		etcdv3, err = clientv3.New(clientv3.Config{
-			Endpoints:   conf.Endpoints,
-			DialTimeout: conf.ConnectionTimeout,
-		})
+		cfg.TLS = tlsConfig
 	}
 
+	etcdv3, err = clientv3.New(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	session, err := concurrency.NewSession(etcdv3, concurrency.WithTTL(etcdTTL))
-	if err != nil {
-		return nil, fmt.Errorf("can't connect to etcddb: %v", err)
+	// Fast-fail health probe with a bounded request timeout so initialization never hangs.
+	probeCtx, cancel := context.WithTimeout(context.Background(), conf.RequestTimeout)
+	defer cancel()
+
+	// Probe the first endpoint (you may loop all endpoints if desired).
+	if _, err := etcdv3.Maintenance.Status(probeCtx, conf.Endpoints[0]); err != nil {
+		_ = etcdv3.Close()
+		return nil, fmt.Errorf("etcd not healthy: %w", err)
 	}
 
+	// Create a long-lived session (uses context.Background under the hood).
+	// This avoids tying the session lifecycle to a short timeout context,
+	// which would cause LeaseRevoke to see "context canceled" during shutdown.
+	session, err := concurrency.NewSession(etcdv3, concurrency.WithTTL(etcdTTL))
+	if err != nil {
+		_ = etcdv3.Close()
+		return nil, fmt.Errorf("can't create etcd session: %w", err)
+	}
+
+	zap.L().Debug("[etcd] session created")
+
+	// Log when the session is closed (e.g., due to connection loss).
 	go func() {
-		select {
-		case <-session.Done():
-			zap.L().Debug("etcd session closed")
-		}
+		<-session.Done()
+		zap.L().Debug("[etcd] session closed")
 	}()
 
 	client = &EtcdClient{
@@ -114,21 +144,37 @@ func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	zap.L().Info("Successful reconnect to new etcd endpoints", zap.Strings("New endpoints", metadata.GetPaymentStorageEndPoints()))
+	zap.L().Info("[etcd] Successful reconnect to new etcd endpoints", zap.Strings("New endpoints", metadata.GetPaymentStorageEndPoints()))
 	return etcdClient, nil
 }
 
-func getTlsConfig() (*tls.Config, error) {
-	zap.L().Debug("enabling SSL support via X509 keypair")
-	cert, err := tls.LoadX509KeyPair(config.GetString(config.PaymentChannelCertPath), config.GetString(config.PaymentChannelKeyPath))
+func getTLSConfig() (*tls.Config, error) {
 
+	certPath := config.GetString(config.PaymentChannelCertPath)
+	keyPath := config.GetString(config.PaymentChannelKeyPath)
+	caPath := config.GetString(config.PaymentChannelCaPath)
+
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
-		panic("unable to load specific SSL X509 keypair for etcd")
+		zap.L().Error("[etcd] unable to load SSL X509 keypair",
+			zap.String("certPath", certPath),
+			zap.String("keyPath", keyPath),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("load x509 keypair: %w", err)
 	}
-	caCert, err := os.ReadFile(config.GetString(config.PaymentChannelCaPath))
+
+	if len(cert.Certificate) > 0 {
+		if parsed, _ := x509.ParseCertificate(cert.Certificate[0]); parsed != nil {
+			zap.L().Debug("[etcd] client cert EKU", zap.Any("eku", parsed.ExtKeyUsage), zap.String("subject", parsed.Subject.String()))
+		}
+	}
+
+	caCert, err := os.ReadFile(caPath)
 	if err != nil {
 		return nil, err
 	}
+	zap.L().Debug("[etcd] enabling SSL support via X509 keypair")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 	tlsConfig := &tls.Config{
@@ -175,7 +221,7 @@ func (client *EtcdClient) GetByKeyPrefix(key string) (values []string, err error
 	if err != nil {
 		zap.L().Error("Unable to get value by key prefix",
 			zap.Error(err),
-			zap.String("func", "Get"),
+			zap.String("func", "GetByKeyPrefix"),
 			zap.String("key", key),
 			zap.Any("client", client))
 		return
@@ -242,7 +288,7 @@ func (client *EtcdClient) CompareAndSwap(key string, prevValue string, newValue 
 		RetryTillSuccessOrError: false,
 		ConditionKeys:           []string{key},
 		Update: func(oldValues []storage.KeyValueData) (update []storage.KeyValueData, ok bool, err error) {
-			if oldValues[0].Present && strings.Compare(oldValues[0].Value, prevValue) == 0 {
+			if oldValues[0].Present && oldValues[0].Value == prevValue {
 				return []storage.KeyValueData{{
 					Key:   key,
 					Value: newValue,
@@ -278,7 +324,7 @@ func (client *EtcdClient) Transaction(compare []EtcdKeyValue, swap []EtcdKeyValu
 		for _, keyValue := range compare {
 			keys = append(keys, keyValue.key)
 		}
-		zap.L().Error("Unable to Transaction",
+		zap.L().Error("Unable to execute transaction",
 			zap.Error(err),
 			zap.String("keys", strings.Join(keys, ", ")),
 			zap.String("func", "Transaction"),
@@ -345,17 +391,31 @@ func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok boo
 	}
 }
 
-// If there are no Old values in the transaction, to compare, then this method
-// can be used to write in the new values , if the key does not exist then put it in a transaction
+// CompleteTransaction atomically applies updates if the etcd state still matches
+// the snapshot captured by StartTransaction. The _transaction must be an
+// *etcdTransaction; otherwise an error is returned.
+//
+// Compare rules per condition key:
+//   - Present == true  → ModRevision(key) == Version
+//   - Present == false → CreateRevision(key) == 0 (key must not exist)
+//
+// On success, applies updates with OpPut(key, value) in a single txn.
+// Note: delete on update is not supported yet; `Present` only affects the compare stage.
+//
+// On compare failure, returns ok == false and refreshes ConditionValues for retry.
+// Returns ok == true on success; err != nil on client/commit errors. Respects the request timeout
+// and logs txn latency at DEBUG level.
 func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, update []storage.KeyValueData) (
 	ok bool, err error) {
 
-	var transaction *etcdTransaction = _transaction.(*etcdTransaction)
+	transaction, okType := _transaction.(*etcdTransaction)
+	if !okType {
+		return false, fmt.Errorf("unexpected transaction type: %T", _transaction)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
 	defer cancel()
-	defer ctx.Done()
-	//startime := time.Now()
+	startTime := time.Now()
 	txn := client.etcd.KV.Txn(ctx)
 	var txnResp *clientv3.TxnResponse
 	conditionKeys := transaction.ConditionKeys
@@ -370,9 +430,14 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 	}
 
 	thenOps := make([]clientv3.Op, len(update))
-	for index, op := range update {
-		// TODO: add OpDelete if op.Present is false
-		thenOps[index] = clientv3.OpPut(op.Key, op.Value)
+	for i, op := range update {
+		// NOTE: `Present` is only used for compare stage; updates always PUT for now.
+		// TODO: delete operation is not supported yet.
+		//if !op.Present {
+		//	thenOps = append(thenOps, clientv3.OpDelete(op.Key))
+		//	continue
+		//}
+		thenOps[i] = clientv3.OpPut(op.Key, op.Value)
 	}
 
 	elseOps := make([]clientv3.Op, len(conditionKeys))
@@ -381,8 +446,7 @@ func (client *EtcdClient) CompleteTransaction(_transaction storage.Transaction, 
 	}
 	txnResp, err = txn.If(ifCompares...).Then(thenOps...).Else(elseOps...).Commit()
 
-	//endtime := time.Now()
-	//zap.L().Debug("etcd transaction time", zap.Any("time", endtime.Sub(startime)))
+	zap.L().Debug("etcd transaction time", zap.Duration("latency", time.Since(startTime)))
 
 	if err != nil {
 		return false, err
@@ -507,6 +571,8 @@ type etcdTransaction struct {
 	ConditionValues []keyValueVersion
 	ConditionKeys   []string
 }
+
+var _ storage.Transaction = (*etcdTransaction)(nil)
 
 func (transaction *etcdTransaction) GetConditionValues() ([]storage.KeyValueData, error) {
 	values := make([]storage.KeyValueData, len(transaction.ConditionValues))

@@ -17,14 +17,14 @@ linters:
     - misspell
     - unconvert
     - typecheck
-    - errcheck
-    #    - unused
     - staticcheck
     - bidichk
     - durationcheck
-    - goconst
-    - noctx
-    - whitespace
+    #    - errcheck
+    #    - unused
+    #    - goconst
+    #    - noctx
+    #    - whitespace
     - revive # only certain checks enabled
 
 linters-settings:

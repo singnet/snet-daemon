@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/storage"
 	"math/big"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/singnet/snet-daemon/v6/storage"
 )
 
 type Key interface {
@@ -35,7 +36,7 @@ func (data *LicenseUsageData) GetUsageForUsageType() (Usage, error) {
 	return nil, fmt.Errorf("Unknown Usage Type %v", data.UpdateUsageType)
 }
 
-func (data LicenseUsageData) Clone() *LicenseUsageData {
+func (data *LicenseUsageData) Clone() *LicenseUsageData {
 	return &LicenseUsageData{
 		ChannelID:       data.ChannelID,
 		ServiceID:       data.ServiceID,
@@ -62,10 +63,9 @@ func serializeLicenseDetailsKey(key any) (serialized string, err error) {
 
 type LicenseDetailsData struct {
 	License License
-	//This is to capture the fixed price at the time of purchasing the license
-	//If there is no Dynamic Pricing involved  , we will need to fall back on the fixed price
-	//that is available
-	// Keep this flexible to ensure we also support method level pricing in to the future
+	// This is to capture the fixed price at the time of purchasing the license
+	// If there is no Dynamic Pricing involved, we will need to fall back on the fixed price that is available
+	// Keep this flexible to ensure we also support method level pricing in the future
 	FixedPricing ServiceMethodCostDetails
 }
 type LicenseUsageTrackerKey struct {
@@ -193,7 +193,7 @@ func (u ValidityPeriod) String() string {
 type AddOn struct {
 	ChannelId *big.Int
 	Discount  Discount
-	//Expiry of AddOn will be tied to the license Type associated with it .
+	//Expiry of AddOn will be tied to the license Type associated with it
 	AssociatedLicense License
 	Details           *PricingDetails
 }
@@ -226,7 +226,7 @@ func (s ServiceMethodCostDetails) String() string {
 
 type DiscountPercentage struct {
 	DiscountCode    string
-	DiscountPercent *big.Float //check if this need to be big.float
+	DiscountPercent *big.Float // check if this needs to be big.float
 	DiscountName    string
 	ValidityPeriod  *ValidityPeriod
 }
@@ -250,11 +250,11 @@ type TierPricingDetails struct {
 type PricingDetails struct {
 	CreditsInCogs        *big.Int
 	FeeInCogs            *big.Int
-	LockedPrice          *big.Int //Fixed Price that was defined at the time of creating a license contract
+	LockedPrice          *big.Int // Fixed Price that was defined at the time of creating a license contract
 	PlanName             string
 	ValidityInDays       uint8
 	ActualAmountSigned   *big.Int
-	ServiceMethodDetails *ServiceMethodCostDetails //If this is null , implies it applies to all methods of the Service or just the one defined here
+	ServiceMethodDetails *ServiceMethodCostDetails // If this is null, implies it applies to all methods of the Service or just the one defined here
 }
 
 func (s PricingDetails) String() string {
@@ -265,12 +265,13 @@ func (s PricingDetails) String() string {
 }
 
 func (s Subscription) GetName() string {
-	return s.GetName()
+	return s.Details.PlanName
 }
 
 func (s Subscription) ValidFrom() time.Time {
 	return s.Validity.StartTimeUTC
 }
+
 func (s Subscription) ValidTo() time.Time {
 	return s.Validity.EndTimeUTC
 }
@@ -304,9 +305,6 @@ func (s Subscription) String() string {
 		s.Validity.String(), s.Details.String(), s.Discount.String())
 }
 
-func (s Tier) GetName() string {
-	return s.GetName()
-}
 func (s Tier) GetType() string {
 	return TIER
 }
@@ -359,6 +357,7 @@ func serializeLicenseDetailsData(value any) (slice string, err error) {
 	}
 	return b.String(), err
 }
+
 func deserializeLicenseDetailsData(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	gob.Register(&Subscription{})
@@ -391,7 +390,6 @@ func deserializeLicenseTrackerData(slice string, value any) (err error) {
 	d := gob.NewDecoder(b)
 	gob.Register(&UsageInCalls{})
 	err = d.Decode(value)
-
 	return
 }
 

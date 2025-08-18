@@ -124,6 +124,8 @@ func createEncoderConfig() (*zapcore.EncoderConfig, error) {
 		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	}
 
+	encoderConfig.EncodeDuration = zapcore.StringDurationEncoder // "12.345ms"
+
 	return &encoderConfig, nil
 }
 

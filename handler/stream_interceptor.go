@@ -55,9 +55,10 @@ const (
 
 	//Added for free call support in Daemon
 
-	//The user Id of the person making the call
+	// FreeCallUserIdHeader userID of the person making the call
 	FreeCallUserIdHeader      = "snet-free-call-user-id"
 	FreeCallUserAddressHeader = "snet-free-call-user-address"
+	SnetUserAddressHeader     = "snet-user-address"
 
 	//Will be used to check if the Signature is still valid
 	CurrentBlockNumberHeader = "snet-current-block-number"
@@ -85,7 +86,7 @@ type GrpcStreamContext struct {
 }
 
 func (context *GrpcStreamContext) String() string {
-	return fmt.Sprintf("{MD: %v, Info: %v", context.MD, *context.Info)
+	return fmt.Sprintf("{MD: %v, Info: %v}", context.MD, *context.Info)
 }
 
 // Payment represents payment handler specific data which is validated
@@ -280,15 +281,10 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 		return err.Err()
 	}
 
-	//wrapperStream := ss
-
-	//if config.GetBool(config.EnableDynamicPricing) {
-	//var streamError error
 	wrapperStream, streamError := NewWrapperServerStream(ss, grpcCtx.InStream.Context())
 	if streamError != nil {
 		return streamError
 	}
-	//}
 
 	// Now we are working with grpcCtx and wrapperStream further
 	paymentHandler, err := interceptor.getPaymentHandler(grpcCtx)
@@ -308,8 +304,8 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 		outMD := grpcCtx.MD.Copy()
 		// retrieve the address
 		ethAddr := sp.GetSender().Hex()
-		outMD.Set("user-address", ethAddr)
-		outMD.Set("daemon-debug", "streamIntercept")
+		outMD.Set(SnetUserAddressHeader, ethAddr)
+		outMD.Set("snet-daemon-debug", "streamIntercept")
 		// update the stored metadata in grpcCtx
 		grpcCtx.MD = outMD
 
@@ -464,7 +460,7 @@ func NoOpInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	return handler(srv, ss)
 }
 
-// set Additional details on the metrics persisted, this is to keep track of how many calls were made per channel
+// set Additional details on the metrics persisted; this is to keep track of how many calls were made per channel
 func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
 	md := context.MD
 	if str, err := GetSingleValue(md, ClientTypeHeader); err == nil {

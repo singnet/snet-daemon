@@ -360,11 +360,10 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 		zap.String("method", "POST"))
 
 	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonBody))
-	httpReq.Header = headers
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request: %+v%v", err, errs.ErrDescURL(errs.HTTPRequestBuildError))
 	}
-
+	httpReq.Header = headers
 	httpReq.Header.Set("content-type", "application/json")
 
 	httpResp, err := http.DefaultClient.Do(httpReq)
@@ -540,20 +539,18 @@ func NewWrapperServerStream(stream grpc.ServerStream, ctx context.Context) (grpc
 }
 
 func (f *WrapperServerStream) Context() context.Context {
+	// old way return f.stream.Context()
 	return f.Ctx // return modified context
 }
-
-//func (f *WrapperServerStream) Context() context.Context {
-//	return f.stream.Context()
-//}
 
 func (f *WrapperServerStream) SetHeader(md metadata.MD) error {
 	return f.stream.SetHeader(md)
 }
+
 func (f *WrapperServerStream) SendHeader(md metadata.MD) error {
 	//this is more of a hack to support dynamic pricing
-	// when the service method returns the price in cogs, the SendHeader, will be called,
-	// we dont want this as the SendHeader can be called just once in the ServerStream
+	// when the service method returns the price in cogs, the SendHeader will be called,
+	// we don't want this as the SendHeader can be called just once in the ServerStream
 	if !f.sendHeaderCalled {
 		return nil
 	}

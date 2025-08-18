@@ -51,7 +51,22 @@ func NewEtcdClient(metaData *blockchain.OrganizationMetaData) (client *EtcdClien
 	return NewEtcdClientFromVip(config.Vip(), metaData)
 }
 
-// NewEtcdClientFromVip create new etcd storage client from viper.
+// NewEtcdClientFromVip creates a new EtcdClient using settings from the given Viper instance.
+// It performs a bounded-time health probe (Maintenance.Status) to fail fast when endpoints
+// are unreachable or the cluster is unhealthy, and then creates a long-lived etcd concurrency
+// session without attaching a per-call deadline (so shutdown can revoke the lease cleanly).
+//
+// Behavior:
+//   - Respects connection and request timeouts from config for dialing and the health probe.
+//   - If HTTPS endpoints are provided, a TLS config is built via getTLSConfig().
+//   - On any initialization error, the underlying client is closed before returning.
+//
+// Returns:
+//   - (*EtcdClient, nil) on success;
+//   - (nil, error) if dialing, health probe, or session creation fails.
+//
+// Note: The session is created without a custom context to avoid canceling it prematurely
+// during shutdown. Use EtcdClient.Close() to gracefully revoke the lease and close resources.
 func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
 
 	conf, err := GetEtcdClientConf(vip, metaData)
@@ -67,37 +82,50 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 
 	var etcdv3 *clientv3.Client
 
+	cfg := clientv3.Config{
+		Endpoints:            conf.Endpoints,
+		DialTimeout:          conf.ConnectionTimeout,
+		DialKeepAliveTime:    10 * time.Second,
+		DialKeepAliveTimeout: 3 * time.Second,
+	}
+
 	if utils.CheckIfHttps(conf.Endpoints) {
 		var tlsConfig *tls.Config
 		tlsConfig, err = getTLSConfig()
 		if err != nil {
 			return nil, err
 		}
-		etcdv3, err = clientv3.New(clientv3.Config{
-			Endpoints:   conf.Endpoints,
-			DialTimeout: conf.ConnectionTimeout,
-			TLS:         tlsConfig,
-		})
-	} else {
-		// Regular http call
-		etcdv3, err = clientv3.New(clientv3.Config{
-			Endpoints:   conf.Endpoints,
-			DialTimeout: conf.ConnectionTimeout,
-		})
+		cfg.TLS = tlsConfig
 	}
 
+	etcdv3, err = clientv3.New(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	session, err := concurrency.NewSession(etcdv3, concurrency.WithTTL(etcdTTL))
-	if err != nil {
-		return nil, fmt.Errorf("can't connect to etcddb: %v", err)
+	// Fast-fail health probe with a bounded request timeout so initialization never hangs.
+	probeCtx, cancel := context.WithTimeout(context.Background(), conf.RequestTimeout)
+	defer cancel()
+
+	// Probe the first endpoint (you may loop all endpoints if desired).
+	if _, err := etcdv3.Maintenance.Status(probeCtx, conf.Endpoints[0]); err != nil {
+		_ = etcdv3.Close()
+		return nil, fmt.Errorf("etcd not healthy: %w", err)
 	}
 
+	// Create a long-lived session (uses context.Background under the hood).
+	// This avoids tying the session lifecycle to a short timeout context,
+	// which would cause LeaseRevoke to see "context canceled" during shutdown.
+	session, err := concurrency.NewSession(etcdv3, concurrency.WithTTL(etcdTTL))
+	if err != nil {
+		_ = etcdv3.Close()
+		return nil, fmt.Errorf("can't create etcd session: %w", err)
+	}
+
+	// Log when the session is closed (e.g., due to connection loss).
 	go func() {
 		<-session.Done()
-		zap.L().Debug("etcd session closed")
+		zap.L().Debug("[etcd] session closed")
 	}()
 
 	client = &EtcdClient{
@@ -114,7 +142,7 @@ func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	zap.L().Info("Successful reconnect to new etcd endpoints", zap.Strings("New endpoints", metadata.GetPaymentStorageEndPoints()))
+	zap.L().Info("[etcd] Successful reconnect to new etcd endpoints", zap.Strings("New endpoints", metadata.GetPaymentStorageEndPoints()))
 	return etcdClient, nil
 }
 
@@ -126,7 +154,7 @@ func getTLSConfig() (*tls.Config, error) {
 
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
-		zap.L().Error("unable to load SSL X509 keypair for etcd",
+		zap.L().Error("[etcd] unable to load SSL X509 keypair",
 			zap.String("certPath", certPath),
 			zap.String("keyPath", keyPath),
 			zap.Error(err),
@@ -134,11 +162,17 @@ func getTLSConfig() (*tls.Config, error) {
 		return nil, fmt.Errorf("load x509 keypair: %w", err)
 	}
 
+	if len(cert.Certificate) > 0 {
+		if parsed, _ := x509.ParseCertificate(cert.Certificate[0]); parsed != nil {
+			zap.L().Debug("[etcd] client cert EKU", zap.Any("eku", parsed.ExtKeyUsage), zap.String("subject", parsed.Subject.String()))
+		}
+	}
+
 	caCert, err := os.ReadFile(caPath)
 	if err != nil {
 		return nil, err
 	}
-	zap.L().Debug("enabling SSL support via X509 keypair")
+	zap.L().Debug("[etcd] enabling SSL support via X509 keypair")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 	tlsConfig := &tls.Config{

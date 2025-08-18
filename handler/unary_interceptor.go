@@ -26,15 +26,14 @@ type SenderProvider interface {
 }
 
 type UnaryPaymentHandler interface {
-	// Type is a content of PaymentTypeHeader field which triggers usage of the
+	// Type is a content of the PaymentTypeHeader field that triggers usage of the
 	// payment handler.
 	Type() (typ string)
 	// Payment extracts payment data from gRPC request context and checks
 	// validity of payment data. It returns nil if data is valid or
 	// appropriate gRPC status otherwise.
 	Payment(context *GrpcUnaryContext) (payment Payment, err *GrpcError)
-	// Complete completes payment if gRPC call was successfully proceeded by
-	// service.
+	// Complete completes payment if the service successfully processed the gRPC call
 	Complete(payment Payment) (err *GrpcError)
 	// CompleteAfterError completes payment if service returns error.
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
@@ -89,8 +88,8 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 	if sp, ok := payment.(SenderProvider); ok {
 		outMD := c.MD.Copy()
 		ethAddr := sp.GetSender().Hex()
-		outMD.Set("user-address", ethAddr)
-		outMD.Set("daemon-debug", "unaryIntercept")
+		outMD.Set(SnetUserAddressHeader, ethAddr)
+		outMD.Set("snet-daemon-debug", "unaryIntercept")
 		ctx = metadata.NewIncomingContext(ctx, outMD)
 	}
 
@@ -161,7 +160,7 @@ func GrpcPaymentValidationUnaryInterceptor(serviceData *blockchain.ServiceMetada
 	return interceptor.unaryIntercept
 }
 
-// NoOpUnaryInterceptor is a gRPC interceptor which doesn't do payment checking.
+// NoOpUnaryInterceptor is a gRPC interceptor that doesn't do payment checking.
 func NoOpUnaryInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	return handler(ctx, req)
 }

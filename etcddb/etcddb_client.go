@@ -122,6 +122,8 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 		return nil, fmt.Errorf("can't create etcd session: %w", err)
 	}
 
+	zap.L().Debug("[etcd] session created")
+
 	// Log when the session is closed (e.g., due to connection loss).
 	go func() {
 		<-session.Done()

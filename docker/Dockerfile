@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Match go.mod version
-ARG GO_VERSION=1.24.6
+ARG GO_VERSION=1.25.0
 
 FROM golang:${GO_VERSION}-alpine AS build
 WORKDIR /src

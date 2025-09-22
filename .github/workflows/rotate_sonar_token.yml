@@ -1,0 +1,121 @@
+name: Rotate Sonar Token
+
+on:
+  schedule:
+    - cron: "0 6 1 */3 *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+    env:
+      SQ_URL: ${{ secrets.SONAR_HOST_URL }}
+      SQ_TOKEN: ${{ secrets.SONAR_ROTATOR_TOKEN }}
+      PROJECT_KEY: singnet_snet-daemon_701aea8d-22c4-45ce-b1e5-8a95913e15b4
+      SECRET_NAME: SONAR_TOKEN
+    steps:
+      - name: Install jq and gh
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          gh --version
+
+      - name: Sanity check
+        run: |
+          set -euo pipefail
+          BASE="${SQ_URL%/}"; BASE="${BASE%%/api*}"
+          RESP=$(curl -sS -H "Authorization: Bearer $SQ_TOKEN" -H "Accept: application/json" \
+            "$BASE/api/authentication/validate")
+          echo "$RESP" | grep -q '"valid"[[:space:]]*:[[:space:]]*true' || { echo "Auth validate failed: $RESP"; exit 1; }
+
+      - name: Generate Project Analysis Token
+        id: gen
+        run: |
+          set -euo pipefail
+          BASE="${SQ_URL%/}"; BASE="${BASE%%/api*}"
+          LABEL="${PROJECT_KEY}-ci-$(date +%Y%m%d%H%M%S)"
+          BODY=$(mktemp)
+          HDR=$(mktemp)
+          CODE=$(curl -sS -L -D "$HDR" -o "$BODY" -w "%{http_code}" \
+            -H "Authorization: Bearer $SQ_TOKEN" \
+            -H "Accept: application/json" \
+            -X POST "$BASE/api/user_tokens/generate" \
+            --data-urlencode "name=$LABEL" \
+            --data-urlencode "type=PROJECT_ANALYSIS_TOKEN" \
+            --data-urlencode "projectKey=$PROJECT_KEY")
+          echo "HTTP $CODE"
+          CT=$(grep -i '^content-type:' "$HDR" | head -n1 || true)
+          echo "Content-Type: ${CT:-<none>}"
+          echo "$CT" | grep -qi 'application/json' || { echo "Non-JSON body head:"; head -c 400 "$BODY" || true; echo; exit 1; }
+          NEW_TOKEN=$(jq -r '.token // empty' "$BODY")
+          [ -n "$NEW_TOKEN" ] || { echo "No .token field. Body head:"; head -c 400 "$BODY" || true; echo; exit 1; }
+          echo "token=$NEW_TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Get GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SNET_SONARQUBE_APP_ID }}
+          private-key: ${{ secrets.SNET_SONARQUBE_APP_KEY }}
+
+      - name: Debug App token
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -e
+          echo "== Auth status =="
+          gh auth status
+          echo "== Repo info =="
+          gh api repos/$GITHUB_REPOSITORY --jq '.full_name, .permissions'
+          echo "== Try secrets public-key =="
+          gh api repos/$GITHUB_REPOSITORY/actions/secrets/public-key || true
+
+      - name: Update repo secret with App token
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          echo "${{ steps.gen.outputs.token }}" | gh secret set "$SECRET_NAME" --repo "$GITHUB_REPOSITORY"
+          echo "Updated $SECRET_NAME"
+
+      - name: Revoke old tokens older than 120 days
+        run: |
+          set -euo pipefail
+          BASE="${SQ_URL%/}"; BASE="${BASE%%/api*}"
+          NOW=$(date +%s)
+
+          # Find the latest token so we never accidentally revoke it
+          LATEST=$(curl -sS -H "Authorization: Bearer $SQ_TOKEN" "$BASE/api/user_tokens/search" \
+            | jq -r '.userTokens[] | select(.name | test("'"$PROJECT_KEY"'-ci-")) | .name' \
+            | head -n1)
+
+          curl -sS -H "Authorization: Bearer $SQ_TOKEN" "$BASE/api/user_tokens/search" \
+          | jq -r '.userTokens[] | "\(.name)|\(.creationDate)"' \
+          | while IFS='|' read -r NAME DATE; do
+              case "$NAME" in
+                ${PROJECT_KEY}-ci-*)
+                  if [ "$NAME" = "$LATEST" ]; then
+                    echo "Skipping the latest token $NAME"
+                    continue
+                  fi
+
+                  TS=$(date -d "$DATE" +%s 2>/dev/null || echo 0)
+                  if [ "$TS" -eq 0 ]; then
+                    echo "Could not parse date $DATE for $NAME, skipping"
+                    continue
+                  fi
+
+                  AGE=$(( (NOW-TS)/86400 ))
+                  if [ "$AGE" -gt 120 ]; then
+                    curl -sS -H "Authorization: Bearer $SQ_TOKEN" \
+                      -X POST "$BASE/api/user_tokens/revoke" \
+                      --data-urlencode "name=$NAME" >/dev/null
+                    echo "Revoked $NAME (age ${AGE}d)"
+                  fi
+                ;;
+              esac
+            done

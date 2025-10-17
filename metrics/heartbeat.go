@@ -110,7 +110,7 @@ func getStorageCertificateDetails() (cert StorageClientCert) {
 	if len(certificate.Certificate) > 0 {
 		parseCertificate, err := x509.ParseCertificate(certificate.Certificate[0])
 		if err != nil {
-			zap.L().Error("unable to get certificate infor", zap.Error(err))
+			zap.L().Error("unable to get certificate info", zap.Error(err))
 			return
 		}
 		cert.ValidFrom = fmt.Sprintf("Valid Since: %+v days", parseCertificate.NotBefore.String())

@@ -6,7 +6,7 @@ This directory contains Docker-related configuration files for building and runn
 
 The main Dockerfile used for building the daemon from source code. It:
 
-- Uses multi-stage build with Go 1.24.6 Alpine base
+- Uses multi-stage build with Go 1.25.0 Alpine base
 - Builds the daemon binary from source
 - Creates a minimal runtime image based on Alpine
 - Configures a non-root user (snet) for security

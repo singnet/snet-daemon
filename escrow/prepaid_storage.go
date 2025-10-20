@@ -44,7 +44,7 @@ const (
 	REFUND_AMOUNT  string = "R"
 )
 
-// This will ony be used for doing any business checks
+// This will only be used for doing any business checks
 type PrePaidUsageData struct {
 	ChannelID       *big.Int
 	PlannedAmount   *big.Int

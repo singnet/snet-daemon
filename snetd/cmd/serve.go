@@ -12,19 +12,18 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/singnet/snet-daemon/v6/errs"
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/configuration_service"
 	contractListener "github.com/singnet/snet-daemon/v6/contract_event_listener"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"github.com/singnet/snet-daemon/v6/escrow"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/singnet/snet-daemon/v6/handler/httphandler"
 	"github.com/singnet/snet-daemon/v6/logger"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/training"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
@@ -313,7 +312,6 @@ func (d *daemon) start() {
 		go d.grpcServer.Serve(grpcWebL)                     // HTTP/1.1 gRPC-Web
 		go http.Serve(httpL, corsOpts.Handler(httpHandler)) // HTTP
 		go mux.Serve()
-
 	} else {
 		zap.L().Debug("starting simple HTTP daemon")
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))

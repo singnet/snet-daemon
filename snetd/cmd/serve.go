@@ -30,7 +30,7 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
-	"github.com/soheilhy/cmux"
+	"github.com/semyon-dev/cmux"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"

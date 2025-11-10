@@ -224,21 +224,13 @@ func (d *daemon) start() {
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:
-		// https://github.com/soheilhy/cmux#limitations
-
-		// gRPC-Web (HTTP/1.1)
-		grpcWebL := mux.Match(cmux.HTTP1HeaderFieldPrefix("content-type", "application/grpc-web"))
-
-		// true gRPC (HTTP/2)
+		//   https://github.com/soheilhy/cmux#limitations
 		grpcL := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc"))
-
-		// HTTP/REST
 		httpL := mux.Match(cmux.HTTP1Fast())
 
 		grpcWebServer := grpcweb.WrapServer(d.grpcServer, grpcweb.WithCorsForRegisteredEndpointsOnly(false), grpcweb.WithOriginFunc(func(origin string) bool {
 			return true
 		}))
-
 		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 			isGrpcWebReq := grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req)
 			zap.L().Info("http request", zap.Bool("isGrpcWebRequest", isGrpcWebReq), zap.String("path", req.URL.Path), zap.String("method", req.Method))
@@ -309,11 +301,9 @@ func (d *daemon) start() {
 			},
 		})
 
-		go d.grpcServer.Serve(grpcL)                        // HTTP/2 gRPC
-		go d.grpcServer.Serve(grpcWebL)                     // HTTP/1.1 gRPC-Web
-		go http.Serve(httpL, corsOpts.Handler(httpHandler)) // HTTP
+		go d.grpcServer.Serve(grpcL)
+		go http.Serve(httpL, corsOpts.Handler(httpHandler))
 		go mux.Serve()
-
 	} else {
 		zap.L().Debug("starting simple HTTP daemon")
 		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))

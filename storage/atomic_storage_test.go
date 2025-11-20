@@ -34,7 +34,7 @@ func TestConvertKeyValueDataToTyped(t *testing.T) {
 	typedStorage := &TypedAtomicStorageImpl{
 		keySerializer:     dummyKeySerializer,
 		valueDeserializer: dummyValueDeserializer,
-		valueType:         reflect.TypeOf(""),
+		valueType:         reflect.TypeFor[string](),
 	}
 
 	testCases := []struct {

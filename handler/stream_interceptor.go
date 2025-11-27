@@ -286,6 +286,10 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 		return streamError
 	}
 
+	lastSlash := strings.LastIndex(info.FullMethod, "/")
+	methodName := info.FullMethod[lastSlash+1:]
+	zap.L().Debug("[streamIntercept] Method name", zap.String("method", methodName))
+
 	// Now we are working with grpcCtx and wrapperStream further
 	paymentHandler, err := interceptor.getPaymentHandler(grpcCtx)
 	if err != nil {

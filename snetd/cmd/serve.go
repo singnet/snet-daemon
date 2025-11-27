@@ -12,25 +12,24 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/singnet/snet-daemon/v6/errs"
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/configuration_service"
 	contractListener "github.com/singnet/snet-daemon/v6/contract_event_listener"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"github.com/singnet/snet-daemon/v6/escrow"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/singnet/snet-daemon/v6/handler/httphandler"
 	"github.com/singnet/snet-daemon/v6/logger"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/training"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
-	"github.com/soheilhy/cmux"
+	"github.com/semyon-dev/cmux"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
@@ -224,13 +223,21 @@ func (d *daemon) start() {
 		mux := cmux.New(d.lis)
 		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
 		// Use SendSettings for compatibility with Java gRPC clients:
-		//   https://github.com/soheilhy/cmux#limitations
+		// https://github.com/soheilhy/cmux#limitations
+
+		// gRPC-Web (HTTP/1.1)
+		grpcWebL := mux.Match(cmux.HTTP1HeaderFieldPrefix("content-type", "application/grpc-web"))
+
+		// true gRPC (HTTP/2)
 		grpcL := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc"))
+
+		// HTTP/REST
 		httpL := mux.Match(cmux.HTTP1Fast())
 
 		grpcWebServer := grpcweb.WrapServer(d.grpcServer, grpcweb.WithCorsForRegisteredEndpointsOnly(false), grpcweb.WithOriginFunc(func(origin string) bool {
 			return true
 		}))
+
 		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 			isGrpcWebReq := grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req)
 			zap.L().Info("http request", zap.Bool("isGrpcWebRequest", isGrpcWebReq), zap.String("path", req.URL.Path), zap.String("method", req.Method))
@@ -301,8 +308,9 @@ func (d *daemon) start() {
 			},
 		})
 
-		go d.grpcServer.Serve(grpcL)
-		go http.Serve(httpL, corsOpts.Handler(httpHandler))
+		go d.grpcServer.Serve(grpcL)                        // HTTP/2 gRPC
+		go d.grpcServer.Serve(grpcWebL)                     // HTTP/1.1 gRPC-Web
+		go http.Serve(httpL, corsOpts.Handler(httpHandler)) // HTTP
 		go mux.Serve()
 	} else {
 		zap.L().Debug("starting simple HTTP daemon")

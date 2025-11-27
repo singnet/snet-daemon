@@ -3,6 +3,7 @@ package blockchain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"math/big"
@@ -18,7 +19,6 @@ import (
 	pproto "github.com/emicklei/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/ipfsutils"
 	"go.uber.org/zap"
@@ -262,7 +262,7 @@ func ServiceMetaData() *ServiceMetadata {
 	}
 	ipfsHash, err = getServiceMetaDataURIFromRegistry()
 	if err != nil {
-		zap.L().Fatal(err.Error()+errs.ErrDescURL(errs.InvalidConfig),
+		zap.L().Fatal("registry: "+err.Error()+errs.ErrDescURL(errs.InvalidConfig),
 			zap.String("OrganizationId", config.GetString(config.OrganizationId)),
 			zap.String("ServiceId", config.GetString(config.ServiceId)))
 	}
@@ -278,7 +278,7 @@ func ServiceMetaData() *ServiceMetadata {
 func ReadServiceMetaDataFromLocalFile(filename string) (*ServiceMetadata, error) {
 	file, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not read file: %v", filename)
+		return nil, fmt.Errorf("could not read file: %v %v", filename, err)
 	}
 	metadata, err := InitServiceMetaDataFromJson(file)
 	if err != nil {
@@ -317,8 +317,12 @@ func getServiceMetaDataURIFromRegistry() ([]byte, error) {
 	serviceId := utils.StringToBytes32(config.GetString(config.ServiceId))
 
 	serviceRegistration, err := reg.GetServiceRegistrationById(nil, orgId, serviceId)
-	if err != nil || !serviceRegistration.Found {
+	if err != nil {
+		zap.L().Error("[registry] getServiceMetaData", zap.Error(err), zap.Bool("isFound", serviceRegistration.Found))
 		return nil, fmt.Errorf("error retrieving contract details for the given organization and service ids %v", err)
+	}
+	if !serviceRegistration.Found {
+		return nil, fmt.Errorf("service not found %v", err)
 	}
 
 	return serviceRegistration.MetadataURI[:], nil

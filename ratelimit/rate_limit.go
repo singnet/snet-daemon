@@ -1,11 +1,12 @@
 package ratelimit
 
 import (
-	"github.com/singnet/snet-daemon/v6/config"
-	"golang.org/x/time/rate"
 	"math"
 	"strconv"
 	"time"
+
+	"github.com/singnet/snet-daemon/v6/config"
+	"golang.org/x/time/rate"
 )
 
 func NewRateLimiter() *rate.Limiter {

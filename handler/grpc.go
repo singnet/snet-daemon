@@ -298,6 +298,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	zap.L().Info("Calling method", zap.String("method", method))
 
 	// Check if this is a WrapperServerStream with pre-read data
+	// TODO refactor or move higher level?
 	var f *codec.GrpcFrame
 	if wrapper, ok := inStream.(*WrapperServerStream); ok {
 		if recvMsg := wrapper.OriginalRecvMsg(); recvMsg != nil {

@@ -6,15 +6,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/config"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"io"
 	"net/http"
 	"net/smtp"
 	"slices"
 	"time"
+
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/spf13/viper"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var InvalidMailHookConf = errors.New("unable to create instance of mail auth hook: invalid configuration")

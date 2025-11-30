@@ -6,13 +6,14 @@ import (
 	"google.golang.org/grpc/encoding"
 	_ "google.golang.org/grpc/encoding/gzip"
 	_ "google.golang.org/grpc/encoding/proto" // ensure the default "proto" codec is registered first
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/protoadapt"
 )
 
 func init() {
 	encoding.RegisterCodec(BytesCodec("proto", &protoCodec{}))
-	encoding.RegisterCodec(BytesCodec("json", nil))
+	encoding.RegisterCodec(BytesCodec("json", &jsonCodec{}))
 }
 
 func BytesCodec(name string, fallback encoding.Codec) encoding.Codec {
@@ -91,4 +92,24 @@ func messageV2Of(v any) proto.Message {
 	}
 
 	return nil
+}
+
+type jsonCodec struct{}
+
+func (jsonCodec) Name() string { return "json" }
+
+func (jsonCodec) Marshal(v any) ([]byte, error) {
+	m, ok := messageV2Of(v).(proto.Message)
+	if !ok {
+		return nil, fmt.Errorf("failed to marshal, message is %T, want proto.Message", v)
+	}
+	return protojson.Marshal(m)
+}
+
+func (jsonCodec) Unmarshal(data []byte, v any) error {
+	m, ok := messageV2Of(v).(proto.Message)
+	if !ok {
+		return fmt.Errorf("failed to unmarshal, message is %T, want proto.Message", v)
+	}
+	return protojson.Unmarshal(data, m)
 }

@@ -118,6 +118,14 @@ func newDaemon(components *Components) (daemon, error) {
 
 	d.components = components
 
+	d.blockProc = components.Blockchain()
+
+	exp := config.GetExperimentalSettings()
+	if exp != nil && exp.TrafficSplit != nil {
+		zap.L().Debug("using experimental settings:", zap.Any("parsed", exp))
+		return d, nil
+	}
+
 	var err error
 	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndpoint))
 	if err != nil {
@@ -133,8 +141,6 @@ func newDaemon(components *Components) (daemon, error) {
 			return d, errors.Wrap(err, "unable to bind port 80 for automatic SSL verification")
 		}
 	}
-
-	d.blockProc = components.Blockchain()
 
 	if sslKey := config.GetString(config.SSLKeyPathKey); sslKey != "" {
 		cert, err := tls.LoadX509KeyPair(config.GetString(config.SSLCertPathKey), sslKey)
@@ -229,9 +235,6 @@ func (d *daemon) start() {
 	var gmux GRPCMux
 
 	exp := config.GetExperimentalSettings()
-	if exp != nil {
-		zap.L().Debug("using experimental settings:", zap.Any("parsed", exp))
-	}
 	if exp == nil {
 		exp = &config.ExperimentalSettings{
 			SplitWebgrpc:    false,
@@ -382,12 +385,13 @@ func (d *daemon) newHTTPHandler(grpcWebServer *grpcweb.WrappedGrpcServer) http.H
 }
 
 func (d *daemon) stop() {
-
 	if d.grpcServer != nil {
 		d.grpcServer.GracefulStop()
 	}
 
-	d.lis.Close()
+	if d.lis != nil {
+		d.lis.Close()
+	}
 
 	if d.acmeListener != nil {
 		d.acmeListener.Close()

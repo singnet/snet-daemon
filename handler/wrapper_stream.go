@@ -2,64 +2,87 @@ package handler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/singnet/snet-daemon/v6/codec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
+// WrapperServerStream intercepts gRPC server stream to handle protocol-specific framing
+// and header manipulation for dynamic pricing support
 type WrapperServerStream struct {
-	sendHeaderCalled bool
-	stream           grpc.ServerStream
-	recvMessage      any
-	sentMessage      any
-	Ctx              context.Context
+	sendHeaderCalled bool              // Track if headers have been forwarded downstream
+	stream           grpc.ServerStream // Original gRPC server stream
+	firstMsg         *codec.GrpcFrame  // Initial message read during stream construction
+	firstMsgPending  bool              // Flag indicating first message hasn't been delivered via RecvMsg
+	Ctx              context.Context   // Context with additional metadata for request processing
 }
 
-func (f *WrapperServerStream) SetTrailer(md metadata.MD) {
-	f.stream.SetTrailer(md)
-}
-
+// NewWrapperServerStream creates a wrapped stream that pre-reads the first message
+// and provides a modified context with enhanced metadata
 func NewWrapperServerStream(stream grpc.ServerStream, ctx context.Context) (grpc.ServerStream, error) {
 	m := &codec.GrpcFrame{}
-	err := stream.RecvMsg(m)
-	f := &WrapperServerStream{
-		stream:           stream,
-		recvMessage:      m,
-		sendHeaderCalled: false,
-		Ctx:              ctx, // save modified ctx
+	if err := stream.RecvMsg(m); err != nil {
+		return nil, err
 	}
-	return f, err
+	return &WrapperServerStream{
+		stream:          stream,
+		firstMsg:        m,
+		firstMsgPending: true,
+		Ctx:             ctx, // Context now includes additional metadata
+	}, nil
 }
 
-func (f *WrapperServerStream) Context() context.Context {
-	// old way return f.stream.Context()
-	return f.Ctx // return modified context
+func (w *WrapperServerStream) Context() context.Context {
+	return w.Ctx
 }
 
-func (f *WrapperServerStream) SetHeader(md metadata.MD) error {
-	return f.stream.SetHeader(md)
-}
+func (w *WrapperServerStream) RecvMsg(m any) error {
+	// First RecvMsg call returns the pre-read frame
+	if w.firstMsgPending {
+		w.firstMsgPending = false
 
-func (f *WrapperServerStream) SendHeader(md metadata.MD) error {
-	//this is more of a hack to support dynamic pricing
-	// when the service method returns the price in cogs, the SendHeader will be called,
-	// we don't want this as the SendHeader can be called just once in the ServerStream
-	if !f.sendHeaderCalled {
+		dst, ok := m.(*codec.GrpcFrame)
+		if !ok {
+			return fmt.Errorf("WrapperServerStream: unexpected message type %T, want *codec.GrpcFrame", m)
+		}
+		*dst = *w.firstMsg
 		return nil
 	}
-	f.sendHeaderCalled = true
-	return f.stream.SendHeader(md)
+
+	// Subsequent calls delegate to the original stream
+	return w.stream.RecvMsg(m)
 }
 
-func (f *WrapperServerStream) SendMsg(m any) error {
-	return f.stream.SendMsg(m)
+func (w *WrapperServerStream) SendMsg(m any) error {
+	return w.stream.SendMsg(m)
 }
 
-func (f *WrapperServerStream) RecvMsg(m any) error {
-	return f.stream.RecvMsg(m)
+func (w *WrapperServerStream) SetHeader(md metadata.MD) error {
+	return w.stream.SetHeader(md)
 }
 
-func (f *WrapperServerStream) OriginalRecvMsg() any {
-	return f.recvMessage
+func (w *WrapperServerStream) SetTrailer(md metadata.MD) {
+	w.stream.SetTrailer(md)
+}
+
+// SendHeader implements dynamic pricing support by intercepting header transmission
+// First call is suppressed (contains backend pricing headers in cogs)
+// Subsequent calls are forwarded to the client
+func (w *WrapperServerStream) SendHeader(md metadata.MD) error {
+	// Dynamic pricing workaround:
+	// First call -> suppress (backend headers with pricing in cogs)
+	// Second call -> actually transmit to client
+	if !w.sendHeaderCalled {
+		w.sendHeaderCalled = true
+		return nil
+	}
+	// Subsequent SendHeader calls route to real stream (gRPC prevents multiple calls)
+	return w.stream.SendHeader(md)
+}
+
+// OriginalRecvMsg provides access to the initially read message for special handling
+func (w *WrapperServerStream) OriginalRecvMsg() any {
+	return w.firstMsg
 }

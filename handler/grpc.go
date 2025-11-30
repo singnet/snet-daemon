@@ -245,22 +245,9 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 	ret := make(chan error, 1)
 	go func() {
 		f := &codec.GrpcFrame{}
-		for i := 0; ; i++ {
-			//Only for the first time do this, once RecvMsg has been called,
-			//future calls will result in io.EOF , we want to retrieve the
-			// first message sent by the client and pass this on the regular service call
-			//This is done to be able to make calls to support regular Service call + Dynamic pricing call
-			if i == 0 {
-				// todo we need to think through to determine price for every call on stream calls
-				// will be handled when we support streaming and pricing across all clients in snet-platform
-				if wrappedStream, ok := src.(*WrapperServerStream); ok {
-					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
-				} else if err := src.RecvMsg(f); err != nil {
-					ret <- err
-					break
-				}
-			} else if err := src.RecvMsg(f); err != nil {
-				ret <- err // this can be io.EOF which is happy case
+		for {
+			if err := src.RecvMsg(f); err != nil {
+				ret <- err // io.EOF — normal end
 				break
 			}
 			if err := dst.SendMsg(f); err != nil {
@@ -297,27 +284,9 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 
 	zap.L().Info("Calling method", zap.String("method", method))
 
-	// Check if this is a WrapperServerStream with pre-read data
-	// TODO refactor or move higher level?
-	var f *codec.GrpcFrame
-	if wrapper, ok := inStream.(*WrapperServerStream); ok {
-		if recvMsg := wrapper.OriginalRecvMsg(); recvMsg != nil {
-			if frame, ok := recvMsg.(*codec.GrpcFrame); ok {
-				f = frame
-				zap.L().Debug("Found pre-read GrpcFrame", zap.Int("dataLen", len(f.Data)), zap.String("data", string(f.Data)))
-			} else {
-				return status.Errorf(codes.Internal, "pre-read message is not GrpcFrame %T", recvMsg)
-			}
-		} else {
-			return status.Errorf(codes.Internal, "no pre-read message in WrapperServerStream")
-		}
-	} else {
-		// Fallback to reading from stream (for non-wrapper streams)
-		zap.L().Debug("Not a WrapperServerStream, reading from stream directly")
-		f = &codec.GrpcFrame{}
-		if err := inStream.RecvMsg(f); err != nil {
-			return status.Errorf(codes.Internal, "error receiving grpc msg: %v%v", err, errs.ErrDescURL(errs.ReceiveMsgError))
-		}
+	f := &codec.GrpcFrame{}
+	if err := inStream.RecvMsg(f); err != nil {
+		return status.Errorf(codes.Internal, "error receiving grpc msg: %v%v", err, errs.ErrDescURL(errs.ReceiveMsgError))
 	}
 
 	// convert proto msg to json

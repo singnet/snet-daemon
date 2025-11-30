@@ -275,16 +275,24 @@ type paymentValidationInterceptor struct {
 func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
 
-	// read ctx and prepare GrpcStreamContext
+	// 1) Gather context, metadata, etc.
 	grpcCtx, err := getGrpcContext(ss, info)
 	if err != nil {
 		return err.Err()
 	}
 
-	wrapperStream, streamError := NewWrapperServerStream(ss, grpcCtx.InStream.Context())
-	if streamError != nil {
-		return streamError
+	// 2) Create new context with mdCopy from grpcCtx
+	baseCtx := metadata.NewIncomingContext(ss.Context(), grpcCtx.MD)
+
+	// 3) Wrap stream to:
+	//    - read and store first frame
+	//    - return baseCtx from Context()
+	wrapperStream, streamErr := NewWrapperServerStream(ss, baseCtx)
+	if streamErr != nil {
+		return streamErr
 	}
+
+	grpcCtx.InStream = wrapperStream
 
 	// Now we are working with grpcCtx and wrapperStream further
 	paymentHandler, err := interceptor.getPaymentHandler(grpcCtx)
@@ -356,25 +364,18 @@ func getGrpcContext(
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata")
 	}
 
-	// 2) Make a copy of the metadata so that we can modify it
+	// 1) Copy metadata to allow safe mutation
 	mdCopy := md.Copy()
 
-	// 3) Create a new context based on the original, but with our copy of the metadata
-	newCtx := metadata.NewIncomingContext(serverStream.Context(), mdCopy)
+	//newCtx := metadata.NewIncomingContext(serverStream.Context(), mdCopy)
 
-	// 4) Wrap the original ServerStream so that Context() returns our newCtx
-	wrappedStream := &WrapperServerStream{
-		stream:           serverStream,
-		recvMessage:      nil, // nil here because we haven’t called RecvMsg yet
-		sendHeaderCalled: false,
-		Ctx:              newCtx,
-	}
-
-	// 5) Return a GrpcStreamContext with the metadata copy and the wrapped stream
+	// 3) Populate GrpcStreamContext structure
+	// InStream can be the original serverStream at this stage
 	return &GrpcStreamContext{
 		MD:       mdCopy,
 		Info:     info,
-		InStream: wrappedStream,
+		InStream: serverStream, // using original stream for now
+		// optionally add separate Ctx field if needed
 	}, nil
 }
 

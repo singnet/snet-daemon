@@ -72,6 +72,7 @@ const (
 	ServiceHeartbeatType        = "service_heartbeat_type"
 	TokenExpiryInMinutes        = "token_expiry_in_minutes"
 	TokenSecretKey              = "token_secret_key"
+	Experimental                = "experimental"
 	//This defaultConfigJson will eventually be replaced by DefaultDaemonConfigurationSchema
 	defaultConfigJson string = `
 {
@@ -80,7 +81,6 @@ const (
 	"daemon_endpoint": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"payment_channel_storage_type": "etcd",
-	"ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
 	"ipfs_endpoint": "https://ipfs.singularitynet.io:443", 
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/", 
 	"ipfs_timeout" : 30,
@@ -151,7 +151,6 @@ const (
 	"daemon_endpoint": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"payment_channel_storage_type": "etcd",
-	"ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
 	"ipfs_endpoint": "https://ipfs.singularitynet.io:443",
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/",
 	"private_key_for_free_calls": "",
@@ -576,4 +575,27 @@ func NewJsonConfigFromString(config string) *viper.Viper {
 		zap.L().Error("Error reading string config", zap.Error(err))
 	}
 	return v
+}
+
+func GetExperimentalSettings() *ExperimentalSettings {
+	if !vip.IsSet(Experimental) {
+		return nil
+	}
+
+	var settings ExperimentalSettings
+	if err := vip.UnmarshalKey(Experimental, &settings); err != nil {
+		zap.L().Debug("Failed to unmarshal experimental settings: %v", zap.Error(err))
+		return nil
+	}
+
+	return &settings
+}
+
+type ExperimentalSettings struct {
+	SplitWebgrpc    bool `json:"split_grpc_web" mapstructure:"split_grpc_web"`
+	UseOriginalCmux bool `json:"use_original_cmux" mapstructure:"use_original_cmux"`
+	TrafficSplit    *struct {
+		Grpc uint32 `json:"grpc"`
+		Http uint32 `json:"http"`
+	} `json:"traffic_split" mapstructure:"traffic_split"`
 }

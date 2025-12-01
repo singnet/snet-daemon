@@ -5,7 +5,7 @@ PARENT_PATH="$(dirname "$(cd "$("dirname" "$0")"; pwd -P)")"
 
 if [ $# -lt 3 ]
   then
-    echo "arguments expected are of the form <OS> <PLATFORM> and <VERSION> for the build script , as an example: '/scripts/build linux amd64 v6.1.0'"
+    echo "arguments expected are of the form <OS> <PLATFORM> and <VERSION> for the build script , as an example: '/scripts/build linux amd64 v6.2.0'"
     exit 1
 fi
 pushd "$PARENT_PATH"

@@ -34,8 +34,8 @@ var defaultBlockChainNetworkConfig = `
     "network_id": "5"
   },
   "sepolia": {
-    "ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3",
-	"ethereum_json_rpc_ws_endpoint": "wss://sepolia.infura.io/v3",
+    "ethereum_json_rpc_http_endpoint": "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5",
+	"ethereum_json_rpc_ws_endpoint": "wss://sepolia.infura.io/ws/v3/09027f4a13e841d48dbfefc67e7685d5",
     "network_id": "11155111"
   }
 }`

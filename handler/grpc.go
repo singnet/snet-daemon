@@ -245,22 +245,9 @@ func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan er
 	ret := make(chan error, 1)
 	go func() {
 		f := &codec.GrpcFrame{}
-		for i := 0; ; i++ {
-			//Only for the first time do this, once RecvMsg has been called,
-			//future calls will result in io.EOF , we want to retrieve the
-			// first message sent by the client and pass this on the regular service call
-			//This is done to be able to make calls to support regular Service call + Dynamic pricing call
-			if i == 0 {
-				// todo we need to think through to determine price for every call on stream calls
-				// will be handled when we support streaming and pricing across all clients in snet-platform
-				if wrappedStream, ok := src.(*WrapperServerStream); ok {
-					f = (wrappedStream.OriginalRecvMsg()).(*codec.GrpcFrame)
-				} else if err := src.RecvMsg(f); err != nil {
-					ret <- err
-					break
-				}
-			} else if err := src.RecvMsg(f); err != nil {
-				ret <- err // this can be io.EOF which is happy case
+		for {
+			if err := src.RecvMsg(f); err != nil {
+				ret <- err // io.EOF — normal end
 				break
 			}
 			if err := dst.SendMsg(f); err != nil {
@@ -299,7 +286,6 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 
 	f := &codec.GrpcFrame{}
 	if err := inStream.RecvMsg(f); err != nil {
-		zap.L().Error(fmt.Sprintf("error receiving grpc msg: %v%v", err, errs.ErrDescURL(errs.ReceiveMsgError)))
 		return status.Errorf(codes.Internal, "error receiving grpc msg: %v%v", err, errs.ErrDescURL(errs.ReceiveMsgError))
 	}
 
@@ -512,62 +498,6 @@ func (g grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 	}
 
 	return nil
-}
-
-type WrapperServerStream struct {
-	sendHeaderCalled bool
-	stream           grpc.ServerStream
-	recvMessage      any
-	sentMessage      any
-	Ctx              context.Context
-}
-
-func (f *WrapperServerStream) SetTrailer(md metadata.MD) {
-	f.stream.SetTrailer(md)
-}
-
-func NewWrapperServerStream(stream grpc.ServerStream, ctx context.Context) (grpc.ServerStream, error) {
-	m := &codec.GrpcFrame{}
-	err := stream.RecvMsg(m)
-	f := &WrapperServerStream{
-		stream:           stream,
-		recvMessage:      m,
-		sendHeaderCalled: false,
-		Ctx:              ctx, // save modified ctx
-	}
-	return f, err
-}
-
-func (f *WrapperServerStream) Context() context.Context {
-	// old way return f.stream.Context()
-	return f.Ctx // return modified context
-}
-
-func (f *WrapperServerStream) SetHeader(md metadata.MD) error {
-	return f.stream.SetHeader(md)
-}
-
-func (f *WrapperServerStream) SendHeader(md metadata.MD) error {
-	//this is more of a hack to support dynamic pricing
-	// when the service method returns the price in cogs, the SendHeader will be called,
-	// we don't want this as the SendHeader can be called just once in the ServerStream
-	if !f.sendHeaderCalled {
-		return nil
-	}
-	f.sendHeaderCalled = true
-	return f.stream.SendHeader(md)
-}
-
-func (f *WrapperServerStream) SendMsg(m any) error {
-	return f.stream.SendMsg(m)
-}
-
-func (f *WrapperServerStream) RecvMsg(m any) error {
-	return f.stream.RecvMsg(m)
-}
-
-func (f *WrapperServerStream) OriginalRecvMsg() any {
-	return f.recvMessage
 }
 
 func (g grpcHandler) grpcToProcess(srv any, inStream grpc.ServerStream) error {

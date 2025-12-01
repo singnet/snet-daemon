@@ -1,12 +1,13 @@
 package httphandler
 
 import (
-	"github.com/singnet/snet-daemon/v6/blockchain"
-	"github.com/singnet/snet-daemon/v6/ratelimit"
-	"golang.org/x/time/rate"
 	"io"
 	"log"
 	"net/http"
+
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/ratelimit"
+	"golang.org/x/time/rate"
 
 	"github.com/singnet/snet-daemon/v6/config"
 )

@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/singnet/snet-daemon/v6/errs"
+	"github.com/singnet/snet-daemon/v6/handler/httphandler"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -21,7 +22,6 @@ import (
 	contractListener "github.com/singnet/snet-daemon/v6/contract_event_listener"
 	"github.com/singnet/snet-daemon/v6/escrow"
 	"github.com/singnet/snet-daemon/v6/handler"
-	"github.com/singnet/snet-daemon/v6/handler/httphandler"
 	"github.com/singnet/snet-daemon/v6/logger"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/training"
@@ -29,8 +29,6 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"github.com/pkg/errors"
-	"github.com/rs/cors"
-	"github.com/soheilhy/cmux"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
@@ -39,8 +37,10 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-var corsOptions = []handlers.CORSOption{
-	handlers.AllowedHeaders([]string{"Content-Type", "Snet-Job-Address", "Snet-Job-Signature"}),
+var corsOptionsHTTP = []handlers.CORSOption{
+	handlers.AllowedHeaders([]string{"*"}),
+	handlers.AllowedOrigins([]string{"*"}),
+	handlers.ExposedHeaders([]string{"*"}),
 }
 
 var ServeCmd = &cobra.Command{
@@ -118,6 +118,14 @@ func newDaemon(components *Components) (daemon, error) {
 
 	d.components = components
 
+	d.blockProc = components.Blockchain()
+
+	exp := config.GetExperimentalSettings()
+	if exp != nil && exp.TrafficSplit != nil {
+		zap.L().Debug("using experimental settings:", zap.Any("parsed", exp))
+		return d, nil
+	}
+
 	var err error
 	d.lis, err = net.Listen("tcp", config.GetString(config.DaemonEndpoint))
 	if err != nil {
@@ -133,8 +141,6 @@ func newDaemon(components *Components) (daemon, error) {
 			return d, errors.Wrap(err, "unable to bind port 80 for automatic SSL verification")
 		}
 	}
-
-	d.blockProc = components.Blockchain()
 
 	if sslKey := config.GetString(config.SSLKeyPathKey); sslKey != "" {
 		cert, err := tls.LoadX509KeyPair(config.GetString(config.SSLCertPathKey), sslKey)
@@ -205,124 +211,191 @@ func (d *daemon) start() {
 		d.lis = tls.NewListener(d.lis, tlsConfig)
 	}
 
-	if config.GetString(config.DaemonTypeKey) == "grpc" {
-
-		maxsizeOpt := grpc.MaxRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB) * 1024 * 1024)
-		d.grpcServer = grpc.NewServer(
-			grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
-			grpc.StreamInterceptor(d.components.GrpcStreamInterceptor()),
-			grpc.UnaryInterceptor(d.components.GrpcUnaryInterceptor()),
-			maxsizeOpt,
-		)
-		escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
-		escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
-		escrow.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
-		escrow.RegisterTokenServiceServer(d.grpcServer, d.components.TokenService())
-		training.RegisterDaemonServer(d.grpcServer, d.components.TrainingService())
-		grpc_health_v1.RegisterHealthServer(d.grpcServer, d.components.DaemonHeartBeat())
-		configuration_service.RegisterConfigurationServiceServer(d.grpcServer, d.components.ConfigurationService())
-		mux := cmux.New(d.lis)
-		// Use "prefix" matching to support "application/grpc*" e.g. application/grpc+proto or +json
-		// Use SendSettings for compatibility with Java gRPC clients:
-		//   https://github.com/soheilhy/cmux#limitations
-		grpcL := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldPrefixSendSettings("content-type", "application/grpc"))
-		httpL := mux.Match(cmux.HTTP1Fast())
-
-		grpcWebServer := grpcweb.WrapServer(d.grpcServer, grpcweb.WithCorsForRegisteredEndpointsOnly(false), grpcweb.WithOriginFunc(func(origin string) bool {
-			return true
-		}))
-		httpHandler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			isGrpcWebReq := grpcWebServer.IsGrpcWebRequest(req) || grpcWebServer.IsAcceptableGrpcCorsRequest(req)
-			zap.L().Info("http request", zap.Bool("isGrpcWebRequest", isGrpcWebReq), zap.String("path", req.URL.Path), zap.String("method", req.Method))
-			resp.Header().Set("Access-Control-Allow-Origin", "*")
-			if isGrpcWebReq {
-				grpcWebServer.ServeHTTP(resp, req)
-			} else {
-				var path string
-				if parts := strings.Split(req.URL.Path, "/"); len(parts) > 1 {
-					path = parts[1]
-				}
-				switch path {
-				case "encoding":
-					fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
-				case "heartbeat":
-					metrics.HeartbeatHandler(resp,
-						func() (*training.TrainingMetadata, error) {
-							return d.components.TrainingService().GetTrainingMetadata(context.Background(), &emptypb.Empty{})
-						},
-						d.components.DaemonHeartBeat().DynamicPricing,
-						d.components.Blockchain().CurrentBlock)
-				default:
-					http.NotFound(resp, req)
-					return
-				}
-			}
-			zap.L().Debug("http headers", zap.Any("headers", resp.Header()))
-		})
-
-		corsOpts := cors.New(cors.Options{
-			AllowedOrigins: []string{"*"},
-			AllowedMethods: []string{
-				http.MethodGet,
-				http.MethodPost,
-				http.MethodPut,
-				http.MethodPatch,
-				http.MethodDelete,
-				http.MethodOptions,
-				http.MethodHead,
-				http.MethodConnect,
-			},
-			AllowCredentials: true,
-			Debug:            "debug" == config.GetString(logger.LogLevelKey),
-			AllowOriginRequestFunc: func(r *http.Request, origin string) bool {
-				return true
-			},
-			AllowOriginFunc: func(origin string) bool {
-				return true
-			},
-			ExposedHeaders: []string{"X-Grpc-Web", "Content-Length", "Access-Control-Allow-Origin", "Content-Type", "Origin", "Grpc-Status", "Grpc-Message"},
-			AllowedHeaders: []string{"Grpc-Status", "Grpc-Message", "X-Grpc-Web", "User-Agent", "Origin", "Accept", "Authorization", "Content-Type", "X-Requested-With", "Content-Length", "Access-Control-Allow-Origin",
-				handler.PaymentTypeHeader,
-				handler.ClientTypeHeader,
-				handler.PaymentChannelSignatureHeader,
-				handler.PaymentChannelIDHeader,
-				handler.PaymentChannelAmountHeader,
-				handler.PaymentChannelNonceHeader,
-				handler.FreeCallUserIdHeader,
-				handler.FreeCallUserAddressHeader,
-				handler.FreeCallAuthTokenHeader,
-				handler.UserInfoHeader,
-				handler.UserAgentHeader,
-				handler.DynamicPriceDerived,
-				handler.PrePaidAuthTokenHeader,
-				handler.CurrentBlockNumberHeader,
-				handler.PaymentMultiPartyEscrowAddressHeader,
-				handler.TrainingModelId,
-			},
-		})
-
-		go d.grpcServer.Serve(grpcL)
-		go http.Serve(httpL, corsOpts.Handler(httpHandler))
-		go mux.Serve()
-	} else {
+	if config.GetString(config.DaemonTypeKey) != "grpc" {
 		zap.L().Debug("starting simple HTTP daemon")
-		go http.Serve(d.lis, handlers.CORS(corsOptions...)(httphandler.NewHTTPHandler(d.blockProc)))
+		go http.Serve(d.lis, handlers.CORS(corsOptionsHTTP...)(httphandler.NewHTTPHandler(d.blockProc)))
+		return
 	}
+
+	maxsizeOpt := grpc.MaxRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB) * 1024 * 1024)
+	d.grpcServer = grpc.NewServer(
+		grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
+		grpc.StreamInterceptor(d.components.GrpcStreamInterceptor()),
+		grpc.UnaryInterceptor(d.components.GrpcUnaryInterceptor()),
+		maxsizeOpt,
+	)
+	escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
+	escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
+	escrow.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
+	escrow.RegisterTokenServiceServer(d.grpcServer, d.components.TokenService())
+	training.RegisterDaemonServer(d.grpcServer, d.components.TrainingService())
+	grpc_health_v1.RegisterHealthServer(d.grpcServer, d.components.DaemonHeartBeat())
+	configuration_service.RegisterConfigurationServiceServer(d.grpcServer, d.components.ConfigurationService())
+
+	var gmux GRPCMux
+
+	exp := config.GetExperimentalSettings()
+	if exp == nil {
+		exp = &config.ExperimentalSettings{
+			SplitWebgrpc:    false,
+			UseOriginalCmux: false,
+			TrafficSplit:    nil,
+		}
+	}
+	if exp.TrafficSplit != nil {
+		d.startWithTrafficSplit(exp)
+		return
+	}
+
+	if exp.UseOriginalCmux {
+		gmux = newOriginalMux(d.lis, exp.SplitWebgrpc)
+	} else {
+		gmux = newForkMux(d.lis, exp.SplitWebgrpc)
+	}
+
+	endpoints := gmux.Endpoints()
+
+	grpcWebServer := d.newGRPCWebServer()
+	httpHandler := d.newHTTPHandler(grpcWebServer)
+	corsOpts := handler.Cors()
+
+	for _, ep := range endpoints {
+		switch ep.Type {
+		case L_GRPC:
+			go d.grpcServer.Serve(ep.L)
+		case L_GRPC_WEB:
+			go http.Serve(ep.L, corsOpts.Handler(grpcWebServer))
+		case L_HTTP:
+			go http.Serve(ep.L, corsOpts.Handler(httpHandler))
+		}
+	}
+
+	go gmux.Serve()
 
 	zap.L().Info("✅ Daemon successfully started and ready to accept requests")
 }
 
-func (d *daemon) stop() {
+// startWithTrafficSplit starts separate listeners for gRPC and HTTP
+// instead of using cmux. This mode is intended for setups where
+// L7 proxies (nginx/ingress/traefik) already split traffic by port.
+func (d *daemon) startWithTrafficSplit(exp *config.ExperimentalSettings) {
+	ts := exp.TrafficSplit
 
+	// Optional safety check: traffic_split is typically used when TLS is terminated
+	// before the daemon. If needed, you can enforce this.
+	if d.sslCert != nil || d.autoSSLDomain != "" {
+		zap.L().Warn("traffic_split mode is enabled, but TLS is also configured on daemon side; make sure this is really what you want")
+	}
+
+	host, _, err := net.SplitHostPort(config.GetString(config.DaemonEndpoint))
+	if err != nil || host == "" {
+		// If DaemonEndpoint is just ':PORT' or invalid, bind on all interfaces.
+		host = ""
+	}
+
+	grpcAddr := fmt.Sprintf("%s:%d", host, ts.Grpc)
+	httpAddr := fmt.Sprintf("%s:%d", host, ts.Http)
+
+	grpcLis, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		zap.L().Fatal("failed to listen in traffic_split mode for gRPC", zap.String("addr", grpcAddr), zap.Error(err))
+	}
+
+	httpLis, err := net.Listen("tcp", httpAddr)
+	if err != nil {
+		zap.L().Fatal("failed to listen in traffic_split mode for HTTP", zap.String("addr", httpAddr), zap.Error(err))
+	}
+
+	grpcWebServer := d.newGRPCWebServer()
+	httpHandler := d.newHTTPHandler(grpcWebServer)
+	corsOpts := handler.Cors()
+
+	go d.grpcServer.Serve(grpcLis)
+	go http.Serve(httpLis, corsOpts.Handler(httpHandler))
+
+	zap.L().Info("✅ Daemon started in traffic_split mode",
+		zap.String("grpc_addr", grpcAddr),
+		zap.String("http_addr", httpAddr),
+	)
+}
+
+// newGRPCWebServer wraps the gRPC server with grpc-web support.
+func (d *daemon) newGRPCWebServer() *grpcweb.WrappedGrpcServer {
+	return grpcweb.WrapServer(
+		d.grpcServer,
+		grpcweb.WithCorsForRegisteredEndpointsOnly(false),
+		grpcweb.WithOriginFunc(func(origin string) bool { return true }),
+	)
+}
+
+// newHTTPHandler builds a shared HTTP handler used both in cmux mode
+// and in traffic_split mode. It handles:
+//   - CORS preflight (OPTIONS),
+//   - gRPC-Web requests,
+//   - /encoding and /heartbeat endpoints,
+//   - 404 for everything else.
+func (d *daemon) newHTTPHandler(grpcWebServer *grpcweb.WrappedGrpcServer) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		// We should never manually process preflight here in normal flow,
+		// but keep this branch to be explicit.
+		if req.Method == http.MethodOptions {
+			zap.L().Debug("[options] manual options",
+				zap.String("path", req.URL.Path),
+				zap.String("method", req.Method),
+			)
+			resp.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		// gRPC-Web over HTTP/1.1
+		if grpcWebServer != nil && grpcWebServer.IsGrpcWebRequest(req) {
+			zap.L().Debug("[grpc-web]",
+				zap.String("path", req.URL.Path),
+				zap.String("method", req.Method),
+			)
+			grpcWebServer.ServeHTTP(resp, req)
+			return
+		}
+
+		// Simple HTTP endpoints (encoding / heartbeat)
+		var path string
+		if parts := strings.Split(req.URL.Path, "/"); len(parts) > 1 {
+			path = parts[1]
+		}
+		switch path {
+		case "encoding":
+			fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
+		case "heartbeat":
+			metrics.HeartbeatHandler(resp,
+				func() (*training.TrainingMetadata, error) {
+					return d.components.TrainingService().GetTrainingMetadata(
+						context.Background(), &emptypb.Empty{},
+					)
+				},
+				d.components.DaemonHeartBeat().DynamicPricing,
+				d.components.Blockchain().CurrentBlock,
+			)
+		default:
+			http.NotFound(resp, req)
+			return
+		}
+
+		zap.L().Debug("http headers", zap.Any("headers", resp.Header()))
+	})
+}
+
+func (d *daemon) stop() {
 	if d.grpcServer != nil {
 		d.grpcServer.GracefulStop()
 	}
 
-	d.lis.Close()
+	if d.lis != nil {
+		d.lis.Close()
+	}
 
 	if d.acmeListener != nil {
 		d.acmeListener.Close()
 	}
 
-	// TODO(aiden) add d.blockProc.StopLoop()
+	// TODO add d.blockProc.StopLoop()
 }

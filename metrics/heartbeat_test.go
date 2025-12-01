@@ -17,10 +17,10 @@ import (
 	"testing"
 
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"github.com/semyon-dev/cmux"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/training"
-	"github.com/soheilhy/cmux"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"

@@ -4,7 +4,7 @@ set -euo pipefail
 # Variables (can be overridden by environment)
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-snet-daemon}"
-VERSION="${VERSION:-v6.1.0}"
+VERSION="${VERSION:-v6.2.0}"
 TARGET_OS="${TARGET_OS:-linux}"
 TARGET_ARCH="${TARGET_ARCH:-amd64}"
 BUILD_DIR="${BUILD_DIR:-$PROJECT_ROOT/build}"

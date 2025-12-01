@@ -31,8 +31,8 @@ Precompiled binaries are published with each release,
 download [from releases page](https://github.com/singnet/snet-daemon/releases) or use terminal:
 
 ```bash
-curl -LJO https://github.com/singnet/snet-daemon/releases/download/v6.1.0/snetd-linux-amd64-v6.1.0
-chmod +x snetd-linux-amd64-v6.1.0 
+curl -LJO https://github.com/singnet/snet-daemon/releases/download/v6.2.0/snetd-linux-amd64-v6.2.0
+chmod +x snetd-linux-amd64-v6.2.0 
 ```
 
 #### Generate basic config file
@@ -40,7 +40,7 @@ chmod +x snetd-linux-amd64-v6.1.0
 For most users, a simple config is enough:
 
 ```bash
-./snetd-linux-amd64-v6.1.0 init 
+./snetd-linux-amd64-v6.2.0 init 
 ```
 
 This command will generate a file `snetd.config.json` in which you will need to
@@ -49,19 +49,19 @@ change [some parameters](#main_properties).
 #### Generate default full config file
 
 ```bash
-./snetd-linux-amd64-v6.1.0 init-full
+./snetd-linux-amd64-v6.2.0 init-full
 ```
 
 #### Run Daemon
 
 ```bash
-./snetd-linux-amd64-v6.1.0
+./snetd-linux-amd64-v6.2.0
 ```
 
 Specifying the path to the config using the '-c' argument:
 
 ```bash
-./snetd-linux-amd64-v6.1.0 -c name_of_config.json
+./snetd-linux-amd64-v6.2.0 -c name_of_config.json
 ```
 
 ## Configuration <a name="configuration"></a>
@@ -316,13 +316,13 @@ end [Example of MPE](https://github.com/singnet/wiki/tree/master/multiPartyEscro
 At the moment treasurer server is a part of snet-daemon command line interface.
 
 ```bash
-./snetd-linux-amd64-v6.1.0 claim --channel-id 0
+./snetd-linux-amd64-v6.2.0 claim --channel-id 0
 ```
 
 **Full list of commands, use --help to get more information:**
 
 ```bash
-./snetd-linux-amd64-v6.1.0 --help
+./snetd-linux-amd64-v6.2.0 --help
 
 Usage:
   snetd [flags]
@@ -393,13 +393,13 @@ part of the build. You need to pass the version as shown in the example below:
 Bash:
 
 ```bash
-./scripts/build linux amd64 v6.1.0
+./scripts/build linux amd64 v6.2.0
 ```
 
 Powershell:
 
 ```powershell
-./scripts/powershell/build.ps1 linux amd64 v6.1.0
+./scripts/powershell/build.ps1 linux amd64 v6.2.0
 ```
 
 The final binaries will be in the `/build` folder.
@@ -409,7 +409,7 @@ The final binaries will be in the `/build` folder.
 1. Build the docker image:
 
 ```
-docker build -t snet-daemon:v6.1.0 --build-arg VERSION=v6.1.0 . 
+docker build -t snet-daemon:v6.2.0 --build-arg VERSION=v6.2.0 . 
 ```
 
 2. Prepare config and certificates:
@@ -437,13 +437,13 @@ The daemon listens on the port specified in snetd.config.json → daemon_endpoin
 When you run the container, the right-hand side of -p HOST:CONTAINER must equal that port.
 
 ```bash
-docker run -d --rm --name snetd -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.1.0
+docker run -d --rm --name snetd -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.0
 ```
 
 powershell:
 
 ```powershell
-docker run -d --rm --name snetd -v "$( PWD )\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.1.0
+docker run -d --rm --name snetd -v "$( PWD )\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.0
 ```
 
 #### Multi-compiling

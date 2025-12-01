@@ -2,7 +2,7 @@
 set -ex
 
 #sometimes, the git link doesnt return a response and hence we pass in release number too
-SNETD_VERSION=$(curl -s https://api.github.com/repos/singnet/snet-daemon/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' || echo "v6.1.0")
+SNETD_VERSION=$(curl -s https://api.github.com/repos/singnet/snet-daemon/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' || echo "v6.2.0")
 
 echo 'version' "$SNETD_VERSION"
 

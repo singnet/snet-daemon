@@ -19,7 +19,7 @@ if ($args.Count -lt 3)
 
 $GOOS = $args[0] # linux
 $GOARCH = $args[1] # amd64
-$Version = $args[2] # v6.1.0
+$Version = $args[2] # v6.2.0
 
 # change directory
 Push-Location $ParentPath

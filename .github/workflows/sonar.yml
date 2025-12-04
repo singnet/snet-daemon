@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - dev
+      - development
   pull_request:
     types: [opened, synchronize, reopened]
 

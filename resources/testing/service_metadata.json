@@ -166,7 +166,7 @@
   },
   "service_description": {
     "url": "https://singnet.github.io/nlp-services-misc/users_guide/named-entity-disambiguation-service.html",
-    "description": "Provide further clearity regaridng entities named within a piece of text. For example, \"Paris is the capital of France\", we would want to link \"Paris\" to Paris the city not Paris Hilton in this case.",
+    "description": "Provide further clarity regarding entities named within a piece of text. For example, \"Paris is the capital of France\", we would want to link \"Paris\" to Paris the city not Paris Hilton in this case.",
     "short_description": "text of 180 chars"
   },
   "contributors": [

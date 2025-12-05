@@ -61,7 +61,7 @@ func Test_customJWTokenServiceImpl_checkJwtTokenClaims(t *testing.T) {
 	}
 
 	// helper to create the claims map
-	createClaims := func(payload interface{}, orgId string, groupId string) jwt.MapClaims {
+	createClaims := func(payload any, orgId string, groupId string) jwt.MapClaims {
 		return jwt.MapClaims{
 			"payload": payload,
 			"orgId":   orgId,

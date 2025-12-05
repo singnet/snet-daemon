@@ -12,8 +12,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/storage"
 )
 
-type Key interface {
-}
+type Key any
 
 type LicenseUsageData struct {
 	ChannelID       *big.Int

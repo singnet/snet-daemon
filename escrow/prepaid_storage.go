@@ -2,9 +2,10 @@ package escrow
 
 import (
 	"fmt"
-	"github.com/singnet/snet-daemon/v6/storage"
 	"math/big"
 	"reflect"
+
+	"github.com/singnet/snet-daemon/v6/storage"
 )
 
 // To Support PrePaid calls and also concurrency

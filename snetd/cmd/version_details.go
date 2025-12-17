@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 // Shows the current version of the Daemons

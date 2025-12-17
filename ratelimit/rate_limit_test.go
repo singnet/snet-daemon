@@ -1,9 +1,10 @@
 package ratelimit
 
 import (
-	assert2 "github.com/stretchr/testify/assert"
 	"math"
 	"testing"
+
+	assert2 "github.com/stretchr/testify/assert"
 )
 
 // TO DO , Add more test cases

@@ -1,10 +1,11 @@
 package license_server
 
 import (
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type ServiceMethodDetails1 struct {

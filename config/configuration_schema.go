@@ -2,8 +2,9 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/spf13/viper"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 //TO DO, Work in Progress; this defines the complete Schema of the Daemon Configuration

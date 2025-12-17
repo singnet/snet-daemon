@@ -1,10 +1,11 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/v6/storage"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
+
+	"github.com/singnet/snet-daemon/v6/storage"
+	"github.com/stretchr/testify/assert"
 	//	"github.com/stretchr/testify/assert"
 	//	"github.com/stretchr/testify/suite"
 )

@@ -3,7 +3,6 @@ package pricing
 
 import (
 	"fmt"
-	"google.golang.org/grpc/credentials/insecure"
 	"math/big"
 	"net/url"
 
@@ -11,11 +10,11 @@ import (
 	"github.com/singnet/snet-daemon/v6/codec"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
-
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"

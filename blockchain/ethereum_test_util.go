@@ -3,9 +3,10 @@ package blockchain
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

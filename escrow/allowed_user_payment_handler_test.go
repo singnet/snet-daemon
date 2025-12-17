@@ -3,14 +3,15 @@ package escrow
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"math/big"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
-	"math/big"
-	"testing"
 )
 
 func TestAllowedUserPaymentHandler(t *testing.T) {

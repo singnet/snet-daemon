@@ -2,12 +2,13 @@ package logger
 
 import (
 	"errors"
+	"strconv"
+	"testing"
+
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
-	"strconv"
-	"testing"
 )
 
 func init() {

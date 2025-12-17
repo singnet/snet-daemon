@@ -1,8 +1,9 @@
 package pricing
 
 import (
-	"github.com/singnet/snet-daemon/v6/handler"
 	"math/big"
+
+	"github.com/singnet/snet-daemon/v6/handler"
 )
 
 const (

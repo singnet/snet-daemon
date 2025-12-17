@@ -2,12 +2,13 @@ package escrow
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/singnet/snet-daemon/v6/pricing"
 	"google.golang.org/grpc"
-	"math/big"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 )

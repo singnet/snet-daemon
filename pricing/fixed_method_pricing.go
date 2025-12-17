@@ -2,9 +2,10 @@ package pricing
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/handler"
-	"math/big"
 )
 
 type FixedMethodPrice struct {

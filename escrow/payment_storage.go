@@ -1,8 +1,9 @@
 package escrow
 
 import (
-	"github.com/singnet/snet-daemon/v6/storage"
 	"reflect"
+
+	"github.com/singnet/snet-daemon/v6/storage"
 )
 
 // PaymentStorage is a storage for PaymentChannelData by

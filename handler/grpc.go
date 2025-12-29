@@ -4,16 +4,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os/exec"
+	"path"
 	"strings"
+	"time"
 
-	"github.com/bufbuild/protocompile/linker"
 	"github.com/gorilla/rpc/v2/json2"
+	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/codec"
+	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -21,15 +25,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/dynamicpb"
-
-	"github.com/singnet/snet-daemon/v6/blockchain"
-	"github.com/singnet/snet-daemon/v6/codec"
-	"github.com/singnet/snet-daemon/v6/config"
-	"github.com/singnet/snet-daemon/v6/errs"
 )
 
 var grpcDesc = &grpc.StreamDesc{ServerStreams: true, ClientStreams: true}
@@ -44,9 +39,11 @@ type grpcHandler struct {
 	executable         string
 	serviceMetaData    *blockchain.ServiceMetadata
 	serviceCredentials serviceCredentials
+	httpClient         *http.Client
+	timeout            time.Duration
 }
 
-func (g grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
+func (g *grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
 	if isModelTraining {
 		return g.grpcModelConn
 	}
@@ -61,7 +58,10 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		return grpcLoopback
 	}
 
-	h := grpcHandler{
+	timeout := config.GetDuration(config.ServiceTimeout)
+
+	h := &grpcHandler{
+		timeout:             timeout,
 		serviceMetaData:     serviceMetadata,
 		enc:                 serviceMetadata.GetWireEncoding(),
 		passthroughEndpoint: config.GetString(config.ServiceEndpointKey),
@@ -71,6 +71,9 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 			grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
 			grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024)),
 	}
+
+	// Add small slack so http.Client.Timeout does not fire before context deadline
+	h.httpClient = &http.Client{Timeout: timeout + time.Second}
 
 	switch serviceMetadata.GetServiceType() {
 	case "grpc":
@@ -98,21 +101,7 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	return nil
 }
 
-func (srvCreds serviceCredentials) validate() error {
-	if len(srvCreds) > 0 {
-		for _, v := range srvCreds {
-			if v.Location != body && v.Location != header && v.Location != query {
-				return fmt.Errorf("invalid service_credentials: location should be body, header or query")
-			}
-			if v.Key == "" {
-				return fmt.Errorf("invalid service_credentials: key can't be empty")
-			}
-		}
-	}
-	return nil
-}
-
-func (g grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
+func (g *grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
 
 	if !strings.Contains(endpoint, "://") {
 		endpoint = "grpc" + "://" + endpoint
@@ -142,7 +131,7 @@ Modified from https://github.com/mwitkow/grpc-proxy/blob/67591eb23c48346a480470e
 Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-PROXY for licensing terms.
 Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
 */
-func (g grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
+func (g *grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 	if !ok {
 		return status.Errorf(codes.Internal, "could not determine method from server stream")
@@ -154,9 +143,10 @@ func (g grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "could not get metadata from incoming context")
 	}
 
-	outCtx, outCancel := context.WithCancel(inCtx)
+	outCtx, outCancel := withDefaultTimeout(inCtx, g.timeout)
 	defer outCancel()
 	outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
+
 	isModelTraining := g.serviceMetaData.IsModelTraining(method)
 	outStream, err := g.GrpcConn(isModelTraining).NewStream(outCtx, grpcDesc, method, grpc.CallContentSubtype(g.enc))
 	if err != nil {
@@ -273,14 +263,25 @@ type serviceCredential struct {
 
 type serviceCredentials []serviceCredential
 
-func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
-	method, ok := grpc.MethodFromServerStream(inStream)
+func (g *grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
+
+	methodFull, ok := grpc.MethodFromServerStream(inStream)
 	if !ok {
 		return status.Errorf(codes.Internal, "could not determine method from server stream")
 	}
 
-	methodSegs := strings.Split(method, "/")
-	method = methodSegs[len(methodSegs)-1]
+	// we are expecting "/service/method", but we are normalizing it just in case
+	methodFull = strings.Trim(methodFull, "/") // removes both the lead and tail '/'
+
+	// we guarantee the availability of service/method
+	svc, method, ok := strings.Cut(methodFull, "/")
+	if !ok || svc == "" || method == "" {
+		return status.Errorf(codes.Internal, "unexpected grpc method format: %q", methodFull)
+	}
+
+	if strings.Contains(method, "/") {
+		return status.Errorf(codes.Internal, "unexpected grpc method format (extra segments): %q", methodFull)
+	}
 
 	zap.L().Info("Calling method", zap.String("method", method))
 
@@ -303,7 +304,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "can't parse service_endpoint %v%v", err, errs.ErrDescURL(errs.InvalidConfig))
 	}
 
-	base.Path += method // method from proto should be the same as http handler path
+	base.Path = path.Join(base.Path, method) // method from proto should be the same as http handler path
 
 	params := url.Values{}
 	headers := http.Header{}
@@ -345,21 +346,34 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 		zap.String("body", string(jsonBody)),
 		zap.String("method", "POST"))
 
-	httpReq, err := http.NewRequest("POST", base.String(), bytes.NewBuffer(jsonBody))
+	inCtx := inStream.Context()
+	outCtx, cancel := withDefaultTimeout(inCtx, g.timeout)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(outCtx, http.MethodPost, base.String(), bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request: %+v%v", err, errs.ErrDescURL(errs.HTTPRequestBuildError))
 	}
 	httpReq.Header = headers
 	httpReq.Header.Set("content-type", "application/json")
 
-	httpResp, err := http.DefaultClient.Do(httpReq)
+	httpResp, err := g.httpClient.Do(httpReq)
 	if err != nil {
 		return status.Errorf(codes.Internal, "error executing HTTP service: %+v%v", err, errs.ErrDescURL(errs.ServiceUnavailable))
 	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
+		b, _ := io.ReadAll(httpResp.Body)
+		return status.Errorf(codes.Unavailable, "upstream http status %d: %s%v",
+			httpResp.StatusCode, string(b), errs.ErrDescURL(errs.ServiceUnavailable))
+	}
+
 	resp, err := io.ReadAll(httpResp.Body)
 	if err != nil {
 		return status.Errorf(codes.Internal, "error reading response from HTTP service: %+v%v", err, errs.ErrDescURL(errs.ServiceUnavailable))
 	}
+
 	zap.L().Debug("Response from HTTP service", zap.String("response", string(resp)))
 
 	protoMessage, errMarshal := jsonToProto(g.serviceMetaData.ProtoDescriptors, resp, method)
@@ -374,74 +388,7 @@ func (g grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	return nil
 }
 
-func findMethodInProto(protoFiles linker.Files, methodName string) (method protoreflect.MethodDescriptor) {
-	for _, protoFile := range protoFiles {
-		if protoFile.Services().Len() == 0 {
-			continue
-		}
-
-		for i := 0; i < protoFile.Services().Len(); i++ {
-			service := protoFile.Services().Get(i)
-			if service == nil {
-				continue
-			}
-
-			method = service.Methods().ByName(protoreflect.Name(methodName))
-			if method != nil {
-				return method
-			}
-		}
-	}
-	return nil
-}
-
-func jsonToProto(protoFiles linker.Files, json []byte, methodName string) (proto proto.Message, err error) {
-
-	method := findMethodInProto(protoFiles, methodName)
-	if method == nil {
-		zap.L().Error("[jsonToProto] method not found in proto for http call")
-		return proto, errors.New("method in proto not found")
-	}
-
-	output := method.Output()
-	zap.L().Debug("output msg descriptor", zap.String("fullname", string(output.FullName())))
-	proto = dynamicpb.NewMessage(output)
-	err = protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}.Unmarshal(json, proto)
-	if err != nil {
-		zap.L().Error("can't unmarshal json to proto", zap.Error(err))
-		return proto, fmt.Errorf("invalid proto, can't convert json to proto msg: %+v", err)
-	}
-
-	return proto, nil
-}
-
-func protoToJson(protoFiles linker.Files, in []byte, methodName string) (json []byte, err error) {
-
-	method := findMethodInProto(protoFiles, methodName)
-	if method == nil {
-		zap.L().Error("[protoToJson] method not found in proto for http call")
-		return []byte("error, method in proto not found"), errors.New("method in proto not found")
-	}
-
-	input := method.Input()
-	zap.L().Debug("[protoToJson]", zap.Any("methodName", input.FullName()))
-	msg := dynamicpb.NewMessage(input)
-	err = proto.Unmarshal(in, msg)
-	if err != nil {
-		zap.L().Error("Error in unmarshalling", zap.Error(err))
-		return []byte("error, invalid proto file or input request"), fmt.Errorf("error in unmarshaling proto to json: %+v", err)
-	}
-	json, err = protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
-	if err != nil {
-		zap.L().Error("Error in marshaling", zap.Error(err))
-		return []byte("error, invalid proto file or input request"), fmt.Errorf("error in marshaling proto to json: %+v", err)
-	}
-	zap.L().Debug("ProtoToJson result:", zap.String("json", string(json)))
-
-	return json, nil
-}
-
-func (g grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
+func (g *grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 	if !ok {
 		return status.Errorf(codes.Internal, "could not determine method from server stream")
@@ -467,20 +414,29 @@ func (g grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "error encoding request; error: %+v", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", g.passthroughEndpoint, bytes.NewBuffer(jsonRPCReq))
+	inCtx := inStream.Context()
+	outCtx, cancel := withDefaultTimeout(inCtx, g.timeout)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(outCtx, http.MethodPost, g.passthroughEndpoint, bytes.NewBuffer(jsonRPCReq))
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating http request; error: %+v", err)
 	}
 
 	httpReq.Header.Set("content-type", "application/json")
-	httpResp, err := http.DefaultClient.Do(httpReq)
-
+	httpResp, err := g.httpClient.Do(httpReq)
 	if err != nil {
 		return status.Errorf(codes.Internal, "error executing http call; error: %+v", err)
 	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
+		b, _ := io.ReadAll(httpResp.Body)
+		return status.Errorf(codes.Unavailable, "upstream http status %d: %s%v",
+			httpResp.StatusCode, string(b), errs.ErrDescURL(errs.ServiceUnavailable))
+	}
 
 	result := new(any)
-
 	if err = json2.DecodeClientResponse(httpResp.Body, result); err != nil {
 		return status.Errorf(codes.Internal, "json-rpc error; error: %+v", err)
 	}
@@ -500,7 +456,7 @@ func (g grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 	return nil
 }
 
-func (g grpcHandler) grpcToProcess(srv any, inStream grpc.ServerStream) error {
+func (g *grpcHandler) grpcToProcess(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
 	if !ok {
@@ -515,22 +471,25 @@ func (g grpcHandler) grpcToProcess(srv any, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "error receiving request; error: %+v", err)
 	}
 
-	cmd := exec.Command(g.executable, method)
-	stdin, err := cmd.StdinPipe()
+	inCtx := inStream.Context()
+	outCtx, cancel := withDefaultTimeout(inCtx, g.timeout)
+	defer cancel()
 
+	cmd := exec.CommandContext(outCtx, g.executable, method)
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return status.Errorf(codes.Internal, "error creating stdin pipe; error: %+v", err)
 	}
 
 	if _, err := stdin.Write(f.Data); err != nil {
+		stdin.Close()
 		return status.Errorf(codes.Internal, "error writing to stdin; error: %+v", err)
 	}
-	stdin.Close()
+	_ = stdin.Close()
 
 	out, err := cmd.CombinedOutput()
-
 	if err != nil {
-		return status.Errorf(codes.Internal, "error executing process; error: %+v", err)
+		return status.Errorf(codes.Internal, "process failed: %v; output=%s", err, string(out))
 	}
 
 	f = &codec.GrpcFrame{Data: out}
@@ -552,5 +511,26 @@ func grpcLoopback(srv any, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "error sending response; error: %+v", err)
 	}
 
+	return nil
+}
+
+func withDefaultTimeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok || d <= 0 {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, d)
+}
+
+func (srvCreds serviceCredentials) validate() error {
+	if len(srvCreds) > 0 {
+		for _, v := range srvCreds {
+			if v.Location != body && v.Location != header && v.Location != query {
+				return fmt.Errorf("invalid service_credentials: location should be body, header or query")
+			}
+			if v.Key == "" {
+				return fmt.Errorf("invalid service_credentials: key can't be empty")
+			}
+		}
+	}
 	return nil
 }

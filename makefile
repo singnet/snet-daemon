@@ -1,4 +1,4 @@
-VERSION ?= v6.2.0
+VERSION ?= v6.2.1
 IMAGE   ?= mydaemon
 HOST_PORT ?= 8080
 GOOS   ?= linux
@@ -77,7 +77,7 @@ endif
 
 help:
 	@echo "Available make targets:"
-	@echo "  build            - Build the daemon binary, Example: make build GOOS=linux GOARCH=amd64 VERSION=v6.2.0"
+	@echo "  build            - Build the daemon binary, Example: make build GOOS=linux GOARCH=amd64 VERSION=v6.2.1"
 	@echo "  release          - Build release version"
 	@echo "  run              - Run the daemon locally"
 	@echo "  build_in_docker  - Build the daemon inside Docker"

@@ -36,7 +36,7 @@ Alternative Dockerfile for building from released binaries. It:
   Build docker with a release binary
 
 ```bash
-docker build -f docker/Dockerfile.release --build-arg VERSION=v6.2.0 -t snetd:6.1.0 .
+docker build -f docker/Dockerfile.release --build-arg VERSION=v6.2.1 -t snetd:6.1.0 .
 ```
 
 Run
@@ -64,10 +64,10 @@ docker build -f docker/Dockerfile.build -t snetd:build .
 
 Run
 ```bash
-docker run -d --rm --name snetd -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.0
+docker run -d --rm --name snetd -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.1
 ```
 
 powershell:
 ```powershell
-docker run -d --rm --name snetd -v "$( PWD )\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.0
+docker run -d --rm --name snetd -v "$( PWD )\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.1
 ```

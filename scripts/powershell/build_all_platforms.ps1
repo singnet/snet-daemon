@@ -19,8 +19,9 @@ $targets = @(
     "linux arm",
     "linux arm64",
     "windows amd64",
-    "windows arm",
     "windows arm64"
+    "openbsd amd64"
+    "freebsd amd64"
 )
 
 foreach ($target in $targets) {

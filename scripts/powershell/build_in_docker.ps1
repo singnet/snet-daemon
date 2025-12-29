@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 # Variables
 $ProjectRoot = (Resolve-Path "$PSScriptRoot\..\..").Path
 $ImageName   = "snet-daemon"
-$Version     = "v6.2.0"
+$Version     = "v6.2.1"
 $TargetOS    = "linux"
 $TargetArch  = "amd64"
 $BuildDir    = Join-Path $ProjectRoot "build"

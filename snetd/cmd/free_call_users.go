@@ -8,13 +8,14 @@ import (
 	"github.com/singnet/snet-daemon/v6/escrow"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var FreeCallUserUnLockCmd = &cobra.Command{
 	Use:   "unlock",
 	Short: "Unlock a free call user",
-	Long: "allows us to perform operations on free call users with given user_id(email_id)." +
-		" User can use 'snetd freecall unlock -u {userId}' command to unlock the User manually.",
+	Long: "allows us to perform operations on free call users with given address and optional user_id(email)." +
+		" User can use 'snetd freecall unlock -a {address} -u {user-id}' command to unlock the User manually.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunAndCleanup(cmd, args, newFreeCallUserUnLockCommandCommand)
 	},
@@ -23,7 +24,7 @@ var FreeCallUserUnLockCmd = &cobra.Command{
 var FreeCallUserResetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Reset the count on free calls used for the given user to zero",
-	Long:  "User can use 'snetd freecall reset -u {user-id}' command to reset the free call used of this User manually.",
+	Long:  "User can use 'snetd freecall reset -a {address} -u {user-id}' command to reset the free call used of this User manually.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunAndCleanup(cmd, args, newFreeCallResetCountCommand)
 	},
@@ -32,7 +33,7 @@ var FreeCallUserResetCmd = &cobra.Command{
 // Free call user unlock command
 type freeCallUserUnLockCommand struct {
 	lockStorage *storage.PrefixedAtomicStorage
-	userId      string
+	userID      string
 	address     string
 	orgMetadata *blockchain.OrganizationMetaData
 }
@@ -50,11 +51,12 @@ type freeCallUserResetCountCommand struct {
 func newFreeCallUserUnLockCommandCommand(cmd *cobra.Command, args []string, pComponents *Components) (command Command, err error) {
 	userID, address, err := getFreeCallIDs(cmd)
 	if err != nil {
+		zap.L().Error(err.Error())
 		return
 	}
 	command = &freeCallUserUnLockCommand{
 		lockStorage: pComponents.FreeCallLockerStorage(),
-		userId:      userID,
+		userID:      userID,
 		address:     address,
 		orgMetadata: pComponents.OrganizationMetaData(),
 	}
@@ -76,22 +78,32 @@ func newFreeCallResetCountCommand(cmd *cobra.Command, args []string, pComponents
 	return
 }
 
-func getFreeCallIDs(*cobra.Command) (userId, address string, err error) {
-	return freeCallUserId, freeCallAddress, nil
+func getFreeCallIDs(cmd *cobra.Command) (userId, address string, err error) {
+	address, err = cmd.Flags().GetString(AddressFlag)
+	if err != nil {
+		return "", "", err
+	}
+
+	userId, err = cmd.Flags().GetString(UserIdFlag)
+	if err != nil {
+		return "", "", err
+	}
+
+	return userId, address, nil
 }
 
-// command's run method
+// Run command's run method
 func (command *freeCallUserUnLockCommand) Run() (err error) {
-	if command.userId == "" {
-		return fmt.Errorf("unlock -u or unlock -user-id must be set")
+	if command.address == "" {
+		return fmt.Errorf("--address must be set (can be combined with --user-id)")
 	}
 	return command.unlockFreeCallUser()
 }
 
-// command's run method
+// Run command's run method
 func (command *freeCallUserResetCountCommand) Run() (err error) {
-	if command.userID == "" {
-		return fmt.Errorf("reset -u or reset -user-id must be set")
+	if command.address == "" {
+		return fmt.Errorf("--address must be set (can be combined with --user-id)")
 	}
 	return command.resetUserForFreeCalls()
 }
@@ -99,7 +111,8 @@ func (command *freeCallUserResetCountCommand) Run() (err error) {
 // release the lock on the user with the given user id
 func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 	key := &escrow.FreeCallUserKey{}
-	key.UserId = freeCallUserId
+	key.UserId = command.userID
+	key.Address = command.address
 	key.OrganizationId = config.GetString(config.OrganizationId)
 	key.ServiceId = config.GetString(config.ServiceId)
 	key.GroupID = command.orgMetadata.GetGroupIdString()
@@ -122,7 +135,8 @@ func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 // reset free locks counter for a given user id
 func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error) {
 	key := &escrow.FreeCallUserKey{}
-	key.UserId = freeCallUserId
+	key.UserId = command.userID
+	key.Address = command.address
 	key.OrganizationId = config.GetString(config.OrganizationId)
 	key.ServiceId = config.GetString(config.ServiceId)
 	key.GroupID = command.orgMetadata.GetGroupIdString()
@@ -163,7 +177,6 @@ func newListFreeCallUserCommand(cmd *cobra.Command, args []string, components *C
 	command = &listFreeCallUsersCommand{
 		freeCallService: components.FreeCallUserService(),
 	}
-
 	return
 }
 

@@ -38,6 +38,7 @@ const (
 	IpfsEndpoint              = "ipfs_endpoint"
 	LighthouseEndpoint        = "lighthouse_endpoint"
 	IpfsTimeout               = "ipfs_timeout"
+	ServiceTimeout            = "service_timeout"
 	LogKey                    = "log"
 	MaxMessageSizeInMB        = "max_message_size_in_mb"
 	MeteringEnabled           = "metering_enabled"
@@ -84,6 +85,7 @@ const (
 	"ipfs_endpoint": "https://ipfs.singularitynet.io:443", 
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/", 
 	"ipfs_timeout" : 30,
+	"service_timeout" : "100s",
 	"passthrough_enabled": true,
 	"service_endpoint":"http://localhost:5000",
 	"service_id": "YOUR_SERVICE_ID", 
@@ -280,6 +282,8 @@ func Validate() error {
 			return errors.New("invalid " + PvtKeyForFreeCalls)
 		}
 	}
+
+	mustDuration(ServiceTimeout, time.Second*100)
 
 	return validateMeteringChecks()
 }
@@ -598,4 +602,31 @@ type ExperimentalSettings struct {
 		Grpc uint32 `json:"grpc"`
 		Http uint32 `json:"http"`
 	} `json:"traffic_split" mapstructure:"traffic_split"`
+}
+
+func mustDuration(key string, def time.Duration) time.Duration {
+	raw := vip.Get(key)
+
+	s, ok := raw.(string)
+	if !ok {
+		zap.L().Warn("invalid duration type, expected string like '10s'/'10m'; using default",
+			zap.String("key", key),
+			zap.Any("value", raw),
+			zap.Duration("default", def),
+		)
+		return def
+	}
+
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		zap.L().Warn("invalid duration format; using default",
+			zap.String("key", key),
+			zap.String("value", s),
+			zap.Error(err),
+			zap.Duration("default", def),
+		)
+		return def
+	}
+
+	return d
 }

@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/emicklei/proto v1.14.2
-	github.com/ethereum/go-ethereum v1.16.7
+	github.com/ethereum/go-ethereum v1.16.8
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/rpc v1.2.1

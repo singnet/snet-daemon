@@ -83,8 +83,8 @@ func (state Status) String() string {
 func ValidateHeartbeatConfig(heartbeatType, heartbeatEndpoint string) error {
 	// initialize the url state to false
 	// check if the configured type is not supported
-	if heartbeatType != "grpc" && heartbeatType != "http" && heartbeatType != "https" && heartbeatType != "none" && heartbeatType != "" {
-		return fmt.Errorf("unrecognized heartbet service type : '%+v'", heartbeatType)
+	if heartbeatType != "grpc" && heartbeatType != "http" && heartbeatType != "https" && heartbeatType != "none" && heartbeatType != "" && heartbeatType != "tcp" {
+		return fmt.Errorf("unrecognized heartbeat service type : '%+v'", heartbeatType)
 	}
 
 	// if the URLs are empty, or hbtype is None or empty, consider it as not configured
@@ -164,6 +164,8 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 		heartbeat.ServiceHeartbeat = string(serviceHeartbeatBytes)
 		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("serviceHeartbeatBytes", string(serviceHeartbeatBytes)), zap.Error(err))
 	case "none":
+		fallthrough
+	case "tcp":
 		fallthrough
 	case "":
 		// trying to ping the service with serviceEndpoint

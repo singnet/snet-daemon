@@ -2,7 +2,7 @@
 // All rights reserved.
 // <<add licence terms for code reuse>>
 
-// package for monitoring and reporting the daemon metrics
+// Package metrics for monitoring and reporting the daemon metrics
 package metrics
 
 import (
@@ -59,11 +59,12 @@ func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 		zap.L().Info("the service request failed with an error", zap.Error(err))
 		return nil, err
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		zap.L().Warn("wrong status code", zap.Int("StatusCode", response.StatusCode))
 		return nil, errors.New("unexpected error with the service")
 	}
-	// Read the response
+	// Read the response but ignore
 	serviceHeartbeat, _ := io.ReadAll(response.Body)
 	// Check if we got an empty response
 	if string(serviceHeartbeat) == "" {
@@ -131,6 +132,7 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 		zap.L().Info("unable to reach registration service", zap.Error(err))
 		return false
 	}
+	defer response.Body.Close()
 	// process the response and set the Authorization token
 	daemonAuthorizationToken, status = getTokenFromResponse(response)
 	zap.L().Debug("daemon authorization token", zap.Any("value", daemonAuthorizationToken))

@@ -43,7 +43,7 @@ Heartbeats will be enabled by default and they cant be disabled.
 
 ##### Configuration
 
-* **service_heartbeat_type** (mandatory. ```http|grpc```) - though All services must be using grpc, for the
+* **service_heartbeat_type** (optional, default `tcp`, ```http|grpc|tcp```) - though All services must be using grpc, for the
   simplicity of heartbeat implementation, both http and gRPC-based heartbeat end points are supported.
 
 * **heartbeat_endpoint** (mandatory ```must be a valid http|https|grpc url```) - It is service heartbeat endpoint.

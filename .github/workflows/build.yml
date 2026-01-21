@@ -19,7 +19,7 @@ jobs:
       - name: download and install
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.5'
+          go-version: '1.25.6'
 
       - name: install protoc (protobuf)
         uses: arduino/setup-protoc@v3

@@ -13,25 +13,25 @@ import (
 )
 
 type PricingStrategy struct {
-	//Holds all the pricing types possible
+	// Holds all the pricing types possible
 	pricingTypes    map[string]PriceType
 	serviceMetaData *blockchain.ServiceMetadata
 }
 
 // Figure out which price type is to be used
 func (pricing PricingStrategy) determinePricingApplicable(fullMethod string) (priceType PriceType, err error) {
-	//For future, there could be multiple pricingTypes to select from and this method will help decide which pricing to pick
-	//but for now, we just have one pricing Type ( either Fixed Price or Fixed price per Method)
+	// For future, there could be multiple pricingTypes to select from and this method will help decide which pricing to pick
+	// but for now, we just have one pricing Type (either Fixed Price or Fixed price per Method)
 
 	if config.GetBool(config.EnableDynamicPricing) {
-		//Use Dynamic pricing ONLY when you find the mapped price method to be called.
+		// Use Dynamic pricing ONLY when you find the mapped price method to be called.
 		if _, ok := pricing.serviceMetaData.GetDynamicPricingMethodAssociated(fullMethod); ok {
 			return pricing.pricingTypes[DYNAMIC_PRICING], nil
 		} else {
 			zap.L().Info("No Dynamic Price method defined in service proto", zap.String("Method", fullMethod))
 		}
 	}
-	//Default pricing is Fixed Pricing
+	// Default pricing is Fixed Pricing
 	return pricing.pricingTypes[pricing.serviceMetaData.GetDefaultPricing().PriceModel], nil
 }
 
@@ -54,7 +54,7 @@ func (pricing *PricingStrategy) AddPricingTypes(priceType PriceType) {
 }
 
 func (pricing PricingStrategy) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int, err error) {
-	//Based on the input request , determine which price type is to be used
+	// Based on the input request, determine which price type is to be used
 	if priceType, err := pricing.determinePricingApplicable(GrpcContext.Info.FullMethod); err != nil {
 		return nil, err
 	} else {

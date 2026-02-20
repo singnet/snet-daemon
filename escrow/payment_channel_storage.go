@@ -78,7 +78,7 @@ func (storage *PaymentChannelStorage) Put(key *PaymentChannelKey, state *Payment
 	return storage.delegate.Put(key, state)
 }
 
-// PutIfAbsent storage payment channel by key if key is absent
+// PutIfAbsent stores a payment channel by key if the key is absent
 func (storage *PaymentChannelStorage) PutIfAbsent(key *PaymentChannelKey, state *PaymentChannelData) (ok bool, err error) {
 	return storage.delegate.PutIfAbsent(key, state)
 }
@@ -107,7 +107,7 @@ func NewBlockchainChannelReader(processor blockchain.Processor, cfg *viper.Viper
 }
 
 // GetChannelStateFromBlockchain returns channel state from Ethereum
-// blockchain. ok is false if channel was not found.
+// blockchain. ok is false if the channel was not found.
 func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	ch, ok, err := reader.readChannelFromBlockchain(key.ID)
 	if err != nil || !ok {

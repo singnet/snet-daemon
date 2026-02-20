@@ -123,7 +123,7 @@ func InitOrganizationMetaDataFromJson(jsonData []byte) (metaData *OrganizationMe
 
 func checkMandatoryFields(metaData *OrganizationMetaData) (err error) {
 	if metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints == nil {
-		err = fmt.Errorf("Mandatory field : ETCD Client Endpoints are mising for the Group %v ", metaData.daemonGroup.GroupName)
+		err = fmt.Errorf("Mandatory field : ETCD Client Endpoints are missing for the Group %v ", metaData.daemonGroup.GroupName)
 	}
 
 	if metaData.recipientPaymentAddress == (common.Address{}) {

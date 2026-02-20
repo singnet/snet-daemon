@@ -9,12 +9,12 @@ import (
 )
 
 type FixedMethodPrice struct {
-	//Service/Method is the key and value is he price
+	// Service/Method is the key and value is the price
 	methodToPriceMap map[string]*big.Int
 }
 
 func (priceType FixedMethodPrice) GetPrice(GrpcContext *handler.GrpcStreamContext) (price *big.Int, err error) {
-	//The returned string is in the format of "/packagename.service/method", for example /example_service.Calculator/mul
+	// The returned string is in the format of "/packagename.service/method", for example /example_service.Calculator/mul
 	methodName := GrpcContext.Info.FullMethod
 	if price, ok := priceType.methodToPriceMap[methodName]; !ok {
 		return nil, fmt.Errorf("price is not defined for the Method %v", methodName)

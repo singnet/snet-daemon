@@ -4,21 +4,14 @@ on:
   push:
     branches:
       - master
-      - dev
       - development
+      - dev
   pull_request:
     types: [opened, synchronize, reopened]
 
+  workflow_dispatch:
+
 jobs:
-  build:
-    name: Build and analyze
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      - uses: SonarSource/sonarqube-scan-action@v6.0.0
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  sonar:
+    uses: singnet/InfoSec/.github/workflows/sonar.yml@master
+    secrets: inherit

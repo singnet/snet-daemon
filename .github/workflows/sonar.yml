@@ -13,5 +13,5 @@ on:
 
 jobs:
   sonar:
-    uses: singnet/InfoSec/.github/workflows/sonar.yml@master
+    uses: singnet/security-workflows/.github/workflows/sonar.yml@master
     secrets: inherit

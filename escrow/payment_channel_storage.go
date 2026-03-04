@@ -107,7 +107,7 @@ func NewBlockchainChannelReader(processor blockchain.Processor, cfg *viper.Viper
 }
 
 // GetChannelStateFromBlockchain returns channel state from Ethereum
-// blockchain. ok is false if the channel was not found.
+// blockchain. ok is false if the channel is not found.
 func (reader *BlockchainChannelReader) GetChannelStateFromBlockchain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error) {
 	ch, ok, err := reader.readChannelFromBlockchain(key.ID)
 	if err != nil || !ok {

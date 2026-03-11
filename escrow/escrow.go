@@ -10,7 +10,7 @@ import (
 
 // lockingPaymentChannelService implements PaymentChannelService interface
 // using locks around proxied service call to guarantee that only one payment
-// at time is applied to channel
+// at a time is applied to channel
 type lockingPaymentChannelService struct {
 	storage          *PaymentChannelStorage
 	paymentStorage   *PaymentStorage
@@ -52,8 +52,8 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
 
 	if !storageOk {
-		// Group ID check is only done for the first time, when the channel is added to storage from the blockchain,
-		// if the channel is already present in the storage, the group ID check is skipped.
+		// Group ID check is only done for the first time, when the channel is added to storage from the blockchain.
+		// If the channel is already present in the storage, the group ID check is skipped.
 		if blockchainChannel != nil {
 			blockChainGroupID := h.replicaGroupID()
 			if err = h.verifyGroupId(blockChainGroupID, blockchainChannel.GroupID); err != nil {

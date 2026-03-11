@@ -80,7 +80,7 @@ func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId
 	if channel.FullAmount.Cmp(latestAuthorizedAmount) < 0 {
 		return nil, fmt.Errorf("signed amount for token request cannot be greater than full amount in channel")
 	}
-	//verify signature
+	// Verify signature
 	signer, err := service.verifySignature(request, channel)
 	if err != nil {
 		return nil, err
@@ -89,7 +89,7 @@ func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId
 	if err = service.validator.Validate(payment, channel); err != nil {
 		return nil, err
 	}
-	//update the channel Signature if you have a new Signed Amount received
+	// Update the channel Signature if you have a new Signed Amount received
 	if latestAuthorizedAmount.Cmp(channel.AuthorizedAmount) > 0 {
 		transaction, err := service.channelService.StartPaymentTransaction(payment)
 		if err != nil {
@@ -140,7 +140,7 @@ func (service *TokenService) verifySignature(request *TokenRequest, channel *Pay
 
 func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest) (reply *TokenReply, err error) {
 
-	//Check for update state
+	// Check for update state
 	channelID := big.NewInt(0).SetUint64(request.ChannelId)
 	latestAuthorizedAmount := big.NewInt(0).SetUint64(request.SignedAmount)
 

@@ -46,7 +46,7 @@ func (service *BlockChainDisabledStateService) GetChannelState(context context.C
 	return &ChannelStateReply{}, nil
 }
 
-// verifies whether storage channel nonce is equal to blockchain nonce or not
+// StorageNonceMatchesWithBlockchainNonce verifies whether storage channel nonce is equal to blockchain nonce or not
 func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonce(storageChannel *PaymentChannelData) (equal bool, err error) {
 	h := service.channelService
 
@@ -128,7 +128,7 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		return nil, err
 
 	} else if !nonceEqual {
-		// check for payments in the payment storage with current nonce - 1, this will happen  cli has issues in claiming process
+		// check for payments in the payment storage with current nonce - 1, this will happen if cli has issues in claiming process
 
 		paymentID := PaymentID(channel.ChannelID, (&big.Int{}).Sub(channel.Nonce, big.NewInt(1)))
 		payment, ok, err := service.paymentStorage.Get(paymentID)

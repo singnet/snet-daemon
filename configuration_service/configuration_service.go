@@ -4,6 +4,7 @@ package configuration_service
 import (
 	"bytes"
 	"fmt"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -131,10 +132,8 @@ func (service ConfigurationService) authenticate(prefix string, auth *CallerAuth
 
 func (service ConfigurationService) checkAuthenticationAddress(signer common.Address) error {
 
-	for _, user := range service.authenticationAddressList {
-		if user == signer {
-			return nil
-		}
+	if slices.Contains(service.authenticationAddressList, signer) {
+		return nil
 	}
 	return fmt.Errorf("unauthorized access, %v is not authorized", signer.Hex())
 

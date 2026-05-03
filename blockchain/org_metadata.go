@@ -32,7 +32,7 @@ Please note that all the services that belong to a given group in an organizatio
       "group_name": "default_group2",
       "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
       "license_server_endpoints": [
-        "http://licenseendpont:8082"
+        "http://licenseendpoint:8082"
       ],
       "payment": {
         "payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
@@ -47,9 +47,9 @@ Please note that all the services that belong to a given group in an organizatio
         }
       }
     },
-
     {
-      "group_name": "default_group2",
+
+      "group_name": "default_group1",
       "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
       "payment": {
         "payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
@@ -71,7 +71,7 @@ type OrganizationMetaData struct {
 	OrgName string  `json:"org_name"`
 	OrgID   string  `json:"org_id"`
 	Groups  []Group `json:"groups"`
-	//This will used to determine which group the daemon belongs to
+	// This will be used to determine which group the daemon belongs to
 	daemonGroup             *Group
 	daemonGroupID           [32]byte
 	recipientPaymentAddress common.Address

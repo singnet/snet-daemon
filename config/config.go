@@ -283,6 +283,10 @@ func Validate() error {
 		}
 	}
 
+	if vip.GetBool(BlockchainEnabledKey) && len(GetString(TokenSecretKey)) < 32 {
+		return fmt.Errorf("%s must be set to a value of at least 32 bytes when %s is true", TokenSecretKey, BlockchainEnabledKey)
+	}
+
 	mustDuration(ServiceTimeout, time.Second*100)
 
 	return validateMeteringChecks()

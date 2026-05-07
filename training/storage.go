@@ -3,6 +3,7 @@ package training
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -327,11 +328,9 @@ func (pendingStorage *PendingModelStorage) AddPendingModelId(key *PendingModelKe
 		}
 
 		// Check if the modelId already exists
-		for _, currentModelId := range pendingModelData.ModelIDs {
-			if currentModelId == modelId {
-				// If the model ID already exists, no update is needed
-				return nil, false, nil
-			}
+		if slices.Contains(pendingModelData.ModelIDs, modelId) {
+			// If the model ID already exists, no update is needed
+			return nil, false, nil
 		}
 
 		zap.L().Debug("[AddPendingModelId]", zap.Strings("modelIDS", pendingModelData.ModelIDs))
@@ -483,11 +482,9 @@ func (publicStorage *PublicModelStorage) AddPublicModelId(key *PublicModelKey, m
 		}
 
 		// Check if the modelId already exists
-		for _, currentModelId := range publicModelData.ModelIDs {
-			if currentModelId == modelId {
-				// If the model ID already exists, no update is needed
-				return nil, false, nil
-			}
+		if slices.Contains(publicModelData.ModelIDs, modelId) {
+			// If the model ID already exists, no update is needed
+			return nil, false, nil
 		}
 
 		// Add the new model ID to the list

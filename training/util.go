@@ -87,15 +87,8 @@ func difference(oldAddresses []string, newAddresses []string) []string {
 	var diff []string
 	for i := 0; i < 2; i++ {
 		for _, s1 := range oldAddresses {
-			found := false
-			for _, s2 := range newAddresses {
-				if s1 == s2 {
-					found = true
-					break
-				}
-			}
 			// String not found. We add it to the return slice
-			if !found {
+			if !slices.Contains(newAddresses, s1) {
 				diff = append(diff, s1)
 			}
 		}

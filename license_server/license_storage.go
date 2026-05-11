@@ -334,10 +334,10 @@ func NewLicenseDetailsStorage(atomicStorage storage.AtomicStorage) storage.Typed
 	return storage.NewTypedAtomicStorageImpl(
 		storage.NewPrefixedAtomicStorage(atomicStorage, "LicenseDetails/storage"),
 		serializeLicenseDetailsKey,
-		reflect.TypeOf(LicenseDetailsKey{}),
+		reflect.TypeFor[LicenseDetailsKey](),
 		serializeLicenseDetailsData,
 		deserializeLicenseDetailsData,
-		reflect.TypeOf(LicenseDetailsData{}))
+		reflect.TypeFor[LicenseDetailsData]())
 }
 
 func serializeLicenseDetailsData(value any) (slice string, err error) {
@@ -396,9 +396,9 @@ func NewLicenseUsageTrackerStorage(atomicStorage storage.AtomicStorage) storage.
 	return storage.NewTypedAtomicStorageImpl(
 		storage.NewPrefixedAtomicStorage(atomicStorage, "LicenseUsageTracker/storage"),
 		serializeLicenseUsageTrackerKey,
-		reflect.TypeOf(LicenseUsageTrackerKey{}),
+		reflect.TypeFor[LicenseUsageTrackerKey](),
 		serializeLicenseTrackerData,
 		deserializeLicenseTrackerData,
-		reflect.TypeOf(LicenseUsageTrackerData{}),
+		reflect.TypeFor[LicenseUsageTrackerData](),
 	)
 }

@@ -13,8 +13,8 @@ type FreeCallUserStorage struct {
 func NewFreeCallUserStorage(atomicStorage storage.AtomicStorage) *FreeCallUserStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/free-call-user/storage")
 	storage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializeFreeCallKey, reflect.TypeOf(FreeCallUserKey{}), serialize, deserialize,
-		reflect.TypeOf(FreeCallUserData{}),
+		prefixedStorage, serializeFreeCallKey, reflect.TypeFor[FreeCallUserKey](), serialize, deserialize,
+		reflect.TypeFor[FreeCallUserData](),
 	)
 	return &FreeCallUserStorage{delegate: storage}
 	/*	return &FreeCallUserStorage{

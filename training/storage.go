@@ -37,8 +37,8 @@ type PublicModelStorage struct {
 func NewUserModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData) *ModelUserStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/userModelStorage")
 	userModelStorage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializeModelUserKey, reflect.TypeOf(ModelUserKey{}), utils.Serialize, utils.Deserialize,
-		reflect.TypeOf(ModelUserData{}),
+		prefixedStorage, serializeModelUserKey, reflect.TypeFor[ModelUserKey](), utils.Serialize, utils.Deserialize,
+		reflect.TypeFor[ModelUserData](),
 	)
 	return &ModelUserStorage{delegate: userModelStorage, organizationMetaData: orgMetadata}
 }
@@ -46,8 +46,8 @@ func NewUserModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *block
 func NewModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData) *ModelStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/modelStorage")
 	modelStorage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializeModelKey, reflect.TypeOf(ModelKey{}), utils.Serialize, utils.Deserialize,
-		reflect.TypeOf(ModelData{}),
+		prefixedStorage, serializeModelKey, reflect.TypeFor[ModelKey](), utils.Serialize, utils.Deserialize,
+		reflect.TypeFor[ModelData](),
 	)
 	return &ModelStorage{delegate: modelStorage, organizationMetaData: orgMetadata}
 }
@@ -55,8 +55,8 @@ func NewModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchai
 func NewPendingModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData) *PendingModelStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/pendingModelStorage")
 	pendingModelStorage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializePendingModelKey, reflect.TypeOf(PendingModelKey{}), utils.Serialize, utils.Deserialize,
-		reflect.TypeOf(PendingModelData{}),
+		prefixedStorage, serializePendingModelKey, reflect.TypeFor[PendingModelKey](), utils.Serialize, utils.Deserialize,
+		reflect.TypeFor[PendingModelData](),
 	)
 	return &PendingModelStorage{delegate: pendingModelStorage, organizationMetaData: orgMetadata}
 }
@@ -64,8 +64,8 @@ func NewPendingModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *bl
 func NewPublicModelStorage(atomicStorage storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData) *PublicModelStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/model-user/publicModelStorage")
 	publicModelStorage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializePublicModelKey, reflect.TypeOf(PublicModelKey{}), utils.Serialize, utils.Deserialize,
-		reflect.TypeOf(PublicModelData{}),
+		prefixedStorage, serializePublicModelKey, reflect.TypeFor[PublicModelKey](), utils.Serialize, utils.Deserialize,
+		reflect.TypeFor[PublicModelData](),
 	)
 	return &PublicModelStorage{delegate: publicModelStorage, organizationMetaData: orgMetadata}
 }

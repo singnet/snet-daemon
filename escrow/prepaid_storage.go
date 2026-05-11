@@ -90,8 +90,8 @@ func serializePrePaidKey(key any) (serialized string, err error) {
 func NewPrepaidStorage(atomicStorage storage.AtomicStorage) storage.TypedAtomicStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage")
 	storage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializePrePaidKey, reflect.TypeOf(PrePaidDataKey{}), serialize, deserialize,
-		reflect.TypeOf(PrePaidData{}),
+		prefixedStorage, serializePrePaidKey, reflect.TypeFor[PrePaidDataKey](), serialize, deserialize,
+		reflect.TypeFor[PrePaidData](),
 	)
 	return storage
 }

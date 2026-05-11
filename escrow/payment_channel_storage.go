@@ -26,8 +26,8 @@ type PaymentChannelStorage struct {
 func NewPaymentChannelStorage(atomicStorage storage.AtomicStorage) *PaymentChannelStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/payment-channel/storage")
 	storage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializeKey, reflect.TypeOf(PaymentChannelKey{}), serialize, deserialize,
-		reflect.TypeOf(PaymentChannelData{}),
+		prefixedStorage, serializeKey, reflect.TypeFor[PaymentChannelKey](), serialize, deserialize,
+		reflect.TypeFor[PaymentChannelData](),
 	)
 	return &PaymentChannelStorage{delegate: storage}
 

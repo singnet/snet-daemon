@@ -143,6 +143,7 @@ const (
 	"service_heartbeat_type": "",
 	"heartbeat_endpoint": "",
     "token_expiry_in_minutes": 1440,
+    "token_secret_key": "test-secret-key-at-least-32-bytes-long",
     "model_training_enabled": false
 }`
 	MinimumConfigJson string = `{

@@ -50,6 +50,7 @@ func (suite *FreeCallStateServiceSuite) SetupSuite() {
 	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")
 	config.Vip().Set(config.ServiceEndpointKey, "http://localhost:5000")
 	config.Vip().Set(config.PvtKeyForFreeCalls, "aeaa9fb59c0dd868260af55ea65be077dbcaa063c067dfc0865845a0af5de84c")
+	config.Vip().Set(config.TokenSecretKey, "test-secret-key-at-least-32-bytes-long")
 
 	err := config.Validate()
 	assert.Nil(suite.T(), err)

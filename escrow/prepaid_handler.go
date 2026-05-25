@@ -42,7 +42,7 @@ func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (add
 	return common.HexToAddress(userAddress), err
 }
 
-// NewPrePaidPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewPrePaidPaymentHandler returns a new MultiPartyEscrow contract payment handler.
 func NewPrePaidPaymentHandler(
 	PrePaidService PrePaidService, metadata *blockchain.OrganizationMetaData,
 	pServiceMetaData *blockchain.ServiceMetadata, pricing *pricing.PricingStrategy, manager token.Manager) handler.StreamPaymentHandler {
@@ -103,7 +103,7 @@ func (h *PrePaidPaymentHandler) getPaymentFromContext(context *handler.GrpcStrea
 	}, nil
 }
 
-// Just logging , as we increase the usage before calling the service
+// Complete just logging as we increase the usage before calling the service
 // assuming the service call will be successful
 func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	prePaidTransaction := payment.(PrePaidTransaction)
@@ -115,7 +115,7 @@ func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.
 
 func (h *PrePaidPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
 	//we need to Keep track of the amount charged for service that errored
-	//and refund back  !!
+	//and refund back!
 	prePaidTransaction := payment.(PrePaidTransaction)
 	if err = paymentErrorToGrpcError(h.service.UpdateUsage(prePaidTransaction.ChannelId(),
 		prePaidTransaction.Price(), REFUND_AMOUNT)); err != nil {

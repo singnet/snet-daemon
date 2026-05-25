@@ -173,6 +173,7 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 	"model_maintenance_endpoint": "http://0.0.0.0:5001",
 	"service_id": "YOUR_SERVICE_ID",
 	"organization_id": "YOUR_ORG_ID",
+	"token_secret_key": "test-secret-key-at-least-32-bytes-long",
 	"metering_enabled": false,
 	"max_message_size_in_mb" : 4,
 	"daemon_type": "grpc",

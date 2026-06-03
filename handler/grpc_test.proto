@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package handler;
 
-option go_package = "../handler";
+option go_package = "github.com/singnet/snet-daemon/v6/handler";
 
 service ExampleService {
     rpc Ping(Input) returns (Output) {}

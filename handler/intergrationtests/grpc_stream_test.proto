@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package handler;
 
-option go_package = "../intergrationtests";
+option go_package = "github.com/singnet/snet-daemon/v6/handler/intergrationtests";
 
 service ExampleStreamingService {
     rpc Stream(stream InStream) returns (stream OutStream) {}

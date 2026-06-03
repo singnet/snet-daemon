@@ -1,10 +1,8 @@
 package metrics
 
 import (
-	"go/types"
 	"math/big"
 	"net/http"
-	"reflect"
 	"testing"
 	"time"
 
@@ -70,7 +68,7 @@ func TestGetEpochTime(t *testing.T) {
 	currentEpoch := getEpochTime()
 	assert.NotNil(t, currentEpoch, "Epoch must not be empty")
 	assert.NotEqual(t, currentEpoch, 0, "epoch msut not be zero")
-	assert.IsType(t, reflect.TypeOf(types.Int64), reflect.TypeOf(currentEpoch), "Epoch must be an integer")
+	assert.IsType(t, int64(0), currentEpoch, "Epoch must be an integer")
 
 	// two epochs must not be equal
 	time.Sleep(1 * time.Second)

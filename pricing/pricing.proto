@@ -2,7 +2,7 @@ syntax = "proto3";
 import "google/protobuf/descriptor.proto";
 package pricing;
 
-option go_package = "../pricing";
+option go_package = "github.com/singnet/snet-daemon/v6/pricing";
 
 extend google.protobuf.MethodOptions {
     EstimatePrice my_method_option = 9999127;

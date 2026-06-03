@@ -1,4 +1,4 @@
-//go:generate protoc -I . ./state_service.proto --go-grpc_out=. --go_out=.
+//go:generate protoc -I . ./state_service.proto --go-grpc_out=paths=source_relative:. --go_out=paths=source_relative:.
 
 package escrow
 

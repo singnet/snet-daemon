@@ -1,6 +1,6 @@
 module github.com/singnet/snet-daemon/v6
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/bufbuild/protocompile v0.14.1

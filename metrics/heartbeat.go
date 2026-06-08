@@ -6,7 +6,7 @@
 package metrics
 
 import (
-	context2 "context"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -26,7 +26,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -61,7 +60,7 @@ type DaemonHeartbeat struct {
 	TrainingMetadataData     *training.TrainingMetadata                 `json:"trainingMetadata,omitempty"`
 }
 
-func (service *DaemonHeartbeat) List(ctx context2.Context, request *grpc_health_v1.HealthListRequest) (*grpc_health_v1.HealthListResponse, error) {
+func (service *DaemonHeartbeat) List(ctx context.Context, request *grpc_health_v1.HealthListRequest) (*grpc_health_v1.HealthListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
 }
 

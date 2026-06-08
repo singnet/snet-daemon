@@ -2,6 +2,7 @@
 package pricing
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"

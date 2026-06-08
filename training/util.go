@@ -85,7 +85,7 @@ func remove(s []string, r string) []string {
 
 func difference(oldAddresses []string, newAddresses []string) []string {
 	var diff []string
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		for _, s1 := range oldAddresses {
 			// String not found. We add it to the return slice
 			if !slices.Contains(newAddresses, s1) {
@@ -215,10 +215,7 @@ func paginate[T any](items []T, page, pageSize int) []T {
 		return []T{}
 	}
 
-	end := start + pageSize
-	if end > len(items) {
-		end = len(items)
-	}
+	end := min(start+pageSize, len(items))
 
 	return items[start:end]
 }

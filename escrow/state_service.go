@@ -4,6 +4,7 @@ package escrow
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -14,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 )
 
 const (

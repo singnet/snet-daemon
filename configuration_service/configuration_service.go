@@ -3,6 +3,7 @@ package configuration_service
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"slices"
 
@@ -16,8 +17,6 @@ import (
 	"math/big"
 	"sort"
 	"strings"
-
-	"golang.org/x/net/context"
 )
 
 const allowBlockDifference = 5

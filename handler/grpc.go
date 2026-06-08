@@ -156,7 +156,7 @@ func (g *grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 	s2cErrChan := forwardServerToClient(inStream, outStream)
 	c2sErrChan := forwardClientToServer(outStream, inStream)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case s2cErr := <-s2cErrChan:
 			if s2cErr == io.EOF {

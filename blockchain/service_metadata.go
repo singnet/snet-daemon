@@ -215,7 +215,7 @@ type Tier struct {
 }
 
 type Licenses struct {
-	Subscriptions Subscriptions `json:"subscriptions,omitempty"`
+	Subscriptions Subscriptions `json:"subscriptions"`
 	Tiers         []Tier        `json:"tiers"`
 }
 
@@ -226,7 +226,7 @@ type OrganizationGroup struct {
 	Pricing        []Pricing `json:"pricing"`
 	FreeCalls      int       `json:"free_calls"`
 	FreeCallSigner string    `json:"free_call_signer_address"`
-	Licenses       Licenses  `json:"licenses,omitempty"`
+	Licenses       Licenses  `json:"licenses"`
 	AddOns         []AddOns  `json:"addOns,omitempty"`
 }
 

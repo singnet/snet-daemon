@@ -33,7 +33,7 @@ func TestToChecksumAddress(t *testing.T) {
 func TestParseSignature(t *testing.T) {
 	t.Run("valid signature", func(t *testing.T) {
 		sig := make([]byte, 65)
-		for i := 0; i < 65; i++ {
+		for i := range 65 {
 			sig[i] = byte(i + 1)
 		}
 

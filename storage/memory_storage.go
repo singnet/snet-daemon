@@ -173,7 +173,7 @@ func (storage *MemoryStorage) ExecuteTransaction(request CASRequest) (ok bool, e
 	}
 
 	maxRetries := 100
-	for attempts := 0; attempts < maxRetries; attempts++ {
+	for range maxRetries {
 		oldValues, err := transaction.GetConditionValues()
 		if err != nil {
 			return false, err

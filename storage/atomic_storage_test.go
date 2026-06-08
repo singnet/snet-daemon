@@ -58,7 +58,7 @@ func TestConvertKeyValueDataToTyped(t *testing.T) {
 				{Key: "key1", Value: "value1", Present: true},
 			},
 			expected: []TypedKeyValueData{
-				{Key: "key1", Value: stringPtr("value1"), Present: true},
+				{Key: "key1", Value: new("value1"), Present: true},
 			},
 			expectedErr: false,
 		},
@@ -92,7 +92,7 @@ func TestConvertKeyValueDataToTyped(t *testing.T) {
 				{Key: "key3", Value: "value3", Present: true},
 			},
 			expected: []TypedKeyValueData{
-				{Key: "key1", Value: stringPtr("value1"), Present: true},
+				{Key: "key1", Value: new("value1"), Present: true},
 				{Key: "key2", Present: false},
 			},
 			expectedErr: false,
@@ -132,8 +132,10 @@ func TestConvertKeyValueDataToTyped(t *testing.T) {
 }
 
 // Helper function to create a string pointer
+//
+//go:fix inline
 func stringPtr(s string) *string {
-	return &s
+	return new(s)
 }
 
 func TestFindKeyValueByKey(t *testing.T) {

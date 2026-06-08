@@ -356,7 +356,7 @@ func (suite *EtcdTestSuite) TestEtcdMutex() {
 		assert.Nil(t, err)
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		go runWithLock(i)
 	}
 
@@ -386,7 +386,7 @@ type keyValue struct {
 }
 
 func getKeyValuesWithPrefix(keyPrefix string, valuePrefix string, count int) (keyValues []keyValue) {
-	for i := 0; i < count; i++ {
+	for i := range count {
 		key := fmt.Sprintf("%s-%d", keyPrefix, i)
 		value := fmt.Sprintf("%s-%d", valuePrefix, i)
 		keyValue := keyValue{key, value}

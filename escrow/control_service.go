@@ -3,6 +3,7 @@ package escrow
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -14,7 +15,6 @@ import (
 	"github.com/singnet/snet-daemon/v6/utils"
 
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 )
 
 type ProviderControlService struct {

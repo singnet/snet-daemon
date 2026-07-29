@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Match go.mod version
-ARG GO_VERSION=1.25.0
+ARG GO_VERSION=1.26.5
 
 FROM golang:${GO_VERSION}-alpine AS build
 WORKDIR /src
@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Optional version tag passed at build time
-ARG VERSION=6.1.0
+ARG VERSION=v6.2.2
 
 # Run your build script and copy the resulting binary to /out
 RUN chmod +x scripts/build \

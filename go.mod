@@ -158,7 +158,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pion/dtls/v3 v3.1.5 // indirect
 	github.com/pion/logging v0.2.4 // indirect
-	github.com/pion/stun/v3 v3.1.2 // indirect
+	github.com/pion/stun/v3 v3.1.5 // indirect
 	github.com/pion/transport/v4 v4.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/polydawn/refmt v0.90.0 // indirect

@@ -77,7 +77,7 @@ endif
 
 help:
 	@echo "Available make targets:"
-	@echo "  build            - Build the daemon binary, Example: make build GOOS=linux GOARCH=amd64 VERSION=v6.2.2"
+	@echo "  build            - Build the daemon binary, Example: make build GOOS=linux GOARCH=amd64 VERSION=v6.2.3"
 	@echo "  release          - Build release version"
 	@echo "  run              - Run the daemon locally"
 	@echo "  build_in_docker  - Build the daemon inside Docker"

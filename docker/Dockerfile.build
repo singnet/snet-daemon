@@ -14,7 +14,7 @@ COPY . .
 
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
-ARG VERSION=v6.2.2
+ARG VERSION=v6.2.3
 
 RUN chmod +x scripts/build \
  && ./scripts/build "${TARGETOS}" "${TARGETARCH}" "${VERSION}" \

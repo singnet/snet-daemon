@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Optional version tag passed at build time
-ARG VERSION=v6.2.2
+ARG VERSION=v6.2.3
 
 # Run your build script and copy the resulting binary to /out
 RUN chmod +x scripts/build \

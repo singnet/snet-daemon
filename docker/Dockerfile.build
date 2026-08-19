@@ -21,5 +21,5 @@ RUN chmod +x scripts/build \
  && mkdir -p /out \
  && cp "build/snetd-${TARGETOS}-${TARGETARCH}-${VERSION}" /out/snetd
 
-FROM alpine:3.20
+FROM alpine:3.24
 COPY --from=build /out/snetd /out/snetd

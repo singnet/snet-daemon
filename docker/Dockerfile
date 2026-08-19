@@ -26,7 +26,7 @@ RUN chmod +x scripts/build \
  && cp "build/snetd-${TARGETOS:-linux}-${TARGETARCH:-amd64}-${VERSION}" /out/snetd
 
 # Runtime
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 snet
 WORKDIR /app
 

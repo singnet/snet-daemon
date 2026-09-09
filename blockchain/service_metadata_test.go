@@ -142,3 +142,50 @@ func TestServiceMetadata_addOns(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.Equal(t, metadata.Groups[0].AddOns[0].DiscountInPercentage, 4.0)
 }
+
+func TestIsModelTraining(t *testing.T) {
+	metaData := &ServiceMetadata{TrainingMethods: []string{"/example_service.Calculator/train_add"}}
+
+	config.Vip().Set(config.ModelTrainingEnabled, true)
+	defer config.Vip().Set(config.ModelTrainingEnabled, false)
+
+	assert.True(t, metaData.IsModelTraining("/example_service.Calculator/train_add"))
+	assert.False(t, metaData.IsModelTraining("/example_service.Calculator/add"))
+
+	config.Vip().Set(config.ModelTrainingEnabled, false)
+	assert.False(t, metaData.IsModelTraining("/example_service.Calculator/train_add"))
+}
+
+func TestGetDynamicPricingMethodAssociated(t *testing.T) {
+	metaData := &ServiceMetadata{
+		DynamicPriceMethodMapping: map[string]string{
+			"/example_service.Calculator/add": "/example_service.Calculator/dynamic_pricing_add",
+		},
+	}
+
+	config.Vip().Set(config.EnableDynamicPricing, true)
+	defer config.Vip().Set(config.EnableDynamicPricing, false)
+
+	pricingMethod, ok := metaData.GetDynamicPricingMethodAssociated("/example_service.Calculator/add")
+	assert.True(t, ok)
+	assert.Equal(t, "/example_service.Calculator/dynamic_pricing_add", pricingMethod)
+
+	_, ok = metaData.GetDynamicPricingMethodAssociated("/example_service.Calculator/sub")
+	assert.False(t, ok)
+
+	config.Vip().Set(config.EnableDynamicPricing, false)
+	_, ok = metaData.GetDynamicPricingMethodAssociated("/example_service.Calculator/add")
+	assert.False(t, ok)
+}
+
+func TestServiceMetaData_BlockchainDisabled(t *testing.T) {
+	config.Vip().Set(config.BlockchainEnabledKey, false)
+	defer config.Vip().Set(config.BlockchainEnabledKey, true)
+
+	metadata := ServiceMetaData()
+
+	assert.NotNil(t, metadata)
+	assert.Equal(t, "proto", metadata.Encoding)
+	assert.Equal(t, "grpc", metadata.ServiceType)
+	assert.Equal(t, "grpc", metadata.GetServiceType())
+}

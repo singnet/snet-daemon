@@ -1,0 +1,54 @@
+# This file configures github.com/golangci/golangci-lint.
+
+run:
+  concurrency: 4
+  timeout: 5m
+  tests: false
+  issues-exit-code: 3
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+
+linters:
+  disable-all: true
+  enable:
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - unconvert
+    - typecheck
+    - staticcheck
+    - bidichk
+    - durationcheck
+    #    - errcheck
+    #    - unused
+    #    - goconst
+    #    - noctx
+    #    - whitespace
+    - revive # only certain checks enabled
+
+linters-settings:
+  gofmt:
+    simplify: true
+  revive:
+    enable-all-rules: false
+    # here we enable specific useful rules
+    # see https://golangci-lint.run/usage/linters/#revive for supported rules
+    rules:
+      - name: receiver-naming
+        severity: warning
+        disabled: false
+        exclude: [ "" ]
+
+issues:
+  exclude-dirs-use-default: true
+  exclude-dirs:
+    - bin
+    - build
+    - \.git
+  exclude-files:
+    - ".pb"
+  exclude-rules:
+    - linters:
+        - lll
+      source: "^//go:generate "

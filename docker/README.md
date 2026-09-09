@@ -16,7 +16,7 @@ Common build-time arguments (defaults):
 
 | Arg | Default | Notes |
 | --- | --- | --- |
-| `GO_VERSION` | `1.26.5` | Pinned to the version declared in `go.mod`. |
+| `GO_VERSION` | `1.27.1` | Pinned to the version declared in `go.mod`. |
 | `VERSION` | `v6.2.3` | Version tag passed to the build script / GitHub release URL. |
 | `TARGETOS` | `linux` | Target GOOS. |
 | `TARGETARCH` | `amd64` | Target GOARCH. |

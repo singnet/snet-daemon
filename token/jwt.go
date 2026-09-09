@@ -67,7 +67,7 @@ func (service customJWTokenServiceImpl) VerifyToken(receivedToken CustomToken, p
 
 func (service customJWTokenServiceImpl) checkJwtTokenClaims(claims jwt.MapClaims, payload PayLoad) (err error) {
 	if strings.Compare(fmt.Sprintf("%v", claims["payload"]), fmt.Sprintf("%v", payload)) != 0 {
-		return fmt.Errorf("payload %v used to generate the Token doesnt match expected values", claims["payload"])
+		return fmt.Errorf("payload %v used to generate the token doesn't match expected values", claims["payload"])
 	}
 
 	if strings.Compare(fmt.Sprintf("%v", claims["orgId"]), config.GetString(config.OrganizationId)) != 0 {

@@ -39,7 +39,7 @@ func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
 	config.Vip().Set(config.TokenExpiryInMinutes, 1)
 	token, err := tokenImpl.CreateToken("any struct", "0x")
 	_, err = tokenImpl.VerifyToken(token, "different struct")
-	assert.Equal(t, "payload any struct used to generate the Token doesnt match expected values", err.Error())
+	assert.Equal(t, "payload any struct used to generate the token doesn't match expected values", err.Error())
 	config.Vip().Set(config.OrganizationId, "differentOrganization")
 	_, err = tokenImpl.VerifyToken(token, "any struct")
 	assert.Equal(t, "organization YOUR_ORG_ID is not associated with this Daemon", err.Error())
@@ -79,7 +79,7 @@ func Test_customJWTokenServiceImpl_checkJwtTokenClaims(t *testing.T) {
 	// invalid payload
 	claims = createClaims("payload1", "Org1", "GroupID")
 	err = tokenImpl.checkJwtTokenClaims(claims, "payload2")
-	assert.EqualError(t, err, "payload payload1 used to generate the Token doesnt match expected values")
+	assert.EqualError(t, err, "payload payload1 used to generate the token doesn't match expected values")
 
 	// invalid orgId
 	claims = createClaims("payload1", "Org2", "GroupID")

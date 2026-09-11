@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Match go.mod version
-ARG GO_VERSION=1.26.5
+ARG GO_VERSION=1.27.1
 
 FROM golang:${GO_VERSION}-alpine AS build
 WORKDIR /src
@@ -26,7 +26,7 @@ RUN chmod +x scripts/build \
  && cp "build/snetd-${TARGETOS:-linux}-${TARGETARCH:-amd64}-${VERSION}" /out/snetd
 
 # Runtime
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 snet
 WORKDIR /app
 

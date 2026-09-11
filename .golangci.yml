@@ -1,54 +1,63 @@
-# This file configures github.com/golangci/golangci-lint.
-
+version: "2"
 run:
   concurrency: 4
-  timeout: 5m
-  tests: false
-  issues-exit-code: 3
   modules-download-mode: readonly
+  issues-exit-code: 3
+  tests: false
   allow-parallel-runners: true
-
 linters:
-  disable-all: true
+  default: none
   enable:
-    - gosimple
+    - bidichk
+    - durationcheck
     - govet
     - ineffassign
     - misspell
-    - unconvert
-    - typecheck
+    - revive
     - staticcheck
-    - bidichk
-    - durationcheck
-    #    - errcheck
-    #    - unused
-    #    - goconst
-    #    - noctx
-    #    - whitespace
-    - revive # only certain checks enabled
-
-linters-settings:
-  gofmt:
-    simplify: true
-  revive:
-    enable-all-rules: false
-    # here we enable specific useful rules
-    # see https://golangci-lint.run/usage/linters/#revive for supported rules
+    - unconvert
+  settings:
+    staticcheck:
+      # keep v1 behavior (staticcheck SA + gosimple S checks only),
+      # exclude stylecheck (ST) and quickfix (QF) checks absorbed by staticcheck in v2
+      checks:
+        - all
+        - -ST*
+        - -QF*
+    revive:
+      enable-all-rules: false
+      rules:
+        - name: receiver-naming
+          severity: warning
+          disabled: false
+          exclude:
+            - ""
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: receiver-naming
-        severity: warning
-        disabled: false
-        exclude: [ "" ]
-
-issues:
-  exclude-dirs-use-default: true
-  exclude-dirs:
-    - bin
-    - build
-    - \.git
-  exclude-files:
-    - ".pb"
-  exclude-rules:
-    - linters:
-        - lll
-      source: "^//go:generate "
+      - linters:
+          - lll
+        source: '^//go:generate '
+    paths:
+      - .pb
+      - bin
+      - build
+      - \.git
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  settings:
+    gofmt:
+      simplify: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

@@ -52,7 +52,7 @@ message PaymentReply {
 
     bytes signed_amount = 3;
 
-    //this filed must be OMITED in GetListUnclaimed request
+    //this field must be OMITTED in GetListUnclaimed request
     bytes signature = 4;
 
     //indicative of the Channel Expiry in block number

@@ -162,17 +162,22 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 		serviceHeartbeatBytes, err = callHTTPServiceHeartbeat(serviceHeartbeatURL)
 		heartbeat.ServiceHeartbeat = string(serviceHeartbeatBytes)
 		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("serviceHeartbeatBytes", string(serviceHeartbeatBytes)), zap.Error(err))
-	case "none":
-		fallthrough
 	case "tcp":
-		fallthrough
-	case "":
-		// trying to ping the service with serviceEndpoint
+		// Explicit TCP heartbeat: dial the service endpoint.
 		err = tcpPingService(serviceEndpoint)
 		zap.L().Debug("Get heartbeat [tcpPingService]", zap.String("serviceEndpoint", serviceEndpoint), zap.Error(err))
+	case "none", "":
+		// No heartbeat configured. Do not claim Online from a TCP accept —
+		// a wedged process can still accept connections. Report Warning so
+		// consumers can tell "verified" from "unchecked".
+		heartbeat.Status = Warning.String()
+		zap.L().Debug("heartbeat not configured; not claiming Online via TCP accept",
+			zap.String("heartbeatType", heartbeatType),
+			zap.String("serviceEndpoint", serviceEndpoint))
 	}
 
-	if err == nil {
+	// "none"/"" already set Warning above; only promote Online when a real check succeeded.
+	if err == nil && heartbeatType != "none" && heartbeatType != "" {
 		curResp.Status = "SERVING"
 		heartbeat.Status = Online.String()
 	}

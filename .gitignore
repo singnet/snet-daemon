@@ -2,6 +2,9 @@
 .idea/
 .vscode
 
+# local agent instructions
+/AGENTS.md
+
 # cache and deps
 resources/blockchain/package-lock.json
 resources/blockchain/node_modules/

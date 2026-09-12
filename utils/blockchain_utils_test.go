@@ -14,9 +14,8 @@ func TestBytesToBase64(t *testing.T) {
 }
 
 func TestConvertBase64Encoding(t *testing.T) {
-	if _, err := ConvertBase64Encoding("n@@###zNEetD1kzU3PZqR4nHPS8erDkrUK0hN4iCBQ4vH5U"); err != nil {
-		assert.Equal(t, err.Error(), "illegal base64 data at input byte 1")
-	}
+	_, err := ConvertBase64Encoding("n@@###zNEetD1kzU3PZqR4nHPS8erDkrUK0hN4iCBQ4vH5U")
+	assert.EqualError(t, err, "illegal base64 data at input byte 1")
 }
 
 func TestToChecksumAddressStr(t *testing.T) {

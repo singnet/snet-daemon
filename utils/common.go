@@ -48,14 +48,7 @@ func GetAddressFromPrivateKeyECDSA(privateKeyECDSA *ecdsa.PrivateKey) common.Add
 	if privateKeyECDSA == nil {
 		return common.Address{}
 	}
-	publicKey := privateKeyECDSA.Public()
-	if publicKey == nil {
-		return common.Address{}
-	}
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok || publicKeyECDSA == nil {
-		return common.Address{}
-	}
+	publicKeyECDSA := &privateKeyECDSA.PublicKey
 	if publicKeyECDSA.X == nil || publicKeyECDSA.Y == nil {
 		return common.Address{}
 	}

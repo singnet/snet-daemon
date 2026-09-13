@@ -2,11 +2,13 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSerializeDeserialize(t *testing.T) {
@@ -141,6 +143,48 @@ func TestIsURLValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsURLValid(tt.endpoint)
 			assert.Equal(t, tt.expected, result, "endpoint: %s", tt.endpoint)
+		})
+	}
+}
+
+func TestSerializeReturnsErrorForUnsupportedValue(t *testing.T) {
+	serialized, err := Serialize(make(chan int))
+
+	require.Error(t, err)
+	require.Empty(t, serialized)
+}
+
+func TestGetAddressFromPrivateKeyRejectsMissingCoordinate(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		public ecdsa.PublicKey
+	}{
+		{name: "missing X", public: ecdsa.PublicKey{Curve: crypto.S256(), Y: big.NewInt(1)}},
+		{name: "missing Y", public: ecdsa.PublicKey{Curve: crypto.S256(), X: big.NewInt(1)}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			key := &ecdsa.PrivateKey{PublicKey: test.public}
+			require.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(key))
+		})
+	}
+}
+
+func TestDeserializeRejectsMalformedDataAndInvalidDestination(t *testing.T) {
+	serialized, err := Serialize("value")
+	require.NoError(t, err)
+	for _, test := range []struct {
+		name        string
+		data        string
+		destination any
+	}{
+		{name: "empty data", destination: new(string)},
+		{name: "malformed data", data: "not gob", destination: new(string)},
+		{name: "truncated data", data: serialized[:len(serialized)-1], destination: new(string)},
+		{name: "wrong type", data: serialized, destination: new(int)},
+		{name: "non-pointer destination", data: serialized, destination: "value"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			require.Error(t, Deserialize(test.data, test.destination))
 		})
 	}
 }

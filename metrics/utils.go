@@ -152,15 +152,17 @@ func checkForSuccessfulResponse(response *http.Response) (status bool, retry boo
 		zap.L().Warn("Empty response received.")
 		return false, false
 	}
+	if response.Body != nil {
+		defer response.Body.Close()
+	}
 	if response.StatusCode != http.StatusOK {
 		zap.L().Warn("Service call failed", zap.Int("StatusCode", response.StatusCode))
 		//if response returned was forbidden error, then re register Daemon with a fresh token and submit the request / response
 		//again ONLY if the Daemon was registered successfully
 
 		return false, false
-	} //close the body
+	}
 	zap.L().Debug("Metrics posted successfully", zap.Int("StatusCode", response.StatusCode))
-	defer response.Body.Close()
 	return true, false
 }
 

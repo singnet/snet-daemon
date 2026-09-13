@@ -1,19 +1,115 @@
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/singnet/snet-daemon/v6/config"
 )
+
+func TestEncoderFormatsTimeAndFields(t *testing.T) {
+	for _, tc := range []struct{ name, layout, zone, wantTime string }{
+		{"default UTC", "", "UTC", "2024-01-02T03:04:05Z"},
+		{"custom UTC", "2006/01/02 15:04", "UTC", "2024/01/02 03:04"},
+		{"local offset", "", "America/New_York", "2024-01-01T22:04:05-05:00"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setupConfig(t)
+			vip.Set(LogTimestampFormatKey, tc.layout)
+			vip.Set(LogTimezoneKey, tc.zone)
+			vip.Set(LogOutputTypeKey, []string{"file"})
+			cfg, err := createEncoderConfig()
+			require.NoError(t, err)
+			encoder, err := createEncoder(cfg)
+			require.NoError(t, err)
+			encoded, err := encoder.EncodeEntry(zapcore.Entry{
+				Time: time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC), Level: zap.WarnLevel,
+				Message: "test message", Caller: zapcore.EntryCaller{Defined: true, File: "/src/daemon.go", Line: 42},
+			}, []zap.Field{zap.Duration("elapsed", 1500*time.Millisecond), zap.String("request", "abc")})
+			require.NoError(t, err)
+			defer encoded.Free()
+			var fields map[string]any
+			require.NoError(t, json.Unmarshal(encoded.Bytes(), &fields))
+			require.Equal(t, tc.wantTime, fields["ts"])
+			require.Equal(t, "WARN", fields["level"])
+			require.Equal(t, "/src/daemon.go:42", fields["caller"])
+			require.Equal(t, "test message", fields["msg"])
+			require.Equal(t, "1.5s", fields["elapsed"])
+			require.Equal(t, "abc", fields["request"])
+		})
+	}
+}
+
+func TestAdditionalLogLevels(t *testing.T) {
+	for name, want := range map[string]zapcore.Level{"warning": zap.WarnLevel, "fatal": zap.FatalLevel} {
+		level, err := getLoggerLevel(name)
+		require.NoError(t, err)
+		require.Equal(t, want, level)
+	}
+}
+
+func TestWriterCurrentLink(t *testing.T) {
+	setupConfig(t)
+	dir := t.TempDir()
+	probe := filepath.Join(dir, "probe")
+	if err := os.Symlink(filepath.Join(dir, "target"), probe); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("Windows does not permit symlinks: %v", err)
+		}
+		require.NoError(t, err)
+	}
+	require.NoError(t, os.Remove(probe))
+	link := filepath.Join(dir, "current.log")
+	vip.Set(LogOutputTypeKey, []string{"file"})
+	vip.Set(LogOutputCurrentLinkKey, link)
+	for _, name := range []string{"first.log", "second.log"} {
+		target := filepath.Join(dir, name)
+		vip.Set(LogOutputFilePatternKey, target)
+		writer, err := createWriterSyncer()
+		require.NoError(t, err)
+		require.NotNil(t, writer)
+		actual, err := os.Readlink(link)
+		require.NoError(t, err)
+		require.Equal(t, target, actual)
+	}
+}
+
+func TestWriterLinkErrors(t *testing.T) {
+	for _, scenario := range []string{"missing parent", "nonempty directory"} {
+		t.Run(scenario, func(t *testing.T) {
+			setupConfig(t)
+			dir := t.TempDir()
+			link := filepath.Join(dir, "missing", "current.log")
+			wantError := "failed to create symlink"
+			if scenario == "nonempty directory" {
+				link = filepath.Join(dir, "existing")
+				require.NoError(t, os.Mkdir(link, 0700))
+				require.NoError(t, os.WriteFile(filepath.Join(link, "keep"), []byte("keep"), 0600))
+				wantError = "failed to remove existing symlink"
+			}
+			vip.Set(LogOutputTypeKey, []string{"file"})
+			vip.Set(LogOutputCurrentLinkKey, link)
+			writer, err := createWriterSyncer()
+			require.ErrorContains(t, err, wantError)
+			require.Nil(t, writer)
+			if scenario == "nonempty directory" {
+				data, err := os.ReadFile(filepath.Join(link, "keep"))
+				require.NoError(t, err)
+				require.Equal(t, "keep", string(data))
+			}
+		})
+	}
+}
 
 const defaultLogConfigJSON = `
 	{
@@ -35,13 +131,16 @@ const defaultLogConfigJSON = `
 
 var vip *viper.Viper
 
-func setupConfig() {
+func setupConfig(t *testing.T) {
+	t.Helper()
+	oldConfig, oldVip, oldLogger := config.Vip(), vip, zap.L()
+	t.Cleanup(func() { config.SetVip(oldConfig); vip = oldVip; zap.ReplaceGlobals(oldLogger) })
 	vip = viper.New()
 	vip.SetEnvPrefix("SNET")
 	vip.AutomaticEnv()
 
 	defaults := viper.New()
-	err := config.ReadConfigFromJsonString(defaults, defaultLogConfigJSON)
+	err := config.ReadConfigFromJsonString(defaults, `{"log":`+defaultLogConfigJSON+`}`)
 	if err != nil {
 		panic(fmt.Sprintf("Cannot load default config: %v", err))
 	}
@@ -50,32 +149,9 @@ func setupConfig() {
 	vip.AddConfigPath(".")
 
 	config.SetVip(vip)
-}
-
-func TestMain(m *testing.M) {
-	result := m.Run()
-
-	removeLogFiles("/tmp/snet-daemon*.log")
-	removeLogFiles("/tmp/file-rotatelogs-test.*.log")
-
-	os.Exit(result)
-}
-
-func removeLogFiles(pattern string) {
-	var err error
-	var files []string
-
-	files, err = filepath.Glob(pattern)
-	if err != nil {
-		fmt.Printf("\nWarn:Cannot find files using pattern: %v", err)
-	}
-
-	for _, file := range files {
-		err = os.Remove(file)
-		if err != nil {
-			fmt.Printf("\nWarn:Cannot remove file: %v, error: %v", file, err)
-		}
-	}
+	vip.Set(LogOutputTypeKey, []string{"stdout"})
+	vip.Set(LogOutputCurrentLinkKey, "")
+	vip.Set(LogOutputFilePatternKey, filepath.Join(t.TempDir(), "daemon.%Y%m%d.log"))
 }
 
 type testGetLocationTimezone struct {
@@ -85,7 +161,7 @@ type testGetLocationTimezone struct {
 }
 
 func TestGetLocationTimezone(t *testing.T) {
-	setupConfig()
+	setupConfig(t)
 
 	testCases := []testGetLocationTimezone{
 		{
@@ -129,7 +205,7 @@ type encoderConfigTestCase struct {
 }
 
 func TestCreateEncoderConfig(t *testing.T) {
-	setupConfig()
+	setupConfig(t)
 
 	testCases := []encoderConfigTestCase{
 		{
@@ -155,9 +231,7 @@ func TestCreateEncoderConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			vip.Set(LogTimezoneKey, tc.timezone)
-			if tc.timeStampFormat != "" {
-				vip.Set(LogTimestampFormatKey, tc.timeStampFormat)
-			}
+			vip.Set(LogTimestampFormatKey, tc.timeStampFormat)
 
 			encoderConfig, err := createEncoderConfig()
 
@@ -179,7 +253,7 @@ type loggerEncoderTestCases struct {
 }
 
 func TestGetLoggerEncoder(t *testing.T) {
-	setupConfig()
+	setupConfig(t)
 
 	testCases := []loggerEncoderTestCases{
 		{
@@ -322,7 +396,7 @@ type createWriterSyncerTestCases struct {
 }
 
 func TestCreateWriterSyncer(t *testing.T) {
-	setupConfig()
+	setupConfig(t)
 
 	testCases := []createWriterSyncerTestCases{
 		{
@@ -365,7 +439,7 @@ func TestCreateWriterSyncer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			vip.Set(LogOutputTypeKey, tc.outputType)
-			vip.Set(LogOutputFilePatternKey, tc.filePatternName)
+			vip.Set(LogOutputFilePatternKey, filepath.Join(t.TempDir(), filepath.Base(tc.filePatternName)))
 			ws, err := createWriterSyncer()
 
 			if tc.expectedError != "" {
@@ -379,99 +453,28 @@ func TestCreateWriterSyncer(t *testing.T) {
 	}
 }
 
-type configTestCase struct {
-	name        string
-	config      map[string]any
-	expectPanic bool
-	expectedLog *zap.Logger
-}
-
 func TestInitialize(t *testing.T) {
-	// Setup default configuration once
-	setupConfig()
-
-	testCases := []configTestCase{
-		{
-			name: "Valid config",
-			config: map[string]any{
-				"log.level":                      "info",
-				"log.timezone":                   "UTC",
-				"log.formatter.type":             "json",
-				"log.formatter.timestamp_format": "UTC",
-				"log.output.type":                []string{"file", "stdout"},
-				"log.output.file_pattern":        "/tmp/snet-daemon.%Y%m%d.log",
-				"log.output.current_link":        "/tmp/snet-daemon.log",
-				"log.output.max_size_in_mb":      86400,
-				"log.output.max_age_in_days":     604800,
-				"log.output.rotation_count":      0,
-			},
-			expectPanic: false,
-			expectedLog: zap.L(),
-		},
-		{
-			name: "Invalid config - invalid level",
-			config: map[string]any{
-				"log.level":                      "INVALID",
-				"log.timezone":                   "UTC",
-				"log.formatter.type":             "json",
-				"log.formatter.timestamp_format": "UTC",
-				"log.output.type":                "file",
-				"log.output.file_pattern":        "/tmp/snet-daemon.%Y%m%d.log",
-				"log.output.current_link":        "/tmp/snet-daemon.log",
-				"log.output.max_size_in_mb":      86400,
-				"log.output.max_age_in_days":     604800,
-				"log.output.rotation_count":      0,
-			},
-			expectPanic: true,
-		},
-		{
-			name: "Invalid config - invalid formatter type",
-			config: map[string]any{
-				"log.level":                      "info",
-				"log.timezone":                   "UTC",
-				"log.formatter.type":             "INVALID",
-				"log.formatter.timestamp_format": "UTC",
-				"log.output.type":                "file",
-				"log.output.file_pattern":        "/tmp/snet-daemon.%Y%m%d.log",
-				"log.output.current_link":        "/tmp/snet-daemon.log",
-				"log.output.max_size_in_mb":      86400,
-				"log.output.max_age_in_days":     604800,
-				"log.output.rotation_count":      0,
-			},
-			expectPanic: true,
-		},
-		{
-			name: "Invalid config - invalid output type",
-			config: map[string]any{
-				"log.level":                      "info",
-				"log.timezone":                   "UTC",
-				"log.formatter.type":             "json",
-				"log.formatter.timestamp_format": "UTC",
-				"log.output.type":                []string{"INVALID"},
-				"log.output.file_pattern":        "/tmp/snet-daemon.%Y%m%d.log",
-				"log.output.current_link":        "/tmp/snet-daemon.log",
-				"log.output.max_size_in_mb":      86400,
-				"log.output.max_age_in_days":     604800,
-				"log.output.rotation_count":      0,
-			},
-			expectPanic: true,
-		},
-	}
-
-	for _, tc := range testCases {
+	for _, tc := range []struct {
+		name, key string
+		value     any
+		wantPanic string
+	}{
+		{"valid", LogLevelKey, "info", ""},
+		{"invalid level", LogLevelKey, "INVALID", "failed to get logger level"},
+		{"invalid timezone", LogTimezoneKey, "INVALID", "failed to create encoder config"},
+		{"invalid formatter", LogFormatterTypeKey, "INVALID", "failed to get encoder"},
+		{"invalid output", LogOutputTypeKey, []string{"INVALID"}, "failed to get logger writer"},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up the configuration for each test case
-			for key, value := range tc.config {
-				vip.Set(key, value)
-			}
-
-			if tc.expectPanic {
-				assert.Panics(t, func() {
-					Initialize()
-				}, "expected panic but did not get one")
+			setupConfig(t)
+			vip.Set(tc.key, tc.value)
+			if tc.wantPanic != "" {
+				defer func() { r := recover(); assert.NotNil(t, r); assert.Contains(t, fmt.Sprint(r), tc.wantPanic) }()
+				Initialize()
 			} else {
 				Initialize()
-				assert.NotNil(t, zap.L(), "Logger should not be nil")
+				assert.True(t, zap.L().Core().Enabled(zap.InfoLevel))
+				assert.False(t, zap.L().Core().Enabled(zap.DebugLevel))
 			}
 		})
 	}

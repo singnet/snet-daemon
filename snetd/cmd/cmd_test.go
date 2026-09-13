@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -312,5 +313,46 @@ func TestComponentsCloseNilFields(t *testing.T) {
 	components := &Components{}
 	assert.NotPanics(t, func() {
 		components.Close()
+	})
+}
+
+type testRunAndCleanupCommand struct {
+	name string
+}
+
+func (c *testRunAndCleanupCommand) Run() error { return nil }
+
+func TestNewListVersionCommand(t *testing.T) {
+	command, err := newListVersionCommand(nil, nil, &Components{})
+	require.NoError(t, err)
+	require.NotNil(t, command)
+	_, ok := command.(*ListVersionCommand)
+	assert.True(t, ok)
+}
+
+func TestRunAndCleanup(t *testing.T) {
+	t.Run("constructor error is propagated", func(t *testing.T) {
+		expected := fmt.Errorf("constructor error")
+		cmd := &cobra.Command{}
+		cmd.Flags().String("config", "snetd.config.json", "")
+
+		err := RunAndCleanup(cmd, nil, func(cmd *cobra.Command, args []string, components *Components) (Command, error) {
+			return nil, expected
+		})
+		assert.Equal(t, expected, err)
+	})
+
+	t.Run("runs command with constructed components", func(t *testing.T) {
+		ran := false
+		cmd := &cobra.Command{}
+		cmd.Flags().String("config", "snetd.config.json", "")
+
+		err := RunAndCleanup(cmd, nil, func(cmd *cobra.Command, args []string, components *Components) (Command, error) {
+			assert.NotNil(t, components)
+			ran = true
+			return &testRunAndCleanupCommand{name: "stub"}, nil
+		})
+		assert.NoError(t, err)
+		assert.True(t, ran)
 	})
 }

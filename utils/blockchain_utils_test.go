@@ -2,10 +2,12 @@ package utils
 
 import (
 	"bytes"
+	"encoding/base64"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBytesToBase64(t *testing.T) {
@@ -99,4 +101,23 @@ func TestMakeTopicFilterer(t *testing.T) {
 		assert.Len(t, filter, 1)
 		assert.Equal(t, [32]byte{}, filter[0])
 	})
+}
+
+func TestBlockchainConversionHelpers(t *testing.T) {
+	address := common.HexToAddress("0x00000000000000000000000000000000000000ab")
+	require.Equal(t, address.Hex(), AddressToHex(&address))
+	require.Equal(t, []byte{0xde, 0xad, 0xbe, 0xef}, HexToBytes("0xdeadbeef"))
+	require.Equal(t, address, HexToAddress(address.Hex()))
+
+	expectedBytes32 := [32]byte{}
+	copy(expectedBytes32[:], "group-id")
+	require.Equal(t, expectedBytes32, StringToBytes32("group-id"))
+
+	raw := make([]byte, 32)
+	for index := range raw {
+		raw[index] = byte(index)
+	}
+	decoded, err := ConvertBase64Encoding(base64.StdEncoding.EncodeToString(raw))
+	require.NoError(t, err)
+	require.Equal(t, [32]byte(raw), decoded)
 }

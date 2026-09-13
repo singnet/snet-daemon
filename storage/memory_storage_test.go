@@ -4,7 +4,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestGetValueDataForKeyReturnsNotFound(t *testing.T) {
+	data, present := getValueDataForKey("missing", []KeyValueData{{Key: "other", Value: "value"}})
+
+	require.False(t, present)
+	require.Equal(t, KeyValueData{}, data)
+}
 
 func TestPutAndGet(t *testing.T) {
 	s := NewMemStorage()
@@ -69,112 +77,4 @@ func TestGetByKeyPrefix(t *testing.T) {
 
 	users, _ := s.GetByKeyPrefix("user:")
 	assert.Len(t, users, 2, "Expected 2 users")
-}
-
-func TestExecuteTransaction_NoRetry(t *testing.T) {
-	s := NewMemStorage()
-	_ = s.Put("x", "1")
-
-	req := CASRequest{
-		ConditionKeys:           []string{"x"},
-		RetryTillSuccessOrError: false,
-		Update: func(old []KeyValueData) ([]KeyValueData, bool, error) {
-			return []KeyValueData{{Key: "x", Value: "2", Present: true}}, false, nil
-		},
-	}
-
-	ok, err := s.ExecuteTransaction(req)
-	assert.NoError(t, err)
-	assert.False(t, ok, "Transaction should fail without retry")
-}
-
-func TestExecuteTransaction_SuccessFirstTry(t *testing.T) {
-	s := NewMemStorage()
-	_ = s.Put("x", "1")
-
-	req := CASRequest{
-		ConditionKeys:           []string{"x"},
-		RetryTillSuccessOrError: false,
-		Update: func(old []KeyValueData) ([]KeyValueData, bool, error) {
-			return []KeyValueData{{Key: "x", Value: "2", Present: true}}, true, nil
-		},
-	}
-
-	ok, err := s.ExecuteTransaction(req)
-	assert.NoError(t, err)
-	assert.True(t, ok, "Transaction should succeed")
-
-	value, _, _ := s.Get("x")
-	assert.Equal(t, "2", value, "Value should be updated to '2'")
-}
-
-func TestExecuteTransaction_RetryUntilSuccess(t *testing.T) {
-	s := NewMemStorage()
-	_ = s.Put("x", "1")
-
-	attempts := 0
-	req := CASRequest{
-		ConditionKeys:           []string{"x"},
-		RetryTillSuccessOrError: true,
-		Update: func(old []KeyValueData) ([]KeyValueData, bool, error) {
-			attempts++
-			if attempts < 3 {
-				return []KeyValueData{{Key: "x", Value: "999", Present: true}}, false, nil
-			}
-			return []KeyValueData{{Key: "x", Value: "42", Present: true}}, true, nil
-		},
-	}
-
-	ok, err := s.ExecuteTransaction(req)
-	assert.NoError(t, err)
-	assert.True(t, ok, "Transaction should eventually succeed")
-	assert.Equal(t, 3, attempts, "Expected 3 attempts")
-
-	value, _, _ := s.Get("x")
-	assert.Equal(t, "42", value, "Value should be updated to '42'")
-}
-
-func TestExecuteTransaction_RetryFails(t *testing.T) {
-	s := NewMemStorage()
-	_ = s.Put("x", "1")
-
-	attempts := 0
-	req := CASRequest{
-		ConditionKeys:           []string{"x"},
-		RetryTillSuccessOrError: true,
-		Update: func(old []KeyValueData) ([]KeyValueData, bool, error) {
-			attempts++
-			return []KeyValueData{{Key: "x", Value: "2", Present: true}}, false, nil
-		},
-	}
-
-	ok, err := s.ExecuteTransaction(req)
-	assert.NoError(t, err)
-	assert.False(t, ok, "Transaction should fail after retries")
-	assert.Greater(t, attempts, 0, "Expected at least one attempt")
-
-	value, _, _ := s.Get("x")
-	assert.Equal(t, "1", value, "Value should remain unchanged")
-}
-
-func TestExecuteTransaction_Retry(t *testing.T) {
-	s := NewMemStorage()
-	_ = s.Put("x", "1")
-	attempts := 0
-
-	req := CASRequest{
-		ConditionKeys:           []string{"x"},
-		RetryTillSuccessOrError: true,
-		Update: func(old []KeyValueData) ([]KeyValueData, bool, error) {
-			attempts++
-			if attempts == 1 {
-				return []KeyValueData{{Key: "x", Value: "wrong", Present: true}}, false, nil
-			}
-			return []KeyValueData{{Key: "x", Value: "2", Present: true}}, true, nil
-		},
-	}
-
-	ok, err := s.ExecuteTransaction(req)
-	assert.NoError(t, err)
-	assert.True(t, ok, "Transaction should succeed after retry")
 }

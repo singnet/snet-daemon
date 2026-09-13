@@ -1,14 +1,162 @@
 package ipfsutils
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/ipfs/kubo/client/rpc"
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-
-	_ "github.com/singnet/snet-daemon/v6/config"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
+
+func init() {
+	zap.ReplaceGlobals(zap.New(zapcore.NewNopCore()))
+}
+
+func withTestConfig(t *testing.T, overrides map[string]string) {
+	t.Helper()
+	originals := make(map[string]string)
+	for k := range overrides {
+		originals[k] = config.GetString(k)
+	}
+	for k, v := range overrides {
+		config.Vip().Set(k, v)
+	}
+	t.Cleanup(func() {
+		for k, v := range originals {
+			config.Vip().Set(k, v)
+		}
+	})
+}
+
+func startMockServer(handler http.HandlerFunc) *httptest.Server {
+	ts := httptest.NewServer(handler)
+	return ts
+}
+
+func TestGetIpfsFile_InvalidHash(t *testing.T) {
+	withTestConfig(t, map[string]string{config.IpfsEndpoint: "http://127.0.0.1:1"})
+
+	data, err := GetIpfsFile("not-a-valid-cid")
+	assert.Error(t, err)
+	assert.Nil(t, data)
+}
+
+func TestGetIpfsFile_SendError(t *testing.T) {
+	withTestConfig(t, map[string]string{
+		config.IpfsEndpoint: "http://127.0.0.1:1",
+		config.IpfsTimeout:  "1",
+	})
+
+	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
+	assert.Error(t, err)
+	assert.Nil(t, data)
+}
+
+func TestGetIpfsFile_ServerError(t *testing.T) {
+	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("command not found"))
+	})
+	defer ts.Close()
+
+	withTestConfig(t, map[string]string{
+		config.IpfsEndpoint: ts.URL,
+		config.IpfsTimeout:  "10",
+	})
+
+	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
+	assert.Nil(t, data)
+	assert.Nil(t, err)
+}
+
+func TestGetIpfsFile_ServerJSONError(t *testing.T) {
+	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"Message":"internal error","Code":1}`))
+	})
+	defer ts.Close()
+
+	withTestConfig(t, map[string]string{
+		config.IpfsEndpoint: ts.URL,
+		config.IpfsTimeout:  "10",
+	})
+
+	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
+	assert.Nil(t, data)
+	assert.Nil(t, err)
+}
+
+func TestGetIpfsFile_Success(t *testing.T) {
+	content := []byte("IPFS file content")
+	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write(content)
+	})
+	defer ts.Close()
+
+	withTestConfig(t, map[string]string{
+		config.IpfsEndpoint: ts.URL,
+		config.IpfsTimeout:  "10",
+	})
+
+	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
+	require.NoError(t, err)
+	assert.Equal(t, content, data)
+}
+
+func TestGetIpfsFile_ReadBodyError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		conn, bufrw, err := hijacker.Hijack()
+		if err != nil {
+			return
+		}
+		fmt.Fprint(bufrw, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nTransfer-Encoding: chunked\r\n\r\n")
+		fmt.Fprint(bufrw, "6\r\nhello!\r\n")
+		bufrw.Flush()
+		conn.Close()
+	}))
+	defer ts.Close()
+
+	withTestConfig(t, map[string]string{
+		config.IpfsEndpoint: ts.URL,
+		config.IpfsTimeout:  "10",
+	})
+
+	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
+	assert.Error(t, err)
+	assert.Nil(t, data)
+}
+
+func TestGetIPFSClient_Success(t *testing.T) {
+	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"Version":"0.1.0"}`))
+	})
+	defer ts.Close()
+
+	withTestConfig(t, map[string]string{
+		config.IpfsEndpoint: ts.URL,
+		config.IpfsTimeout:  "10",
+	})
+
+	client := GetIPFSClient()
+	assert.NotNil(t, client)
+}
+
+// ========== compressed.go ==========
 
 type IpfsUtilsTestSuite struct {
 	suite.Suite

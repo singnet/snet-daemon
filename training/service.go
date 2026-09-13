@@ -646,6 +646,9 @@ func (ds *DaemonService) createModelDetails(request *NewModelRequest, response *
 	for _, address := range data.AuthorizedAddresses {
 		userKey := getModelUserKey(key, address)
 		userData := ds.getModelUserData(key, address)
+		if !slices.Contains(userData.ModelIds, key.ModelId) {
+			userData.ModelIds = append(userData.ModelIds, key.ModelId)
+		}
 		zap.L().Debug("createModelDetails", zap.Any("userKey", userKey))
 		err = ds.userStorage.Put(userKey, userData)
 		if err != nil {
@@ -688,7 +691,6 @@ func (ds *DaemonService) getModelUserData(key *ModelKey, address string) *ModelU
 	if err != nil {
 		zap.L().Error("[getModelUserData] can't get model data from etcd", zap.Error(err))
 	}
-	modelIds = append(modelIds, key.ModelId)
 	return &ModelUserData{
 		OrganizationId: key.OrganizationId,
 		ServiceId:      key.ServiceId,
@@ -706,7 +708,9 @@ func (ds *DaemonService) deleteUserModelDetails(key *ModelKey, data *ModelData) 
 			zap.L().Error("[deleteUserModelDetails] can't get user data", zap.Error(err))
 			continue
 		}
-		dataStorage.ModelIds = remove(dataStorage.ModelIds, key.ModelId)
+		dataStorage.ModelIds = slices.DeleteFunc(dataStorage.ModelIds, func(id string) bool {
+			return id == key.ModelId
+		})
 		err = ds.userStorage.Put(userKey, dataStorage)
 		if err != nil {
 			zap.L().Error("can't remove access to model", zap.Error(err), zap.String("userKey", userKey.String()), zap.String("modelID", key.ModelId))
@@ -786,16 +790,20 @@ func (ds *DaemonService) updateModelDetails(request *UpdateModelRequest) (data *
 		zap.L().Error("Error in putting data in user storage", zap.Error(err))
 	}
 
-	//get the difference of all the addresses blockchain/w old and new
-	updatedAddresses := difference(oldAddresses, request.AddressList)
+	// Compare the stored address lists so metadata-only updates preserve access.
+	updatedAddresses := difference(oldAddresses, data.AuthorizedAddresses)
 	for _, address := range updatedAddresses {
 		modelUserKey := getModelUserKey(key, address)
 		modelUserData := ds.getModelUserData(key, address)
 		//if the address is present in the request but not in the old address , add it to the storage
-		if sliceContainsEqualFold(request.AddressList, address) {
-			modelUserData.ModelIds = append(modelUserData.ModelIds, request.ModelId)
+		if sliceContainsEqualFold(data.AuthorizedAddresses, address) {
+			if !slices.Contains(modelUserData.ModelIds, request.ModelId) {
+				modelUserData.ModelIds = append(modelUserData.ModelIds, request.ModelId)
+			}
 		} else { // the address was present in the old data , but not in new , hence needs to be deleted
-			modelUserData.ModelIds = remove(modelUserData.ModelIds, request.ModelId)
+			modelUserData.ModelIds = slices.DeleteFunc(modelUserData.ModelIds, func(id string) bool {
+				return id == request.ModelId
+			})
 		}
 		err = ds.userStorage.Put(modelUserKey, modelUserData)
 		if err != nil {

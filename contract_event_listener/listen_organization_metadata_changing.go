@@ -13,6 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// Hooks are package level variables so that it is possible to
+// mock them in the tests
+var (
+	getOrganizationMetaData = blockchain.GetOrganizationMetaData
+	reconnectEtcd           = etcddb.Reconnect
+)
+
 func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 	zap.L().Debug("Starting contract event listener for organization metadata changing")
 
@@ -61,22 +68,28 @@ func (l *ContractEventListener) ListenOrganizationMetadataChanging() {
 			}
 		case logData := <-eventContractChannel:
 			zap.L().Debug("Log received", zap.Any("value", logData))
-
-			// Get metaDataUri from smart contract and organizationMetaData from IPFS
-			newOrganizationMetaData := blockchain.GetOrganizationMetaData()
-			zap.L().Info("Get new organization metadata", zap.Any("value", newOrganizationMetaData))
-
-			if slices.Compare(l.CurrentOrganizationMetaData.GetPaymentStorageEndPoints(), newOrganizationMetaData.GetPaymentStorageEndPoints()) != 0 {
-				l.CurrentEtcdClient.Close()
-				newEtcdbClient, err := etcddb.Reconnect(newOrganizationMetaData)
-				if err != nil {
-					zap.L().Error("Error in reconnecting to etcd", zap.Error(err))
-				}
-				l.CurrentEtcdClient = newEtcdbClient
-			}
-
-			l.CurrentOrganizationMetaData = newOrganizationMetaData
-			zap.L().Info("Update current organization metadata", zap.Any("value", l.CurrentOrganizationMetaData))
+			l.handleOrganizationModifiedEvent()
 		}
 	}
+}
+
+// handleOrganizationModifiedEvent is called when the organization metadata is
+// changed on blockchain. It fetches the new metadata and, if payment storage
+// endpoints changed, re-establishes the etcd connection.
+func (l *ContractEventListener) handleOrganizationModifiedEvent() {
+	// Get metaDataUri from smart contract and organizationMetaData from IPFS
+	newOrganizationMetaData := getOrganizationMetaData()
+	zap.L().Info("Get new organization metadata", zap.Any("value", newOrganizationMetaData))
+
+	if slices.Compare(l.CurrentOrganizationMetaData.GetPaymentStorageEndPoints(), newOrganizationMetaData.GetPaymentStorageEndPoints()) != 0 {
+		l.CurrentEtcdClient.Close()
+		newEtcdbClient, err := reconnectEtcd(newOrganizationMetaData)
+		if err != nil {
+			zap.L().Error("Error in reconnecting to etcd", zap.Error(err))
+		}
+		l.CurrentEtcdClient = newEtcdbClient
+	}
+
+	l.CurrentOrganizationMetaData = newOrganizationMetaData
+	zap.L().Info("Update current organization metadata", zap.Any("value", l.CurrentOrganizationMetaData))
 }

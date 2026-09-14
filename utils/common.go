@@ -2,15 +2,9 @@ package utils
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/gob"
 	"net/url"
 	"strings"
-
-	"github.com/ethereum/go-ethereum/crypto"
-	"go.uber.org/zap"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func Serialize(value any) (slice string, err error) {
@@ -29,30 +23,6 @@ func Deserialize(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	return d.Decode(value)
-}
-
-func ParsePrivateKey(privateKeyString string) (privateKey *ecdsa.PrivateKey) {
-	if privateKeyString != "" {
-		privateKey, err := crypto.HexToECDSA(privateKeyString)
-		if err != nil {
-			zap.L().Debug("Error parsing private key", zap.String("privateKeyString", privateKeyString), zap.Error(err))
-			return nil
-		}
-		return privateKey
-	}
-
-	return nil
-}
-
-func GetAddressFromPrivateKeyECDSA(privateKeyECDSA *ecdsa.PrivateKey) common.Address {
-	if privateKeyECDSA == nil {
-		return common.Address{}
-	}
-	publicKeyECDSA := &privateKeyECDSA.PublicKey
-	if publicKeyECDSA.X == nil || publicKeyECDSA.Y == nil {
-		return common.Address{}
-	}
-	return crypto.PubkeyToAddress(*publicKeyECDSA)
 }
 
 func CheckIfHttps(endpoints []string) bool {

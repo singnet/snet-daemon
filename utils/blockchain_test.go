@@ -2,10 +2,13 @@ package utils
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/base64"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,4 +123,66 @@ func TestBlockchainConversionHelpers(t *testing.T) {
 	decoded, err := ConvertBase64Encoding(base64.StdEncoding.EncodeToString(raw))
 	require.NoError(t, err)
 	require.Equal(t, [32]byte(raw), decoded)
+}
+
+func TestParsePrivateKey(t *testing.T) {
+	validKey, err := crypto.GenerateKey()
+	assert.NoError(t, err)
+
+	privBytes := crypto.FromECDSA(validKey)
+	privHex := common.Bytes2Hex(privBytes)
+
+	parsedKey := ParsePrivateKey(privHex)
+	assert.NotNil(t, parsedKey)
+
+	// Invalid key
+	parsedKeyInvalid := ParsePrivateKey("not-a-valid-key")
+	assert.Nil(t, parsedKeyInvalid)
+
+	// Empty string returns nil
+	parsedKeyEmpty := ParsePrivateKey("")
+	assert.Nil(t, parsedKeyEmpty)
+}
+
+func TestGetAddressFromPrivateKeyECDSA(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	assert.NoError(t, err)
+
+	addr := GetAddressFromPrivateKeyECDSA(key)
+	expected := crypto.PubkeyToAddress(key.PublicKey)
+	assert.Equal(t, expected, addr)
+
+	// Passing nil returns an empty address
+	assert.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(nil))
+
+	// Passing invalid public key type (simulate)
+	badKey := &ecdsa.PrivateKey{} // no public key set
+	assert.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(badKey))
+}
+
+func TestGetAddressFromPrivateKeyRejectsMissingCoordinate(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		public ecdsa.PublicKey
+	}{
+		{name: "missing X", public: ecdsa.PublicKey{Curve: crypto.S256(), Y: big.NewInt(1)}},
+		{name: "missing Y", public: ecdsa.PublicKey{Curve: crypto.S256(), X: big.NewInt(1)}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			key := &ecdsa.PrivateKey{PublicKey: test.public}
+			require.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(key))
+		})
+	}
+}
+
+func TestGenerateKeys(t *testing.T) {
+	privateKeyHex, address, err := GenerateKeys()
+	require.NoError(t, err)
+
+	require.Len(t, privateKeyHex, 64)
+
+	parsedKey := ParsePrivateKey(privateKeyHex)
+	require.NotNil(t, parsedKey)
+	assert.Equal(t, address, GetAddressFromPrivateKeyECDSA(parsedKey))
+	assert.Equal(t, crypto.PubkeyToAddress(parsedKey.PublicKey), address)
 }

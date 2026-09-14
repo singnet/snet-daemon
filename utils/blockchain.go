@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"crypto/ecdsa"
 	"encoding/base64"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"go.uber.org/zap"
 )
 
@@ -89,4 +91,40 @@ func MakeTopicFilterer(param string) [][32]byte {
 
 	// Return the filter with a single element (the 32-byte array)
 	return [][32]byte{param32Byte}
+}
+
+func ParsePrivateKey(privateKeyString string) (privateKey *ecdsa.PrivateKey) {
+	if privateKeyString != "" {
+		privateKey, err := crypto.HexToECDSA(privateKeyString)
+		if err != nil {
+			zap.L().Debug("Error parsing private key", zap.String("privateKeyString", privateKeyString), zap.Error(err))
+			return nil
+		}
+		return privateKey
+	}
+
+	return nil
+}
+
+func GetAddressFromPrivateKeyECDSA(privateKeyECDSA *ecdsa.PrivateKey) common.Address {
+	if privateKeyECDSA == nil {
+		return common.Address{}
+	}
+	publicKeyECDSA := &privateKeyECDSA.PublicKey
+	if publicKeyECDSA.X == nil || publicKeyECDSA.Y == nil {
+		return common.Address{}
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA)
+}
+
+// GenerateKeys generates a new Ethereum key pair and returns the private key
+// as a hex string (without the "0x" prefix) together with the derived address.
+func GenerateKeys() (privateKeyHex string, address common.Address, err error) {
+	privateKey, err := crypto.GenerateKey()
+	if err != nil {
+		return "", common.Address{}, err
+	}
+	privateKeyHex = common.Bytes2Hex(crypto.FromECDSA(privateKey))
+	address = GetAddressFromPrivateKeyECDSA(privateKey)
+	return privateKeyHex, address, nil
 }

@@ -1,16 +1,22 @@
 package escrow
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/singnet/snet-daemon/v6/pricing"
+	"github.com/singnet/snet-daemon/v6/storage"
+	"github.com/singnet/snet-daemon/v6/training"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type incomeValidatorMockType struct {
@@ -74,4 +80,135 @@ func TestIncomeValidateForPriceError(t *testing.T) {
 	incomeValidator := NewIncomeStreamValidator(pricingStrt, nil)
 	err = incomeValidator.Validate(&IncomeStreamData{Income: big.NewInt(0), GrpcContext: &handler.GrpcStreamContext{Info: &grpc.StreamServerInfo{FullMethod: "test"}}})
 	assert.Equal(t, err.Error(), "Error in Determining Price")
+}
+
+const testModelID = "model-1"
+
+func initIncomeTestOrgMetadata(t *testing.T) *blockchain.OrganizationMetaData {
+	t.Helper()
+	orgMetadata, err := blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgGroupData))
+	require.NoError(t, err)
+	config.Vip().Set(config.OrganizationId, orgMetadata.OrgID)
+	config.Vip().Set(config.ServiceId, "test-service")
+	config.Vip().Set(config.DaemonGroupName, "default_group")
+	return orgMetadata
+}
+
+func newTestModelStorage(t *testing.T, atomic storage.AtomicStorage, orgMetadata *blockchain.OrganizationMetaData,
+	validatePrice, trainPrice uint64) *training.ModelStorage {
+	t.Helper()
+	modelStorage := training.NewModelStorage(atomic, orgMetadata)
+	err := modelStorage.Put(&training.ModelKey{
+		OrganizationId: orgMetadata.OrgID,
+		ServiceId:      "test-service",
+		GroupId:        orgMetadata.GetGroupIdString(),
+		ModelId:        testModelID,
+	}, &training.ModelData{
+		ModelId:       testModelID,
+		ValidatePrice: validatePrice,
+		TrainPrice:    trainPrice,
+	})
+	require.NoError(t, err)
+	return modelStorage
+}
+
+func trainingStreamContext(md metadata.MD) *handler.GrpcStreamContext {
+	return &handler.GrpcStreamContext{
+		Info: &grpc.StreamServerInfo{FullMethod: "/snet.training/upload_and_validate"},
+		MD:   md,
+	}
+}
+
+func modelMD() metadata.MD {
+	return metadata.New(map[string]string{handler.TrainingModelId: testModelID})
+}
+
+func TestIncomeStreamValidatorTraining(t *testing.T) {
+	orgMetadata := initIncomeTestOrgMetadata(t)
+	validatePrice := uint64(10)
+
+	t.Run("missing model id", func(t *testing.T) {
+		validator := NewIncomeStreamValidator(nil, newTestModelStorage(t, storage.NewMemStorage(), orgMetadata, validatePrice, 20))
+		err := validator.Validate(&IncomeStreamData{Income: big.NewInt(0), GrpcContext: trainingStreamContext(metadata.New(nil))})
+		assert.EqualError(t, err, "no training model found")
+	})
+
+	t.Run("get model error", func(t *testing.T) {
+		broken := &failingStorage{MemoryStorage: storage.NewMemStorage(), getErr: errors.New("storage boom")}
+		validator := NewIncomeStreamValidator(nil, newTestModelStorage(t, broken, orgMetadata, validatePrice, 20))
+		err := validator.Validate(&IncomeStreamData{Income: big.NewInt(0), GrpcContext: trainingStreamContext(modelMD())})
+		assert.EqualError(t, err, "no training model found")
+	})
+
+	t.Run("income matches validate price", func(t *testing.T) {
+		validator := NewIncomeStreamValidator(nil, newTestModelStorage(t, storage.NewMemStorage(), orgMetadata, validatePrice, 20))
+		err := validator.Validate(&IncomeStreamData{Income: big.NewInt(int64(validatePrice)), GrpcContext: trainingStreamContext(modelMD())})
+		assert.NoError(t, err)
+	})
+
+	t.Run("income does not match validate price", func(t *testing.T) {
+		validator := NewIncomeStreamValidator(nil, newTestModelStorage(t, storage.NewMemStorage(), orgMetadata, validatePrice, 20))
+		err := validator.Validate(&IncomeStreamData{Income: big.NewInt(5), GrpcContext: trainingStreamContext(modelMD())})
+		require.Error(t, err)
+		assert.Equal(t, Unauthenticated, err.(*PaymentError).Code)
+	})
+}
+
+func TestTrainUnaryValidator(t *testing.T) {
+	orgMetadata := initIncomeTestOrgMetadata(t)
+	trainPrice := uint64(20)
+	validatePrice := uint64(10)
+
+	newValidator := func(t *testing.T, atomic storage.AtomicStorage) IncomeUnaryValidator {
+		return NewTrainValidator(newTestModelStorage(t, atomic, orgMetadata, validatePrice, trainPrice))
+	}
+
+	unaryContext := func(fullMethod string, md metadata.MD) *handler.GrpcUnaryContext {
+		return &handler.GrpcUnaryContext{Info: &grpc.UnaryServerInfo{FullMethod: fullMethod}, MD: md}
+	}
+
+	t.Run("missing model id", func(t *testing.T) {
+		validator := newValidator(t, storage.NewMemStorage())
+		err := validator.Validate(&IncomeUnaryData{Income: big.NewInt(0), GrpcContext: unaryContext("/svc/train_model", metadata.New(nil))})
+		assert.EqualError(t, err, "[trainUnaryValidator] no training model found")
+	})
+
+	t.Run("get model error", func(t *testing.T) {
+		broken := &failingStorage{MemoryStorage: storage.NewMemStorage(), getErr: errors.New("storage boom")}
+		validator := newValidator(t, broken)
+		err := validator.Validate(&IncomeUnaryData{Income: big.NewInt(0), GrpcContext: unaryContext("/svc/train_model", modelMD())})
+		assert.EqualError(t, err, "[trainUnaryValidator] no training model found")
+	})
+
+	t.Run("train_model income matches train price", func(t *testing.T) {
+		validator := newValidator(t, storage.NewMemStorage())
+		err := validator.Validate(&IncomeUnaryData{Income: big.NewInt(int64(trainPrice)), GrpcContext: unaryContext("/svc/train_model", modelMD())})
+		assert.NoError(t, err)
+	})
+
+	t.Run("train_model income does not match train price", func(t *testing.T) {
+		validator := newValidator(t, storage.NewMemStorage())
+		err := validator.Validate(&IncomeUnaryData{Income: big.NewInt(1), GrpcContext: unaryContext("/svc/train_model", modelMD())})
+		require.Error(t, err)
+		assert.Equal(t, Unauthenticated, err.(*PaymentError).Code)
+	})
+
+	t.Run("validate_model income matches validate price", func(t *testing.T) {
+		validator := newValidator(t, storage.NewMemStorage())
+		err := validator.Validate(&IncomeUnaryData{Income: big.NewInt(int64(validatePrice)), GrpcContext: unaryContext("/svc/validate_model", modelMD())})
+		assert.NoError(t, err)
+	})
+
+	t.Run("validate_model income does not match validate price", func(t *testing.T) {
+		validator := newValidator(t, storage.NewMemStorage())
+		err := validator.Validate(&IncomeUnaryData{Income: big.NewInt(1), GrpcContext: unaryContext("/svc/validate_model", modelMD())})
+		require.Error(t, err)
+		assert.Equal(t, Unauthenticated, err.(*PaymentError).Code)
+	})
+
+	t.Run("unknown method returns nil", func(t *testing.T) {
+		validator := newValidator(t, storage.NewMemStorage())
+		err := validator.Validate(&IncomeUnaryData{Income: big.NewInt(0), GrpcContext: unaryContext("/svc/other_method", modelMD())})
+		assert.NoError(t, err)
+	})
 }

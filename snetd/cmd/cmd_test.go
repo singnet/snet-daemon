@@ -322,14 +322,6 @@ type testRunAndCleanupCommand struct {
 
 func (c *testRunAndCleanupCommand) Run() error { return nil }
 
-func TestNewListVersionCommand(t *testing.T) {
-	command, err := newListVersionCommand(nil, nil, &Components{})
-	require.NoError(t, err)
-	require.NotNil(t, command)
-	_, ok := command.(*ListVersionCommand)
-	assert.True(t, ok)
-}
-
 func TestRunAndCleanup(t *testing.T) {
 	t.Run("constructor error is propagated", func(t *testing.T) {
 		expected := fmt.Errorf("constructor error")

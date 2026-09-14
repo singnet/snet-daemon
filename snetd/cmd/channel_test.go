@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
@@ -9,6 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type deleteFailingStorage struct {
+	storage.AtomicStorage
+	err error
+}
+
+func (s *deleteFailingStorage) Delete(key string) error {
+	return s.err
+}
 
 func TestNewChannelCommand(t *testing.T) {
 	defer func() { paymentChannelId = "" }()
@@ -75,5 +85,20 @@ func TestChannelCommandUnlock(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NoError(t, command.Run(), "unlock of unknown channel should not return an error")
+	})
+
+	t.Run("delete error is returned", func(t *testing.T) {
+		expected := errors.New("storage unavailable")
+		command := &channelCommand{
+			storage: *storage.NewPrefixedAtomicStorage(&deleteFailingStorage{
+				AtomicStorage: storage.NewMemStorage(),
+				err:           expected,
+			}, "/payment-channel/lock"),
+			paymentChannelId: big.NewInt(42),
+		}
+		key := &escrow.PaymentChannelKey{ID: big.NewInt(42)}
+		require.NoError(t, command.storage.Put(key.String(), "locked"))
+
+		assert.ErrorIs(t, command.Run(), expected)
 	})
 }

@@ -55,10 +55,7 @@ func (command *channelCommand) Run() (err error) {
 	if command.paymentChannelId == nil {
 		return fmt.Errorf("--unlock channel-id must be set")
 	}
-	if command.paymentChannelId != nil {
-		return command.unlockChannel()
-	}
-	return
+	return command.unlockChannel()
 }
 
 // unlocks the channel with a given channel ID

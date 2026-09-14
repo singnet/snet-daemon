@@ -3,6 +3,7 @@ package cmd
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,4 +56,30 @@ func TestOriginalMuxEndpoints(t *testing.T) {
 		assert.Equal(t, L_GRPC_WEB, eps[1].Type)
 		assert.Equal(t, L_HTTP, eps[2].Type)
 	})
+}
+
+func TestMuxServeStopsAfterListenerClose(t *testing.T) {
+	tests := []struct {
+		name string
+		new  func(net.Listener) GRPCMux
+	}{
+		{name: "fork", new: func(listener net.Listener) GRPCMux { return newForkMux(listener, false) }},
+		{name: "original", new: func(listener net.Listener) GRPCMux { return newOriginalMux(listener, false) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listener := testListener(t)
+			mux := tt.new(listener)
+			done := make(chan error, 1)
+			go func() { done <- mux.Serve() }()
+
+			require.NoError(t, listener.Close())
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Fatal("mux.Serve did not return after its listener was closed")
+			}
+		})
+	}
 }

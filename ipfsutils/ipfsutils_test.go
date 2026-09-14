@@ -74,7 +74,7 @@ func TestGetIpfsFile_ServerError(t *testing.T) {
 
 	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
 	assert.Nil(t, data)
-	assert.Nil(t, err)
+	assert.Error(t, err)
 }
 
 func TestGetIpfsFile_ServerJSONError(t *testing.T) {
@@ -92,7 +92,7 @@ func TestGetIpfsFile_ServerJSONError(t *testing.T) {
 
 	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
 	assert.Nil(t, data)
-	assert.Nil(t, err)
+	assert.Error(t, err)
 }
 
 func TestGetIpfsFile_Success(t *testing.T) {

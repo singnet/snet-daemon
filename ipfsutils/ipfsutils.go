@@ -2,7 +2,6 @@ package ipfsutils
 
 import (
 	"context"
-	"errors"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/kubo/client/rpc"
@@ -27,10 +26,6 @@ func GetIpfsFile(hash string) (content []byte, err error) {
 	}
 
 	req := ipfsClient.Request("cat", cID.String())
-	if req == nil {
-		zap.L().Error("error executing the cat command in ipfs: req is nil", zap.String("hashFromMetaData", hash))
-		return nil, err
-	}
 	resp, err := req.Send(context.Background())
 	if err != nil {
 		zap.L().Error("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
@@ -44,28 +39,13 @@ func GetIpfsFile(hash string) (content []byte, err error) {
 	}(resp)
 
 	if resp.Error != nil {
-		zap.L().Error("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
-		return nil, err
+		zap.L().Error("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(resp.Error))
+		return nil, resp.Error
 	}
 	fileContent, err := io.ReadAll(resp.Output)
 	if err != nil {
 		zap.L().Error("error: in Reading the meta data file", zap.Error(err), zap.String("hashFromMetaData", hash))
 		return nil, err
-	}
-
-	// Create a cid manually to check cid
-	_, c, err := cid.CidFromBytes(append(cID.Bytes(), fileContent...))
-	if err != nil {
-		zap.L().Error("error generating ipfs hash", zap.String("hashFromMetaData", hash), zap.Error(err))
-		return nil, err
-	}
-
-	// To test if two cid's are equivalent, be sure to use the 'Equals' method:
-	if !c.Equals(cID) {
-		zap.L().Error("IPFS hash verification failed. Generated hash doesnt match with expected hash",
-			zap.String("expectedHash", hash),
-			zap.String("hashFromIPFSContent", c.String()))
-		return nil, errors.New("IPFS hash doesnt match with expected hash")
 	}
 
 	return fileContent, nil
@@ -75,9 +55,8 @@ func GetIPFSClient() *rpc.HttpApi {
 	httpClient := http.Client{
 		Timeout: time.Duration(config.GetInt(config.IpfsTimeout)) * time.Second,
 	}
-	ifpsClient, err := rpc.NewURLApiWithClient(config.GetString(config.IpfsEndpoint), &httpClient)
-	if err != nil {
-		zap.L().Fatal("Connection failed to IPFS", zap.String("IPFS", config.GetString(config.IpfsEndpoint)), zap.Error(err))
-	}
-	return ifpsClient
+	// NewURLApiWithClient only builds an HTTP client and always returns a nil error.
+	// Connection errors are reported when a request is sent.
+	ipfsClient, _ := rpc.NewURLApiWithClient(config.GetString(config.IpfsEndpoint), &httpClient)
+	return ipfsClient
 }

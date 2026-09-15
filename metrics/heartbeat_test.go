@@ -136,7 +136,7 @@ func (suite *HeartBeatTestSuite) TestHeartbeatHandler() {
 	assert.True(suite.T(), dHeartbeat.TrainingMetadataData.TrainingInProto)
 	assert.NotNil(suite.T(), dHeartbeat, "heartbeat must not be nil")
 
-	assert.Equal(suite.T(), Offline.String(), dHeartbeat.Status, "Invalid State")
+	assert.Equal(suite.T(), Warning.String(), dHeartbeat.Status, "unconfigured heartbeat must report Warning, not a false Online")
 	//assert.NotEqual(suite.T(), Offline.String(), dHeartbeat.Status, "Invalid State")
 
 	assert.Equal(suite.T(), "20e986a77adb1ab0900dce6f554128496aa26be1e212d682f37898bae226fcfc", dHeartbeat.DaemonID,

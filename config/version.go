@@ -6,7 +6,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
+
+const latestReleaseURL = "https://api.github.com/repos/singnet/snet-daemon/releases/latest"
+
+var versionHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 // Version configuration can be sent back easily on the response from Daemon
 var (
@@ -45,22 +50,33 @@ func CheckVersionOfDaemon() (message string, err error) {
 }
 
 func GetLatestDaemonVersion() (version string, err error) {
-	resp, err := http.Get("https://api.github.com/repos/singnet/snet-daemon/releases/latest")
+	return getLatestDaemonVersion(versionHTTPClient, latestReleaseURL)
+}
+
+func getLatestDaemonVersion(client *http.Client, endpoint string) (string, error) {
+	resp, err := client.Get(endpoint)
 	if err != nil {
 		return "", fmt.Errorf("error getting latest daemon version from github: %+v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK {
-		if body, err := io.ReadAll(resp.Body); err == nil {
-			var data GitTags
-			if err = json.Unmarshal(body, &data); err == nil {
-				version = data.TagName
-			}
-		}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("github releases API returned status %s", resp.Status)
 	}
 
-	return version, err
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading latest daemon version: %w", err)
+	}
+
+	var data GitTags
+	if err := json.Unmarshal(body, &data); err != nil {
+		return "", fmt.Errorf("error decoding latest daemon version: %w", err)
+	}
+	if data.TagName == "" {
+		return "", fmt.Errorf("github releases API response has no tag_name")
+	}
+	return data.TagName, nil
 }
 
 type GitTags struct {

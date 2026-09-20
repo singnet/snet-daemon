@@ -1,6 +1,8 @@
 package config
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,6 +20,31 @@ func Test_getVersionTag(t *testing.T) {
 			if got := GetVersionTag(); got != tt.want {
 				t.Errorf("getVersionTag() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestGetLatestDaemonVersionErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+	}{
+		{name: "unexpected status", statusCode: http.StatusTooManyRequests, body: `{}`},
+		{name: "invalid JSON", statusCode: http.StatusOK, body: `{`},
+		{name: "missing tag", statusCode: http.StatusOK, body: `{}`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(test.statusCode)
+				_, _ = w.Write([]byte(test.body))
+			}))
+			t.Cleanup(server.Close)
+
+			_, err := getLatestDaemonVersion(server.Client(), server.URL)
+			assert.Error(t, err)
 		})
 	}
 }

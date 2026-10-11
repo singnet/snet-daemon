@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
+	"net"
 	"slices"
 	"strings"
 	"testing"
@@ -47,12 +48,14 @@ func TestDaemonServiceSuite(t *testing.T) {
 
 var (
 	testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"YOUR_ORG_ID\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",        \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",  \"license_server_endpoints\": [\"https://licensendpoint:8082\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
-	testJsonServiceData  = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"encoding\": \"grpc\",   \"service_type\": \"grpc\",   \"payment_expiration_threshold\": 40320,   \"model_ipfs_hash\": \"QmPRxyUiiFkUJ3Xkp3BpsN4Sxos2wJqtMviVE1ffxCmvSd\", " +
+	testJsonServiceData  = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"encoding\": \"grpc\",   \"service_type\": \"grpc\",   \"payment_expiration_threshold\": 40320, " +
 		"  \"mpe_address\": \"0x7E6366Fbe3bdfCE3C906667911FC5237Cc96BD08\",   \"groups\": [     {    \"free_calls\": 12,  \"free_call_signer_address\": \"0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F\",  \"endpoints\": [\"http://34.344.33.1:2379\",\"http://34.344.33.1:2389\"],       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",\"group_name\": \"default_group\",       \"pricing\": [         {           \"price_model\": \"fixed_price\",           \"price_in_cogs\": 2         },          {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"default\":true,         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     },     {       \"endpoints\": [\"http://97.344.33.1:2379\",\"http://67.344.33.1:2389\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"pricing\": [         {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     }   ] } "
 	testUserAddress = strings.ToLower("0x3432cBa6BF635Df5fBFD1f1a794fA66D412b8774")
 )
 
 func (suite *DaemonServiceSuite) SetupSuite() {
+	originalConfig := config.Vip()
+	suite.T().Cleanup(func() { config.SetVip(originalConfig) })
 	// setup test config once
 	suite.setupTestConfig()
 	err := config.Validate()
@@ -60,10 +63,18 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 
 	// init service metadata and organization metadata
 	serviceMetadata, err := blockchain.InitServiceMetaDataFromJson([]byte(testJsonServiceData))
+	suite.Require().NoError(err)
+	// Exercise training descriptors using a local service definition.
+	serviceMetadata.ProtoFiles = map[string]string{"service.proto": `syntax = "proto3";
+import "training.proto";
+package example_service;
+message Input { training.ModelID model_id = 1; }
+message Output { string result = 1; }
+service test_grpc_service_name {
+    rpc test_grpc_method_name(Input) returns (Output);
+}
+`}
 	suite.blockchain = blockchain.NewMockProcessor(true)
-	if err != nil {
-		suite.T().Fatalf("can't connect to blockchain: %v", err)
-	}
 	suite.currentBlock, err = suite.blockchain.CurrentBlock()
 	if err != nil {
 		suite.T().Fatalf("can't get latest block: %v", err)
@@ -81,8 +92,15 @@ func (suite *DaemonServiceSuite) SetupSuite() {
 	suite.unimplementedDaemonService = NoTrainingDaemonServer{}
 
 	// setup test provider service once
-	address := "localhost:5001"
-	suite.grpcServer = startTestService(address)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	suite.Require().NoError(err)
+	suite.grpcServer = grpc.NewServer()
+	RegisterModelServer(suite.grpcServer, &TestTrainServer{})
+	t := suite.T()
+	go func() { assert.NoError(t, suite.grpcServer.Serve(listener)) }()
+	endpoint := "http://" + listener.Addr().String()
+	config.Vip().Set(config.ServiceEndpointKey, endpoint)
+	config.Vip().Set(config.ModelMaintenanceEndPoint, endpoint)
 }
 
 func (suite *DaemonServiceSuite) SetupTest() {
@@ -104,10 +122,13 @@ func (suite *DaemonServiceSuite) SetupTest() {
 		publicModelStorage,
 		100,
 	)
+	suite.Require().IsType(&DaemonService{}, suite.daemonService)
 }
 
 func (suite *DaemonServiceSuite) TearDownSuite() {
-	suite.grpcServer.Stop()
+	if suite.grpcServer != nil {
+		suite.grpcServer.Stop()
+	}
 }
 
 func getTestSignature(text string, blockNumber uint64, privateKey *ecdsa.PrivateKey) (signature []byte) {
@@ -166,11 +187,9 @@ func (suite *DaemonServiceSuite) setupTestConfig() {
 	"daemon_endpoint": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"payment_channel_storage_type": "_etcd",
-	"ipfs_endpoint": "http://ipfs.singularitynet.io:80",
-	"ipfs_timeout" : 30,
 	"passthrough_enabled": true,
-	"service_endpoint":"http://0.0.0.0:5001",
-	"model_maintenance_endpoint": "http://0.0.0.0:5001",
+	"service_endpoint":"http://127.0.0.1:5001",
+	"model_maintenance_endpoint": "http://127.0.0.1:5001",
 	"service_id": "YOUR_SERVICE_ID",
 	"organization_id": "YOUR_ORG_ID",
 	"token_secret_key": "test-secret-key-at-least-32-bytes-long",

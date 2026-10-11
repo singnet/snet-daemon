@@ -2,8 +2,11 @@ package escrow
 
 import (
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"github.com/singnet/snet-daemon/v6/config"
@@ -148,36 +151,60 @@ func (suite *PaymentHandlerTestSuite) TestValidatePaymentIncorrectIncome() {
 }
 
 func Test_paymentChannelPaymentHandler_PublishChannelStats(t *testing.T) {
+	originals := make(map[string]any)
+	for _, key := range []string{config.OrganizationId, config.ServiceId, config.MeteringEnabled, config.PvtKeyForMetering, config.MeteringEndpoint} {
+		originals[key] = config.Vip().Get(key)
+	}
+	t.Cleanup(func() {
+		for key, value := range originals {
+			config.Vip().Set(key, value)
+		}
+	})
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/contract-api/channel/6/balance", r.URL.Path)
+		assert.Equal(t, "ExampleOrganizationId", r.Header.Get("X-Organizationid"))
+		assert.Equal(t, "ExampleServiceId", r.Header.Get("X-Serviceid"))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
 	mocked := blockchain.NewMockProcessor(true)
 	payment := &paymentTransaction{payment: Payment{Amount: big.NewInt(10), ChannelID: big.NewInt(6),
 		ChannelNonce: big.NewInt(0)}, channel: &PaymentChannelData{FullAmount: big.NewInt(10), Nonce: big.NewInt(0)}}
 	tests := []struct {
 		name string
 
-		wantErr   *handler.GrpcError
-		setupFunc func()
+		wantErr      *handler.GrpcError
+		wantRequests int32
+		setupFunc    func()
 	}{
 		{name: "disabled metering", wantErr: nil, setupFunc: func() {
+			config.Vip().Set(config.MeteringEnabled, false)
 		}},
 
-		{name: "", wantErr: nil, setupFunc: func() {
+		{name: "publish to local metering server", wantErr: nil, wantRequests: 1, setupFunc: func() {
 			config.Vip().Set(config.OrganizationId, "ExampleOrganizationId")
 			config.Vip().Set(config.ServiceId, "ExampleServiceId")
 			config.Vip().Set(config.MeteringEnabled, true)
 			config.Vip().Set(config.PvtKeyForMetering, "063C00D18E147F4F734846E47FE6598FC7A6D56307862F7EDC92B9F43CC27EDD")
-			config.Vip().Set(config.MeteringEndpoint, "https://bkq2d3zjl4.execute-api.eu-west-1.amazonaws.com/main")
+			config.Vip().Set(config.MeteringEndpoint, server.URL)
 		}},
 
-		{name: "", wantErr: handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error"), setupFunc: func() {
+		{name: "invalid endpoint", wantErr: handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error"), setupFunc: func() {
+			config.Vip().Set(config.MeteringEnabled, true)
 			config.Vip().Set(config.MeteringEndpoint, "badurl")
 		}},
 	}
 	for _, tt := range tests {
-		tt.setupFunc()
 		t.Run(tt.name, func(t *testing.T) {
+			tt.setupFunc()
+			before := requests.Load()
 			if gotErr := PublishChannelStats(payment, mocked.CurrentBlock); !reflect.DeepEqual(gotErr, tt.wantErr) {
 				t.Errorf("paymentChannelPaymentHandler.PublishChannelStats() = %v, want %v", gotErr, tt.wantErr)
 			}
+			assert.Equal(t, tt.wantRequests, requests.Load()-before)
 		})
 	}
 }

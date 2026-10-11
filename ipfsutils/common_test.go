@@ -1,27 +1,70 @@
 package ipfsutils
 
 import (
+	"net/http"
 	"testing"
 
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
+func TestReadFile_FilecoinPrefix(t *testing.T) {
+	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("filecoin-data"))
+	})
+	defer ts.Close()
+
+	withTestConfig(t, map[string]string{config.LighthouseEndpoint: ts.URL + "/"})
+
+	data, err := ReadFile("filecoin://somecid123")
+	require.NoError(t, err)
+	assert.Equal(t, "filecoin-data", string(data))
+}
+
+func TestReadFile_IpfsPrefix(t *testing.T) {
+	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write([]byte("ipfs-data"))
+	})
+	defer ts.Close()
+
+	withTestConfig(t, map[string]string{
+		config.IpfsEndpoint: ts.URL,
+		config.IpfsTimeout:  "10",
+	})
+
+	data, err := ReadFile("ipfs://QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
+	require.NoError(t, err)
+	assert.Equal(t, "ipfs-data", string(data))
+}
+
+// ========== ipfsutils.go ==========
+
 func TestFilecoinReadFile(t *testing.T) {
-	file, err := ReadFile("filecoin://bafkreibk4ham7y6mwad2qxwyrhpmxh2fho7xwvsfw26lcra5bt5r5fvcwe")
-	assert.Nil(t, err)
-	assert.NotNil(t, file)
-	if err != nil && file != nil {
-		t.Log(string(file))
-	}
+	const hash = "bafkreibk4ham7y6mwad2qxwyrhpmxh2fho7xwvsfw26lcra5bt5r5fvcwe"
+	content := []byte("filecoin fixture")
+	server := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/ipfs/"+hash, r.URL.Path)
+		_, _ = w.Write(content)
+	})
+	t.Cleanup(server.Close)
+	withTestConfig(t, map[string]string{config.LighthouseEndpoint: server.URL + "/ipfs/"})
+
+	file, err := ReadFile("filecoin://" + hash)
+	require.NoError(t, err)
+	assert.Equal(t, content, file)
 }
 
 func TestIpfsReadFile(t *testing.T) {
-	file, err := ReadFile("ipfs://QmQcT5SJB9s8LXom8zuNGksCa7d34XbVn52dACWvgzeWAW")
-	assert.Nil(t, err)
-	assert.NotNil(t, file)
-	if err != nil && file != nil {
-		t.Log(string(file))
-	}
+	const hash = "QmQcT5SJB9s8LXom8zuNGksCa7d34XbVn52dACWvgzeWAW"
+	content := []byte("ipfs fixture")
+	serveIPFSFile(t, hash, content)
+
+	file, err := ReadFile("ipfs://" + hash)
+	require.NoError(t, err)
+	assert.Equal(t, content, file)
 }
 
 func TestFormatHash(t *testing.T) {

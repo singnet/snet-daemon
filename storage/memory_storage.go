@@ -109,16 +109,13 @@ func (storage *MemoryStorage) Clear() (err error) {
 }
 
 func (storage *MemoryStorage) StartTransaction(conditionKeys []string) (transaction Transaction, err error) {
+	storage.mutex.RLock()
+	defer storage.mutex.RUnlock()
+
 	conditionKeyValues := make([]KeyValueData, len(conditionKeys))
 	for i, key := range conditionKeys {
-		value, ok, err := storage.Get(key)
-		if err != nil {
-			return nil, err
-		} else if !ok {
-			conditionKeyValues[i] = KeyValueData{Key: key, Value: "", Present: false}
-		} else {
-			conditionKeyValues[i] = KeyValueData{Key: key, Value: value, Present: true}
-		}
+		value, present := storage.data[key]
+		conditionKeyValues[i] = KeyValueData{Key: key, Value: value, Present: present}
 	}
 	transaction = &memoryStorageTransaction{ConditionKeys: conditionKeys, ConditionValues: conditionKeyValues}
 	return transaction, nil
@@ -133,33 +130,23 @@ func getValueDataForKey(key string, update []KeyValueData) (data KeyValueData, p
 	return data, false
 }
 
+// CompleteTransaction checks all conditions and applies updates under one lock.
+// A conflict returns false without applying any updates.
 func (storage *MemoryStorage) CompleteTransaction(transaction Transaction, update []KeyValueData) (ok bool, err error) {
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
 	originalValues := transaction.(*memoryStorageTransaction).ConditionValues
 	for _, oldData := range originalValues {
-		if oldData.Present {
-			//make sure the current value is the same as the value last read
-			currentValue, ok, err := storage.Get(oldData.Key)
-			if !ok || err != nil {
-				return ok, err
-			}
-			if strings.Compare(currentValue, oldData.Value) == 0 {
-				if updatedData, ok := getValueDataForKey(oldData.Key, update); ok {
-					if err = storage.Put(updatedData.Key, updatedData.Value); err != nil {
-						return false, err
-					}
-					continue
-				}
-			}
-
-		} else {
-			if updatedData, ok := getValueDataForKey(oldData.Key, update); ok {
-				if ok, err := storage.PutIfAbsent(updatedData.Key, updatedData.Value); err != nil {
-					return false, err
-				} else if !ok {
-					return ok, nil
-				}
-				continue
-			}
+		currentValue, present := storage.data[oldData.Key]
+		if present != oldData.Present || (present && currentValue != oldData.Value) {
+			return false, nil
+		}
+	}
+	// Preserve the existing behavior: only condition keys are updated.
+	for _, oldData := range originalValues {
+		if updatedData, found := getValueDataForKey(oldData.Key, update); found {
+			storage.data[updatedData.Key] = updatedData.Value
 		}
 	}
 	return true, nil
@@ -167,13 +154,13 @@ func (storage *MemoryStorage) CompleteTransaction(transaction Transaction, updat
 
 // ExecuteTransaction executes a transaction on the storage
 func (storage *MemoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
-	transaction, err := storage.StartTransaction(request.ConditionKeys)
-	if err != nil {
-		return false, err
-	}
-
 	maxRetries := 100
 	for range maxRetries {
+		// Every attempt needs a fresh snapshot; Update runs without holding the lock.
+		transaction, err := storage.StartTransaction(request.ConditionKeys)
+		if err != nil {
+			return false, err
+		}
 		oldValues, err := transaction.GetConditionValues()
 		if err != nil {
 			return false, err

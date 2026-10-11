@@ -56,7 +56,7 @@ func GetLatestDaemonVersion() (version string, err error) {
 func getLatestDaemonVersion(client *http.Client, endpoint string) (string, error) {
 	resp, err := client.Get(endpoint)
 	if err != nil {
-		return "", fmt.Errorf("error getting latest daemon version from github: %+v", err)
+		return "", fmt.Errorf("error getting latest daemon version from github: %w", err)
 	}
 	defer resp.Body.Close()
 

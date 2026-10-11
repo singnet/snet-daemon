@@ -41,3 +41,63 @@ func TestGetOrganizationMetaDataForError(t *testing.T) {
 	}
 	config.Vip().Set(config.DaemonGroupName, "default_group")
 }
+
+func TestGetOrganizationMetaData_BlockchainDisabled(t *testing.T) {
+	config.Vip().Set(config.BlockchainEnabledKey, false)
+	defer config.Vip().Set(config.BlockchainEnabledKey, true)
+
+	metadata := GetOrganizationMetaData()
+
+	assert.NotNil(t, metadata)
+	assert.NotNil(t, metadata.daemonGroup)
+	assert.Equal(t, &Group{}, metadata.daemonGroup)
+}
+
+func TestCheckMandatoryFields_MissingEndpoints(t *testing.T) {
+	invalidJson := `{"org_name": "organization_name", "org_id": "org_id1", "groups": [
+		{"group_name": "default_group", "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
+		"payment": {
+			"payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
+			"payment_expiration_threshold": 40320,
+			"payment_channel_storage_type": "etcd",
+			"payment_channel_storage_client": {"connection_timeout": "15s", "request_timeout": "13s", "endpoints": null}
+		}}]}`
+
+	_, err := InitOrganizationMetaDataFromJson([]byte(invalidJson))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ETCD Client Endpoints are missing")
+}
+
+func TestCheckMandatoryFields_MissingPaymentAddress(t *testing.T) {
+	invalidJson := `{"org_name": "organization_name", "org_id": "org_id1", "groups": [
+		{"group_name": "default_group", "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
+		"payment": {
+			"payment_address": "0x0",
+			"payment_expiration_threshold": 40320,
+			"payment_channel_storage_type": "etcd",
+			"payment_channel_storage_client": {"connection_timeout": "15s", "request_timeout": "13s", "endpoints": ["http://127.0.0.1:2379"]}
+		}}]}`
+
+	_, err := InitOrganizationMetaDataFromJson([]byte(invalidJson))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Recipient Address is missing")
+}
+
+func TestGetConnectionTimeOut_Invalid(t *testing.T) {
+	metadata := &OrganizationMetaData{daemonGroup: &Group{
+		PaymentDetails: Payment{PaymentChannelStorageClient: PaymentChannelStorageClient{
+			ConnectionTimeout: "invalid",
+			RequestTimeout:    "invalid",
+		}},
+	}}
+
+	assert.Equal(t, time.Duration(0), metadata.GetConnectionTimeOut())
+	assert.Equal(t, time.Duration(0), metadata.GetRequestTimeOut())
+}
+
+func TestGetLicenseEndPoints_Empty(t *testing.T) {
+	metadata := &OrganizationMetaData{daemonGroup: &Group{}}
+
+	assert.Nil(t, metadata.GetLicenseEndPoints())
+	assert.Nil(t, metadata.GetPaymentStorageEndPoints())
+}

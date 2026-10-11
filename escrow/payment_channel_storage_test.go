@@ -3,6 +3,7 @@ package escrow
 import (
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,8 +11,43 @@ import (
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
+
+func TestPaymentChannelValueObjectsAndUpdates(t *testing.T) {
+	payment := &Payment{
+		MpeContractAddress: common.HexToAddress("0x00000000000000000000000000000000000000ab"),
+		ChannelID:          big.NewInt(7),
+		ChannelNonce:       big.NewInt(2),
+		Amount:             big.NewInt(11),
+		Signature:          []byte{1, 2, 3},
+	}
+	require.Equal(t, "7/2", payment.ID())
+	require.Equal(t, "7/2", PaymentID(big.NewInt(7), big.NewInt(2)))
+	require.Contains(t, payment.String(), "ChannelID: 7")
+	require.Equal(t, "{ID: 7}", (&PaymentChannelKey{ID: big.NewInt(7)}).String())
+	require.Equal(t, "Open", Open.String())
+	require.Equal(t, "Closed", Closed.String())
+
+	channel := &PaymentChannelData{
+		ChannelID:        big.NewInt(7),
+		Nonce:            big.NewInt(2),
+		FullAmount:       big.NewInt(20),
+		AuthorizedAmount: big.NewInt(6),
+		Signature:        []byte{1},
+	}
+	CloseChannel(channel)
+	require.Zero(t, channel.FullAmount.Sign())
+
+	channel.FullAmount.SetInt64(20)
+	IncrementChannelNonce(channel)
+	require.Equal(t, int64(3), channel.Nonce.Int64())
+	require.Equal(t, int64(14), channel.FullAmount.Int64())
+	require.Zero(t, channel.AuthorizedAmount.Sign())
+	require.Nil(t, channel.Signature)
+	require.True(t, strings.Contains(channel.String(), "ChannelID: 7"))
+}
 
 func NewBlockchainChannelReaderMock() *BlockchainChannelReader {
 	return &BlockchainChannelReader{

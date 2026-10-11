@@ -7,18 +7,21 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var testLicenseJsonData = "\n  \"licenses\": { \"tiers\": [{\n  \"type\": \"Tier\",\n  \"planName\": \"Tier AAA\",\n  \"grpcServiceName\": \"ServiceA\",\n  \"grpcMethodName\": \"MethodA\",\n  \"range\": [\n    {\n      \"high\": 100,\n      \"discountInPercentage\": 1\n    },\n    {\n      \"high\": 200,\n      \"discountInPercentage\": 20\n    },\n    {\n      \"high\": 300,\n      \"discountInPercentage\": 100000\n    }\n  ],\n  \"detailsUrl\": \"http://abc.org/licenses/Tier.html\",\n  \"isActive\": \"true/false\"\n},\n {\n  \"type\": \"Tier\",\n  \"planName\": \"Tier BBB Applicable for All service.methods\",\n  \"range\": [\n    {\n      \"high\": 100,\n      \"discountInPercentage\": 1\n    },\n    {\n      \"high\": 200,\n      \"discountInPercentage\": 200\n    },\n    {\n      \"high\": 300,\n      \"discountInPercentage\": 100000\n    }\n  ],\n  \"detailsUrl\": \"http://abc.org/licenses/Tier.html\",\n  \"isActive\": \"true/false\"\n}], " +
 	"\"subscriptions\": {\n   \"subscription\": [\n  {\n    \"periodInDays\": 30,\n    \"discountInPercentage\": 120,\n    \"planName\": \"Monthly For ServiceA/MethodA\",\n    \"LicenseCost\": 90,\n    \"grpcServiceName\": \"ServiceA\",\n    \"grpcMethodName\": \"MethodA\"\n  },\n  {\n    \"periodInDays\": 30,\n    \"discountInPercentage\": 123,\n    \"planName\": \"Monthly\",\n    \"LicenseCost\": 93\n  },\n  {\n    \"periodInDays\": 120,\n    \"discountInPercentage\": 160,\n    \"LicenseCost\": 120,\n    \"planName\": \"Quarterly\"\n  },\n  {\n    \"periodInDays\": 365,\n    \"discountInPercentage\": 430,\n    \"LicenseCost\": 390,\n    \"planName\": \"Yearly\"\n  }\n],       \"type\": \"Subscription\",\n          \"detailsUrl\": \"http://abc.org/licenses/Subscription.html\",\n          \"isActive\": \"true/false\"\n        }\n      }"
-var testJsonData = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"encoding\": \"grpc\",   \"service_type\": \"grpc\",   \"payment_expiration_threshold\": 40320,   \"model_ipfs_hash\": \"Qmdiq8Hu6dYiwp712GtnbBxagyfYyvUY1HYqkH7iN76UCc\", " +
+var testJsonData = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"encoding\": \"grpc\",   \"service_type\": \"grpc\",   \"payment_expiration_threshold\": 40320, " +
 	"  \"mpe_address\": \"0x7E6366Fbe3bdfCE3C906667911FC5237Cc96BD08\",   \"groups\": [     {    \"free_calls\": 12,  \"free_call_signer_address\": \"0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F\",  \"endpoints\": [\"http://34.344.33.1:2379\",\"http://34.344.33.1:2389\"],       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",\"group_name\": \"default_group\",  " + testLicenseJsonData + " ,  \"pricing\": [         {           \"price_model\": \"fixed_price\",           \"price_in_cogs\": 2         },          {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"default\":true,         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     },     {       \"endpoints\": [\"http://97.344.33.1:2379\",\"http://67.344.33.1:2389\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"pricing\": [         {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     }   ] } "
 
 func TestAllGetterMethods(t *testing.T) {
 	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
-	assert.Equal(t, err, nil)
+	require.NoError(t, err)
 
 	assert.Equal(t, metaData.GetVersion(), 1)
 	assert.Equal(t, metaData.GetDisplayName(), "Example1")
@@ -35,7 +38,7 @@ func TestAllGetterMethods(t *testing.T) {
 
 func TestSubscription(t *testing.T) {
 	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
-	assert.Equal(t, err, nil)
+	require.NoError(t, err)
 	assert.Equal(t, 12, metaData.GetFreeCallsAllowed())
 	assert.Equal(t, metaData.GetLicenses().Subscriptions.Type, "Subscription")
 	assert.Equal(t, len(metaData.GetLicenses().Subscriptions.Subscription), 4)
@@ -47,7 +50,7 @@ func TestSubscription(t *testing.T) {
 
 func TestTiers(t *testing.T) {
 	metaData, err := InitServiceMetaDataFromJson([]byte(testJsonData))
-	assert.Equal(t, err, nil)
+	require.NoError(t, err)
 
 	assert.Equal(t, metaData.GetLicenses().Tiers[0].Type, "Tier")
 	assert.Equal(t, metaData.GetLicenses().Tiers[0].Range[0].High, 100)
@@ -56,39 +59,49 @@ func TestTiers(t *testing.T) {
 }
 
 func TestInitServiceMetaDataFromJson(t *testing.T) {
-	//Parse Bad JSON
 	_, err := InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "{", "", 1)))
-	if err != nil {
-		assert.Equal(t, err.Error(), "invalid character ':' after top-level value")
-	}
+	require.EqualError(t, err, "invalid character ':' after top-level value")
 
-	//Parse Bad JSON
-	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F", "", 1)))
-	if err != nil {
-		assert.Contains(t, err.Error(), "metadata does not have 'free_call_signer_address defined correctly")
-	}
-	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "default_pricing", "dummy", 1)))
-	if err != nil {
-		assert.Equal(t, err.Error(), "metadata does not have the default pricing set")
-	}
-
+	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F", "invalid-address", 1)))
+	require.ErrorContains(t, err, "metadata does not have 'free_call_signer_address defined correctly")
+	_, err = InitServiceMetaDataFromJson([]byte(strings.Replace(testJsonData, `"default":true`, `"default":false`, 1)))
+	require.EqualError(t, err, "metadata does not have the default pricing set")
 }
 
 func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
+	serveServiceProto(t, "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv")
 	metadata, err := ReadServiceMetaDataFromLocalFile("../resources/testing/service_metadata.json")
-	assert.Equal(t, err, nil)
+	require.NoError(t, err)
 	assert.Equal(t, metadata.Version, 1)
+	assert.Equal(t, map[string]string{"service.proto": testServiceProto}, metadata.ProtoFiles)
+	require.Len(t, metadata.ProtoDescriptors, 1)
 }
 
 func Test_getServiceMetaDataUrifromRegistry(t *testing.T) {
-	config.Validate()
-	_, err := getServiceMetaDataURIFromRegistry()
-	assert.NotNil(t, err)
-	config.Vip().Set(config.ServiceId, "sepolia")
-	config.Vip().Set(config.ServiceId, "semyon_dev")
-	config.Vip().Set(config.OrganizationId, "semyon_dev")
-	_, err = getServiceMetaDataURIFromRegistry()
-	assert.Nil(t, err)
+	abi, err := RegistryMetaData.GetAbi()
+	require.NoError(t, err)
+	wantURI := []byte("ipfs://QmV9bBsLAZfXGibdU3isPwDn8SxAPkqg6YzcKamSCxnBCR")
+	for _, tc := range []struct {
+		name  string
+		found bool
+	}{{"found", true}, {"not_found", false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := abi.Methods["getServiceRegistrationById"].Outputs.Pack(tc.found, utils.StringToBytes32("test-service"), wantURI)
+			require.NoError(t, err)
+			server := startMockEthRPCServerWithCallResult(t, hexutil.Encode(result))
+			defer server.Close()
+			setBlockChainTestEndpoint(t, server.URL)
+
+			uri, err := getServiceMetaDataURIFromRegistry()
+			if tc.found {
+				require.NoError(t, err)
+				assert.Equal(t, wantURI, uri)
+			} else {
+				require.ErrorContains(t, err, "error retrieving contract details")
+				assert.Nil(t, uri)
+			}
+		})
+	}
 }
 
 func Test_setDefaultPricing(t *testing.T) {
@@ -138,7 +151,55 @@ func TestServiceMetadata_parseServiceProto(t *testing.T) {
 }
 
 func TestServiceMetadata_addOns(t *testing.T) {
+	serveServiceProto(t, "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv")
 	metadata, err := ReadServiceMetaDataFromLocalFile("../resources/testing/service_metadata.json")
-	assert.Equal(t, err, nil)
+	require.NoError(t, err)
 	assert.Equal(t, metadata.Groups[0].AddOns[0].DiscountInPercentage, 4.0)
+}
+
+func TestIsModelTraining(t *testing.T) {
+	metaData := &ServiceMetadata{TrainingMethods: []string{"/example_service.Calculator/train_add"}}
+
+	config.Vip().Set(config.ModelTrainingEnabled, true)
+	defer config.Vip().Set(config.ModelTrainingEnabled, false)
+
+	assert.True(t, metaData.IsModelTraining("/example_service.Calculator/train_add"))
+	assert.False(t, metaData.IsModelTraining("/example_service.Calculator/add"))
+
+	config.Vip().Set(config.ModelTrainingEnabled, false)
+	assert.False(t, metaData.IsModelTraining("/example_service.Calculator/train_add"))
+}
+
+func TestGetDynamicPricingMethodAssociated(t *testing.T) {
+	metaData := &ServiceMetadata{
+		DynamicPriceMethodMapping: map[string]string{
+			"/example_service.Calculator/add": "/example_service.Calculator/dynamic_pricing_add",
+		},
+	}
+
+	config.Vip().Set(config.EnableDynamicPricing, true)
+	defer config.Vip().Set(config.EnableDynamicPricing, false)
+
+	pricingMethod, ok := metaData.GetDynamicPricingMethodAssociated("/example_service.Calculator/add")
+	assert.True(t, ok)
+	assert.Equal(t, "/example_service.Calculator/dynamic_pricing_add", pricingMethod)
+
+	_, ok = metaData.GetDynamicPricingMethodAssociated("/example_service.Calculator/sub")
+	assert.False(t, ok)
+
+	config.Vip().Set(config.EnableDynamicPricing, false)
+	_, ok = metaData.GetDynamicPricingMethodAssociated("/example_service.Calculator/add")
+	assert.False(t, ok)
+}
+
+func TestServiceMetaData_BlockchainDisabled(t *testing.T) {
+	config.Vip().Set(config.BlockchainEnabledKey, false)
+	defer config.Vip().Set(config.BlockchainEnabledKey, true)
+
+	metadata := ServiceMetaData()
+
+	assert.NotNil(t, metadata)
+	assert.Equal(t, "proto", metadata.Encoding)
+	assert.Equal(t, "grpc", metadata.ServiceType)
+	assert.Equal(t, "grpc", metadata.GetServiceType())
 }

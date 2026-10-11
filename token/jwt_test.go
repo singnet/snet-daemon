@@ -7,9 +7,66 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestNewJWTTokenServiceCreatesTokensForOrganizationGroup(t *testing.T) {
+	originalBlockchainEnabled := config.GetBool(config.BlockchainEnabledKey)
+	originalOrganizationID := config.GetString(config.OrganizationId)
+	originalSecret := config.GetString(config.TokenSecretKey)
+	originalExpiry := config.GetInt(config.TokenExpiryInMinutes)
+	config.Vip().Set(config.BlockchainEnabledKey, false)
+	config.Vip().Set(config.OrganizationId, "test-org")
+	config.Vip().Set(config.TokenSecretKey, "test-secret")
+	config.Vip().Set(config.TokenExpiryInMinutes, 1)
+	t.Cleanup(func() {
+		config.Vip().Set(config.BlockchainEnabledKey, originalBlockchainEnabled)
+		config.Vip().Set(config.OrganizationId, originalOrganizationID)
+		config.Vip().Set(config.TokenSecretKey, originalSecret)
+		config.Vip().Set(config.TokenExpiryInMinutes, originalExpiry)
+	})
+
+	organization := blockchain.GetOrganizationMetaData()
+	service := NewJWTTokenService(*organization)
+	token, err := service.CreateToken("payload", "0xabc")
+	require.NoError(t, err)
+
+	address, err := service.VerifyToken(token, "payload")
+	require.NoError(t, err)
+	require.Equal(t, "0xabc", address)
+}
+
+func TestVerifyTokenRejectsNonHMACAlgorithm(t *testing.T) {
+	service := customJWTokenServiceImpl{getGroupId: func() string { return "group" }}
+	token := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{})
+	tokenString, err := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	require.NoError(t, err)
+
+	_, err = service.VerifyToken(tokenString, "payload")
+	require.ErrorContains(t, err, "unexpected signing method: none")
+}
+
+func TestVerifyTokenReturnsUnknownForMissingUserAddress(t *testing.T) {
+	originalOrganizationID := config.GetString(config.OrganizationId)
+	originalSecret := config.GetString(config.TokenSecretKey)
+	config.Vip().Set(config.OrganizationId, "test-org")
+	config.Vip().Set(config.TokenSecretKey, "test-secret")
+	t.Cleanup(func() {
+		config.Vip().Set(config.OrganizationId, originalOrganizationID)
+		config.Vip().Set(config.TokenSecretKey, originalSecret)
+	})
+
+	service := customJWTokenServiceImpl{getGroupId: func() string { return "group" }}
+	token, err := service.CreateToken("payload", "")
+	require.NoError(t, err)
+
+	address, err := service.VerifyToken(token, "payload")
+	require.NoError(t, err)
+	require.Equal(t, "unknown", address)
+}
 
 func Test_customJWTokenClaimsImpl_CreateToken(t *testing.T) {
 	tokenImpl := &customJWTokenServiceImpl{
@@ -39,7 +96,7 @@ func Test_customJWTokenClaimsImpl_checkJwtTokenClaims(t *testing.T) {
 	config.Vip().Set(config.TokenExpiryInMinutes, 1)
 	token, err := tokenImpl.CreateToken("any struct", "0x")
 	_, err = tokenImpl.VerifyToken(token, "different struct")
-	assert.Equal(t, "payload any struct used to generate the Token doesnt match expected values", err.Error())
+	assert.Equal(t, "payload any struct used to generate the token doesn't match expected values", err.Error())
 	config.Vip().Set(config.OrganizationId, "differentOrganization")
 	_, err = tokenImpl.VerifyToken(token, "any struct")
 	assert.Equal(t, "organization YOUR_ORG_ID is not associated with this Daemon", err.Error())
@@ -79,7 +136,7 @@ func Test_customJWTokenServiceImpl_checkJwtTokenClaims(t *testing.T) {
 	// invalid payload
 	claims = createClaims("payload1", "Org1", "GroupID")
 	err = tokenImpl.checkJwtTokenClaims(claims, "payload2")
-	assert.EqualError(t, err, "payload payload1 used to generate the Token doesnt match expected values")
+	assert.EqualError(t, err, "payload payload1 used to generate the token doesn't match expected values")
 
 	// invalid orgId
 	claims = createClaims("payload1", "Org2", "GroupID")

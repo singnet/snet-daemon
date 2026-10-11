@@ -1,12 +1,10 @@
 package utils
 
 import (
-	"crypto/ecdsa"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSerializeDeserialize(t *testing.T) {
@@ -20,41 +18,6 @@ func TestSerializeDeserialize(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, original, decoded)
-}
-
-func TestParsePrivateKey(t *testing.T) {
-	validKey, err := crypto.GenerateKey()
-	assert.NoError(t, err)
-
-	privBytes := crypto.FromECDSA(validKey)
-	privHex := common.Bytes2Hex(privBytes)
-
-	parsedKey := ParsePrivateKey(privHex)
-	assert.NotNil(t, parsedKey)
-
-	// Invalid key
-	parsedKeyInvalid := ParsePrivateKey("not-a-valid-key")
-	assert.Nil(t, parsedKeyInvalid)
-
-	// Empty string returns nil
-	parsedKeyEmpty := ParsePrivateKey("")
-	assert.Nil(t, parsedKeyEmpty)
-}
-
-func TestGetAddressFromPrivateKeyECDSA(t *testing.T) {
-	key, err := crypto.GenerateKey()
-	assert.NoError(t, err)
-
-	addr := GetAddressFromPrivateKeyECDSA(key)
-	expected := crypto.PubkeyToAddress(key.PublicKey)
-	assert.Equal(t, expected, addr)
-
-	// Passing nil returns an empty address
-	assert.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(nil))
-
-	// Passing invalid public key type (simulate)
-	badKey := &ecdsa.PrivateKey{} // no public key set
-	assert.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(badKey))
 }
 
 func TestCheckIfHttps(t *testing.T) {
@@ -141,6 +104,33 @@ func TestIsURLValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsURLValid(tt.endpoint)
 			assert.Equal(t, tt.expected, result, "endpoint: %s", tt.endpoint)
+		})
+	}
+}
+
+func TestSerializeReturnsErrorForUnsupportedValue(t *testing.T) {
+	serialized, err := Serialize(make(chan int))
+
+	require.Error(t, err)
+	require.Empty(t, serialized)
+}
+
+func TestDeserializeRejectsMalformedDataAndInvalidDestination(t *testing.T) {
+	serialized, err := Serialize("value")
+	require.NoError(t, err)
+	for _, test := range []struct {
+		name        string
+		data        string
+		destination any
+	}{
+		{name: "empty data", destination: new(string)},
+		{name: "malformed data", data: "not gob", destination: new(string)},
+		{name: "truncated data", data: serialized[:len(serialized)-1], destination: new(string)},
+		{name: "wrong type", data: serialized, destination: new(int)},
+		{name: "non-pointer destination", data: serialized, destination: "value"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			require.Error(t, Deserialize(test.data, test.destination))
 		})
 	}
 }

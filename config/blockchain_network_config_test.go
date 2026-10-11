@@ -2,13 +2,15 @@ package config
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetNetworkId(t *testing.T) {
+	isolatedConfig(t)
 	Vip().Set(BlockChainNetworkSelected, "sepolia")
 	err := determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
 	assert.Equal(t, err, nil)
@@ -41,6 +43,7 @@ var defaultBlockChainNetworkConfig = `
 }`
 
 func TestGetBlockChainEndPoint(t *testing.T) {
+	isolatedConfig(t)
 	Vip().Set(BlockChainNetworkSelected, "sepolia")
 	err := determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
 	assert.Equal(t, err, nil)
@@ -50,6 +53,7 @@ func TestGetBlockChainEndPoint(t *testing.T) {
 }
 
 func TestGetRegistryAddress(t *testing.T) {
+	isolatedConfig(t)
 
 	err := determineNetworkSelected([]byte(defaultBlockChainNetworkConfig))
 	assert.Nil(t, err)
@@ -61,6 +65,7 @@ func TestGetRegistryAddress(t *testing.T) {
 }
 
 func TestReadFromFile(t *testing.T) {
+	isolatedConfig(t)
 	type args struct {
 		filename string
 	}
@@ -84,21 +89,19 @@ func TestReadFromFile(t *testing.T) {
 }
 
 func Test_SetBlockChainNetworkDetails(t *testing.T) {
+	isolatedConfig(t)
 	setBlockChainNetworkDetails(BlockChainNetworkFileName)
 	assert.NotNil(t, GetRegistryAddress())
 }
 
 func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
+	isolatedConfig(t)
 
 	dynamicBinding := map[string]any{}
 	data := []byte(defaultBlockChainNetworkConfig)
 	err := json.Unmarshal(data, &dynamicBinding)
 	assert.Nil(t, err)
 	var wantEthEndpoint = "https://sepolia.infura.io/v3/09027f4a13e841d48dbfefc67e7685d5"
-
-	if os.Getenv("SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT") != "" {
-		wantEthEndpoint = os.Getenv("SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT")
-	}
 
 	tests := []struct {
 		name    string
@@ -120,6 +123,7 @@ func Test_GetDetailsFromJsonOrConfig(t *testing.T) {
 }
 
 func Test_setRegistryAddress(t *testing.T) {
+	isolatedConfig(t)
 	tests := []struct {
 		networkID string
 		wantErr   bool
@@ -141,6 +145,7 @@ func Test_setRegistryAddress(t *testing.T) {
 }
 
 func Test_setBlockChainNetworkDetails(t *testing.T) {
+	isolatedConfig(t)
 
 	tests := []struct {
 		name                 string
@@ -159,4 +164,28 @@ func Test_setBlockChainNetworkDetails(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNetworkConfigurationOverrides(t *testing.T) {
+	v := isolatedConfig(t)
+	v.Set(EthereumJsonRpcHTTPEndpointKey, "https://rpc.example.test")
+	v.Set(EthereumJsonRpcWSEndpointKey, "wss://rpc.example.test")
+	const registry = "0x06A1D29e9FfA2415434A7A571235744F8DA2a514"
+	v.Set(RegistryAddressKey, registry)
+	require.NoError(t, determineNetworkSelected([]byte(defaultBlockChainNetworkConfig)))
+	require.Equal(t, "11155111", GetNetworkId())
+	require.Equal(t, "https://rpc.example.test", GetBlockChainHTTPEndPoint())
+	require.Equal(t, "wss://rpc.example.test", GetBlockChainWSEndPoint())
+	require.True(t, common.IsHexAddress(GetTokenAddress()))
+	require.NoError(t, setRegistryAddress())
+	require.Equal(t, registry, GetRegistryAddress(), "an explicit registry must be preserved")
+}
+
+func TestInvalidNetworkJSON(t *testing.T) {
+	isolatedConfig(t)
+	networkSelected.RegistryAddressKey = "unchanged"
+	require.Error(t, determineNetworkSelected([]byte("{broken")))
+	require.Equal(t, "unchanged", GetRegistryAddress())
+	require.ErrorContains(t, deriveDataFromJSON([]byte("{broken")), "cannot parse the registry JSON")
+	require.Equal(t, "unchanged", GetRegistryAddress())
 }

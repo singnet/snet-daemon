@@ -34,7 +34,7 @@ func (f versionRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) 
 
 func stubVersionHTTP(t *testing.T, handler versionRoundTripper) {
 	t.Helper()
-	oldClient := http.DefaultClient
-	t.Cleanup(func() { http.DefaultClient = oldClient })
-	http.DefaultClient = &http.Client{Transport: handler}
+	oldClient := versionHTTPClient
+	t.Cleanup(func() { versionHTTPClient = oldClient })
+	versionHTTPClient = &http.Client{Transport: handler, Timeout: oldClient.Timeout}
 }

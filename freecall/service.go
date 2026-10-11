@@ -1,97 +1,95 @@
-package escrow
+package freecall
 
 import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v6/utils"
-
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/errs"
+	"github.com/singnet/snet-daemon/v6/storage"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"go.uber.org/zap"
 )
 
-type lockingFreeCallUserService struct {
-	storage         *FreeCallUserStorage
-	locker          Locker
+type lockingUserService struct {
+	storage         *UserStorage
+	locker          storage.Locker
 	replicaGroupID  func() ([32]byte, error)
 	serviceMetadata *blockchain.ServiceMetadata
 }
 
-func NewFreeCallUserService(
-	storage *FreeCallUserStorage,
-
-	locker Locker,
-	groupIdReader func() ([32]byte, error), metadata *blockchain.ServiceMetadata) FreeCallUserService {
-
-	return &lockingFreeCallUserService{
-		storage:         storage,
+// NewUserService manages free-call limits and transactions in shared storage.
+func NewUserService(userStorage *UserStorage, locker storage.Locker,
+	groupIDReader func() ([32]byte, error), metadata *blockchain.ServiceMetadata) UserService {
+	return &lockingUserService{
+		storage:         userStorage,
 		locker:          locker,
-		replicaGroupID:  groupIdReader,
+		replicaGroupID:  groupIDReader,
 		serviceMetadata: metadata,
 	}
 }
 
-func (h *lockingFreeCallUserService) FreeCallUser(key *FreeCallUserKey) (freeCallUser *FreeCallUserData, ok bool, err error) {
+func (h *lockingUserService) User(key *UserKey) (freeCallUser *UserData, ok bool, err error) {
 	freeCallUser, ok, err = h.storage.Get(key)
 	if err != nil {
 		return
 	}
 	if !ok {
-		return &FreeCallUserData{FreeCallsMade: 0, UserID: key.UserId, Address: key.Address, GroupID: key.GroupID, ServiceId: key.ServiceId, OrganizationId: key.OrganizationId}, true, nil
+		return &UserData{FreeCallsMade: 0, UserID: key.UserId, Address: key.Address, GroupID: key.GroupID, ServiceId: key.ServiceId, OrganizationId: key.OrganizationId}, true, nil
 	}
 	return
 }
 
-func (h *lockingFreeCallUserService) ListFreeCallUsers() (users []*FreeCallUserData, err error) {
+func (h *lockingUserService) ListUsers() (users []*UserData, err error) {
 	return h.storage.GetAll()
 }
 
-type freeCallTransaction struct {
-	payment         FreeCallPayment
-	freeCallUser    *FreeCallUserData
-	freeCallUserKey *FreeCallUserKey
-	service         *lockingFreeCallUserService
-	lock            Lock
+type userTransaction struct {
+	payment         Payment
+	freeCallUser    *UserData
+	freeCallUserKey *UserKey
+	service         *lockingUserService
+	lock            storage.Lock
 }
 
-func (transaction *freeCallTransaction) GetSender() common.Address {
+func (transaction *userTransaction) GetSender() common.Address {
 	return common.HexToAddress(transaction.payment.Address)
 }
 
-func (transaction *freeCallTransaction) String() string {
-	return fmt.Sprintf("{FreeCallPayment: %v, FreeCallUser: %v}", transaction.payment.String(), transaction.freeCallUser.String())
+func (transaction *userTransaction) String() string {
+	return fmt.Sprintf("{Payment: %v, User: %v}", transaction.payment.String(), transaction.freeCallUser.String())
 }
 
-func (transaction *freeCallTransaction) FreeCallUser() *FreeCallUserData {
+func (transaction *userTransaction) User() *UserData {
 	return transaction.freeCallUser
 }
 
-func (h *lockingFreeCallUserService) GetFreeCallUserKey(payment *FreeCallPayment) (userKey *FreeCallUserKey, err error) {
+func (h *lockingUserService) UserKey(payment *Payment) (userKey *UserKey, err error) {
 	groupId, err := h.replicaGroupID()
-	return &FreeCallUserKey{UserId: payment.UserID, Address: payment.Address, OrganizationId: payment.OrganizationId,
+	return &UserKey{UserId: payment.UserID, Address: payment.Address, OrganizationId: payment.OrganizationId,
 		ServiceId: payment.ServiceId, GroupID: utils.BytesToBase64(groupId[:])}, err
 }
 
-// StartFreeCallUserTransaction acquires a user-level lock and returns a transaction
+// StartTransaction acquires a user-level lock and returns a transaction
 // handle for free-call. It validates the per-address/global free-call
 // limits (where -1 means unlimited) and fails if the limit is exceeded.
 // The returned transaction keeps the lock and must be finalized elsewhere.
-func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeCallPayment) (transaction FreeCallTransaction, err error) {
+func (h *lockingUserService) StartTransaction(payment *Payment) (transaction Transaction, err error) {
 
-	userKey, err := h.GetFreeCallUserKey(payment)
+	userKey, err := h.UserKey(payment)
 	if err != nil {
-		return nil, NewPaymentError(Internal, "payment freeCallUserKey error: %s", err.Error())
+		return nil, errs.NewPaymentError(errs.Internal, "payment freeCallUserKey error: %s", err.Error())
 	}
 
-	freeCallUserData, ok, err := h.FreeCallUser(userKey)
+	freeCallUserData, ok, err := h.User(userKey)
 	if err != nil {
-		return nil, NewPaymentError(Internal, "payment freeCallUserData error: %s", err.Error())
+		return nil, errs.NewPaymentError(errs.Internal, "payment freeCallUserData error: %s", err.Error())
 	}
 
 	if !ok {
 		zap.L().Warn("Payment freeCallUserData not found")
-		return nil, NewPaymentError(Unauthenticated, "payment freeCallUserData \"%v\" not found", userKey)
+		return nil, errs.NewPaymentError(errs.Unauthenticated, "payment freeCallUserData \"%v\" not found", userKey)
 	}
 
 	freeCallUserData.ServiceId = userKey.ServiceId
@@ -101,12 +99,12 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 
 	lock, ok, err := h.locker.Lock(userKey.String())
 	if err != nil {
-		return nil, NewPaymentError(Internal, "cannot get mutex for user: %v", userKey)
+		return nil, errs.NewPaymentError(errs.Internal, "cannot get mutex for user: %v", userKey)
 	}
 	if !ok {
-		return nil, NewPaymentError(FailedPrecondition, "another transaction on this user: %v is in progress", userKey)
+		return nil, errs.NewPaymentError(errs.FailedPrecondition, "another transaction on this user: %v is in progress", userKey)
 	}
-	defer func(lock Lock) {
+	defer func(lock storage.Lock) {
 		if err != nil {
 			e := lock.Unlock()
 			if e != nil {
@@ -134,7 +132,7 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 		}
 	}
 
-	return &freeCallTransaction{
+	return &userTransaction{
 		payment:         *payment,
 		freeCallUserKey: userKey,
 		freeCallUser:    freeCallUserData,
@@ -143,8 +141,8 @@ func (h *lockingFreeCallUserService) StartFreeCallUserTransaction(payment *FreeC
 	}, nil
 }
 
-func (transaction *freeCallTransaction) Commit() error {
-	defer func(payment *freeCallTransaction) {
+func (transaction *userTransaction) Commit() error {
+	defer func(payment *userTransaction) {
 		err := payment.lock.Unlock()
 		if err != nil {
 			//todo send a notification to the developer defined in service metadata
@@ -156,22 +154,22 @@ func (transaction *freeCallTransaction) Commit() error {
 		}
 	}(transaction)
 
-	IncrementFreeCallCount(transaction.FreeCallUser())
+	IncrementCallCount(transaction.User())
 	err := transaction.service.storage.Put(
 		transaction.freeCallUserKey,
-		transaction.FreeCallUser(),
+		transaction.User(),
 	)
 	if err != nil {
 		zap.L().Error("Unable to store new transaction free call user state")
-		return NewPaymentError(Internal, "unable to store new transaction free call user state")
+		return errs.NewPaymentError(errs.Internal, "unable to store new transaction free call user state")
 	}
 
 	zap.L().Debug("Free Call Payment completed")
 	return nil
 }
 
-func (transaction *freeCallTransaction) Rollback() error {
-	defer func(payment *freeCallTransaction) {
+func (transaction *userTransaction) Rollback() error {
+	defer func(payment *userTransaction) {
 		err := payment.lock.Unlock()
 		if err != nil {
 			zap.L().Error("free call user cannot be unlocked because of error. All other transactions on this channel will be blocked until unlock. Please unlock channel manually.",

@@ -1,4 +1,4 @@
-package escrow
+package freecall
 
 import (
 	"testing"
@@ -11,27 +11,27 @@ import (
 type FreeCallUserStorageSuite struct {
 	suite.Suite
 	memoryStorage *storage.MemoryStorage
-	storage       *FreeCallUserStorage
+	storage       *UserStorage
 }
 
 func (suite *FreeCallUserStorageSuite) SetupSuite() {
 
 	suite.memoryStorage = storage.NewMemStorage()
 
-	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
+	suite.storage = NewUserStorage(suite.memoryStorage)
 }
 
 func (suite *FreeCallUserStorageSuite) SetupTest() {
 	suite.memoryStorage.Clear()
 }
 
-func (suite *FreeCallUserStorageSuite) getFreeCallUserKey(userid string) *FreeCallUserKey {
-	return &FreeCallUserKey{UserId: userid, GroupID: "Group1",
+func (suite *FreeCallUserStorageSuite) getFreeCallUserKey(userid string) *UserKey {
+	return &UserKey{UserId: userid, GroupID: "Group1",
 		ServiceId: "service1", OrganizationId: "org1"}
 }
 
-func (suite *FreeCallUserStorageSuite) getFreeCallUser() *FreeCallUserData {
-	return &FreeCallUserData{
+func (suite *FreeCallUserStorageSuite) getFreeCallUser() *UserData {
+	return &UserData{
 		FreeCallsMade: 1,
 	}
 }
@@ -52,7 +52,7 @@ func (suite *FreeCallUserStorageSuite) TestGetAll() {
 	users, err = suite.storage.GetAll()
 
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
-	assert.Equal(suite.T(), []*FreeCallUserData{userA, userB}, users)
+	assert.Equal(suite.T(), []*UserData{userA, userB}, users)
 }
 
 func (suite *FreeCallUserStorageSuite) TestGet() {
@@ -78,7 +78,7 @@ func (suite *FreeCallUserStorageSuite) TestCompareAndSwap() {
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 	assert.True(suite.T(), ok)
 	freeCallUser2 := suite.getFreeCallUser()
-	IncrementFreeCallCount(freeCallUser2)
+	IncrementCallCount(freeCallUser2)
 	ok, err = suite.storage.CompareAndSwap(suite.getFreeCallUserKey("userD"), suite.getFreeCallUser(), freeCallUser2)
 
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)

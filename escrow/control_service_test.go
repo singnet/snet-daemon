@@ -10,14 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/singnet/snet-daemon/v6/utils"
-	"github.com/stretchr/testify/suite"
-
 	"github.com/stretchr/testify/assert"
-
-	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/stretchr/testify/suite"
 )
 
 type ControlServiceTestSuite struct {
@@ -101,7 +99,7 @@ func (suite *ControlServiceTestSuite) SetupSuite() {
 				return suite.receiverAddress
 			},
 		},
-		NewEtcdLocker(memoryStorage),
+		storage.NewLocker(memoryStorage),
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },

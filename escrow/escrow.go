@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-
+	"github.com/singnet/snet-daemon/v6/storage"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +15,7 @@ type lockingPaymentChannelService struct {
 	storage          *PaymentChannelStorage
 	paymentStorage   *PaymentStorage
 	blockchainReader *BlockchainChannelReader
-	locker           Locker
+	locker           storage.Locker
 	validator        *ChannelPaymentValidator
 	replicaGroupID   func() [32]byte
 }
@@ -26,7 +26,7 @@ func NewPaymentChannelService(
 	storage *PaymentChannelStorage,
 	paymentStorage *PaymentStorage,
 	blockchainReader *BlockchainChannelReader,
-	locker Locker,
+	locker storage.Locker,
 	channelPaymentValidator *ChannelPaymentValidator, groupIdReader func() [32]byte) PaymentChannelService {
 
 	return &lockingPaymentChannelService{
@@ -179,7 +179,7 @@ type paymentTransaction struct {
 	payment Payment
 	channel *PaymentChannelData
 	service *lockingPaymentChannelService
-	lock    Lock
+	lock    storage.Lock
 }
 
 func (payment *paymentTransaction) GetSender() common.Address {
@@ -205,7 +205,7 @@ func (h *lockingPaymentChannelService) StartPaymentTransaction(payment *Payment)
 	if !ok {
 		return nil, NewPaymentError(FailedPrecondition, "another transaction on channel: %v is in progress", channelKey)
 	}
-	defer func(lock Lock) {
+	defer func(lock storage.Lock) {
 		if err != nil {
 			e := lock.Unlock()
 			if e != nil {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
-	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -41,7 +41,7 @@ type freeCallUserUnLockCommand struct {
 // Free call user unlock command
 type freeCallUserResetCountCommand struct {
 	lockStorage *storage.PrefixedAtomicStorage
-	userStorage *escrow.FreeCallUserStorage
+	userStorage *freecall.UserStorage
 	userID      string
 	address     string
 	orgMetadata *blockchain.OrganizationMetaData
@@ -110,7 +110,7 @@ func (command *freeCallUserResetCountCommand) Run() (err error) {
 
 // release the lock on the user with the given user id
 func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
-	key := &escrow.FreeCallUserKey{}
+	key := &freecall.UserKey{}
 	key.UserId = command.userID
 	key.Address = command.address
 	key.OrganizationId = config.GetString(config.OrganizationId)
@@ -134,7 +134,7 @@ func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 
 // reset free locks counter for a given user id
 func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error) {
-	key := &escrow.FreeCallUserKey{}
+	key := &freecall.UserKey{}
 	key.UserId = command.userID
 	key.Address = command.address
 	key.OrganizationId = config.GetString(config.OrganizationId)
@@ -146,7 +146,7 @@ func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error
 		fmt.Printf("Error: Free Call user %s is not found\n", key.String())
 		return
 	}
-	updatedData := &escrow.FreeCallUserData{Address: key.Address, UserID: key.UserId, FreeCallsMade: 0}
+	updatedData := &freecall.UserData{Address: key.Address, UserID: key.UserId, FreeCallsMade: 0}
 	updatedData.OrganizationId = key.OrganizationId
 	updatedData.ServiceId = key.ServiceId
 	updatedData.GroupID = key.GroupID
@@ -170,7 +170,7 @@ var ListFreeCallUserCmd = &cobra.Command{
 }
 
 type listFreeCallUsersCommand struct {
-	freeCallService escrow.FreeCallUserService
+	freeCallService freecall.UserService
 }
 
 func newListFreeCallUserCommand(cmd *cobra.Command, args []string, components *Components) (command Command, err error) {
@@ -181,7 +181,7 @@ func newListFreeCallUserCommand(cmd *cobra.Command, args []string, components *C
 }
 
 func (command *listFreeCallUsersCommand) Run() (err error) {
-	users, err := command.freeCallService.ListFreeCallUsers()
+	users, err := command.freeCallService.ListUsers()
 	if err != nil {
 		return
 	}

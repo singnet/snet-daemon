@@ -265,7 +265,7 @@ func newTestPaymentTransaction() *paymentTransaction {
 		service: &lockingPaymentChannelService{
 			storage: NewPaymentChannelStorage(memStorage),
 		},
-		lock: &lockType{name: "test", locker: &etcdLocker{storage: memStorage}},
+		lock: &lockMock{},
 	}
 }
 

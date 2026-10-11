@@ -11,22 +11,21 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v6/utils"
-
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/configuration_service"
 	"github.com/singnet/snet-daemon/v6/errs"
 	"github.com/singnet/snet-daemon/v6/escrow"
 	"github.com/singnet/snet-daemon/v6/etcddb"
+	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/pricing"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/singnet/snet-daemon/v6/token"
 	"github.com/singnet/snet-daemon/v6/training"
-
-	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -48,7 +47,7 @@ type Components struct {
 	etcdLockerStorage          *storage.PrefixedAtomicStorage
 	mpeSpecificStorage         *storage.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
-	freeCallStateService       *escrow.FreeCallStateService
+	freeCallStateService       *freecall.StateService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
 	priceStrategy              *pricing.PricingStrategy
@@ -61,8 +60,8 @@ type Components struct {
 	freeCallPaymentHandler     handler.StreamPaymentHandler
 	trainUnaryPaymentHandler   handler.UnaryPaymentHandler
 	trainStreamPaymentHandler  handler.StreamPaymentHandler
-	freeCallUserService        escrow.FreeCallUserService
-	freeCallUserStorage        *escrow.FreeCallUserStorage
+	freeCallUserService        freecall.UserService
+	freeCallUserStorage        *freecall.UserStorage
 	freeCallLockerStorage      *storage.PrefixedAtomicStorage
 	tokenManager               token.Manager
 	tokenService               *escrow.TokenService
@@ -252,12 +251,12 @@ func (components *Components) PaymentStorage() *escrow.PaymentStorage {
 	return components.paymentStorage
 }
 
-func (components *Components) FreeCallUserStorage() *escrow.FreeCallUserStorage {
+func (components *Components) FreeCallUserStorage() *freecall.UserStorage {
 	if components.freeCallUserStorage != nil {
 		return components.freeCallUserStorage
 	}
 
-	components.freeCallUserStorage = escrow.NewFreeCallUserStorage(components.AtomicStorage())
+	components.freeCallUserStorage = freecall.NewUserStorage(components.AtomicStorage())
 
 	return components.freeCallUserStorage
 }
@@ -281,7 +280,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 		escrow.NewPaymentChannelStorage(components.MPESpecificStorage()),
 		components.PaymentStorage(),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.OrganizationMetaData()),
-		escrow.NewEtcdLocker(components.LockerStorage()),
+		storage.NewLocker(components.LockerStorage()),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), components.OrganizationMetaData()), func() [32]byte {
 			return components.OrganizationMetaData().GetGroupId()
 		},
@@ -290,14 +289,14 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	return components.paymentChannelService
 }
 
-func (components *Components) FreeCallUserService() escrow.FreeCallUserService {
+func (components *Components) FreeCallUserService() freecall.UserService {
 	if components.freeCallUserService != nil {
 		return components.freeCallUserService
 	}
 
-	components.freeCallUserService = escrow.NewFreeCallUserService(
+	components.freeCallUserService = freecall.NewUserService(
 		components.FreeCallUserStorage(),
-		escrow.NewEtcdLocker(components.FreeCallLockerStorage()),
+		storage.NewLocker(components.FreeCallLockerStorage()),
 		func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil
@@ -353,7 +352,7 @@ func (components *Components) FreeCallPaymentHandler() handler.StreamPaymentHand
 		return components.freeCallPaymentHandler
 	}
 
-	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(components.FreeCallUserService(),
+	components.freeCallPaymentHandler = freecall.NewPaymentHandler(components.FreeCallUserService(),
 		components.Blockchain(), components.OrganizationMetaData(), components.ServiceMetaData())
 
 	return components.freeCallPaymentHandler
@@ -553,10 +552,10 @@ func (components *Components) ProviderControlService() (service escrow.ProviderC
 	return components.providerControlService
 }
 
-func (components *Components) FreeCallStateService() (service escrow.FreeCallStateServiceServer) {
+func (components *Components) FreeCallStateService() (service freecall.FreeCallStateServiceServer) {
 
 	if !config.GetBool(config.BlockchainEnabledKey) {
-		return &escrow.BlockChainDisabledFreeCallStateService{}
+		return &freecall.DisabledStateService{}
 	}
 	if components.freeCallStateService != nil {
 		return components.freeCallStateService
@@ -564,12 +563,12 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 
 	tokenInstance, err := blockchain.NewFetchToken(common.HexToAddress(config.GetTokenAddress()), components.Blockchain().GetEthHttpClient())
 	if err != nil {
-		return &escrow.BlockChainDisabledFreeCallStateService{}
+		return &freecall.DisabledStateService{}
 	}
 
 	if config.GetString(config.PvtKeyForFreeCalls) == "" {
 		zap.L().Warn(fmt.Sprintf("Free calls disabled: no %s in the config", config.PvtKeyForFreeCalls))
-		return &escrow.BlockChainDisabledFreeCallStateService{}
+		return &freecall.DisabledStateService{}
 	}
 
 	privateKey := utils.ParsePrivateKey(config.GetString(config.PvtKeyForFreeCalls))
@@ -578,7 +577,7 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 	if addrFromPrvKey != freeCallSignerAddr {
 		zap.L().Error(fmt.Sprintf("Free calls disabled: %s does not match expected free_call_signer_address from srvMetadata", config.PvtKeyForFreeCalls),
 			zap.String("expected signer", freeCallSignerAddr.Hex()), zap.String("parsed addr from conf", addrFromPrvKey.Hex()))
-		return &escrow.BlockChainDisabledFreeCallStateService{}
+		return &freecall.DisabledStateService{}
 	}
 
 	zap.L().Info("Free calls enabled")
@@ -589,11 +588,11 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 		zap.L().Warn("Free calls for Marketplace disabled: no trusted signer addresses configured")
 	}
 
-	components.freeCallStateService = escrow.NewFreeCallStateService(
+	components.freeCallStateService = freecall.NewStateService(
 		components.OrganizationMetaData(),
 		components.ServiceMetaData(),
 		components.FreeCallUserService(),
-		escrow.NewFreeCallPaymentValidator(
+		freecall.NewPaymentValidator(
 			components.Blockchain().CurrentBlock,
 			components.ServiceMetaData().FreeCallSignerAddress(),
 			privateKey,

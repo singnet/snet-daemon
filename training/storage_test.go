@@ -1,14 +1,121 @@
 package training
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	basestorage "github.com/singnet/snet-daemon/v6/storage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
+
+type failingTrainingStorage struct {
+	basestorage.TypedAtomicStorage
+	err error
+}
+
+func (s *failingTrainingStorage) Get(any) (any, bool, error) { return nil, false, s.err }
+
+func (s *failingTrainingStorage) GetAll() (any, error) { return nil, s.err }
+
+func TestTrainingStorageReadErrors(t *testing.T) {
+	ds := trainingFixture(t)
+	sentinel := errors.New("storage unavailable")
+	broken := &failingTrainingStorage{err: sentinel}
+	ds.storage.delegate, ds.userStorage.delegate = broken, broken
+	ds.pendingStorage.delegate, ds.publicStorage.delegate = broken, broken
+	model, err := ds.storage.GetModel("owned")
+	require.ErrorIs(t, err, sentinel)
+	require.Nil(t, model)
+	models, err := ds.storage.GetAll()
+	require.ErrorIs(t, err, sentinel)
+	require.Nil(t, models)
+	users, err := ds.userStorage.GetAll()
+	require.ErrorIs(t, err, sentinel)
+	require.Nil(t, users)
+	pending, err := ds.pendingStorage.GetAll()
+	require.ErrorIs(t, err, sentinel)
+	require.Nil(t, pending)
+	public, err := ds.publicStorage.GetAll()
+	require.ErrorIs(t, err, sentinel)
+	require.Nil(t, public)
+	_, ok, err := ds.pendingStorage.Get(ds.pendingStorage.buildPendingModelKey())
+	require.ErrorIs(t, err, sentinel)
+	require.False(t, ok)
+	_, ok, err = ds.publicStorage.Get(ds.publicStorage.buildPublicModelKey())
+	require.ErrorIs(t, err, sentinel)
+	require.False(t, ok)
+	require.ErrorIs(t, ds.verifyCreatedByAddress("owned", testUserAddress), ErrGetModelStorage)
+	require.ErrorIs(t, ds.verifySignerHasAccessToTheModel("owned", testUserAddress), ErrGetUserModelStorage)
+	_, err = ds.updateModelStatus("owned", Status_TRAINING)
+	require.ErrorIs(t, err, ErrGetModelStorage)
+}
+
+func TestTrainingPendingAndPublicStorageCAS(t *testing.T) {
+	ds := trainingFixture(t)
+	key := ds.pendingStorage.buildPendingModelKey()
+	original := &PendingModelData{ModelIDs: []string{"first"}}
+	updated := &PendingModelData{ModelIDs: []string{"second"}}
+	ok, err := ds.pendingStorage.PutIfAbsent(key, original)
+	require.NoError(t, err)
+	require.True(t, ok)
+	ok, err = ds.pendingStorage.PutIfAbsent(key, updated)
+	require.NoError(t, err)
+	require.False(t, ok)
+	ok, err = ds.pendingStorage.CompareAndSwap(key, updated, original)
+	require.NoError(t, err)
+	require.False(t, ok)
+	ok, err = ds.pendingStorage.CompareAndSwap(key, original, updated)
+	require.NoError(t, err)
+	require.True(t, ok)
+	pending, err := ds.pendingStorage.GetAll()
+	require.NoError(t, err)
+	require.Equal(t, []*PendingModelData{updated}, pending)
+
+	publicKey := ds.publicStorage.buildPublicModelKey()
+	publicOriginal := &PublicModelData{ModelIDs: []string{"first"}}
+	publicUpdated := &PublicModelData{ModelIDs: []string{"second"}}
+	ok, err = ds.publicStorage.PutIfAbsent(publicKey, publicOriginal)
+	require.NoError(t, err)
+	require.True(t, ok)
+	ok, err = ds.publicStorage.PutIfAbsent(publicKey, publicUpdated)
+	require.NoError(t, err)
+	require.False(t, ok)
+	ok, err = ds.publicStorage.CompareAndSwap(publicKey, publicUpdated, publicOriginal)
+	require.NoError(t, err)
+	require.False(t, ok)
+	ok, err = ds.publicStorage.CompareAndSwap(publicKey, publicOriginal, publicUpdated)
+	require.NoError(t, err)
+	require.True(t, ok)
+	public, err := ds.publicStorage.GetAll()
+	require.NoError(t, err)
+	require.Equal(t, []*PublicModelData{publicUpdated}, public)
+}
+
+func TestTrainingIndexTransactionsPropagateReadErrors(t *testing.T) {
+	for _, action := range []string{"add pending", "remove pending", "add public"} {
+		t.Run(action, func(t *testing.T) {
+			ds := trainingFixture(t)
+			sentinel := errors.New("index read failed")
+			ds.pendingStorage.delegate = &failingTrainingStorage{TypedAtomicStorage: ds.pendingStorage.delegate, err: sentinel}
+			ds.publicStorage.delegate = &failingTrainingStorage{TypedAtomicStorage: ds.publicStorage.delegate, err: sentinel}
+			var err error
+			switch action {
+			case "add pending":
+				err = ds.pendingStorage.AddPendingModelId(ds.pendingStorage.buildPendingModelKey(), "owned")
+			case "remove pending":
+				err = ds.pendingStorage.RemovePendingModelId(ds.pendingStorage.buildPendingModelKey(), "owned")
+			case "add public":
+				err = ds.publicStorage.AddPublicModelId(ds.publicStorage.buildPublicModelKey(), "owned")
+			}
+			require.ErrorIs(t, err, sentinel)
+			require.ErrorContains(t, err, "transaction execution failed")
+		})
+	}
+}
 
 type ModelStorageSuite struct {
 	suite.Suite

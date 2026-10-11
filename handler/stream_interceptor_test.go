@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"

@@ -157,7 +157,7 @@ func (u *UsageInAmount) String() string {
 	return fmt.Sprintf("{UsageType:%v,Usage:%v}", u.UsageType, u.Amount)
 }
 func (u *UsageInAmount) Clone() Usage {
-	return &UsageInCalls{Calls: big.NewInt(u.Amount.Int64()), UsageType: u.GetUsageType()}
+	return &UsageInAmount{Amount: new(big.Int).Set(u.Amount), UsageType: u.GetUsageType()}
 }
 func (u *UsageInCalls) GetUsageType() string {
 	return u.UsageType
@@ -166,7 +166,7 @@ func (u *UsageInCalls) GetUsage() *big.Int {
 	return u.Calls
 }
 func (u *UsageInCalls) Clone() Usage {
-	return &UsageInCalls{Calls: big.NewInt(u.Calls.Int64()), UsageType: u.GetUsageType()}
+	return &UsageInCalls{Calls: new(big.Int).Set(u.Calls), UsageType: u.GetUsageType()}
 }
 func (u *UsageInCalls) String() string {
 	return fmt.Sprintf("{UsageType:%v,Usage:%v}", u.UsageType, u.Calls)
@@ -375,6 +375,7 @@ func serializeLicenseTrackerData(value any) (slice string, err error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
 	gob.Register(&UsageInCalls{})
+	gob.Register(&UsageInAmount{})
 	err = e.Encode(value)
 
 	if err != nil {
@@ -388,6 +389,7 @@ func deserializeLicenseTrackerData(slice string, value any) (err error) {
 	b := bytes.NewBuffer([]byte(slice))
 	d := gob.NewDecoder(b)
 	gob.Register(&UsageInCalls{})
+	gob.Register(&UsageInAmount{})
 	err = d.Decode(value)
 	return
 }

@@ -43,11 +43,11 @@ func TestNewGrpcErrorf(t *testing.T) {
 
 func TestGrpcStreamContext_String(t *testing.T) {
 	grpcContext := &GrpcStreamContext{
-		MD:   metadata.Pairs("key", "value"),
+		MD:   metadata.Pairs("user-agent", "test-agent"),
 		Info: &grpc.StreamServerInfo{FullMethod: "/test.Service/method"},
 	}
 
-	assert.Contains(t, grpcContext.String(), "key:[value]")
+	assert.Contains(t, grpcContext.String(), "user-agent:[test-agent]")
 	assert.Contains(t, grpcContext.String(), "/test.Service/method")
 }
 

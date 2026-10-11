@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -64,24 +62,16 @@ var GenerateEvmKeys = &cobra.Command{
 	Use:   "generate-key",
 	Short: "Generate new pair of keys",
 	Long:  "Generate new pair of ethereum keys (private key and address)",
-	Run: func(cmd *cobra.Command, args []string) {
-		privateKey, err := crypto.GenerateKey()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		privateKeyHex, address, err := utils.GenerateKeys()
 		if err != nil {
-			fmt.Printf("Failed to generate private key: %v", err)
+			return fmt.Errorf("failed to generate private key: %w", err)
 		}
 
-		privateKeyBytes := crypto.FromECDSA(privateKey)
-		fmt.Printf("Private Key: %s\n", hexutil.Encode(privateKeyBytes)[2:]) // cut "0x"
-
-		publicKey := privateKey.Public()
-		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-		if !ok {
-			fmt.Println("Failed to cast public key to ECDSA")
-		}
-
-		address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
-		fmt.Printf("Address: %s\n", address)
+		fmt.Printf("Private Key: %s\n", privateKeyHex)
+		fmt.Printf("Address: %s\n", address.Hex())
 		fmt.Println("⚠️ Save these keys or add them to the daemon config. The daemon doesn't store or publish these keys anywhere!")
+		return nil
 	},
 }
 

@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -93,11 +94,21 @@ func MakeTopicFilterer(param string) [][32]byte {
 	return [][32]byte{param32Byte}
 }
 
+// ParsePrivateKeyWithError parses a 32-byte hexadecimal secp256k1 private key
+// with an optional 0x or 0X prefix. All other validation is left to HexToECDSA.
+func ParsePrivateKeyWithError(privateKeyString string) (*ecdsa.PrivateKey, error) {
+	if strings.HasPrefix(privateKeyString, "0x") || strings.HasPrefix(privateKeyString, "0X") {
+		privateKeyString = privateKeyString[2:]
+	}
+	return crypto.HexToECDSA(privateKeyString)
+}
+
+// ParsePrivateKey returns nil for an empty or invalid private key.
 func ParsePrivateKey(privateKeyString string) (privateKey *ecdsa.PrivateKey) {
 	if privateKeyString != "" {
-		privateKey, err := crypto.HexToECDSA(privateKeyString)
+		privateKey, err := ParsePrivateKeyWithError(privateKeyString)
 		if err != nil {
-			zap.L().Debug("Error parsing private key", zap.String("privateKeyString", privateKeyString), zap.Error(err))
+			zap.L().Debug("Error parsing private key", zap.Error(err))
 			return nil
 		}
 		return privateKey

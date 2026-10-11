@@ -26,7 +26,6 @@ import (
 	"github.com/singnet/snet-daemon/v6/token"
 	"github.com/singnet/snet-daemon/v6/training"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -433,7 +432,7 @@ func (components *Components) GrpcUnaryInterceptor() grpc.UnaryServerInterceptor
 // Metering end point authentication is now mandatory for daemon
 func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string, groupId string) (ok bool, err error) {
 
-	if _, err = crypto.HexToECDSA(config.GetString(config.PvtKeyForMetering)); err != nil {
+	if _, err = utils.ParsePrivateKeyWithError(config.GetString(config.PvtKeyForMetering)); err != nil {
 		return false, errors.New("you need a specify a valid private key 'pvt_key_for_metering' as part of service publication process." + err.Error())
 	}
 

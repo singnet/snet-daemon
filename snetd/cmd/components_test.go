@@ -2,15 +2,22 @@ package cmd
 
 import (
 	"context"
+	"encoding/base64"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/escrow"
 	"github.com/singnet/snet-daemon/v6/training"
+	"github.com/singnet/snet-daemon/v6/utils"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
 
@@ -55,6 +62,54 @@ func TestComponentsVerifyMeteringConfigurations(t *testing.T) {
 	ok, err = component.verifyAuthenticationSetUpForFreeCall(server.URL+"/failedresponse", "")
 	assert.EqualError(t, err, "error returned by by Metering Service "+server.URL+"/verify Verification, pls check the pvt_key_for_metering set up. The public key in metering does not correspond to the private key in Daemon config")
 	assert.False(t, ok)
+}
+
+func TestComponentsVerifyMeteringPrivateKeyFormats(t *testing.T) {
+	oldConfig := config.Vip()
+	config.SetVip(viper.New())
+	t.Cleanup(func() { config.SetVip(oldConfig) })
+	config.Vip().Set(config.OrganizationId, "test-org")
+	config.Vip().Set(config.ServiceId, "test-service")
+
+	requests := make(chan *http.Request, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r.Clone(context.Background())
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":"success"}`))
+	}))
+	defer server.Close()
+	component := &Components{blockchain: blockchain.NewMockProcessor(true)}
+
+	for _, prefix := range []string{"", "0x", "0X"} {
+		t.Run("prefix="+prefix, func(t *testing.T) {
+			config.Vip().Set(config.PvtKeyForMetering, prefix+strings.Repeat("0", 63)+"1")
+			ok, err := component.verifyAuthenticationSetUpForFreeCall(server.URL, "test-group")
+			require.NoError(t, err)
+			require.True(t, ok)
+			require.Len(t, requests, 1)
+			request := <-requests
+			require.Equal(t, "verification", request.Header.Get("x-authtype"))
+			require.Equal(t, "test-org", request.Header.Get("X-Organizationid"))
+			require.Equal(t, "test-service", request.Header.Get("X-Serviceid"))
+			require.Equal(t, "test-group", request.Header.Get("X-Groupid"))
+			signature, err := base64.StdEncoding.DecodeString(request.Header.Get("X-Signature"))
+			require.NoError(t, err)
+			block, ok := new(big.Int).SetString(request.Header.Get("X-Currentblocknumber"), 10)
+			require.True(t, ok)
+			message := append([]byte("_usage"+request.Header.Get("X-username")+"test-orgtest-servicetest-group"), block.FillBytes(make([]byte, 32))...)
+			signer, err := utils.GetSignerAddressFromMessage(message, signature)
+			require.NoError(t, err)
+			require.Equal(t, common.HexToAddress("0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf"), *signer)
+		})
+	}
+
+	for _, invalid := range []string{"", "0x", "0xinvalid", "0x" + strings.Repeat("0", 64)} {
+		config.Vip().Set(config.PvtKeyForMetering, invalid)
+		ok, err := component.verifyAuthenticationSetUpForFreeCall(server.URL, "test-group")
+		require.Error(t, err)
+		require.False(t, ok)
+		require.Empty(t, requests, "an invalid key must be rejected before making an HTTP request")
+	}
 }
 
 func TestComponentsBlockchainDisabledServices(t *testing.T) {

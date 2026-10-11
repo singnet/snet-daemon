@@ -2,9 +2,12 @@ package escrow
 
 import (
 	"errors"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
@@ -22,9 +25,22 @@ func TestNewPaymentHandler(t *testing.T) {
 }
 
 func TestPaymentChannelPaymentHandlerComplete(t *testing.T) {
-	h := &paymentChannelPaymentHandler{}
+	originalMetering := config.GetBool(config.MeteringEnabled)
+	config.Vip().Set(config.MeteringEnabled, true)
+	t.Cleanup(func() { config.Vip().Set(config.MeteringEnabled, originalMetering) })
+	called := make(chan struct{})
+	h := &paymentChannelPaymentHandler{currentBlock: func() (*big.Int, error) {
+		close(called)
+		return nil, errors.New("test block unavailable")
+	}}
 	err := h.Complete(newTestPaymentTransaction())
 	assert.Nil(t, err)
+	// Wait for the background publisher before other tests change global config.
+	select {
+	case <-called:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Complete did not invoke the stats publisher")
+	}
 }
 
 func TestPaymentChannelPaymentHandlerCompleteAfterError(t *testing.T) {

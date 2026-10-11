@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ipfs/kubo/client/rpc"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,6 +37,19 @@ func withTestConfig(t *testing.T, overrides map[string]string) {
 func startMockServer(handler http.HandlerFunc) *httptest.Server {
 	ts := httptest.NewServer(handler)
 	return ts
+}
+
+func serveIPFSFile(t *testing.T, hash string, content []byte) {
+	t.Helper()
+	server := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/api/v0/cat", r.URL.Path)
+		assert.Equal(t, hash, r.URL.Query().Get("arg"))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(content)
+	})
+	t.Cleanup(server.Close)
+	withTestConfig(t, map[string]string{config.IpfsEndpoint: server.URL})
 }
 
 func TestGetIpfsFile_InvalidHash(t *testing.T) {
@@ -81,7 +93,7 @@ func TestGetIpfsFile_ServerJSONError(t *testing.T) {
 	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"Message":"internal error","Code":1}`))
+		w.Write([]byte(`{"Message":"internal error","Code":1,"Type":"error"}`))
 	})
 	defer ts.Close()
 
@@ -92,7 +104,7 @@ func TestGetIpfsFile_ServerJSONError(t *testing.T) {
 
 	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
 	assert.Nil(t, data)
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "internal error")
 }
 
 func TestGetIpfsFile_Success(t *testing.T) {
@@ -160,26 +172,23 @@ func TestGetIPFSClient_Success(t *testing.T) {
 
 type IpfsUtilsTestSuite struct {
 	suite.Suite
-	ipfsClient *rpc.HttpApi
 }
 
 func TestIpfsUtilsTestSuite(t *testing.T) {
 	suite.Run(t, new(IpfsUtilsTestSuite))
 }
 
-func (suite *IpfsUtilsTestSuite) BeforeTest() {
-	suite.ipfsClient = GetIPFSClient()
-	assert.NotNil(suite.T(), suite.ipfsClient)
-}
-
 func (suite *IpfsUtilsTestSuite) TestGetProtoFiles() {
-	hash := "ipfs://Qmc32Gi3e62gcw3fFfRPidxrGR7DncNki2ptfh9rVESsTc"
-	data, err := ReadFile(hash)
-	assert.Nil(suite.T(), err)
-	assert.NotNil(suite.T(), data)
+	hash := "Qmc32Gi3e62gcw3fFfRPidxrGR7DncNki2ptfh9rVESsTc"
+	archive, err := createTarEntries([]struct{ name, content string }{{"example_service.proto", testCalculatorProto}})
+	suite.Require().NoError(err)
+	serveIPFSFile(suite.T(), hash, gzipData(archive))
+
+	data, err := ReadFile("ipfs://" + hash)
+	suite.Require().NoError(err)
 	protoFiles, err := ReadProtoFilesCompressed(data)
-	assert.Nil(suite.T(), err)
-	assert.NotNil(suite.T(), protoFiles)
+	suite.Require().NoError(err)
+	assert.Equal(suite.T(), map[string]string{"example_service.proto": testCalculatorProto}, protoFiles)
 }
 
 func TestIsGzipFile(t *testing.T) {
@@ -197,18 +206,20 @@ func TestIsGzipFile(t *testing.T) {
 }
 
 func (suite *IpfsUtilsTestSuite) TestReadFiles() {
-	// For testing purposes, a hash is used from the calculator service.
 	hash := "QmeyrQkEyba8dd4rc3jrLd5pEwsxHutfH2RvsSaeSMqTtQ"
+	archive, err := createTarEntries([]struct{ name, content string }{{"example_service.proto", testCalculatorProto}})
+	suite.Require().NoError(err)
+	serveIPFSFile(suite.T(), hash, archive)
+
 	data, err := GetIpfsFile(hash)
-	assert.NotNil(suite.T(), data)
-	assert.Nil(suite.T(), err)
+	suite.Require().NoError(err)
 
 	protoFiles, err := ReadProtoFilesCompressed(data)
+	suite.Require().NoError(err)
+	assert.Equal(suite.T(), map[string]string{"example_service.proto": testCalculatorProto}, protoFiles)
+}
 
-	assert.Nil(suite.T(), err)
-	assert.NotNil(suite.T(), protoFiles)
-
-	expectedProtoFiles := map[string]string{"example_service.proto": `syntax = "proto3";
+const testCalculatorProto = `syntax = "proto3";
 
 package example_service;
 
@@ -226,7 +237,4 @@ service Calculator {
     rpc sub(Numbers) returns (Result) {}
     rpc mul(Numbers) returns (Result) {}
     rpc div(Numbers) returns (Result) {}
-}`}
-
-	assert.EqualValues(suite.T(), expectedProtoFiles, protoFiles)
-}
+}`

@@ -361,34 +361,8 @@ func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err erro
 }
 
 func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok bool, err error) {
-
-	transaction, err := client.StartTransaction(request.ConditionKeys)
-	if err != nil {
-		return false, err
-	}
-	//We should also have a configuration on how many times you try this ( say 100 times )
-	for {
-		oldValues, err := transaction.GetConditionValues()
-		if err != nil {
-			return false, err
-		}
-		newValues, ok, err := request.Update(oldValues)
-		if err != nil {
-			return false, err
-		}
-		if !ok {
-			return false, nil
-		}
-		if ok, err = client.CompleteTransaction(transaction, newValues); err != nil {
-			return false, err
-		}
-		if ok {
-			return true, nil
-		}
-		if !request.RetryTillSuccessOrError {
-			return false, nil
-		}
-	}
+	// CompleteTransaction refreshes the snapshot on conflict; callback rejection stops retries.
+	return storage.ExecuteTransaction(client, request, storage.TransactionPolicy{})
 }
 
 // CompleteTransaction atomically applies updates if the etcd state still matches

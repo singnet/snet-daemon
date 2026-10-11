@@ -262,18 +262,23 @@ func TestGetEpochTime(t *testing.T) {
 
 func Test_getPrivateKeyForMetering(t *testing.T) {
 	isolatedMetricsConfig(t)
-	key, err := getPrivateKeyForMetering()
-	require.NoError(t, err)
-	require.NotNil(t, key)
-	require.Equal(t, "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf", crypto.PubkeyToAddress(key.PublicKey).Hex())
-	signature := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix, &CommonStats{UserName: "test-user"})
-	message := append([]byte("_usagetest-user"), big.NewInt(123).FillBytes(make([]byte, 32))...)
-	signer, err := utils.GetSignerAddressFromMessage(message, signature)
-	require.NoError(t, err)
-	require.Equal(t, crypto.PubkeyToAddress(key.PublicKey), *signer)
+	for _, prefix := range []string{"", "0x", "0X"} {
+		t.Run("prefix="+prefix, func(t *testing.T) {
+			config.Vip().Set(config.PvtKeyForMetering, prefix+strings.Repeat("0", 63)+"1")
+			key, err := getPrivateKeyForMetering()
+			require.NoError(t, err)
+			require.NotNil(t, key)
+			require.Equal(t, "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf", crypto.PubkeyToAddress(key.PublicKey).Hex())
+			signature := signForMeteringValidation(key, big.NewInt(123), MeteringPrefix, &CommonStats{UserName: "test-user"})
+			message := append([]byte("_usagetest-user"), big.NewInt(123).FillBytes(make([]byte, 32))...)
+			signer, err := utils.GetSignerAddressFromMessage(message, signature)
+			require.NoError(t, err)
+			require.Equal(t, crypto.PubkeyToAddress(key.PublicKey), *signer)
+		})
+	}
 
 	config.Vip().Set(config.PvtKeyForMetering, "invalid")
-	key, err = getPrivateKeyForMetering()
+	key, err := getPrivateKeyForMetering()
 	require.Error(t, err)
 	require.Nil(t, key)
 	config.Vip().Set(config.PvtKeyForMetering, "")

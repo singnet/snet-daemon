@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/base64"
+	"encoding/json"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestBytesToBase64(t *testing.T) {
@@ -126,22 +130,67 @@ func TestBlockchainConversionHelpers(t *testing.T) {
 }
 
 func TestParsePrivateKey(t *testing.T) {
-	validKey, err := crypto.GenerateKey()
-	assert.NoError(t, err)
+	keyHex := strings.Repeat("0123456789abcdef", 4)
+	wantKey, err := crypto.HexToECDSA(keyHex)
+	require.NoError(t, err)
 
-	privBytes := crypto.FromECDSA(validKey)
-	privHex := common.Bytes2Hex(privBytes)
+	for _, tc := range []struct {
+		name  string
+		input string
+		valid bool
+	}{
+		{"unprefixed", keyHex, true},
+		{"lowercase prefix", "0x" + keyHex, true},
+		{"uppercase prefix", "0X" + keyHex, true},
+		{"uppercase hex", "0x" + strings.ToUpper(keyHex), true},
+		{"empty", "", false},
+		{"prefix only", "0x", false},
+		{"uppercase prefix only", "0X", false},
+		{"invalid hex", "0x" + strings.Repeat("g", 64), false},
+		{"short key", keyHex[:62], false},
+		{"long key", "0x" + keyHex + "00", false},
+		{"odd length", "0x" + keyHex[:63], false},
+		{"repeated prefix", "0x0x" + keyHex, false},
+		{"mixed repeated prefix", "0x0X" + keyHex, false},
+		{"leading whitespace", " 0x" + keyHex, false},
+		{"trailing whitespace", keyHex + " ", false},
+		{"zero scalar", "0x" + strings.Repeat("0", 64), false},
+		{"curve order", "0x" + crypto.S256().Params().N.Text(16), false},
+		{"above curve order", strings.Repeat("f", 64), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := ParsePrivateKeyWithError(tc.input)
+			key := ParsePrivateKey(tc.input)
+			if !tc.valid {
+				require.Error(t, err)
+				require.Nil(t, parsed)
+				require.Nil(t, key)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, parsed)
+			require.Equal(t, crypto.FromECDSA(wantKey), crypto.FromECDSA(parsed))
+			require.NotNil(t, key)
+			require.Equal(t, crypto.FromECDSA(wantKey), crypto.FromECDSA(key))
+			require.Equal(t, crypto.PubkeyToAddress(wantKey.PublicKey), crypto.PubkeyToAddress(key.PublicKey))
+		})
+	}
+}
 
-	parsedKey := ParsePrivateKey(privHex)
-	assert.NotNil(t, parsedKey)
+func TestParsePrivateKeyDoesNotLogInput(t *testing.T) {
+	core, logs := observer.New(zap.DebugLevel)
+	t.Cleanup(zap.ReplaceGlobals(zap.New(core)))
+	invalidKey := "0x" + strings.Repeat("1", 63) + "g"
+	require.Nil(t, ParsePrivateKey(invalidKey))
 
-	// Invalid key
-	parsedKeyInvalid := ParsePrivateKey("not-a-valid-key")
-	assert.Nil(t, parsedKeyInvalid)
-
-	// Empty string returns nil
-	parsedKeyEmpty := ParsePrivateKey("")
-	assert.Nil(t, parsedKeyEmpty)
+	entries := logs.All()
+	require.Len(t, entries, 1)
+	require.NotContains(t, entries[0].Message, invalidKey)
+	fields := entries[0].ContextMap()
+	require.NotContains(t, fields, "privateKeyString")
+	encodedFields, err := json.Marshal(fields)
+	require.NoError(t, err)
+	require.NotContains(t, string(encodedFields), invalidKey)
 }
 
 func TestGetAddressFromPrivateKeyECDSA(t *testing.T) {

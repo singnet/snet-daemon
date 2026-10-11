@@ -122,7 +122,7 @@ func SignMessageForMetering(req *http.Request, commonStats *CommonStats, current
 
 func getPrivateKeyForMetering() (privateKey *ecdsa.PrivateKey, err error) {
 	if privateKeyString := config.GetString(config.PvtKeyForMetering); privateKeyString != "" {
-		privateKey, err = crypto.HexToECDSA(privateKeyString)
+		privateKey, err = utils.ParsePrivateKeyWithError(privateKeyString)
 		if err != nil {
 			return nil, err
 		}

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
@@ -37,6 +38,10 @@ func TestValidateConfiguration(t *testing.T) {
 		{"restricted mainnet", map[string]any{AllowedUserFlag: true, BlockChainNetworkSelected: "main"}, "service cannot be restricted"},
 		{"invalid free call key", map[string]any{PvtKeyForFreeCalls: "invalid"}, "invalid private_key_for_free_calls"},
 		{"valid free call key", map[string]any{PvtKeyForFreeCalls: strings.Repeat("0", 63) + "1"}, ""},
+		{"prefixed free call key", map[string]any{PvtKeyForFreeCalls: "0x" + strings.Repeat("0", 63) + "1"}, ""},
+		{"uppercase prefixed free call key", map[string]any{PvtKeyForFreeCalls: "0X" + strings.Repeat("0", 63) + "1"}, ""},
+		{"invalid prefixed free call key", map[string]any{PvtKeyForFreeCalls: "0xinvalid"}, "invalid private_key_for_free_calls"},
+		{"legacy prefixed free call key", map[string]any{"pvt_key_for_free_calls": "0x" + strings.Repeat("0", 63) + "1"}, ""},
 		{"short token secret", map[string]any{TokenSecretKey: strings.Repeat("x", 31)}, "at least 32 bytes"},
 		{"minimum token secret", map[string]any{TokenSecretKey: strings.Repeat("x", 32)}, ""},
 		{"disabled blockchain without secret", map[string]any{BlockchainEnabledKey: false, TokenSecretKey: ""}, ""},
@@ -101,6 +106,26 @@ func TestDeprecatedConfigurationAliases(t *testing.T) {
 			migrateDeprecatedParams(v)
 			require.Equal(t, "legacy-value", v.GetString(newKey))
 		})
+	}
+}
+
+func TestDeprecatedPrivateKeyAliasesPreserveFormats(t *testing.T) {
+	for oldKey, newKey := range map[string]string{
+		"pvt_key_for_metering":   PvtKeyForMetering,
+		"pvt_key_for_free_calls": PvtKeyForFreeCalls,
+	} {
+		for _, prefix := range []string{"", "0x", "0X"} {
+			t.Run(oldKey+"/prefix="+prefix, func(t *testing.T) {
+				v := isolatedConfig(t)
+				input := prefix + strings.Repeat("0", 63) + "1"
+				v.Set(oldKey, input)
+				migrateDeprecatedParams(v)
+				require.Equal(t, input, GetString(newKey))
+				key := utils.ParsePrivateKey(GetString(newKey))
+				require.NotNil(t, key)
+				require.Equal(t, int64(1), key.D.Int64())
+			})
+		}
 	}
 }
 

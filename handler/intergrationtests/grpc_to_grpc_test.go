@@ -36,8 +36,6 @@ func setupTestConfig() {
 	"daemon_endpoint": "127.0.0.1:8080",
 	"daemon_group_name":"default_group",
 	"payment_channel_storage_type": "etcd",
-	"ipfs_endpoint": "http://ipfs.singularitynet.io:80", 
-	"ipfs_timeout" : 30,
 	"passthrough_enabled": true,
 	"service_endpoint":"http://127.0.0.1:5002",
 	"service_id": "ExampleServiceId", 
@@ -139,13 +137,14 @@ func startServerB(port string) (*grpc.Server, *net.Listener) {
 
 func setupEnvironment() *integrationTestEnvironment {
 	setupTestConfig()
+	grpcServerB, listenerB := startServerB("127.0.0.1:0")
+	config.Vip().Set(config.ServiceEndpointKey, "http://"+(*listenerB).Addr().String())
 	serviceMetadata := &blockchain.ServiceMetadata{
 		ServiceType: "grpc",
 		Encoding:    "proto",
 	}
 	grpcToGrpc := handler.NewGrpcHandler(serviceMetadata)
-	grpcServerA, listenerA := startServerA(":5001", grpcToGrpc)
-	grpcServerB, listenerB := startServerB(":5002")
+	grpcServerA, listenerA := startServerA("127.0.0.1:0", grpcToGrpc)
 
 	testEnv := &integrationTestEnvironment{
 		serverA:   grpcServerA,
@@ -204,6 +203,8 @@ func (s *ServiceB) Stream(stream ExampleStreamingService_StreamServer) error {
 }
 
 func TestGrpcToGrpc_StreamingIntegration(t *testing.T) {
+	originalConfig := config.Vip()
+	t.Cleanup(func() { config.SetVip(originalConfig) })
 	// Setup test environment with real servers
 	testEnv := setupEnvironment()
 	defer teardownEnvironment(testEnv)

@@ -101,12 +101,10 @@ func TestConcurrentLicenseUsageDoesNotExceedLimit(t *testing.T) {
 	start := make(chan struct{})
 	results := make(chan error, 20)
 	for range 20 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-start
 			results <- svc.UpdateLicenseUsage(channel, "service", big.NewInt(1), USED, SUBSCRIPTION)
-		}()
+		})
 	}
 	close(start)
 	wg.Wait()

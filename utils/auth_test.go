@@ -117,8 +117,8 @@ func TestGetSignatureLogsFatalForInvalidPrivateKey(t *testing.T) {
 			logger := zap.New(core, zap.WithFatalHook(zapcore.WriteThenPanic))
 			t.Cleanup(zap.ReplaceGlobals(logger))
 			key := &ecdsa.PrivateKey{
-				PublicKey: ecdsa.PublicKey{Curve: crypto.S256()},
-				D:         test.scalar,
+				Curve: crypto.S256(),
+				D:     test.scalar,
 			}
 
 			require.Panics(t, func() { GetSignature([]byte("message"), key) })

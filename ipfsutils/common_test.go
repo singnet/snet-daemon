@@ -42,21 +42,29 @@ func TestReadFile_IpfsPrefix(t *testing.T) {
 // ========== ipfsutils.go ==========
 
 func TestFilecoinReadFile(t *testing.T) {
-	file, err := ReadFile("filecoin://bafkreibk4ham7y6mwad2qxwyrhpmxh2fho7xwvsfw26lcra5bt5r5fvcwe")
-	assert.Nil(t, err)
-	assert.NotNil(t, file)
-	if err != nil && file != nil {
-		t.Log(string(file))
-	}
+	const hash = "bafkreibk4ham7y6mwad2qxwyrhpmxh2fho7xwvsfw26lcra5bt5r5fvcwe"
+	content := []byte("filecoin fixture")
+	server := startMockServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/ipfs/"+hash, r.URL.Path)
+		_, _ = w.Write(content)
+	})
+	t.Cleanup(server.Close)
+	withTestConfig(t, map[string]string{config.LighthouseEndpoint: server.URL + "/ipfs/"})
+
+	file, err := ReadFile("filecoin://" + hash)
+	require.NoError(t, err)
+	assert.Equal(t, content, file)
 }
 
 func TestIpfsReadFile(t *testing.T) {
-	file, err := ReadFile("ipfs://QmQcT5SJB9s8LXom8zuNGksCa7d34XbVn52dACWvgzeWAW")
-	assert.Nil(t, err)
-	assert.NotNil(t, file)
-	if err != nil && file != nil {
-		t.Log(string(file))
-	}
+	const hash = "QmQcT5SJB9s8LXom8zuNGksCa7d34XbVn52dACWvgzeWAW"
+	content := []byte("ipfs fixture")
+	serveIPFSFile(t, hash, content)
+
+	file, err := ReadFile("ipfs://" + hash)
+	require.NoError(t, err)
+	assert.Equal(t, content, file)
 }
 
 func TestFormatHash(t *testing.T) {

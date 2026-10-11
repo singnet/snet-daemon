@@ -521,7 +521,7 @@ func (suite *FreeCallServiceSuite) FreeCallUserData(freeCallsMade int) *FreeCall
 
 func (suite *FreeCallServiceSuite) SetupSuite() {
 	metadata, err := blockchain.InitServiceMetaDataFromJson([]byte(testJsonData))
-	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
+	suite.Require().NoError(err)
 	suite.metadata = metadata
 	suite.memoryStorage = storage.NewMemStorage()
 	suite.groupId = [32]byte{123}

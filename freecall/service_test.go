@@ -593,12 +593,12 @@ func (suite *FreeCallServiceSuite) TestFreeCallUserTransactionTestLock() {
 	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 
 	transactionA, errA := suite.service.StartTransaction(payment)
-	assert.Nil(suite.T(), errA, "Unexpected error: %v", errA)
-	assert.NotNil(suite.T(), transactionA)
+	require.NoError(suite.T(), errA)
+	require.NotNil(suite.T(), transactionA)
+	defer func() { require.NoError(suite.T(), transactionA.Rollback()) }()
 	transactionB, errB := suite.service.StartTransaction(payment)
 	assert.Nil(suite.T(), transactionB)
-	assert.NotNil(suite.T(), errB)
-	assert.Equal(suite.T(), "another transaction on this user: {ID:0xF627CE8635cdC34b2f619FDDb4E4b61308D6BD68//YOUR_ORG_ID/YOUR_SERVICE_ID/ewAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=} is in progress", errB.Error())
+	require.EqualError(suite.T(), errB, "another transaction on this user: "+userKey.String()+" is in progress")
 }
 
 func (suite *FreeCallServiceSuite) TestListFreeCallUsers() {

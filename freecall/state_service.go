@@ -1,3 +1,7 @@
+// go generate runs in this package's directory. Use the module root as the
+// include path so the descriptor is named "freecall/state_service.proto";
+// "-I ." would register "state_service.proto", colliding with escrow's descriptor.
+//
 //go:generate protoc -I .. freecall/state_service.proto --go-grpc_out=paths=source_relative:.. --go_out=paths=source_relative:..
 
 package freecall

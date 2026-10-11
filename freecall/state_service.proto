@@ -4,6 +4,8 @@ syntax = "proto3";
 package escrow;
 
 option java_package = "io.singularitynet.daemon.escrow";
+// Avoid sharing escrow/state_service.proto's StateService.java output file.
+// This changes the Java source API; see README.md for the client migration.
 option java_outer_classname = "FreeCallState";
 option go_package = "github.com/singnet/snet-daemon/v6/freecall";
 

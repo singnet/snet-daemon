@@ -47,7 +47,7 @@ func TestValidateConfiguration(t *testing.T) {
 			v := isolatedConfig(t)
 			networkIdNameMapping = defaultBlockChainNetworkConfig
 			stubVersionHTTP(t, func(*http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"tag_name":"` + versionTag + `"}`))}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"tag_name":"v1.2.3"}`))}, nil
 			})
 			for key, value := range tc.settings {
 				v.Set(key, value)

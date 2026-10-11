@@ -35,6 +35,8 @@ blockchain/snet-contracts.go
 
 # output of the go coverage tool, specifically when used with LiteIDE
 *.out
+cover
+cover*.ps1
 
 # vim temporary files
 *~

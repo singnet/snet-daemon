@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"strings"
@@ -38,10 +39,11 @@ func (mutex *EtcdClientMutex) Unlock(ctx context.Context) (err error) {
 
 // EtcdClient struct has some useful methods to work with an etcd client
 type EtcdClient struct {
-	hotReload bool
-	timeout   time.Duration
-	session   *concurrency.Session
-	etcd      *clientv3.Client
+	hotReload          bool
+	timeout            time.Duration
+	session            *concurrency.Session
+	etcd               *clientv3.Client
+	certificateMonitor *certificateExpiryMonitor
 }
 
 var _ storage.AtomicStorage = (*EtcdClient)(nil)
@@ -89,13 +91,16 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 		DialKeepAliveTimeout: 3 * time.Second,
 	}
 
+	var certificateMonitor *certificateExpiryMonitor
 	if utils.CheckIfHttps(conf.Endpoints) {
-		var tlsConfig *tls.Config
-		tlsConfig, err = getTLSConfig()
+		var certificates []monitoredCertificate
+		cfg.TLS, certificates, err = getTLSConfig()
 		if err != nil {
 			return nil, err
 		}
-		cfg.TLS = tlsConfig
+		certificateMonitor = newCertificateExpiryMonitor(certificates, zap.L())
+		// Report expired certificates even if the following TLS handshake fails.
+		certificateMonitor.check(time.Now())
 	}
 
 	etcdv3, err = clientv3.New(cfg)
@@ -131,10 +136,14 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	}()
 
 	client = &EtcdClient{
-		hotReload: conf.HotReload,
-		timeout:   conf.RequestTimeout,
-		session:   session,
-		etcd:      etcdv3,
+		hotReload:          conf.HotReload,
+		timeout:            conf.RequestTimeout,
+		session:            session,
+		etcd:               etcdv3,
+		certificateMonitor: certificateMonitor,
+	}
+	if certificateMonitor != nil {
+		certificateMonitor.start()
 	}
 	return
 }
@@ -148,7 +157,7 @@ func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
 	return etcdClient, nil
 }
 
-func getTLSConfig() (*tls.Config, error) {
+func getTLSConfig() (*tls.Config, []monitoredCertificate, error) {
 
 	certPath := config.GetString(config.PaymentChannelCertPath)
 	keyPath := config.GetString(config.PaymentChannelKeyPath)
@@ -161,27 +170,51 @@ func getTLSConfig() (*tls.Config, error) {
 			zap.String("keyPath", keyPath),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("load x509 keypair: %w", err)
+		return nil, nil, fmt.Errorf("load x509 keypair: %w", err)
 	}
 
-	if len(cert.Certificate) > 0 {
-		if parsed, _ := x509.ParseCertificate(cert.Certificate[0]); parsed != nil {
+	certificates := make([]monitoredCertificate, 0, len(cert.Certificate))
+	for i, der := range cert.Certificate {
+		parsed, err := x509.ParseCertificate(der)
+		if err != nil {
+			return nil, nil, fmt.Errorf("parse etcd client certificate: %w", err)
+		}
+		role := "client chain"
+		if i == 0 {
+			role = "client"
 			zap.L().Debug("[etcd] client cert EKU", zap.Any("eku", parsed.ExtKeyUsage), zap.String("subject", parsed.Subject.String()))
 		}
+		certificates = append(certificates, monitoredCertificate{certificate: parsed, path: certPath, role: role})
 	}
 
 	caCert, err := os.ReadFile(caPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	zap.L().Debug("[etcd] enabling SSL support via X509 keypair")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
+	// Match CertPool.AppendCertsFromPEM: monitor every successfully parsed
+	// certificate in the bundle, skipping non-certificate or malformed blocks.
+	for len(caCert) > 0 {
+		block, rest := pem.Decode(caCert)
+		if block == nil {
+			break
+		}
+		caCert = rest
+		if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+			continue
+		}
+		parsed, err := x509.ParseCertificate(block.Bytes)
+		if err == nil {
+			certificates = append(certificates, monitoredCertificate{certificate: parsed, path: caPath, role: "CA"})
+		}
+	}
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
 	}
-	return tlsConfig, nil
+	return tlsConfig, certificates, nil
 }
 
 // Get - get value from etcd by key
@@ -513,6 +546,9 @@ func (client *EtcdClient) getState(keySet map[string]struct{}, getResp *clientv3
 }
 
 func (client *EtcdClient) Close() {
+	if client.certificateMonitor != nil {
+		client.certificateMonitor.close()
+	}
 	if client.session != nil {
 		if err := client.session.Close(); err != nil {
 			zap.L().Error("close session failed", zap.Error(err))

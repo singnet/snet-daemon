@@ -105,6 +105,7 @@ func (suite *EtcdTestSuite) TestClientHotReloadConfiguration() {
 			require.NoError(t, err)
 			t.Cleanup(client.Close)
 			require.Equal(t, setting == "true", client.IsHotReloadEnabled())
+			require.Nil(t, client.certificateMonitor, "HTTP-only etcd clients must not monitor TLS certificates")
 		})
 	}
 }

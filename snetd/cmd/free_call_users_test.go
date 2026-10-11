@@ -7,7 +7,7 @@ import (
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
-	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -73,22 +73,22 @@ func (s *failingAtomicStorage) ExecuteTransaction(request storage.CASRequest) (b
 	return false, s.err
 }
 
-// stubFreeCallUserService is a mock of escrow.FreeCallUserService
+// stubFreeCallUserService is a mock of freecall.UserService
 type stubFreeCallUserService struct {
-	users    []*escrow.FreeCallUserData
+	users    []*freecall.UserData
 	usersErr error
 }
 
-func (s *stubFreeCallUserService) GetFreeCallUserKey(payment *escrow.FreeCallPayment) (*escrow.FreeCallUserKey, error) {
+func (s *stubFreeCallUserService) UserKey(payment *freecall.Payment) (*freecall.UserKey, error) {
 	return nil, nil
 }
-func (s *stubFreeCallUserService) FreeCallUser(key *escrow.FreeCallUserKey) (*escrow.FreeCallUserData, bool, error) {
+func (s *stubFreeCallUserService) User(key *freecall.UserKey) (*freecall.UserData, bool, error) {
 	return nil, false, nil
 }
-func (s *stubFreeCallUserService) ListFreeCallUsers() ([]*escrow.FreeCallUserData, error) {
+func (s *stubFreeCallUserService) ListUsers() ([]*freecall.UserData, error) {
 	return s.users, s.usersErr
 }
-func (s *stubFreeCallUserService) StartFreeCallUserTransaction(payment *escrow.FreeCallPayment) (escrow.FreeCallTransaction, error) {
+func (s *stubFreeCallUserService) StartTransaction(payment *freecall.Payment) (freecall.Transaction, error) {
 	return nil, nil
 }
 
@@ -128,7 +128,7 @@ func TestNewFreeCallResetCountCommand(t *testing.T) {
 	t.Run("flags set builds command", func(t *testing.T) {
 		memStorage := storage.NewMemStorage()
 		components := &Components{
-			freeCallUserStorage:  escrow.NewFreeCallUserStorage(memStorage),
+			freeCallUserStorage:  freecall.NewUserStorage(memStorage),
 			organizationMetaData: freeCallOrgMetadata(t),
 		}
 
@@ -157,8 +157,8 @@ func TestFreeCallUserResetCountCommandRunMissingAddress(t *testing.T) {
 	assert.EqualError(t, err, "--address must be set (can be combined with --user-id)")
 }
 
-func freeCallUserKey(address, userID string) *escrow.FreeCallUserKey {
-	return &escrow.FreeCallUserKey{
+func freeCallUserKey(address, userID string) *freecall.UserKey {
+	return &freecall.UserKey{
 		UserId:         userID,
 		Address:        address,
 		OrganizationId: config.GetString(config.OrganizationId),
@@ -225,9 +225,9 @@ func TestResetUserForFreeCalls(t *testing.T) {
 
 	t.Run("reset success sets count to zero", func(t *testing.T) {
 		memStorage := storage.NewMemStorage()
-		userStorage := escrow.NewFreeCallUserStorage(memStorage)
+		userStorage := freecall.NewUserStorage(memStorage)
 		key := freeCallUserKey("0x1234", "user@example.com")
-		require.NoError(t, userStorage.Put(key, &escrow.FreeCallUserData{
+		require.NoError(t, userStorage.Put(key, &freecall.UserData{
 			Address:        key.Address,
 			UserID:         key.UserId,
 			OrganizationId: key.OrganizationId,
@@ -254,7 +254,7 @@ func TestResetUserForFreeCalls(t *testing.T) {
 
 	t.Run("reset when user is not found returns nil", func(t *testing.T) {
 		command := &freeCallUserResetCountCommand{
-			userStorage: escrow.NewFreeCallUserStorage(storage.NewMemStorage()),
+			userStorage: freecall.NewUserStorage(storage.NewMemStorage()),
 			address:     "0x1234",
 			userID:      "user@example.com",
 			orgMetadata: freeCallOrgMetadata(t),
@@ -267,7 +267,7 @@ func TestResetUserForFreeCalls(t *testing.T) {
 	t.Run("reset storage error is returned", func(t *testing.T) {
 		storageErr := errors.New("storage down")
 		command := &freeCallUserResetCountCommand{
-			userStorage: escrow.NewFreeCallUserStorage(&failingAtomicStorage{err: storageErr}),
+			userStorage: freecall.NewUserStorage(&failingAtomicStorage{err: storageErr}),
 			address:     "0x1234",
 			userID:      "user@example.com",
 			orgMetadata: freeCallOrgMetadata(t),
@@ -301,7 +301,7 @@ func TestListFreeCallUsersCommandRun(t *testing.T) {
 	})
 
 	t.Run("lists all users", func(t *testing.T) {
-		users := []*escrow.FreeCallUserData{
+		users := []*freecall.UserData{
 			{Address: "0x1234", UserID: "user1@example.com", FreeCallsMade: 1},
 			{Address: "0x5678", UserID: "user2@example.com", FreeCallsMade: 2},
 		}

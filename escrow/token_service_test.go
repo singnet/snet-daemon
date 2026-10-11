@@ -101,7 +101,7 @@ func (suite *TokenServiceTestSuite) SetupSuite() {
 				return suite.receiverAddress
 			},
 		},
-		NewEtcdLocker(memoryStorage),
+		storage.NewLocker(memoryStorage),
 		&ChannelPaymentValidator{
 			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },

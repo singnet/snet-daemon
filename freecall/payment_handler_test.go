@@ -1,4 +1,4 @@
-package escrow
+package freecall
 
 import (
 	"crypto/ecdsa"
@@ -26,25 +26,25 @@ var testJsonData = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"en
 
 type FreeCallPaymentHandlerTestSuite struct {
 	suite.Suite
-	paymentHandler  freeCallPaymentHandler
+	paymentHandler  paymentHandler
 	ownerPrivateKey *ecdsa.PrivateKey
 	userAddr        common.Address
-	key             *FreeCallUserKey
-	data            *FreeCallUserData
+	key             *UserKey
+	data            *UserData
 	memoryStorage   *storage.MemoryStorage
-	storage         *FreeCallUserStorage
+	storage         *UserStorage
 	metadata        *blockchain.ServiceMetadata
 	orgMetadata     *blockchain.OrganizationMetaData
 	serviceID       string
 }
 
-func (suite *FreeCallPaymentHandlerTestSuite) getKey() *FreeCallUserKey {
-	return &FreeCallUserKey{UserId: "", Address: suite.userAddr.Hex(), ServiceId: config.GetString(config.ServiceId),
+func (suite *FreeCallPaymentHandlerTestSuite) getKey() *UserKey {
+	return &UserKey{UserId: "", Address: suite.userAddr.Hex(), ServiceId: config.GetString(config.ServiceId),
 		OrganizationId: config.GetString(config.OrganizationId), GroupID: suite.orgMetadata.GetGroupIdString()}
 }
-func (suite *FreeCallPaymentHandlerTestSuite) getKeyAndData(freeCallsMade int) (*FreeCallUserKey, *FreeCallUserData) {
+func (suite *FreeCallPaymentHandlerTestSuite) getKeyAndData(freeCallsMade int) (*UserKey, *UserData) {
 	key := suite.getKey()
-	return key, &FreeCallUserData{FreeCallsMade: freeCallsMade, UserID: key.UserId, Address: key.Address, ServiceId: key.ServiceId, GroupID: key.GroupID, OrganizationId: key.OrganizationId}
+	return key, &UserData{FreeCallsMade: freeCallsMade, UserID: key.UserId, Address: key.Address, ServiceId: key.ServiceId, GroupID: key.GroupID, OrganizationId: key.OrganizationId}
 }
 
 func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
@@ -53,7 +53,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
 	suite.ownerPrivateKey = utils.ParsePrivateKey("e910576986ad6541bad229755afa750701a00b10f9b752ad228cac4873c7d421") // 0x101a018fe784bf01d538b5d4dfa311d047dba491
 	assert.Nil(suite.T(), err)
 	suite.memoryStorage = storage.NewMemStorage()
-	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
+	suite.storage = NewUserStorage(suite.memoryStorage)
 	suite.orgMetadata, err = blockchain.InitOrganizationMetaDataFromJson([]byte(testJsonOrgGroupData))
 	suite.Require().NoError(err)
 	suite.serviceID = "YOUR_SERVICE_ID"
@@ -65,15 +65,15 @@ func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
 
 	suite.userAddr = crypto.PubkeyToAddress(suite.ownerPrivateKey.PublicKey)
 
-	//suite.data = &FreeCallUserData{FreeCallsMade: 10, UserAddress: "0x101a018fe784bf01d538b5d4dfa311d047dba491"}
+	//suite.data = &UserData{FreeCallsMade: 10, UserAddress: "0x101a018fe784bf01d538b5d4dfa311d047dba491"}
 	//suite.key = suite.getKey("0x101a018fe784bf01d538b5d4dfa311d047dba491")
-	suite.paymentHandler = freeCallPaymentHandler{
+	suite.paymentHandler = paymentHandler{
 		orgMetadata:     suite.orgMetadata,
 		serviceMetadata: suite.metadata,
-		freeCallPaymentValidator: NewFreeCallPaymentValidator(func() (*big.Int, error) {
+		freeCallPaymentValidator: NewPaymentValidator(func() (*big.Int, error) {
 			return big.NewInt(99), nil
 		}, crypto.PubkeyToAddress(suite.ownerPrivateKey.PublicKey), suite.ownerPrivateKey, []common.Address{}),
-		service: NewFreeCallUserService(suite.storage, NewEtcdLocker(suite.memoryStorage), func() ([32]byte, error) { return suite.orgMetadata.GetGroupId(), nil }, suite.metadata),
+		service: NewUserService(suite.storage, storage.NewLocker(suite.memoryStorage), func() ([32]byte, error) { return suite.orgMetadata.GetGroupId(), nil }, suite.metadata),
 	}
 }
 
@@ -83,8 +83,8 @@ func TestFreeCallPaymentHandlerTestSuite(t *testing.T) {
 
 func (suite *FreeCallPaymentHandlerTestSuite) grpcMetadataForFreeCall(user *ecdsa.PrivateKey) metadata.MD {
 
-	token, expBlock := suite.paymentHandler.freeCallPaymentValidator.NewFreeCallToken(crypto.PubkeyToAddress(user.PublicKey).Hex(), nil, nil)
-	p := FreeCallPayment{
+	token, expBlock := suite.paymentHandler.freeCallPaymentValidator.NewToken(crypto.PubkeyToAddress(user.PublicKey).Hex(), nil, nil)
+	p := Payment{
 		Address:                    crypto.PubkeyToAddress(user.PublicKey).Hex(),
 		ServiceId:                  suite.serviceID,
 		OrganizationId:             suite.orgMetadata.OrgID,
@@ -101,7 +101,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) grpcMetadataForFreeCall(user *ecds
 	md.Set(handler.FreeCallUserAddressHeader, crypto.PubkeyToAddress(user.PublicKey).Hex())
 	md.Set(handler.PaymentChannelSignatureHeader, string(p.Signature))
 	md.Set(handler.FreeCallAuthTokenHeader, string(token))
-	md.Set(handler.PaymentTypeHeader, FreeCallPaymentType)
+	md.Set(handler.PaymentTypeHeader, PaymentType)
 	return md
 }
 
@@ -113,7 +113,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) grpcContextForFreeCall(userPrivate
 }
 
 func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPaymentFromContext() {
-	err := suite.storage.Put(suite.getKey(), &FreeCallUserData{FreeCallsMade: 100})
+	err := suite.storage.Put(suite.getKey(), &UserData{FreeCallsMade: 100})
 	assert.Nil(suite.T(), err)
 
 	context := suite.grpcContextForFreeCall(suite.ownerPrivateKey)
@@ -145,7 +145,7 @@ func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPaymentComplete() {
 }
 
 func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPaymentCompleteAfterError() {
-	err := suite.storage.Put(suite.getKey(), &FreeCallUserData{FreeCallsMade: 9})
+	err := suite.storage.Put(suite.getKey(), &UserData{FreeCallsMade: 9})
 	assert.Nil(suite.T(), err)
 	paymentTransaction, err := suite.paymentHandler.Payment(suite.grpcContextForFreeCall(suite.ownerPrivateKey))
 	assert.Nil(suite.T(), err)
@@ -158,5 +158,5 @@ func (suite *FreeCallPaymentHandlerTestSuite) TestFreeCallGetPaymentCompleteAfte
 }
 
 func (suite *FreeCallPaymentHandlerTestSuite) Test_freeCallPaymentHandler_Type() {
-	assert.Equal(suite.T(), suite.paymentHandler.Type(), FreeCallPaymentType)
+	assert.Equal(suite.T(), suite.paymentHandler.Type(), PaymentType)
 }

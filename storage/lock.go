@@ -1,7 +1,6 @@
-package escrow
+package storage
 
 import (
-	"github.com/singnet/snet-daemon/v6/storage"
 	"go.uber.org/zap"
 )
 
@@ -17,15 +16,15 @@ type Locker interface {
 	Lock(name string) (lock Lock, ok bool, err error)
 }
 
-// NewEtcdLocker returns new lock which is based on etcd storage.
-func NewEtcdLocker(storage storage.AtomicStorage) Locker {
-	return &etcdLocker{
+// NewLocker returns a locker backed by atomic storage.
+func NewLocker(storage AtomicStorage) Locker {
+	return &atomicLocker{
 		storage: storage,
 	}
 }
 
-type etcdLocker struct {
-	storage storage.AtomicStorage
+type atomicLocker struct {
+	storage AtomicStorage
 }
 
 const (
@@ -33,7 +32,7 @@ const (
 	unlocked = "unlocked"
 )
 
-func (locker *etcdLocker) Lock(name string) (lock Lock, ok bool, err error) {
+func (locker *atomicLocker) Lock(name string) (lock Lock, ok bool, err error) {
 	value, ok, err := locker.storage.Get(name)
 	if err != nil {
 		return
@@ -59,7 +58,7 @@ func (locker *etcdLocker) Lock(name string) (lock Lock, ok bool, err error) {
 
 type lockType struct {
 	name   string
-	locker *etcdLocker
+	locker *atomicLocker
 }
 
 func (lock *lockType) Unlock() (err error) {

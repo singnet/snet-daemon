@@ -77,6 +77,7 @@ func Initialize() {
 		hook, err := initHookByConfig(config.Vip().Sub(config.LogKey + "." + hookConfigName))
 		if err != nil {
 			fmt.Printf("unable to add log hook \"%v\", error: %v", hookConfigName, err)
+			continue
 		}
 		hooks = append(hooks, hook)
 	}

@@ -73,6 +73,8 @@ func TestNewProcessor_BlockchainDisabled(t *testing.T) {
 	assert.Nil(t, processor.GetEthHttpClient())
 	assert.Nil(t, processor.GetEthWSClient())
 	assert.Nil(t, processor.MultiPartyEscrow())
+	assert.NotPanics(t, processor.Close, "disabled processors have no RPC clients to close")
+	assert.NotPanics(t, processor.Close, "cleanup can safely be repeated")
 }
 
 func TestProcessorGetters(t *testing.T) {

@@ -168,8 +168,12 @@ func (processor *processor) HasIdentity() bool {
 }
 
 func (processor *processor) Close() {
-	processor.ethHttpClient.Close()
-	processor.rawHttpClient.Close()
+	if processor.ethHttpClient != nil {
+		processor.ethHttpClient.Close()
+	}
+	if processor.rawHttpClient != nil {
+		processor.rawHttpClient.Close()
+	}
 	if processor.ethWSClient != nil {
 		processor.ethWSClient.Close()
 	}

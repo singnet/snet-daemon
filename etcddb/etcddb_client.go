@@ -22,7 +22,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const etcdTTL = 10
+const (
+	etcdTTL                 = 10
+	etcdLeaseCleanupTimeout = time.Second
+)
 
 // EtcdClientMutex mutex struct for etcd client
 type EtcdClientMutex struct {
@@ -51,11 +54,21 @@ type EtcdClient struct {
 // etcdClientSession synchronizes lazy session creation and shutdown.
 // Copied clients share the same session and lifecycle through this pointer.
 type etcdClientSession struct {
-	mu     sync.Mutex
-	value  *concurrency.Session
-	ctx    context.Context
-	cancel context.CancelFunc
-	closed bool
+	mu        sync.Mutex
+	value     *concurrency.Session
+	pending   *etcdSessionAttempt
+	ctx       context.Context
+	cancel    context.CancelFunc
+	closed    bool
+	closeDone chan struct{}
+}
+
+// An attempt publishes its immutable result before closing done. Failed attempts
+// are removed from the shared state so later calls can retry initialization.
+type etcdSessionAttempt struct {
+	done  chan struct{}
+	value *concurrency.Session
+	err   error
 }
 
 var _ storage.AtomicStorage = (*EtcdClient)(nil)
@@ -116,7 +129,7 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 	client = &EtcdClient{
 		hotReload:          conf.HotReload,
 		timeout:            conf.RequestTimeout,
-		session:            &etcdClientSession{ctx: sessionCtx, cancel: cancel},
+		session:            &etcdClientSession{ctx: sessionCtx, cancel: cancel, closeDone: make(chan struct{})},
 		etcd:               etcdv3,
 		certificateMonitor: certificateMonitor,
 	}
@@ -363,36 +376,99 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 	})
 }
 
-// NewMutex Create a mutex for the given key
+// NewMutex creates a mutex for the given key. Concurrent callers share session
+// initialization, but each caller's wait is bounded by its own request timeout.
 func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err error) {
 	state := client.session
 	if state == nil {
 		return nil, errors.New("etcd client is not initialized")
 	}
+	ctx, cancel := context.WithTimeout(state.ctx, client.timeout)
+	defer cancel()
+
 	state.mu.Lock()
-	defer state.mu.Unlock()
-	if err := state.ctx.Err(); err != nil {
+	if err := ctx.Err(); err != nil {
+		state.mu.Unlock()
 		return nil, err
 	}
-	if state.value == nil {
-		// Bound the initial lease request, but keep the session's keepalive
-		// attached to the client lifetime rather than this request deadline.
-		ctx, cancel := context.WithTimeout(state.ctx, client.timeout)
-		lease, err := client.etcd.Grant(ctx, etcdTTL)
-		cancel()
-		if err != nil {
-			return nil, fmt.Errorf("can't create etcd session: %w", err)
-		}
-		session, err := concurrency.NewSession(client.etcd,
-			concurrency.WithLease(lease.ID), concurrency.WithTTL(etcdTTL))
-		if err != nil {
-			return nil, fmt.Errorf("can't create etcd session: %w", err)
-		}
-		state.value = session
+	if state.value != nil {
+		session := state.value
+		state.mu.Unlock()
+		return &EtcdClientMutex{mutex: concurrency.NewMutex(session, key)}, nil
 	}
-	m := concurrency.NewMutex(state.value, key)
-	mutex = &EtcdClientMutex{mutex: m}
-	return
+	attempt := state.pending
+	if attempt == nil {
+		attempt = &etcdSessionAttempt{done: make(chan struct{})}
+		state.pending = attempt
+		go client.initializeSession(attempt)
+	}
+	state.mu.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-attempt.done:
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if attempt.err != nil {
+			return nil, attempt.err
+		}
+		return &EtcdClientMutex{mutex: concurrency.NewMutex(attempt.value, key)}, nil
+	}
+}
+
+func (client *EtcdClient) initializeSession(attempt *etcdSessionAttempt) {
+	state := client.session
+	session, err := client.newSession()
+	state.mu.Lock()
+	if err == nil {
+		err = state.ctx.Err()
+		if err == nil {
+			state.value = session
+		}
+	}
+	if err != nil && session != nil {
+		// Close may have started after the lease was granted. Stop keepalive and
+		// revoke the unpublished session while the transport is still open.
+		state.mu.Unlock()
+		session.Orphan()
+		client.revokeSessionLease(session.Lease())
+		session = nil
+		state.mu.Lock()
+	}
+	attempt.value, attempt.err = session, err
+	state.pending = nil
+	close(attempt.done)
+	state.mu.Unlock()
+}
+
+func (client *EtcdClient) newSession() (*concurrency.Session, error) {
+	// Bound the initial lease grant, but keep keepalive attached to the client
+	// lifetime rather than an individual caller's request deadline.
+	ctx, cancel := context.WithTimeout(client.session.ctx, client.timeout)
+	lease, err := client.etcd.Grant(ctx, etcdTTL)
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("can't create etcd session: %w", err)
+	}
+	session, err := concurrency.NewSession(client.etcd,
+		concurrency.WithLease(lease.ID), concurrency.WithTTL(etcdTTL))
+	if err != nil {
+		client.revokeSessionLease(lease.ID)
+		return nil, fmt.Errorf("can't create etcd session: %w", err)
+	}
+	return session, nil
+}
+
+func (client *EtcdClient) revokeSessionLease(id clientv3.LeaseID) {
+	// Neither the grant's expired deadline nor shutdown cancellation should
+	// prevent best-effort cleanup. Bound this independent request separately.
+	ctx, cancel := context.WithTimeout(context.Background(), etcdLeaseCleanupTimeout)
+	defer cancel()
+	if _, err := client.etcd.Revoke(ctx, id); err != nil {
+		zap.L().Warn("revoke unused etcd session lease failed", zap.Int64("leaseID", int64(id)), zap.Error(err))
+	}
 }
 
 func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok bool, err error) {
@@ -527,16 +603,25 @@ func (client *EtcdClient) Close() {
 	}
 	if client.session != nil {
 		state := client.session
-		// Cancel a pending lease request before waiting for the session lock.
-		state.cancel()
 		state.mu.Lock()
-		defer state.mu.Unlock()
 		if state.closed {
+			done := state.closeDone
+			state.mu.Unlock()
+			<-done
 			return
 		}
+		// Serialize shutdown with session publication, then cancel initialization
+		// before waiting for its cleanup outside the lock.
 		state.closed = true
-		if state.value != nil {
-			if err := state.value.Close(); err != nil {
+		state.cancel()
+		pending, session := state.pending, state.value
+		state.mu.Unlock()
+		defer close(state.closeDone)
+		if pending != nil {
+			<-pending.done
+		}
+		if session != nil {
+			if err := session.Close(); err != nil {
 				zap.L().Error("close session failed", zap.Error(err))
 			}
 		}

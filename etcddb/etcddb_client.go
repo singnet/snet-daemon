@@ -5,9 +5,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -20,7 +22,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const etcdTTL = 10
+const (
+	etcdTTL                 = 10
+	etcdLeaseCleanupTimeout = time.Second
+)
 
 // EtcdClientMutex mutex struct for etcd client
 type EtcdClientMutex struct {
@@ -41,9 +46,29 @@ func (mutex *EtcdClientMutex) Unlock(ctx context.Context) (err error) {
 type EtcdClient struct {
 	hotReload          bool
 	timeout            time.Duration
-	session            *concurrency.Session
+	session            *etcdClientSession
 	etcd               *clientv3.Client
 	certificateMonitor *certificateExpiryMonitor
+}
+
+// etcdClientSession synchronizes lazy session creation and shutdown.
+// Copied clients share the same session and lifecycle through this pointer.
+type etcdClientSession struct {
+	mu        sync.Mutex
+	value     *concurrency.Session
+	pending   *etcdSessionAttempt
+	ctx       context.Context
+	cancel    context.CancelFunc
+	closed    bool
+	closeDone chan struct{}
+}
+
+// An attempt publishes its immutable result before closing done. Failed attempts
+// are removed from the shared state so later calls can retry initialization.
+type etcdSessionAttempt struct {
+	done  chan struct{}
+	value *concurrency.Session
+	err   error
 }
 
 var _ storage.AtomicStorage = (*EtcdClient)(nil)
@@ -54,27 +79,19 @@ func NewEtcdClient(metaData *blockchain.OrganizationMetaData) (client *EtcdClien
 }
 
 // NewEtcdClientFromVip creates a new EtcdClient using settings from the given Viper instance.
-// It performs a bounded-time health probe (Maintenance.Status) to fail fast when endpoints
-// are unreachable or the cluster is unhealthy, and then creates a long-lived etcd concurrency
-// session without attaching a per-call deadline (so shutdown can revoke the lease cleanly).
-//
-// Behavior:
-//   - Respects connection and request timeouts from config for dialing and the health probe.
-//   - If HTTPS endpoints are provided, a TLS config is built via getTLSConfig().
-//   - On any initialization error, the underlying client is closed before returning.
-//
-// Returns:
-//   - (*EtcdClient, nil) on success;
-//   - (nil, error) if dialing, health probe, or session creation fails.
-//
-// Note: The session is created without a custom context to avoid canceling it prematurely
-// during shutdown. Use EtcdClient.Close() to gracefully revoke the lease and close resources.
+// Connections are established asynchronously by the etcd transport, so an unavailable
+// cluster does not block daemon startup. Storage requests wait for connectivity up to
+// RequestTimeout. Configuration and TLS errors are still returned immediately.
+// A lease-backed concurrency session is created only when NewMutex is called.
 func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMetaData) (client *EtcdClient, err error) {
 
 	conf, err := GetEtcdClientConf(vip, metaData)
 
 	if err != nil {
 		return nil, err
+	}
+	if conf.RequestTimeout <= 0 {
+		return nil, fmt.Errorf("request_timeout must be positive: %s", conf.RequestTimeout)
 	}
 
 	zap.L().Info("Creating new payment storage client (etcd)",
@@ -108,37 +125,11 @@ func NewEtcdClientFromVip(vip *viper.Viper, metaData *blockchain.OrganizationMet
 		return nil, err
 	}
 
-	// Fast-fail health probe with a bounded request timeout so initialization never hangs.
-	probeCtx, cancel := context.WithTimeout(context.Background(), conf.RequestTimeout)
-	defer cancel()
-
-	// Probe the first endpoint (you may loop all endpoints if desired).
-	if _, err := etcdv3.Maintenance.Status(probeCtx, conf.Endpoints[0]); err != nil {
-		_ = etcdv3.Close()
-		return nil, fmt.Errorf("etcd not healthy: %w", err)
-	}
-
-	// Create a long-lived session (uses context.Background under the hood).
-	// This avoids tying the session lifecycle to a short timeout context,
-	// which would cause LeaseRevoke to see "context canceled" during shutdown.
-	session, err := concurrency.NewSession(etcdv3, concurrency.WithTTL(etcdTTL))
-	if err != nil {
-		_ = etcdv3.Close()
-		return nil, fmt.Errorf("can't create etcd session: %w", err)
-	}
-
-	zap.L().Debug("[etcd] session created")
-
-	// Log when the session is closed (e.g., due to connection loss).
-	go func() {
-		<-session.Done()
-		zap.L().Debug("[etcd] session closed")
-	}()
-
+	sessionCtx, cancel := context.WithCancel(etcdv3.Ctx())
 	client = &EtcdClient{
 		hotReload:          conf.HotReload,
 		timeout:            conf.RequestTimeout,
-		session:            session,
+		session:            &etcdClientSession{ctx: sessionCtx, cancel: cancel, closeDone: make(chan struct{})},
 		etcd:               etcdv3,
 		certificateMonitor: certificateMonitor,
 	}
@@ -153,7 +144,7 @@ func Reconnect(metadata *blockchain.OrganizationMetaData) (*EtcdClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	zap.L().Info("[etcd] Successful reconnect to new etcd endpoints", zap.Strings("New endpoints", metadata.GetPaymentStorageEndPoints()))
+	zap.L().Info("[etcd] Created client for new etcd endpoints", zap.Strings("New endpoints", metadata.GetPaymentStorageEndPoints()))
 	return etcdClient, nil
 }
 
@@ -385,12 +376,99 @@ func (client *EtcdClient) PutIfAbsent(key string, value string) (ok bool, err er
 	})
 }
 
-// NewMutex Create a mutex for the given key
+// NewMutex creates a mutex for the given key. Concurrent callers share session
+// initialization, but each caller's wait is bounded by its own request timeout.
 func (client *EtcdClient) NewMutex(key string) (mutex *EtcdClientMutex, err error) {
+	state := client.session
+	if state == nil {
+		return nil, errors.New("etcd client is not initialized")
+	}
+	ctx, cancel := context.WithTimeout(state.ctx, client.timeout)
+	defer cancel()
 
-	m := concurrency.NewMutex(client.session, key)
-	mutex = &EtcdClientMutex{mutex: m}
-	return
+	state.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		state.mu.Unlock()
+		return nil, err
+	}
+	if state.value != nil {
+		session := state.value
+		state.mu.Unlock()
+		return &EtcdClientMutex{mutex: concurrency.NewMutex(session, key)}, nil
+	}
+	attempt := state.pending
+	if attempt == nil {
+		attempt = &etcdSessionAttempt{done: make(chan struct{})}
+		state.pending = attempt
+		go client.initializeSession(attempt)
+	}
+	state.mu.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-attempt.done:
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if attempt.err != nil {
+			return nil, attempt.err
+		}
+		return &EtcdClientMutex{mutex: concurrency.NewMutex(attempt.value, key)}, nil
+	}
+}
+
+func (client *EtcdClient) initializeSession(attempt *etcdSessionAttempt) {
+	state := client.session
+	session, err := client.newSession()
+	state.mu.Lock()
+	if err == nil {
+		err = state.ctx.Err()
+		if err == nil {
+			state.value = session
+		}
+	}
+	if err != nil && session != nil {
+		// Close may have started after the lease was granted. Stop keepalive and
+		// revoke the unpublished session while the transport is still open.
+		state.mu.Unlock()
+		session.Orphan()
+		client.revokeSessionLease(session.Lease())
+		session = nil
+		state.mu.Lock()
+	}
+	attempt.value, attempt.err = session, err
+	state.pending = nil
+	close(attempt.done)
+	state.mu.Unlock()
+}
+
+func (client *EtcdClient) newSession() (*concurrency.Session, error) {
+	// Bound the initial lease grant, but keep keepalive attached to the client
+	// lifetime rather than an individual caller's request deadline.
+	ctx, cancel := context.WithTimeout(client.session.ctx, client.timeout)
+	lease, err := client.etcd.Grant(ctx, etcdTTL)
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("can't create etcd session: %w", err)
+	}
+	session, err := concurrency.NewSession(client.etcd,
+		concurrency.WithLease(lease.ID), concurrency.WithTTL(etcdTTL))
+	if err != nil {
+		client.revokeSessionLease(lease.ID)
+		return nil, fmt.Errorf("can't create etcd session: %w", err)
+	}
+	return session, nil
+}
+
+func (client *EtcdClient) revokeSessionLease(id clientv3.LeaseID) {
+	// Neither the grant's expired deadline nor shutdown cancellation should
+	// prevent best-effort cleanup. Bound this independent request separately.
+	ctx, cancel := context.WithTimeout(context.Background(), etcdLeaseCleanupTimeout)
+	defer cancel()
+	if _, err := client.etcd.Revoke(ctx, id); err != nil {
+		zap.L().Warn("revoke unused etcd session lease failed", zap.Int64("leaseID", int64(id)), zap.Error(err))
+	}
 }
 
 func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok bool, err error) {
@@ -524,8 +602,28 @@ func (client *EtcdClient) Close() {
 		client.certificateMonitor.close()
 	}
 	if client.session != nil {
-		if err := client.session.Close(); err != nil {
-			zap.L().Error("close session failed", zap.Error(err))
+		state := client.session
+		state.mu.Lock()
+		if state.closed {
+			done := state.closeDone
+			state.mu.Unlock()
+			<-done
+			return
+		}
+		// Serialize shutdown with session publication, then cancel initialization
+		// before waiting for its cleanup outside the lock.
+		state.closed = true
+		state.cancel()
+		pending, session := state.pending, state.value
+		state.mu.Unlock()
+		defer close(state.closeDone)
+		if pending != nil {
+			<-pending.done
+		}
+		if session != nil {
+			if err := session.Close(); err != nil {
+				zap.L().Error("close session failed", zap.Error(err))
+			}
 		}
 	}
 	if client.etcd != nil {

@@ -1,6 +1,7 @@
 package etcddb
 
 import (
+	"context"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
@@ -58,7 +59,7 @@ func (suite *EtcdTestSuite) TestCertificateExpiryHTTPSLifecycle() {
 	}
 }
 
-func (suite *EtcdTestSuite) TestCertificateExpiryAlertBeforeFailedInitialization() {
+func (suite *EtcdTestSuite) TestCertificateExpiryAlertBeforeFailedRequest() {
 	t := suite.T()
 	now := time.Now()
 	certPath, keyPath, _ := writeEtcdTestCertificateFromTemplate(t, &x509.Certificate{
@@ -69,15 +70,17 @@ func (suite *EtcdTestSuite) TestCertificateExpiryAlertBeforeFailedInitialization
 	setEtcdTLSPaths(t, certPath, keyPath, certPath)
 	core, logs := observer.New(zap.WarnLevel)
 	t.Cleanup(zap.ReplaceGlobals(zap.New(core)))
-	// An already-expired request deadline makes initialization fail locally;
-	// the certificate warning must not depend on a successful connection.
-	vip := readConfig(t, `{"payment_channel_storage_client":{"endpoints":["https://127.0.0.1:1"],"request_timeout":"-1s"}}`)
+	// Client initialization is asynchronous; the certificate warning must
+	// still be emitted before a connection or storage request can succeed.
+	vip := readConfig(t, `{"payment_channel_storage_client":{"endpoints":["https://127.0.0.1:1"],"request_timeout":"100ms"}}`)
 	client, err := NewEtcdClientFromVip(vip, suite.metaData)
-	require.ErrorContains(t, err, "etcd not healthy")
-	require.Nil(t, client)
+	require.NoError(t, err)
+	t.Cleanup(client.Close)
 	alerts := logs.FilterMessageSnippet("certificate has expired").All()
 	require.Len(t, alerts, 1)
 	require.Equal(t, zap.ErrorLevel, alerts[0].Level)
+	_, _, err = client.Get("unavailable-TLS-endpoint")
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func startExpiryTestEtcd(t *testing.T, certPath, keyPath string) string {

@@ -99,16 +99,16 @@ type jsonCodec struct{}
 func (jsonCodec) Name() string { return "json" }
 
 func (jsonCodec) Marshal(v any) ([]byte, error) {
-	m, ok := messageV2Of(v).(proto.Message)
-	if !ok {
+	m := messageV2Of(v)
+	if m == nil {
 		return nil, fmt.Errorf("failed to marshal, message is %T, want proto.Message", v)
 	}
 	return protojson.Marshal(m)
 }
 
 func (jsonCodec) Unmarshal(data []byte, v any) error {
-	m, ok := messageV2Of(v).(proto.Message)
-	if !ok {
+	m := messageV2Of(v)
+	if m == nil {
 		return fmt.Errorf("failed to unmarshal, message is %T, want proto.Message", v)
 	}
 	return protojson.Unmarshal(data, m)

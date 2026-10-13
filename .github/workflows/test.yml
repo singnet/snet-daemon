@@ -12,20 +12,22 @@ jobs:
     permissions:
       contents: read  # for GITHUB_TOKEN
     steps:
-      - name: clone repo
-        uses: actions/checkout@v4.3.0
-
-      - name: download and install
-        uses: actions/setup-go@v5
+      - name: Check out repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
         with:
-          go-version: '1.27.2'
+          persist-credentials: false
 
-      - name: install protoc (protobuf)
-        uses: arduino/setup-protoc@v3
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Set up protoc
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
         with:
           version: "36.2"
           include-pre-releases: false
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ github.token }}
 
       - name: chmod to allow run script
         run: chmod +x ./scripts/install_deps

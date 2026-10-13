@@ -1,0 +1,52 @@
+name: lint
+
+on:
+  pull_request:
+    branches: ["dev", "master"]
+  push:
+    branches: ["dev", "master"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Set up protoc
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          version: "36.2"
+          include-pre-releases: false
+          repo-token: ${{ github.token }}
+
+      - name: Generate protobuf and contract bindings
+        run: bash ./scripts/install_deps
+
+      # The organization does not allow golangci/golangci-lint-action.
+      # Build the pinned CLI with the same Go toolchain as the project.
+      - name: Install golangci-lint
+        env:
+          GOBIN: ${{ runner.temp }}/golangci-lint
+          GOTOOLCHAIN: local
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+
+      - name: Run golangci-lint
+        run: '"${RUNNER_TEMP}/golangci-lint/golangci-lint" run --config=.golangci.yml --timeout=5m ./...'

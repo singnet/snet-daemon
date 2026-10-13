@@ -5,7 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/encoding"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/protoadapt"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -75,6 +77,68 @@ func TestProtoCodec_MarshalUnmarshal_Invalid(t *testing.T) {
 
 // Expose only ProtoReflect, without the legacy Reset, String and ProtoMessage methods.
 type reflectionOnlyMessage struct{ proto.Message }
+
+// This legacy message implements only the v1 API, with no ProtoReflect method.
+type legacyStringMessage struct {
+	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (m *legacyStringMessage) Reset()         { *m = legacyStringMessage{} }
+func (m *legacyStringMessage) String() string { return m.Value }
+func (*legacyStringMessage) ProtoMessage()    {}
+
+func TestCodecsSupportLegacyProtobuf(t *testing.T) {
+	for _, c := range []encoding.Codec{protoCodec{}, jsonCodec{}} {
+		t.Run(c.Name(), func(t *testing.T) {
+			source := &legacyStringMessage{Value: "hello"}
+			require.Implements(t, (*protoadapt.MessageV1)(nil), source)
+			require.NotImplements(t, (*proto.Message)(nil), source)
+			data, err := c.Marshal(source)
+			require.NoError(t, err)
+			if c.Name() == "proto" {
+				require.Equal(t, []byte("\x0a\x05hello"), data)
+			} else {
+				require.JSONEq(t, `{"value":"hello"}`, string(data))
+			}
+			decoded := &legacyStringMessage{}
+			require.NoError(t, c.Unmarshal(data, decoded))
+			require.Equal(t, source.Value, decoded.Value)
+		})
+	}
+}
+
+func TestCodecsPreserveTypedNilMessages(t *testing.T) {
+	for _, c := range []encoding.Codec{protoCodec{}, jsonCodec{}} {
+		t.Run(c.Name(), func(t *testing.T) {
+			for _, tc := range []struct {
+				name  string
+				value any
+			}{
+				{"v2", (*wrapperspb.StringValue)(nil)},
+				{"v1", (*legacyStringMessage)(nil)},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					converted := messageV2Of(tc.value)
+					require.True(t, converted != nil, "a typed-nil message is not a nil interface")
+					var expected []byte
+					var err error
+					if c.Name() == "proto" {
+						expected, err = proto.Marshal(converted)
+					} else {
+						expected, err = protojson.Marshal(converted)
+					}
+					require.NoError(t, err)
+					data, err := c.Marshal(tc.value)
+					require.NoError(t, err)
+					require.Equal(t, expected, data)
+					// Decoding needs a mutable destination. Preserve delegation to
+					// protobuf, including its panic for a typed-nil destination.
+					require.Panics(t, func() { _ = c.Unmarshal(data, tc.value) })
+				})
+			}
+		})
+	}
+}
 
 func TestCodecsSupportProtobufInterfaces(t *testing.T) {
 	for _, tc := range []struct {

@@ -122,7 +122,9 @@ func GetAddressFromPrivateKeyECDSA(privateKeyECDSA *ecdsa.PrivateKey) common.Add
 		return common.Address{}
 	}
 	publicKeyECDSA := &privateKeyECDSA.PublicKey
-	if publicKeyECDSA.X == nil || publicKeyECDSA.Y == nil {
+	// Use go-ethereum's nil-safe secp256k1 encoder; ecdsa.PublicKey.Bytes
+	// only supports NIST curves.
+	if len(crypto.FromECDSAPub(publicKeyECDSA)) == 0 {
 		return common.Address{}
 	}
 	return crypto.PubkeyToAddress(*publicKeyECDSA)

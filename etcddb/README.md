@@ -57,6 +57,33 @@ the certificates to connect
   "payment_channel_key_path": "<locationToFile>",
 
 
+### Certificate expiry notifications
+
+For HTTPS etcd connections, the daemon checks its loaded client certificate,
+the rest of the client certificate chain, and all certificates in
+`payment_channel_ca_path` at client initialization and every hour thereafter.
+It logs a `warn` when a certificate has 30 days or less remaining, and an `error`
+when it has expired. Repeated alerts for the same certificate and severity are
+limited to once every 24 hours per client instance. Expiry is reported immediately
+on the next check even if a warning was recently emitted. Initial alerts are also
+emitted when creating a new client, including after a restart or reconnect.
+
+To receive these alerts by email or Telegram, configure the existing
+[log hooks](../logger/README.md) for both `warn` and `error`, and use a
+`log.level` of `warn` or lower. Without a hook the alerts remain in the logs.
+The message includes the certificate path, subject, SHA-256 fingerprint and
+UTC expiry time; private keys and certificate contents are never included.
+
+Checks do not depend on heartbeat requests and do not change the HTTP/gRPC
+heartbeat response or status. They do not perform extra network requests or
+change TLS verification. HTTP-only etcd connections do not start a monitor.
+
+The monitor checks the certificates loaded into the running client, not just
+the files on disk. After renewing certificates, recreate the etcd client or
+restart the daemon to load them. Merely replacing a PEM file does not update
+the current client's TLS configuration. This feature does not monitor remote
+etcd server or peer certificates, and does not renew certificates automatically.
+
 ## etcd server configuration 
 The latest Daemon expects an etcd cluster setup already available , in case you wish to set up your own
 cluster , please go over the documentation below

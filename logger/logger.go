@@ -60,7 +60,15 @@ func Initialize() {
 		panic(fmt.Errorf("failed to get logger writer, error: %v", err))
 	}
 
-	core := zapcore.NewCore(encoder, writerSyncer, level)
+	// Preserve crash diagnostics in every configured output, even at log.level=fatal.
+	core := zapcore.NewCore(encoder, writerSyncer, zap.LevelEnablerFunc(func(entryLevel zapcore.Level) bool {
+		return level.Enabled(entryLevel) || entryLevel >= zapcore.PanicLevel
+	}))
+	if !slices.Contains(config.GetStringSlice(LogOutputTypeKey), "stderr") {
+		core = zapcore.NewTee(core, zapcore.NewCore(
+			encoder.Clone(), zapcore.Lock(zapcore.AddSync(os.Stderr)), zapcore.PanicLevel,
+		))
+	}
 	logger := zap.New(core)
 
 	var hooks []zap.Option

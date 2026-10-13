@@ -5,6 +5,12 @@ library. Logger configuration is a set of properties started from ```log.```
 prefix. If configuration file is formatted using JSON then all logger
 configuration is one JSON object located in ```log``` field.
 
+`panic` and `fatal` records always go to stderr and all configured outputs,
+regardless of `log.level`. This includes logging to a file alone: the full record,
+including error details and context fields, is also written to stderr using the
+configured formatter. If stderr is already configured, the record is written
+there once. Other log levels follow the configured level and outputs.
+
 * **log** - log configuration section
 
     * **level** (default: info) - log level. Possible values are:

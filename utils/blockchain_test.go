@@ -209,11 +209,29 @@ func TestGetAddressFromPrivateKeyECDSA(t *testing.T) {
 	assert.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(badKey))
 }
 
+func TestGetAddressFromPrivateKeySecp256k1Vector(t *testing.T) {
+	key, err := crypto.HexToECDSA(strings.Repeat("0", 63) + "1")
+	require.NoError(t, err)
+	expected := common.HexToAddress("0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf")
+	for _, tc := range []struct {
+		name string
+		key  *ecdsa.PrivateKey
+	}{
+		{"private key", key},
+		{"public key only", &ecdsa.PrivateKey{PublicKey: key.PublicKey}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, expected, GetAddressFromPrivateKeyECDSA(tc.key))
+		})
+	}
+}
+
 func TestGetAddressFromPrivateKeyRejectsMissingCoordinate(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		public ecdsa.PublicKey
 	}{
+		{name: "missing both", public: ecdsa.PublicKey{Curve: crypto.S256()}},
 		{name: "missing X", public: ecdsa.PublicKey{Curve: crypto.S256(), Y: big.NewInt(1)}},
 		{name: "missing Y", public: ecdsa.PublicKey{Curve: crypto.S256(), X: big.NewInt(1)}},
 	} {

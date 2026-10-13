@@ -103,6 +103,7 @@ type tokenServiceFixture struct {
 
 func newTokenServiceFixture(t *testing.T) *tokenServiceFixture {
 	t.Helper()
+	isolateConfig(t)
 	config.Vip().Set(config.DaemonGroupName, "default_group")
 
 	senderKey := GenerateTestPrivateKey()
@@ -171,6 +172,32 @@ func TestNewTokenService(t *testing.T) {
 	assert.Error(t, f.service.allowedBlockNumberCheck(big.NewInt(200)))
 }
 
+func TestTokenServiceFixtureIsolatesConfig(t *testing.T) {
+	isolateConfig(t)
+	previous := config.Vip()
+	previous.Set(config.AllowedUserFlag, true)
+	previous.Set(config.AllowedUserAddresses, []string{"0x0000000000000000000000000000000000000001"})
+	previous.Set(config.DaemonGroupName, "previous_group")
+
+	t.Run("independent fixture", func(t *testing.T) {
+		f := newTokenServiceFixture(t)
+		require.NotSame(t, previous, config.Vip())
+		require.False(t, config.GetBool(config.AllowedUserFlag))
+		require.Empty(t, config.GetStringSlice(config.AllowedUserAddresses))
+		require.Equal(t, "default_group", config.GetString(config.DaemonGroupName))
+
+		request := &TokenRequest{SignedAmount: 11, CurrentBlock: 99}
+		f.signRequest(request, f.senderKey)
+		payment := f.service.getPayment(big.NewInt(1), big.NewInt(11), request)
+		require.NoError(t, f.service.validator.Validate(payment, f.channel()))
+	})
+
+	require.Same(t, previous, config.Vip())
+	require.True(t, config.GetBool(config.AllowedUserFlag))
+	require.Equal(t, []string{"0x0000000000000000000000000000000000000001"}, config.GetStringSlice(config.AllowedUserAddresses))
+	require.Equal(t, "previous_group", config.GetString(config.DaemonGroupName))
+}
+
 func TestTokenServiceGetPayment(t *testing.T) {
 	f := newTokenServiceFixture(t)
 	request := &TokenRequest{CurrentNonce: 3, SignedAmount: 11, ClaimSignature: []byte{1}}
@@ -211,7 +238,8 @@ func TestTokenServiceVerifySignature(t *testing.T) {
 		request := &TokenRequest{SignedAmount: 11, CurrentBlock: 99, CurrentNonce: 0}
 		f.signRequest(request, f.senderKey)
 		signer, err := f.service.verifySignature(request, channel)
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		require.NotNil(t, signer)
 		assert.Equal(t, f.senderAddr, *signer)
 	})
 }
@@ -269,9 +297,11 @@ func TestTokenServiceVerifySignatureAndSignedAmountEligibility(t *testing.T) {
 		f.signRequest(request, f.senderKey)
 
 		signer, err := f.service.verifySignatureAndSignedAmountEligibility(big.NewInt(1), big.NewInt(11), request)
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		require.NotNil(t, signer)
 		assert.Equal(t, f.senderAddr, *signer)
 		assert.Equal(t, PLANNED_AMOUNT, f.usageMock.updatedType)
+		require.NotNil(t, f.usageMock.updatedAmount)
 		assert.Equal(t, int64(1), f.usageMock.updatedAmount.Int64())
 	})
 }

@@ -11,7 +11,6 @@ import (
 func TestTokenServicePaymentUpdateFailures(t *testing.T) {
 	for _, failure := range []string{"start transaction", "commit", "usage update"} {
 		t.Run(failure, func(t *testing.T) {
-			isolateConfig(t)
 			f := newTokenServiceFixture(t)
 			wantErr := errors.New(failure + " failed")
 			f.channelMock.paymentChannelFn = func(*PaymentChannelKey) (*PaymentChannelData, bool, error) {
@@ -55,7 +54,6 @@ func (s usageReader) GetUsage(key PrePaidDataKey) (*PrePaidData, bool, error) {
 func TestTokenServiceUsageReadFailures(t *testing.T) {
 	for _, usageType := range []string{USED_AMOUNT, PLANNED_AMOUNT} {
 		t.Run(usageType, func(t *testing.T) {
-			isolateConfig(t)
 			f := newTokenServiceFixture(t)
 			f.channelMock.paymentChannelFn = func(*PaymentChannelKey) (*PaymentChannelData, bool, error) {
 				return f.channel(), true, nil
@@ -77,7 +75,6 @@ func TestTokenServiceUsageReadFailures(t *testing.T) {
 }
 
 func TestTokenServiceBlockLookupFailure(t *testing.T) {
-	isolateConfig(t)
 	f := newTokenServiceFixture(t)
 	wantErr := errors.New("blockchain unavailable")
 	f.service.validator.currentBlock = func() (*big.Int, error) { return nil, wantErr }

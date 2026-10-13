@@ -5,18 +5,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/storage"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
-
-func isolateConfig(t *testing.T) {
-	t.Helper()
-	previous := config.Vip()
-	config.SetVip(viper.New())
-	t.Cleanup(func() { config.SetVip(previous) })
-}
 
 type recordingLock struct {
 	err     error
@@ -42,7 +33,6 @@ type transactionFixture struct {
 
 func newTransactionFixture(t *testing.T) *transactionFixture {
 	t.Helper()
-	isolateConfig(t)
 	f := newTokenServiceFixture(t)
 	channels := &failingStorage{MemoryStorage: storage.NewMemStorage()}
 	payments := &failingStorage{MemoryStorage: storage.NewMemStorage()}

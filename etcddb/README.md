@@ -36,6 +36,29 @@ The JSON examples below are configuration fragments to merge into the daemon
 configuration. The payment storage setup assumes blockchain is enabled and valid
 organization metadata is available.
 
+## Server and client configuration are independent
+
+The daemon configures the embedded server and the storage client separately:
+
+- `payment_channel_storage_server` uses the local daemon configuration and server
+  defaults. Organization metadata does not supply embedded server settings.
+- `payment_channel_storage_client` starts with endpoints and timeouts from
+  organization metadata, then applies local overrides as described
+  [below](#client-configuration). This precedence is the same whether the
+  embedded server is enabled or disabled.
+
+`payment_channel_storage_server.enabled` only controls whether an embedded member
+starts. It does not select that member as the client's destination, change client
+configuration precedence, or copy server addresses into client endpoints.
+Consequently, an enabled embedded server can coexist with a client configured to
+use an external cluster. Disabling the embedded server also does not disable
+local client overrides or force the client to use metadata endpoints.
+
+To use the embedded member for storage, configure client endpoints that reach its
+client URL. They can come from metadata or a local override. The daemon currently
+does not automatically choose free embedded server ports or synchronize client
+endpoints with server settings.
+
 ## Client configuration
 
 The client starts with settings from the organization metadata group selected by
@@ -45,9 +68,9 @@ override them, as implemented in [etcddb_conf.go](etcddb_conf.go):
 
 | Field | Meaning | Local default / precedence |
 |-------|---------|----------------------------|
-| `connection_timeout` | Passed to the etcd client's `DialTimeout`; see [timeouts](#timeouts-and-reconnection). | `"0s"`: retain the metadata value. A nonzero local value overrides it. |
-| `request_timeout` | Deadline for each etcd RPC issued by the storage wrapper. | `"0s"`: retain the metadata value. A nonzero local value overrides it; the effective value must be positive. |
-| `endpoints` | Array of etcd client URLs, such as `http://etcd-1:2379`. | Retain metadata endpoints unless a nonempty local array is provided. At least one effective endpoint is required. |
+| `connection_timeout` | Passed to the etcd client's `DialTimeout`; see [timeouts](#timeouts-and-reconnection). | Omitted or `"0s"`: retain the metadata value. A nonzero local value overrides it independently of `request_timeout`. |
+| `request_timeout` | Deadline for each etcd RPC issued by the storage wrapper. | Omitted or `"0s"`: retain the metadata value. A nonzero local value overrides it independently of `connection_timeout`; the effective value must be positive. |
+| `endpoints` | Array of etcd client URLs, such as `http://etcd-1:2379`. | Omitted or `[]`: retain metadata endpoints. A nonempty local array replaces the entire metadata list; the lists are not merged. At least one effective endpoint is required. |
 | `hot_reload` | Enables the organization-metadata event listener during daemon startup. | `false`. This concerns metadata updates, not transport reconnection or reloading TLS files. |
 
 To use the cluster and timeouts from organization metadata:
@@ -234,6 +257,13 @@ Example for a single embedded member with a local client:
   }
 }
 ```
+
+In this example, the local client endpoint explicitly matches the embedded
+member's `scheme`, `host`, and `client_port`. Changing `client_port` requires
+updating any client endpoints that refer to this member. Changing `peer_port`
+requires updating its peer URL in the bootstrap `cluster` configuration. These
+values are not synchronized automatically; client endpoints must use the client
+port, not the peer port.
 
 The embedded server starts before the daemon's HTTP/gRPC API and waits for
 readiness. A startup error or expiration of `startup_timeout` aborts startup.

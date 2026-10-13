@@ -13,6 +13,11 @@ For replicas sharing payment state, select `etcd` and configure the same cluster
 endpoints. Client settings and embedded server settings are separate: using an
 external cluster does not require starting an embedded server.
 
+Unknown storage-type values currently fall back to memory with a warning, so a
+typo can silently change persistence expectations if the warning is missed.
+Use an explicit supported value. The complete parameter list is in the
+[configuration reference](../config/README.md#payment-storage).
+
 ### Deployment modes
 
 The daemon can connect to an external etcd cluster or run an etcd member in its
@@ -50,6 +55,8 @@ The daemon configures the embedded server and the storage client separately:
 `payment_channel_storage_server.enabled` only controls whether an embedded member
 starts. It does not select that member as the client's destination, change client
 configuration precedence, or copy server addresses into client endpoints.
+Server startup is also independent of `payment_channel_storage_type`: selecting
+`memory` does not disable an explicitly enabled embedded server.
 Consequently, an enabled embedded server can coexist with a client configured to
 use an external cluster. Disabling the embedded server also does not disable
 local client overrides or force the client to use metadata endpoints.
@@ -72,6 +79,11 @@ override them, as implemented in [etcddb_conf.go](etcddb_conf.go):
 | `request_timeout` | Deadline for each etcd RPC issued by the storage wrapper. | Omitted or `"0s"`: retain the metadata value. A nonzero local value overrides it independently of `connection_timeout`; the effective value must be positive. |
 | `endpoints` | Array of etcd client URLs, such as `http://etcd-1:2379`. | Omitted or `[]`: retain metadata endpoints. A nonempty local array replaces the entire metadata list; the lists are not merged. At least one effective endpoint is required. |
 | `hot_reload` | Enables the organization-metadata event listener during daemon startup. | `false`. This concerns metadata updates, not transport reconnection or reloading TLS files. |
+
+Use the config file for this nested object. The daemon does not translate
+underscore-separated ENV names to nested keys, and endpoints known only through
+ENV may be omitted when constructing the client subconfiguration. See
+[environment-variable limitations](../config/README.md#environment-variables).
 
 To use the cluster and timeouts from organization metadata:
 
@@ -173,7 +185,9 @@ configuration:
 }
 ```
 
-The client certificate and private key must form a valid pair. The CA file contains
+All three paths default to empty and are required by the current HTTPS wrapper,
+even if the server itself does not require a client certificate. The client
+certificate and private key must form a valid pair. The CA file contains
 the certificates used to verify the etcd servers. These client settings do not
 configure TLS for an embedded server or its peer connections.
 
@@ -229,6 +243,11 @@ daemon process, explicitly set it to `true` and configure
 Always set `enabled` explicitly when supplying a server section. The current
 configuration loader treats a section present in the configuration file with
 `enabled` omitted as enabled.
+
+Relative data/log paths resolve from the daemon's working directory, not the
+config-file directory. Keep the member's data directory on persistent writable
+storage and do not share one directory between running members. The bootstrap
+`token` distinguishes clusters; it is not an authentication credential.
 
 Example for a single embedded member with a local client:
 

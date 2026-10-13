@@ -1,178 +1,169 @@
 # Logger configuration
 
-```snet-daemon``` uses [zap](https://github.com/uber-go/zap) log
-library. Logger configuration is a set of properties started from ```log.```
-prefix. If configuration file is formatted using JSON then all logger
-configuration is one JSON object located in ```log``` field.
+The daemon uses [Zap](https://github.com/uber-go/zap) with optional rotating-file,
+email, and Telegram outputs. Settings live under the `log` object. The complete
+key reference is in [config/README.md](../config/README.md#logging).
+
+## Levels and formatting
+
+| Key under `log` | Default | Behavior |
+|-----------------|---------|----------|
+| `level` | `"info"` | `debug`, `info`, `warn` (`warning` alias), `error`, `panic`, or `fatal`. |
+| `timezone` | `"UTC"` | Go time-zone name for log-entry timestamps. |
+| `formatter.type` | `"text"` | `text` or `json`. |
+| `formatter.timestamp_format` | `"2006-01-02T15:04:05.999Z07:00"` | Go time layout, not strftime. Explicit `""` selects RFC3339. |
 
 `panic` and `fatal` records always go to stderr and all configured outputs,
-regardless of `log.level`. This includes logging to a file alone: the full record,
-including error details and context fields, is also written to stderr using the
-configured formatter. If stderr is already configured, the record is written
-there once. Other log levels follow the configured level and outputs.
+regardless of `log.level`. This includes file-only logging: the complete record,
+including structured context, also goes to stderr using the configured formatter.
+If stderr is already selected, it is not added a second time. Other levels obey
+the configured threshold and outputs.
 
-* **log** - log configuration section
+Invalid core settings, such as an unknown formatter or output type, prevent logger
+initialization. Invalid optional hooks are reported and skipped.
 
-    * **level** (default: info) - log level. Possible values are:
-        * debug
-        * info
-        * warn
-        * error
-        * fatal
-        * panic
+## Outputs and rotation
 
-    * **timezone** (default: UTC) - timezone to format timestamps and log
-      file names. It should be name of the time.Location, see
-      [time.LoadLocation](https://golang.org/pkg/time/#LoadLocation).
+| Key under `log.output` | Default | Behavior |
+|------------------------|---------|----------|
+| `type` | `["file", "stdout"]` | Nonempty list containing `file`, `stdout`, and/or `stderr`. |
+| `file_pattern` | `"./snet-daemon.%Y%m%d.log"` | File name evaluated once during logger initialization. |
+| `current_link` | `"./snet-daemon.log"` | Symlink to the active file. Set `""` to disable creation. |
+| `max_size_in_mb` | `10` | Size-based rotation threshold in MiB; `0` uses Lumberjack's 100 MiB fallback. |
+| `max_age_in_days` | `7` | Retain rotated backups according to their encoded rotation timestamp, not filesystem modification time. `0` removes the age limit. |
+| `rotation_count` | `0` | Maximum retained backup count. `0` removes this limit; size-based rotation and age cleanup still apply. |
 
-    * **formatter** - set of properties with ```log.formatter.``` prefix
-      describes logger formatter configuration.
+The file-name formatter supports only `%Y`, `%m`, `%d`, `%H`, `%M`, and
+`%S`. A fixed name such as `snet-daemon.log` also supports rotation; a date in
+the pattern is not required and does not schedule midnight rotation.
 
-        * **type** (default: text) - type of the log formatter. Two types are
-          supported, which correspond to ```zap``` formatter types:
-            * json
-            * text
+The initial file name uses the process's local time. Backup timestamps use
+Lumberjack's UTC default. `log.timezone` changes entry timestamps, not those
+file-name clocks. Rotated files are gzip-compressed; the daemon does not expose
+a compression switch. See [Lumberjack's retention rules](https://github.com/natefinch/lumberjack/tree/v2.2.1#cleaning-up-old-log-files).
 
-        * **timestamp_format** (default:  "2006-01-02T15:04:05.999Z07:00") -
-          timestamp format to use in log lines, standard time.Time formats are
-          supported, see [time.Time.Format](https://golang.org/pkg/time/#Time.Format)
+Paths are relative to the process working directory. File logging requires write
+permissions, and `current_link` additionally requires permission to create
+symlinks. Use separate paths per daemon process. In containers, select stdout
+or mount a writable log directory; a read-only config mount is not a log directory.
 
-    * **output** - set of properties with ```log.output.``` prefix describes
-      logger output configuration.
+## Hooks
 
-        * **type** (default: file & stdout) - type of the logger output. You can specify one or several values at the same time by using an array [(examples are provided below)](#examples). Types are
-          supported:
-            * file -
-              [lumberjack](https://github.com/natefinch/lumberjack)
-              output which supports log rotation
-            * stdout - os.Stdout
-            * stderr - os.Stderr
+`log.hooks` defaults to `[]`. Each entry names a sibling object under `log`;
+for example, `"hooks": ["mail"]` reads `log.mail`.
 
-        * **file_pattern** (default: ./snet-daemon.%Y%m%d.log) - log file name
-          which may include date/time patterns in ```strftime (3)``` format. Time
-          and date in file name are necessary to support log rotation.
+Every hook requires:
 
-        * **current_link** (default: ./snet-daemon.log) - link to the latest log
-          file.
+- `type`: `email` or `telegram_bot`.
+- `levels`: a nonempty array of exact levels, such as `["warn", "error"]`.
+  These are not minimum-severity thresholds. Ordinary messages filtered out by
+  `log.level` do not reach hooks.
 
-        * **max_size_in_mb** (default: 10 Mb) - max size of current log file in megabytes.
+### Email hook
 
-        * **max_age_in_days** (default: 7 days) - number of days since
-          last modification time before log file is removed.
+| Field | Requirement |
+|-------|-------------|
+| `host` | Required SMTP hostname. |
+| `port` | Required, nonzero SMTP port. |
+| `from` | Required sender address. |
+| `to` | Required recipient address. |
+| `username` | Optional; omitted/empty uses `from`. |
+| `password` | Required SMTP credential. Use a provider-specific app password where appropriate. |
+| `application_name` | Optional SMTP authentication identity; default `""`. |
 
-        * **rotation_count** (default: 0 (disabled)) - max number of rotation
-          files. When number of log files becomes greater then oldest log file is
-          removed.
+### Telegram hook
 
-    * **hooks** (optional, default empty) - list of names of the hooks which will be executed
-      when message with specified log level appears in log. List contains names of
-      the hooks and hook configuration can be found by name prefix. Thus for
-      hook named ```<hook-name>``` properties will start from
-      ```log.<hook-name>.``` prefix.
+| Field | Requirement |
+|-------|-------------|
+| `telegram_api_key` | Required bot token. |
+| `telegram_chat_id` | Required, nonzero integer chat ID; group IDs may be negative. |
+| `telegram_disable_notifications` | Optional, default `false`. Set `true` for silent messages. |
 
-    * **```<hook-name>```** - configuration of log hook with `<hook-name>` name
-
-        * **type** (required always) - Type of the hook. This type is used to find actual
-          hook implementation. Hook types supported: 
-      
-          1) `email`  
-          2) `telegram_bot` 
-
-        * **levels** (required always) - list of log levels to trigger the hook.
-
-        Next are the parameters depending on the type of hook:
-
-        #### Email hook configuration
-
-        For hook type `email`. Its configuration should contain all the properties which are required to send email:
-
-        * **host** (required) - host of mail server.
-        * **port** (required) - port of mail server.
-        * **from** (required) - the mail from which the logs will be sent.
-        * **to** (required) - the mail to which the logs will be sent.
-        * **username** (required) - username is often equal to **from**.
-        * **password** (required) - password (to send from a Google account, you will need to create the special "app password").
-        * **application_name** (optional, default empty) - for smtp auth.
-
-        #### Telegram bot hook configuration
-
-        For hook type `telegram_bot`:
-
-        * **telegram_api_key** (required) - api key of your telegram bot.
-        * **telegram_chat_id** (required) - the chat id to which the logs will be sent.
-        * **disable_notification** (optional, default `false`) - if `true`, the bot will send the message silently.
+The config key is `telegram_disable_notifications`, not Telegram's outbound
+JSON field `disable_notification`. Do not commit real bot tokens or SMTP passwords.
 
 ## Examples
 
-### Simple configuration with logs output both to the console and to a file in JSON format
+Each block is a valid JSON fragment to merge into the daemon's top-level config.
+Credential placeholders must be replaced securely before enabling a hook.
+
+### JSON logs to stdout
 
 ```json
-"log": {
-   "formatter": {
-      "type": "json"
-   },
-   "output": {
-      "type": ["file", "stdout"]
-   },
-}
-```
-
-### Logger configuration with text format in file
-
-```json
-"log": {
-   "formatter": {
-   "timestamp_format": "2006-01-02T15:04:05.999Z07:00",
-   "type": "text"
-},
-"level": "info",
-"output": {
-   "current_link": "./snet-daemon.log",
-   "file_pattern": "./snet-daemon.%Y%m%d.log",
-   "max_age_in_days": 1,
-   "rotation_count": 0,
-   "max_size_in_mb": 300,
-   "type": "file"
-},
-"timezone": "UTC"
-}
-```
-
-### Email hook configuration
-
-```json
+{
   "log": {
-   "hooks": ["send-mail"],
-   "send-mail": {
-      "type": "email",
-      "levels": ["error", "warn", "fatal", "panic"],
-      "application_name": "test-application-name",
-      "host": "smtp.gmail.com",
-      "port": 587,
-      "from": "from-user@gmail.com",
-      "to": "to-user@gmail.com",
-      "username": "from-user@gmail.com",
-      "password": "secret"
-   },
+    "formatter": { "type": "json" },
+    "output": { "type": ["stdout"] }
+  }
 }
 ```
 
-### Telegram bot hook configuration
+### Text logs with size-based rotation
+
+The directory must exist and be writable by the daemon user.
 
 ```json
-"log": {
-   "hooks":["tg"],
-   "tg": {
-      "telegram_api_key": "7258436601:AAFlAm8gIGIyOTEv7lb9ipHcuB7YTR9-TuR",
-      "telegram_chat_id": -4103253970,
-      "disable_notification": false,
-      "type": "telegram_bot",
-      "levels": [ "fatal", "panic"]
+{
+  "log": {
+    "level": "info",
+    "timezone": "UTC",
+    "formatter": {
+      "type": "text",
+      "timestamp_format": "2006-01-02T15:04:05.999Z07:00"
     },
+    "output": {
+      "type": ["file"],
+      "file_pattern": "/var/log/snet/daemon.log",
+      "current_link": "",
+      "max_size_in_mb": 100,
+      "max_age_in_days": 7,
+      "rotation_count": 5
+    }
+  }
 }
 ```
 
-### Adding new hooks implementations
+### Email hook
 
-Adding a new hook implementation is trivial. You should implement interface hook with method `call`  which inputs `entry zapcore.Entry`. Also you need implement init method which inputs configuration as [Viper](https://godoc.org/github.com/spf13/viper#Viper) config and returns new instance of the Hook structure. Then register the new hook
-type by calling RegisterHookType() function from init() method. Please see "email" hook implementation as example in hook.go file.
+```json
+{
+  "log": {
+    "level": "info",
+    "hooks": ["mail"],
+    "mail": {
+      "type": "email",
+      "levels": ["warn", "error", "panic", "fatal"],
+      "host": "smtp.example.com",
+      "port": 587,
+      "from": "daemon@example.com",
+      "to": "operator@example.com",
+      "username": "daemon@example.com",
+      "password": "<SMTP_PASSWORD>"
+    }
+  }
+}
+```
+
+### Telegram hook
+
+```json
+{
+  "log": {
+    "hooks": ["telegram"],
+    "telegram": {
+      "type": "telegram_bot",
+      "levels": ["warn", "error", "panic", "fatal"],
+      "telegram_api_key": "<TELEGRAM_BOT_TOKEN>",
+      "telegram_chat_id": -1001234567890,
+      "telegram_disable_notifications": true
+    }
+  }
+}
+```
+
+## Adding a hook implementation
+
+Implement the package's `hook` interface with `call(zapcore.Entry) error`, provide
+a constructor accepting `*viper.Viper`, and register it with `RegisterHookType`.
+See [hook.go](hook.go) and its tests. Hooks are distinct from the heartbeat
+notification endpoint described in [metrics](../metrics/README.md).

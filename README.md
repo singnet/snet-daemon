@@ -1,10 +1,10 @@
 # SingularityNET Daemon
 
-![ci/cd build]( https://github.com/singnet/snet-daemon/actions/workflows/build.yml/badge.svg)
-![ci/cd build]( https://github.com/singnet/snet-daemon/actions/workflows/test.yml/badge.svg)
+![ci/cd build](https://github.com/singnet/snet-daemon/actions/workflows/build.yml/badge.svg)
+![tests](https://github.com/singnet/snet-daemon/actions/workflows/test.yml/badge.svg)
 [![coverage](https://coveralls.io/repos/github/singnet/snet-daemon/badge.svg?branch=dev)](https://coveralls.io/github/singnet/snet-daemon?branch=dev)
 [![Releases](https://img.shields.io/github/release/singnet/snet-daemon/all.svg?style=flat-square)](https://github.com/singnet/snet-daemon/releases)
-[![LICENSE](https://img.shields.io/github/license/singnet/snet-daemon.svg?style=flat-square)](https://github.com/singnet/snet-daemon/blob/main/LICENSE)
+[![LICENSE](https://img.shields.io/github/license/singnet/snet-daemon.svg?style=flat-square)](LICENSE)
 
 Users interested in deploying SingularityNET services should use this daemon
 
@@ -65,36 +65,41 @@ Specifying the path to the config using the '-c' argument:
 
 ## Configuration <a name="configuration"></a>
 
-Configuration file is a main source of the configuration. Some properties
-can be set via environment variables or command line parameters see [table
-below](#table_conf). Use `--config` parameter with any command to set configuration file name. By default daemon
-use configuration file in JSON format `snetd.config.json` but other formats are
-also supported via [Viper](https://github.com/spf13/viper). Use `init-full` or `init`
-command to save configuration file with default values. The following configuration properties can be set using a
-configuration file.
+The daemon loads `snetd.config.json` from the working directory when it exists.
+Use `--config` / `-c` to select another file; an explicitly selected missing file
+is an error. Without a file, built-in defaults are used. Other file formats are
+supported through [Viper](https://github.com/spf13/viper).
+Use `init` for a basic template or `init-full` to write the currently available
+configuration defaults; neither command produces a ready-to-deploy configuration.
+Some settings also support [environment variables and CLI flags](#table_conf).
+The complete parameter reference, precedence rules, and limitations are in
+[config/README.md](config/README.md).
 
 ### Main properties <a name="main_properties"></a>
 
 These properties you should usually change before starting daemon for the first
 time.
 
-* **blockchain_network_selected** (required, default `"sepolia"`)
-  Name of the network to be used for Daemon possible values are one of (sepolia, main, goerli, local).
-  Daemon will automatically read the Registry address associated with this network For local network ( you can also
-  specify the registry address manually), see the blockchain_network_config.json
+* **blockchain_network_selected** (optional, default `"sepolia"`) —
+  Selects an entry in [the network configuration](resources/blockchain_network_config.json):
+  `sepolia`, `main`, `goerli`, or `local`. An entry's presence does not guarantee
+  that its public RPC service or contracts are still available. RPC endpoints and
+  the Registry address are derived from the selected network unless overridden.
 
-* **daemon_endpoint** (required, default `"127.0.0.1:8080"`) —
+* **daemon_endpoint** (optional, default `"127.0.0.1:8080"`) —
   Defines the ip and the port on which the daemon listens to.
   format is :`<host>:<port>`.
 
-* **ethereum_json_rpc_http_endpoint** (optional, default: `"https://sepolia.infura.io/v3"`) —
-  endpoint to which daemon sends ethereum JSON-RPC requests;
-  Based on the network selected blockchain_network_selected the end point is auto determined
-  Example `"https://sepolia.infura.io/v3"` for sepolia testnet.
+* **ethereum_json_rpc_http_endpoint** (optional, network-derived) —
+  Ethereum JSON-RPC HTTP endpoint. A nonempty local value overrides the selected
+  network's endpoint. For Infura, use a complete URL including your project ID;
+  `https://sepolia.infura.io/v3` alone is not the shipped default URL.
 
-* **blockchain_provider_api_key** (optional, default: `""`) — basic header authorization key for blockchain providers.
-  Tested with
-  [infura api key secret](https://docs.infura.io/dashboard/secure-an-api/api-key-secret).
+* **blockchain_provider_api_key** (optional, default: `""`) —
+  Optional RPC authentication credential. The HTTP client uses Basic Auth for
+  an Infura secret and Bearer Auth for a JWT or other providers. The WebSocket
+  client currently uses Basic Auth. This does not supply the project ID in an
+  Infura endpoint URL.
 
 * **organization_id** (required) — Id of the organization to search for [service configuration
   metadata][service-configuration-metadata].
@@ -107,13 +112,15 @@ time.
   when passthrough is disabled, daemon echoes requests back as responses; `false`
   reserved mostly for testing purposes.
 
-* **service_endpoint** (required except service_type `executable`; default: `http://localhost:5000`) —
-  endpoint to which requests should be proxied for handling by service.
-  This config is mandatory when `passthrough_enabled` is set to true.
-  and needs to be a valid url
+* **service_endpoint** (default: `"http://localhost:5000"`) —
+  Backend endpoint to which requests are forwarded. Startup validates this
+  address even with passthrough disabled or a process backend. It must identify
+  a host and must not point back to the daemon's own listening address.
 
-* **executable_path** (required if `service_type` is `executable`) —
-  path to executable to expose as a service.
+* **executable_path** (required for a `process` backend; default: `""`) —
+  Path to the executable to expose as a service. The backend `service_type`
+  (`grpc`, `http`, `jsonrpc`, or `process`) comes from service metadata, not a
+  local daemon configuration key.
 
 * **ipfs_endpoint** (optional; default `"https://ipfs.singularitynet.io:443"`) —
   endpoint of IPFS instance to get [service configuration
@@ -121,43 +128,54 @@ time.
 
 ### Free calls properties <a name="free_calls_properties"></a>
 
-These parameters are needed if you specified free_calls in the service metadata.
+These parameters configure free-call token issuance and quotas. See the
+[free-call guide](freecall/README.md) for the RPC and signature formats.
 
-* **private_key_for_free_calls** (required) —
+* **private_key_for_free_calls** (required for token issuance; default: `""`) —
   The private key is used to sign authorization tokens for free calls. This address is NOT required to have any tokens.
 
   ⚠️ This private key must correspond to the public address specified in your service_metadata.json under the
-  free_calls.public_key field.
+  selected group's `groups[].free_call_signer_address` field. A missing key or
+  mismatched address disables the free-call state/token service.
 
 
-* **trusted_free_call_signers** (optional, default SingularityNET addresses) — A list of trusted public addresses that
-  are allowed to issue free call tokens on your behalf (e.g. trusted centralized backends or marketplaces).
+* **trusted_free_call_signers** (optional, default SingularityNET addresses) —
+  Trusted caller addresses that may request daemon-signed tokens for a `user_id`
+  without the ordinary wallet balance check (e.g. backends or marketplaces).
 
-  ⚠️ If this field is left empty, free calls will not work via the SingularityNET Marketplace, but will still be
-  available for clients using the Web3 approach (e.g., via SDKs).
+  An explicit empty array disables trusted-signer token issuance (including the
+  Marketplace flow); direct wallet clients can still request tokens if the other
+  free-call requirements are met. Omitting the key retains the built-in signers.
 
   ```json
-  "trusted_free_call_signers": [
-  "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F",
-  "0x3Bb9b2499c283cec176e7C707Ecb495B7a961ebf" ]
+  {
+    "trusted_free_call_signers": [
+      "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F",
+      "0x3Bb9b2499c283cec176e7C707Ecb495B7a961ebf"
+    ]
+  }
   ```
 
 * **min_balance_for_free_call** (optional, default 10) — The minimum token (FET) balance (in whole tokens) required on
   the user's wallet to be eligible for free calls (Web3-based flow).
   ```json
-  "min_balance_for_free_call": "1"
+  { "min_balance_for_free_call": "1" }
   ```
 
 
 * **free_calls_per_address** (optional, default empty)
 
-  You can set a separate number of allowed free calls for
-  certain addresses (not for web2 approach).
+  Override the quota for a signing address. A missing entry or `0` uses the
+  service metadata quota; `"unlimited"`, `"infinity"`, or `-1` allows unlimited
+  calls. Address matching is case-insensitive. Trusted-signer flows use the
+  signer's address for this lookup, while usage records also distinguish user IDs.
 
   ```json
-  "free_calls_per_address": {
-      "0x03607652d3ee4dad68ecea78f266906b421508d5": 500,
-      "0x0709e9B78756B740ab0C64427f43f8305fD6D1A7": 100
+  {
+    "free_calls_per_address": {
+      "0x0000000000000000000000000000000000000001": 500,
+      "0x0000000000000000000000000000000000000002": 100
+    }
   }
   ```
 
@@ -165,38 +183,43 @@ These parameters are needed if you specified free_calls in the service metadata.
 
 This options are less frequently needed.
 
-* **service_credentials** (optional, for `"service_type":"http"` only):
+* **service_credentials** (optional, for metadata `"service_type":"http"` only):
   Array of credentials, example:
 
-  ```
-  "service_credentials": [
+  ```json
+  {
+    "service_credentials": [
       {"key": "example_body_param", "value": 12345,"location": "body"},
-      {"key": "X-API-Key", "value": "546bd7d4-d3e1-46ba-b752-bc45e4dc5b39", "location": "header"}
-    ],
+      {"key": "X-API-Key", "value": "<BACKEND_API_KEY>", "location": "header"}
+    ]
+  }
   ```
   Location can be: query, header or body. Query and header values must be string.
 
-* **service_timeout** (optional; default:`100s`)
-Timeout from daemon to AI service.
+* **service_timeout** (optional; default: `"100s"`) —
+  Fallback backend request deadline in the gRPC proxy when the caller has not
+  supplied a deadline. Use a duration string such as `"30s"`; this is not a
+  universal timeout for heartbeat, metering, or the simple HTTP daemon mode.
 
 * **allowed_user_flag** (optional; default:`false`) — You may need to protect the service provider 's service in test
   environment from being called by anyone, only Authorized users can make calls , when this flag is defined in the
   config, you can enforce this behaviour.You cannot set this flag to true
   in mainnet.  
   This config is applicable only when you have the value to true.
-  In which case it becomes mandatory to define the configuration `allowed_users`,
+  In that case, `allowed_user_addresses` must contain at least one valid address.
 
 * **allowed_user_addresses** (optional) — List of selected user addresses who can make requests to Daemon
   Is Applicable only when you have `allowed_user_flag` set to true.
 
-* **authentication_addresses** (required if `You need to update Daemon configurations remotely`)
-  Contains the Authentication addresses
-  that will be used to validate all requests to update Daemon configuration remotely
-  through a user interface (Operator UI)
+* **authentication_addresses** (optional, default empty) —
+  Addresses authorized to use the configuration-service RPCs. An empty list
+  prevents access. Reading configuration and pause/resume operations are
+  implemented; remote updates are not. See [configuration service](configuration_service/README.md).
 
 * **auto_ssl_domain** (optional; default: `""`) —  
   domain name for which the daemon should automatically acquire SSL certs
   from [Let's Encrypt](https://letsencrypt.org/).
+  Requires inbound access to port 80 for HTTP-01 challenges and a writable cache.
 
 * **auto_ssl_cache_dir** (optional; only applies if `auto_ssl_domain` is set; default: `".certs"`) —
   directory in which to cache the SSL certs issued by Let's Encrypt
@@ -204,7 +227,7 @@ Timeout from daemon to AI service.
 * **blockchain_enabled** (optional; default: `true`) —
   enables or disables blockchain features of daemon; `false` reserved mostly for testing purposes
 
-* **burst_size** (optional; default: Infinite) —
+* **burst_size** (optional; effective default: `2147483647`) —
   see [rate limiting configuration](./ratelimit/README.md)
 
 * **daemon_group_name** (optional, default: `"default_group"`) —
@@ -217,41 +240,39 @@ Timeout from daemon to AI service.
   see [logger configuration](./logger/README.md)
 
 * **max_message_size_in_mb** (optional; default: `4`) —
-  The default value set is to 4 (units are in MB), this is used to configure the max size in MB of the message received
-  by the Daemon.
-  In case of Large messages, it is recommended to use streaming than setting a very high value on this configuration.
-  It is not recommended to set the value more than 4GB
-  `Please make sure your grpc version > 1.25`
+  Message size limit in MiB (`1024 * 1024` bytes), despite the historical key
+  name. Startup accepts integers from `1` to `2048`. This configures the daemon's
+  gRPC receive limit and supported backend send/receive limits. Prefer streaming
+  chunks to increasing the limit for large payloads.
 
 * **metering_enabled** (optional, default: `false`) —
   This is used to define if metering needs to be enabled or not .You will need to define a valid ` metering_endpoint`
   when this flag is enabled
 
-* **metering_endpoint** (optional; only applies if `metering_enabled` is set to true) —
-  Needs to be a valid url where the request and response stats are published as part of Metering
+* **metering_endpoint** (required when `metering_enabled` is true; default: `""`) —
+  Base URL for the metering service. Startup verification uses `/metering/verify`
+  and usage reporting uses `/metering/usage`.
 
-* **private_key_for_metering** (optional; only applies if `metering_enabled` is set to true)
-  This is used for authentication between daemon and the metering service in the context publishing stats, Even the
-  latest Channel Status is published, this way the offline channel state balance can also be tracked.
-  Daemon will send a signature signed by this private key, metering service will already have the public key
-  corresponding
-  to this Daemon, metering service will ensure that the signer it receives matches the public key configured at its end.
-  This is mandatory only when metering is enabled.
+* **private_key_for_metering** (default: `""`) —
+  Signing key required for metering registration and signed usage publication.
+  The heartbeat-notification publication path also uses this key; it is not an
+  unsigned webhook. See [metrics configuration](metrics/README.md).
 
 * **ssl_cert** (optional; default: `""`) —
-  path to certificate to use for SSL.
+  API server certificate PEM; must be configured together with `ssl_key`.
 
-* **ssl_key** (optional; only applies if `ssl_cert` is set; default: `""`) —
-  path to key to use for SSL.
+* **ssl_key** (optional; default: `""`) —
+  Matching API server private-key PEM; must be configured together with `ssl_cert`.
 
 * **payment_channel_storage_type** (optional; default `"etcd"`) —
-  see [etcd storage type](./etcddb#etcd-storage-type)
+  see [storage types](etcddb/README.md#etcd-storage). Use only `etcd` or `memory`;
+  unknown values currently fall back to nonpersistent memory storage.
 
 * **payment_channel_storage_client** (optional) —
-  see [etcd client configuration](./etcddb#etcd-client-configuration)
+  see [etcd client configuration](etcddb/README.md#client-configuration)
 
 * **payment_channel_storage_server** (optional) —
-  see [etcd server configuration](./etcddb#etcd-server-configuration)
+  see [embedded etcd server configuration](etcddb/README.md#embedded-server-configuration)
 
 * **rate_limit_per_minute** (optional; default: `Infinity`) —
   see [rate limiting configuration](./ratelimit/README.md)
@@ -264,62 +285,91 @@ Timeout from daemon to AI service.
 * **alerts_email** (optional; default: `""`) — It must be a valid email. if it is empty, then it is considered as alerts
   disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
 
-* **service_heartbeat_type** (optional; default: `""`) — possible type configurations are ```none | grpc | http```. If
-  it is left empty, then it is considered as none type. see [daemon heartbeats configuration](./metrics/README.md)
+* **service_heartbeat_type** (optional; default: `""`) —
+  Accepts `""`, `none`, `tcp`, `grpc`, `http`, or `https`. The first three perform
+  a TCP connection check against `service_endpoint`; they do not disable health
+  checking. See [daemon heartbeats](metrics/README.md#heartbeat).
 
-* **heartbeat_endpoint** (optional; default: `""`) — It must be a valid URL. if it is empty, then service state
-  always assumed as SERVING, and same will be wrapped in Daemon Heartbeat.
-  see [daemon heartbeats configuration](./metrics/README.md)
+* **heartbeat_endpoint** (default: `""`) —
+  Configure the service health endpoint when selecting `grpc`, `http`, or `https`.
+  TCP mode uses `service_endpoint` instead. Leaving this empty does not guarantee
+  a `SERVING` result. See [daemon heartbeats](metrics/README.md#heartbeat).
 
-* **ipfs_timeout** (optional; default: `30`) — All IPFS read/writes timeout if the operations dont complete in 30 sec
-  or set duration in this config entry.
-
-* **is_curation_in_progress** (optional; default: `false`) — You may need to protect the service provider's service in
-  test environment from being called by anyone, only Authorized users can make calls, when this flag is set to true,
-  you can enforce this behaviour. Also see `curation_address_for_validation`
+* **ipfs_timeout** (optional; default: `30`) —
+  IPFS HTTP client timeout in whole seconds, not a duration string. It does not
+  apply to Lighthouse gateway requests. `0` disables this client's timeout.
 
 * **token_expiry_in_minutes** (optional; default: `1440` minutes ~24hrs) — This is the default expiry time for a JWT
   token issued.
 
-* **token_secret_key** (optional;) — This is the secret key used to sign a JWT token, please do add this in your
-  configuration to make your tokens a lot more secure.
+* **token_secret_key** —
+  Secret used to sign prepaid JWTs. With blockchain enabled, the configured
+  value must contain at least 32 bytes. A public test value is built in and
+  passes that length check: **replace it with your own random secret for production**.
+  Daemon replicas validating the same prepaid tokens must share the secret.
 
 * **notification_endpoint** (optional; default: `""`) — It must be a valid URL. if it is empty, then it is
   considered as alerts disabled. see [daemon alerts/notifications configuration](./metrics/README.md)
 
 #### Environment variables and CLI parameters <a name="table_conf"></a>
 
+The flags below other than `--config` belong to `snetd serve`.
+Explicitly supplied, bound flags override environment variables, which override
+the config file and defaults. `--config` directly selects the file; it is not a
+Viper setting and has no working `SNET_CONFIG_PATH` equivalent.
+
 | config file key                   | environment variable name              | flag                  |
 |-----------------------------------|----------------------------------------|-----------------------|
 | `auto_ssl_domain`                 | `SNET_AUTO_SSL_DOMAIN`                 | `--auto-ssl-domain`   |
 | `auto_ssl_cache_dir`              | `SNET_AUTO_SSL_CACHE_DIR`              | `--auto-ssl-cache`    |
 | `blockchain_enabled`              | `SNET_BLOCKCHAIN_ENABLED`              | `--blockchain`, `-b`  |
-| `config_path`                     | `SNET_CONFIG_PATH`                     | `--config`, `-c`      |
-| `ethereum_json_rpc_http_endpoint` | `SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT` | `--ethereum-endpoint` |
-| `hdwallet_index`                  | `SNET_HDWALLET_INDEX`                  | `--wallet-index`      |
-| `hdwallet_mnemonic`               | `SNET_HDWALLET_MNEMONIC`               | `--mnemonic`          |
+| File selection (not a config key) | —                                     | `--config`, `-c`      |
+| `daemon_endpoint`                | `SNET_DAEMON_ENDPOINT`                 | —                    |
+| `daemon_type`                    | `SNET_DAEMON_TYPE`                     | `--type`, `-t`        |
+| `ethereum_json_rpc_http_endpoint` | `SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT` | —                    |
 | `passthrough_enabled`             | `SNET_PASSTHROUGH_ENABLED`             | `--passthrough`       |
 | `ssl_cert`                        | `SNET_SSL_CERT`                        | `--ssl-cert`          |
 | `ssl_key`                         | `SNET_SSL_KEY`                         | `--ssl-key`           |
+
+Use the config file for nested objects and arrays. Underscores are not translated
+into nested-key separators: for example, `SNET_LOG_LEVEL` does not set `log.level`.
+See [configuration loading](config/README.md#loading-and-precedence) for details.
 
 [service-configuration-metadata]: https://github.com/singnet/wiki/blob/master/multiPartyEscrowContract/MPEServiceMetadata.md
 
 ## Channel Claim and other commands <a name="commands"></a>
 
-Gets the latest channel state of the Channel updated in ETCD by the daemons of the same group and then increments the
-nonce of the channel.
-It then sends and ON-Chain transaction to claim funds. The daemons continue their work independently without any
-confirmation from the treasurer on the blockchain.
+The [ProviderControlService](escrow/control_service.proto) prepares claims from
+the shared payment state. The separate SNET CLI (`snet treasurer`) submits the
+corresponding on-chain transaction; the daemon CLI (`snetd`) does not contain a
+`claim` command. A compatible provider client can also implement this workflow.
 
 **Claim funds from the channel**
 
-Refer to the link below on an end to
-end [Example of MPE](https://github.com/singnet/wiki/tree/master/multiPartyEscrowContract/front-to-back-examples)
-At the moment treasurer server is a part of snet-daemon command line interface.
+Use the [SNET CLI treasurer commands](https://dev.singularitynet.io/docs/products/DecentralizedAIPlatform/CLI/Manual/Treasurer/):
 
 ```bash
-./snetd-linux-amd64-v6.2.3 claim --channel-id 0
+# Inspect payments available to claim (no blockchain transaction)
+snet treasurer print-unclaimed --endpoint <DAEMON_ENDPOINT>
+
+# Claim payments from a specific channel
+snet treasurer claim --endpoint <DAEMON_ENDPOINT> <CHANNEL_ID>
+
+# Claim payments from all available channels
+snet treasurer claim-all --endpoint <DAEMON_ENDPOINT>
 ```
+
+Replace the placeholders with the daemon's reachable API endpoint (not an etcd
+endpoint) and a channel ID. Configure the CLI for the same blockchain network
+and use the provider identity authorized by the selected group's payment
+recipient address. The claim commands submit blockchain transactions and require
+funds for gas; the examples retain interactive transaction confirmation.
+
+The daemon prepares claim data through `StartClaim` /
+`StartClaimForMultipleChannels`, while the provider client signs and submits the
+transaction. See the [payment and claim protocol](escrow/README.md). Local daemon
+commands can list channels and claims or unlock state; they do not submit claim
+transactions.
 
 **Full list of commands, use --help to get more information:**
 
@@ -331,14 +381,16 @@ Usage:
   snetd [command]
 
 Available Commands:
-  channel     Manage operations on payment channels
-  freecall    Manage operations on free call users
-  help        Help about any command
-  init        Write basic configuration to file
-  init-full   Write full default configuration to file
-  list        List channels, claims in progress, etc
-  serve       Is the default option which starts the Daemon.
-  version     List the current version of the Daemon.
+  channel      Manage operations on payment channels
+  completion   Generate the autocompletion script for the specified shell
+  freecall     Manage operations on free call users
+  generate-key Generate new pair of keys
+  help         Help about any command
+  init         Write default configuration to file
+  init-full    Write full default configuration to file
+  list         List channels, claims in progress, etc
+  serve        Is the default option which starts the Daemon.
+  version      List the current version of the Daemon.
 
 Flags:
   -c, --config string   config file (default "snetd.config.json")
@@ -353,12 +405,13 @@ These instructions are intended to facilitate the development and testing of Sin
 
 ### Prerequisites and dependencies
 
-Recommended versions:
+Toolchain versions:
 
-* [Go 1.24+](https://golang.org/dl/)
-* [Protoc 31.1+](https://github.com/protocolbuffers/protobuf/releases)
+* [Go](https://go.dev/dl/): at least the version in [go.mod](go.mod), currently **1.27.2**; CI uses that version.
+* [Protoc](https://github.com/protocolbuffers/protobuf/releases): CI uses **36.2**.
 
-**Protoc (libprotoc), golang and $GOPATH/bin are recommended to be in environment variables.**
+Put `go`, `protoc`, and the Go-installed code generators (`GOBIN`, or `GOPATH/bin`
+when unset) on `PATH`.
 
 ### Installing
 
@@ -383,7 +436,7 @@ PowerShell
 ./scripts/powershell/install_deps.ps1
 ```
 
-**Build snet-daemon**. Please note using ldflags, the latest tagged version, sha1 revision and the build time are set as
+**Build snet-daemon**. Using ldflags, the supplied version, Git revision, and build time are set as
 part of the build. You need to pass the version as shown in the example below:
 
 ```bash
@@ -404,17 +457,21 @@ Powershell:
 ./scripts/powershell/build.ps1 linux amd64 v6.2.3
 ```
 
-The final binaries will be in the `/build` folder.
+The final binaries will be in the repository's `build/` folder.
 
 #### Docker
 
 1. Build the docker image:
 
 ```
-docker build -t snet-daemon:v6.2.3 --build-arg VERSION=v6.2.3 . 
+docker build -f docker/Dockerfile -t snet-daemon:v6.2.3 --build-arg VERSION=v6.2.3 .
 ```
 
 2. Prepare config and certificates:
+
+The source Dockerfile expects generated bindings in the build context: run the
+dependency-generation step above first. See [Docker instructions](docker/README.md)
+for release-binary images, supported build arguments, and runtime permissions.
 
 ```
 mkdir ./snet-config/
@@ -437,6 +494,10 @@ snet-config/
 Port mapping must match daemon_endpoint.
 The daemon listens on the port specified in snetd.config.json → daemon_endpoint (e.g., 0.0.0.0:8080).
 When you run the container, the right-hand side of -p HOST:CONTAINER must equal that port.
+Use `"daemon_endpoint": "0.0.0.0:8080"` to make it reachable through the mapping.
+For a minimal container configuration, use `"log": {"output": {"type": ["stdout"]}}`.
+File logs, embedded-etcd data/logs, and ACME cache need separate writable locations
+owned by UID 10001; the default `/app` working directory is not writable by that user.
 
 ```bash
 docker run -d --rm --name snetd -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.3
@@ -445,12 +506,12 @@ docker run -d --rm --name snetd -v "$(pwd)/snet-config:/etc/singnet:ro" -p 8080:
 powershell:
 
 ```powershell
-docker run -d --rm --name snetd -v "$( PWD )\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.3
+docker run -d --rm --name snetd -v "${PWD}\snet-config:/etc/singnet:ro" -p 8080:8080 snet-daemon:v6.2.3
 ```
 
 #### Multi-compiling
 
-If you want to build daemon for several platforms, run `./scripts/build-all <version>` instead
+If you want to build daemon for several platforms, run `./scripts/build_all_platforms <version>` instead
 of `./scripts/build`.
 
 You can edit the script to choose the specific platforms, but by default it will build for Linux, Darwin (OSX), and
@@ -459,19 +520,13 @@ Windows.
 #### Unit Testing
 
 ```bash
-./scripts/test
-``` 
-
-or
-
-```bash
 go test ./...
 ```
 
-### Fixing errors
-
-If daemon panic with `panic: proto: file "?.proto" is already registered`
-you should set environment var `GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn`
+Generate bindings first. The legacy `scripts/test` helper is not equivalent: it
+modifies dependencies, skips nested packages, and expects a Coveralls upload
+environment. CI uses `go test ./...` and a separate
+[golangci-lint workflow](.github/workflows/lint.yml).
 
 ### Blockchain network config
 
@@ -490,4 +545,3 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 This project is licensed under the MIT License - see the
 [LICENSE](https://github.com/singnet/snet-daemon/blob/master/LICENSE) file for details.
-

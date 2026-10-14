@@ -52,7 +52,22 @@ var ServeCmd = &cobra.Command{
 		defer components.Close()
 
 		logger.Initialize()
+		validationReport := validateDaemonConfiguration()
+		for _, diagnostic := range validationReport.Diagnostics {
+			if diagnostic.Severity == config.DiagnosticWarning {
+				zap.L().Warn(diagnostic.Message, zap.String("code", diagnostic.Code), zap.String("field", diagnostic.Field))
+			}
+		}
+		if err := validationReport.Error(); err != nil {
+			zap.L().Fatal(fmt.Sprintf("Unable to initialize daemon: %v %v ", err, errs.ErrDescURL(errs.InvalidConfig)))
+		}
+
 		config.LogConfig()
+		if message, err := config.CheckVersionOfDaemon(); err != nil {
+			zap.L().Warn(err.Error())
+		} else {
+			zap.L().Info(message)
+		}
 
 		etcdServer := components.EtcdServer()
 		if etcdServer != nil {
@@ -100,18 +115,7 @@ type daemon struct {
 
 func newDaemon(components *Components) (daemon, error) {
 	d := daemon{}
-
-	if err := config.Validate(); err != nil {
-		return d, err
-	}
-
-	// validate heartbeat configuration
-	if err := metrics.ValidateHeartbeatConfig(config.GetString(config.ServiceHeartbeatType), config.GetString(config.HeartbeatServiceEndpoint)); err != nil {
-		return d, err
-	}
-
-	// validate alerts/notifications configuration
-	if err := metrics.ValidateNotificationConfig(); err != nil {
+	if err := validateDaemonConfiguration().Error(); err != nil {
 		return d, err
 	}
 

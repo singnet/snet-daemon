@@ -113,6 +113,7 @@ func init() {
 	RootCmd.AddCommand(InitCmd)
 	RootCmd.AddCommand(InitFullCmd)
 	RootCmd.AddCommand(ServeCmd)
+	RootCmd.AddCommand(VerifyConfigCmd)
 
 	RootCmd.AddCommand(ListCmd)
 	RootCmd.AddCommand(ChannelCmd)
@@ -136,6 +137,7 @@ func init() {
 	FreeCallUserResetCmd.Flags().StringP(AddressFlag, "a", "", "free call user address")
 	FreeCallUserResetCmd.Flags().StringP(UserIdFlag, "u", "", "free call user-id (optional)")
 	_ = FreeCallUserResetCmd.MarkFlagRequired(AddressFlag)
+	VerifyConfigCmd.Flags().StringVar(&verifyConfigFormat, "format", "text", "output format: text or json")
 
 	vip.BindPFlag(config.AutoSSLDomainKey, serveCmdFlags.Lookup("auto-ssl-domain"))
 	vip.BindPFlag(config.AutoSSLCacheDirKey, serveCmdFlags.Lookup("auto-ssl-cache"))

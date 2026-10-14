@@ -14,35 +14,44 @@ import (
 
 var ErrInvalidConfiguration = errors.New("configuration is invalid")
 
-var verifyConfigFormat string
+var VerifyConfigCmd = newVerifyConfigCommand()
 
-var VerifyConfigCmd = &cobra.Command{
-	Use:           "verify-config",
-	Short:         "Verify daemon configuration without starting the daemon",
-	Args:          cobra.NoArgs,
-	SilenceErrors: true,
-	SilenceUsage:  true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if verifyConfigFormat != "text" && verifyConfigFormat != "json" {
-			return fmt.Errorf("unsupported format %q; use text or json", verifyConfigFormat)
-		}
+func newVerifyConfigCommand() *cobra.Command {
+	var format string
+	command := &cobra.Command{
+		Use:           "verify-config",
+		Short:         "Verify daemon configuration without starting the daemon",
+		Args:          cobra.NoArgs,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if format != "text" && format != "json" {
+				return fmt.Errorf("unsupported format %q; use text or json", format)
+			}
 
-		source, _, err := loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
-		report := config.ValidationReport{Diagnostics: []config.Diagnostic{}}
-		if err != nil {
-			report.AddError("config_load_failed", "config", fmt.Sprintf("cannot read configuration file: %v", err), "Provide a readable configuration file in JSON, YAML, or TOML format.")
-		} else {
-			report = validateDaemonConfiguration()
-		}
+			configFlag := cmd.Flags().Lookup("config")
+			if configFlag == nil {
+				configFlag = cmd.InheritedFlags().Lookup("config")
+			}
+			source, _, err := loadConfigFileFromCommandLine(configFlag)
+			report := config.ValidationReport{Diagnostics: []config.Diagnostic{}}
+			if err != nil {
+				report.AddError("config_load_failed", "config", fmt.Sprintf("cannot read configuration file: %v", err), "Provide a readable configuration file in JSON, YAML, or TOML format.")
+			} else {
+				report = validateDaemonConfiguration()
+			}
 
-		if err := writeConfigValidationReport(cmd.OutOrStdout(), verifyConfigFormat, source, report); err != nil {
-			return err
-		}
-		if report.HasErrors() {
-			return ErrInvalidConfiguration
-		}
-		return nil
-	},
+			if err := writeConfigValidationReport(cmd.OutOrStdout(), format, source, report); err != nil {
+				return err
+			}
+			if report.HasErrors() {
+				return ErrInvalidConfiguration
+			}
+			return nil
+		},
+	}
+	command.Flags().StringVar(&format, "format", "text", "output format: text or json")
+	return command
 }
 
 func validateDaemonConfiguration() config.ValidationReport {

@@ -83,24 +83,35 @@ func InitComponents(cmd *cobra.Command) (components *Components) {
 		}
 	}()
 
-	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
-	config.Validate()
-	return
-}
-
-func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
-	var configFile = configFlag.Value.String()
-
-	// if file is not specified by user then configFile contains default name
-	if configFlag.Changed || isFileExist(configFile) {
-		err := config.LoadConfig(configFile)
-		if err != nil {
-			panic(fmt.Sprintf("[CONFIG] Error reading configuration file: %v%s", err, errs.ErrDescURL(errs.InvalidConfig)))
-		}
-		fmt.Println("[CONFIG] Using custom configuration file")
+	configFile, loaded, err := loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
+	if err != nil {
+		panic(fmt.Sprintf("[CONFIG] Error reading configuration file: %v%s", err, errs.ErrDescURL(errs.InvalidConfig)))
+	}
+	if loaded {
+		fmt.Printf("[CONFIG] Using custom configuration file: %s\n", configFile)
 	} else {
 		fmt.Println("[CONFIG] Configuration file is not set, using default configuration")
 	}
+	// Management commands rely on configuration-derived process state such as
+	// the selected blockchain network. Their command boundary handles errors.
+	_ = config.ValidateConfiguration()
+	return
+}
+
+func loadConfigFileFromCommandLine(configFlag *pflag.Flag) (configFile string, loaded bool, err error) {
+	if configFlag == nil {
+		return "", false, errors.New("config flag is not available")
+	}
+	configFile = configFlag.Value.String()
+
+	// if file is not specified by user then configFile contains default name
+	if configFlag.Changed || isFileExist(configFile) {
+		if err := config.LoadConfig(configFile); err != nil {
+			return configFile, false, err
+		}
+		return configFile, true, nil
+	}
+	return "defaults", false, nil
 }
 
 func isFileExist(fileName string) bool {

@@ -371,6 +371,18 @@ transaction. See the [payment and claim protocol](escrow/README.md). Local daemo
 commands can list channels and claims or unlock state; they do not submit claim
 transactions.
 
+Verify a configuration without starting the daemon:
+
+```bash
+./snetd-linux-amd64-v6.2.3 verify-config --config snetd.config.json
+./snetd-linux-amd64-v6.2.3 verify-config --config snetd.config.json --format json
+```
+
+`verify-config` performs static checks only: it does not open listeners or
+contact external services. The command returns a non-zero exit status when it
+finds configuration errors. The default text output is intended for operators;
+use `--format json` for automation.
+
 **Full list of commands, use --help to get more information:**
 
 ```bash
@@ -390,6 +402,7 @@ Available Commands:
   init-full    Write full default configuration to file
   list         List channels, claims in progress, etc
   serve        Is the default option which starts the Daemon.
+  verify-config Verify daemon configuration without starting the daemon
   version      List the current version of the Daemon.
 
 Flags:

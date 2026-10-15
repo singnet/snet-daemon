@@ -149,6 +149,19 @@ func TestValidateEndpoints(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestValidateDaemonEndpointPort(t *testing.T) {
+	for _, endpoint := range []string{"127.0.0.1:0", "127.0.0.1:65535", ":", "[::1]:8080", "unresolved.invalid:http"} {
+		t.Run(endpoint, func(t *testing.T) {
+			require.NoError(t, ValidateEndpoints(endpoint, "http://127.0.0.1:5000"))
+		})
+	}
+	for _, port := range []string{"-1", "65536", "70000", "999999999999999999999", "not-a-service"} {
+		t.Run(port, func(t *testing.T) {
+			require.ErrorContains(t, ValidateEndpoints("127.0.0.1:"+port, "http://127.0.0.1:5000"), "invalid daemon_endpoint port")
+		})
+	}
+}
+
 func TestAllowedUserChecks(t *testing.T) {
 	isolatedConfig(t)
 	err := allowedUserConfigurationChecks()

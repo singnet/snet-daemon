@@ -45,14 +45,38 @@ var corsOptionsHTTP = []handlers.CORSOption{
 var ServeCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Is the default option which starts the Daemon.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 
 		components := InitComponents(cmd)
 		defer components.Close()
 
+		validationReport := validateDaemonConfiguration()
+		if validationReport.HasErrors() {
+			cmd.SilenceUsage = true
+			source := config.Vip().ConfigFileUsed()
+			if source == "" {
+				source = "defaults"
+			}
+			if err := writeConfigValidationReport(cmd.ErrOrStderr(), "text", source, validationReport); err != nil {
+				return err
+			}
+			return ErrInvalidConfiguration
+		}
+
 		logger.Initialize()
+		for _, diagnostic := range validationReport.Diagnostics {
+			if diagnostic.Severity == config.DiagnosticWarning {
+				zap.L().Warn(diagnostic.Message, zap.String("code", diagnostic.Code), zap.String("field", diagnostic.Field))
+			}
+		}
+
 		config.LogConfig()
+		if message, err := config.CheckVersionOfDaemon(); err != nil {
+			zap.L().Warn(err.Error())
+		} else {
+			zap.L().Info(message)
+		}
 
 		etcdServer := components.EtcdServer()
 		if etcdServer != nil {
@@ -85,6 +109,7 @@ var ServeCmd = &cobra.Command{
 		<-sigChan
 
 		zap.L().Debug("Exiting")
+		return nil
 	},
 }
 
@@ -100,18 +125,7 @@ type daemon struct {
 
 func newDaemon(components *Components) (daemon, error) {
 	d := daemon{}
-
-	if err := config.Validate(); err != nil {
-		return d, err
-	}
-
-	// validate heartbeat configuration
-	if err := metrics.ValidateHeartbeatConfig(config.GetString(config.ServiceHeartbeatType), config.GetString(config.HeartbeatServiceEndpoint)); err != nil {
-		return d, err
-	}
-
-	// validate alerts/notifications configuration
-	if err := metrics.ValidateNotificationConfig(); err != nil {
+	if err := validateDaemonConfiguration().Error(); err != nil {
 		return d, err
 	}
 

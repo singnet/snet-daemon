@@ -74,6 +74,7 @@ func startShutdownChild(t *testing.T, backend, endpoint, namespace string, echo 
 	require.NoError(t, err)
 	command.Dir = filepath.Join(repoRoot, "snetd", "cmd")
 	command.Env = append(os.Environ(), "SNET_SHUTDOWN_HELPER=1",
+		"SNET_SHUTDOWN_TIMEOUT="+config.ShutdownGracePeriod().String(),
 		"SNET_SHUTDOWN_BACKEND="+backend, "SNET_SHUTDOWN_ETCD="+endpoint,
 		"SNET_SHUTDOWN_NAMESPACE="+namespace, fmt.Sprintf("SNET_SHUTDOWN_ECHO=%t", echo))
 	child := &shutdownChild{command: command, lines: make(chan string, 4), done: make(chan struct{})}
@@ -133,6 +134,7 @@ func TestDaemonShutdownSignalHelper(t *testing.T) {
 	}
 	components := shutdownEtcdComponents(t, os.Getenv("SNET_SHUTDOWN_BACKEND"),
 		os.Getenv("SNET_SHUTDOWN_ETCD"), os.Getenv("SNET_SHUTDOWN_NAMESPACE"))
+	config.Vip().Set(config.ShutdownTimeout, os.Getenv("SNET_SHUTDOWN_TIMEOUT"))
 	config.Vip().Set(config.PassthroughEnabledKey, os.Getenv("SNET_SHUTDOWN_ECHO") != "true")
 	d, err := newDaemon(components)
 	require.NoError(t, err)
@@ -149,10 +151,13 @@ func TestDaemonShutdownSignals(t *testing.T) {
 	}
 	endpoint := shutdownEtcd(t)
 	for _, signal := range []syscall.Signal{syscall.SIGINT, syscall.SIGTERM} {
-		for _, outcome := range []string{"success", "error", "cancel"} {
+		for _, outcome := range []string{"success", "error", "cancel", "timeout"} {
 			t.Run(fmt.Sprintf("%s/%s", signal, outcome), func(t *testing.T) {
 				backend, entered, unblock := shutdownBackend(t, outcome)
 				components := shutdownEtcdComponents(t, backend, endpoint, t.Name())
+				if outcome == "timeout" {
+					config.Vip().Set(config.ShutdownTimeout, "200ms")
+				}
 				seedShutdownChannel(t, components)
 				child, address := startShutdownChild(t, backend, endpoint, t.Name(), false)
 				ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -173,7 +178,7 @@ func TestDaemonShutdownSignals(t *testing.T) {
 				assertShutdownChannel(t, components, true, 0)
 				if outcome == "cancel" {
 					cancel()
-				} else {
+				} else if outcome != "timeout" {
 					unblock()
 				}
 				child.wait(t)

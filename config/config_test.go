@@ -180,6 +180,23 @@ func TestAllowedUserChecks(t *testing.T) {
 	assert.Equal(t, "service cannot be restricted to certain users when set up against Ethereum mainnet,the flag allowed_user_flag is set to true", err.Error())
 }
 
+func TestShutdownTimeoutValidation(t *testing.T) {
+	for _, value := range []string{"30s", "100ms", "0s", "-1s", "invalid"} {
+		t.Run(value, func(t *testing.T) {
+			isolatedConfig(t)
+			Vip().Set(ShutdownTimeout, value)
+			report := ValidateConfiguration()
+			invalid := false
+			for _, diagnostic := range report.Diagnostics {
+				if diagnostic.Code == "invalid_shutdown_timeout" {
+					invalid = true
+				}
+			}
+			assert.Equal(t, value != "30s" && value != "100ms", invalid)
+		})
+	}
+}
+
 func Test_IsAllowedUser(t *testing.T) {
 	isolatedConfig(t)
 	Vip().Set(AllowedUserFlag, true)

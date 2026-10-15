@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"context"
 	"fmt"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -165,6 +168,7 @@ type StreamPaymentHandler interface {
 }
 
 type rateLimitInterceptor struct {
+	processingMu                  sync.Mutex
 	rateLimiter                   rate.Limiter
 	messageBroadcaster            *configuration_service.MessageBroadcaster
 	processRequest                int
@@ -178,19 +182,12 @@ func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaste
 		processRequest:                configuration_service.StartProcessingAnyRequest,
 		requestProcessingNotification: broadcast.NewSubscriber(),
 	}
-	go interceptor.startOrStopProcessingAnyRequests()
 	return interceptor.intercept
 }
 
-func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests() {
-	for {
-		interceptor.processRequest = <-interceptor.requestProcessingNotification
-	}
-}
-
-func GrpcMeteringInterceptor(currentBlock func() (*big.Int, error)) grpc.StreamServerInterceptor {
+func GrpcMeteringInterceptor(currentBlock func() (*big.Int, error), background ...*lifecycle.Group) grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		return interceptMetering(srv, ss, info, handler, currentBlock)
+		return interceptMetering(srv, ss, info, handler, currentBlock, background...)
 	}
 }
 
@@ -200,7 +197,7 @@ func interceptMetering(
 	ss grpc.ServerStream,
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,
-	currentBlock func() (*big.Int, error),
+	currentBlock func() (*big.Int, error), background ...*lifecycle.Group,
 ) error {
 	var (
 		err   error
@@ -216,11 +213,20 @@ func interceptMetering(
 	}
 
 	defer func() {
-		var block *big.Int
-		if currentBlock != nil {
-			block, _ = currentBlock()
+		var workers *lifecycle.Group
+		if len(background) > 0 {
+			workers = background[0]
 		}
-		go metrics.PublishResponseStats(commonStats, time.Since(start), err, block)
+		duration, result := time.Since(start), err
+		workers.Go(func(ctx context.Context) {
+			var block *big.Int
+			if currentBlock != nil {
+				block, _ = currentBlock()
+			}
+			if ctx.Err() == nil {
+				metrics.PublishResponseStatsContext(ctx, commonStats, duration, result, block)
+			}
+		})
 	}()
 
 	err = handler(srv, ss)
@@ -232,8 +238,17 @@ func interceptMetering(
 }
 
 func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-
-	if interceptor.processRequest == configuration_service.StopProcessingAnyRequest {
+	interceptor.processingMu.Lock()
+	select {
+	case state, ok := <-interceptor.requestProcessingNotification:
+		if ok {
+			interceptor.processRequest = state
+		}
+	default:
+	}
+	processing := interceptor.processRequest
+	interceptor.processingMu.Unlock()
+	if processing == configuration_service.StopProcessingAnyRequest {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {

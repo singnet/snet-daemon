@@ -91,6 +91,7 @@ from service metadata. There is no `--ethereum-endpoint` flag.
 | `passthrough_enabled` | boolean | `true` | Forward service calls. `false` selects a test loopback handler; it does not independently disable payment validation. |
 | `service_endpoint` | string | `"http://localhost:5000"` | Backend address, also used by TCP heartbeat. Validation requires a host and rejects a direct loop back to the daemon listener, even when passthrough is off or the backend is a process. Prefer an explicit URL scheme. |
 | `service_timeout` | duration string | `"100s"` | Default request deadline for the gRPC proxy's backend calls when the caller has no deadline. See timeout notes below. |
+| `shutdown_timeout` | positive duration string | `"30s"` | Grace period for active requests after SIGINT/SIGTERM. When it expires, requests are cancelled; payment cleanup finishes before storage closes. |
 | `max_message_size_in_mb` | integer | `4` | Actually MiB (`1024 * 1024` bytes). Accepted range: `1`–`2048`. Applied to gRPC receives and supported backend send/receive calls, not a universal HTTP body limit. |
 | `executable_path` | string | `""` | Required for metadata `service_type: process`. The executable receives the RPC method as an argument and request bytes on stdin. |
 | `service_credentials` | array of objects | absent / empty | For metadata `service_type: http`. Entries have `key`, `value`, and `location` (`header`, `query`, or `body`). Header/query values must be strings. Treat credentials as secrets. |
@@ -104,9 +105,27 @@ Use valid, positive duration strings such as `"30s"` or `"2m"` for
 `service_timeout`. An existing caller deadline is preserved, not capped by this
 setting. A nonpositive parsed duration does not add a context deadline. The HTTP
 backend client also has a separate timeout of `service_timeout + 1s`.
-The simple `daemon_type: http` handler does not use this setting. Invalid input
+The simple `daemon_type: http` proxy also applies `service_timeout` to its outgoing
+requests, preserving cancellation and any earlier caller deadline. Invalid input
 is not a supported way to request a default: validation currently logs a fallback
 without writing the normalized value back to Viper.
+
+On SIGINT/SIGTERM the daemon rejects new requests, closes listeners and allows
+active requests to finish within `shutdown_timeout`. HTTP and gRPC-Web handlers
+drain before the shared gRPC server stops. At the end of the grace period,
+remaining requests and outbound calls are cancelled and their connections are
+closed. The daemon waits for handlers and payment commit/rollback cleanup before
+closing etcd. Background listeners and workers are cancelled and joined, and
+proxy client connections are closed.
+
+`shutdown_timeout` bounds the graceful waiting phase, not the entire process
+lifetime: cleanup may take additional time under the configured storage request
+timeouts. Storage cleanup deliberately uses a separate bounded context so that
+cancelling an RPC does not itself prevent channel unlock. An etcd outage can
+still prevent saving a payment or releasing its lock; failures are logged.
+Set the supervisor/container termination allowance longer than the grace period
+plus cleanup. SIGKILL and process crashes cannot run this cleanup and require
+separate recovery of persistent locks.
 
 ## Blockchain and access control
 

@@ -31,6 +31,10 @@ type Response struct {
 
 // Calls a gRPC endpoint for heartbeat (gRPC Client)
 func callGrpcServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
+	return callGrpcServiceHeartbeatContext(context.Background(), serviceUrl)
+}
+
+func callGrpcServiceHeartbeatContext(ctx context.Context, serviceUrl string) (grpc_health_v1.HealthCheckResponse_ServingStatus, error) {
 	// Set up a connection to the server.
 	conn, err := grpc.NewClient(serviceUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -40,7 +44,7 @@ func callGrpcServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResp
 	defer conn.Close()
 	// create the client instance
 	client := grpc_health_v1.NewHealthClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
 	req := grpc_health_v1.HealthCheckRequest{Service: config.GetString(config.ServiceId)}
@@ -54,7 +58,15 @@ func callGrpcServiceHeartbeat(serviceUrl string) (grpc_health_v1.HealthCheckResp
 
 // callHTTPServiceHeartbeat calls the service heartbeat and relay the message to daemon (HTTP client for heartbeat)
 func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
-	response, err := http.Get(serviceURL)
+	return callHTTPServiceHeartbeatContext(context.Background(), serviceURL)
+}
+
+func callHTTPServiceHeartbeatContext(ctx context.Context, serviceURL string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serviceURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	response, err := (&http.Client{Timeout: time.Second}).Do(req)
 	if err != nil {
 		zap.L().Info("the service request failed with an error", zap.Error(err))
 		return nil, err
@@ -82,6 +94,10 @@ func callHTTPServiceHeartbeat(serviceURL string) ([]byte, error) {
 //
 // Returns an error if parsing fails or the TCP connection cannot be established.
 func tcpPingService(serviceURL string) error {
+	return tcpPingServiceContext(context.Background(), serviceURL)
+}
+
+func tcpPingServiceContext(ctx context.Context, serviceURL string) error {
 	// Ensure the URL has a scheme for proper parsing
 	if !strings.HasPrefix(serviceURL, "http://") && !strings.HasPrefix(serviceURL, "https://") {
 		serviceURL = "http://" + serviceURL
@@ -105,7 +121,7 @@ func tcpPingService(serviceURL string) error {
 		}
 	}
 
-	conn, err := net.DialTimeout("tcp", host, 10*time.Second)
+	conn, err := (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, "tcp", host)
 	if err != nil {
 		return err
 	}
@@ -126,7 +142,7 @@ func callRegisterService(daemonID string, serviceURL string) (status bool) {
 	req.Header.Set("Access-Token", daemonID)
 
 	// sending the post request
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	response, err := client.Do(req)
 	if err != nil {
 		zap.L().Info("unable to reach registration service", zap.Error(err))

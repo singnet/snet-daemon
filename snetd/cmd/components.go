@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -20,6 +20,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/etcddb"
 	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/pricing"
 	"github.com/singnet/snet-daemon/v6/storage"
@@ -33,6 +34,10 @@ import (
 )
 
 type Components struct {
+	callsOnce                  sync.Once
+	backgroundOnce             sync.Once
+	calls                      *lifecycle.Group
+	background                 *lifecycle.Group
 	allowedUserPaymentHandler  handler.StreamPaymentHandler
 	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 blockchain.Processor
@@ -120,6 +125,12 @@ func isFileExist(fileName string) bool {
 }
 
 func (components *Components) Close() {
+	components.Calls().Cancel()
+	components.Background().Cancel()
+	components.Background().Wait()
+	if components.configurationBroadcaster != nil {
+		components.configurationBroadcaster.Close()
+	}
 	if components.etcdClient != nil {
 		components.etcdClient.Close()
 	}
@@ -131,12 +142,22 @@ func (components *Components) Close() {
 	}
 }
 
+func (components *Components) Calls() *lifecycle.Group {
+	components.callsOnce.Do(func() { components.calls = lifecycle.New() })
+	return components.calls
+}
+
+func (components *Components) Background() *lifecycle.Group {
+	components.backgroundOnce.Do(func() { components.background = lifecycle.New() })
+	return components.background
+}
+
 func (components *Components) Blockchain() blockchain.Processor {
 	if components.blockchain != nil {
 		return components.blockchain
 	}
 
-	processor, err := blockchain.NewProcessor(components.ServiceMetaData())
+	processor, err := blockchain.NewProcessorContext(components.Calls().Context(), components.ServiceMetaData())
 	if err != nil {
 		zap.L().Panic("unable to initialize blockchain processor", zap.Error(err))
 	}
@@ -325,6 +346,7 @@ func (components *Components) EscrowPaymentHandler() handler.StreamPaymentHandle
 		components.PaymentChannelService(),
 		components.Blockchain(),
 		escrow.NewIncomeStreamValidator(components.PricingStrategy(), components.ModelStorage()),
+		components.Background(),
 	)
 
 	return components.escrowPaymentHandler
@@ -339,6 +361,7 @@ func (components *Components) TrainUnaryPaymentHandler() handler.UnaryPaymentHan
 		components.PaymentChannelService(),
 		components.Blockchain(),
 		escrow.NewTrainValidator(components.ModelStorage()),
+		components.Background(),
 	)
 
 	return components.trainUnaryPaymentHandler
@@ -353,6 +376,7 @@ func (components *Components) TrainStreamPaymentHandler() handler.StreamPaymentH
 		components.PaymentChannelService(),
 		components.Blockchain(),
 		escrow.NewIncomeStreamValidator(components.PricingStrategy(), components.ModelStorage()),
+		components.Background(),
 	)
 
 	return components.trainStreamPaymentHandler
@@ -420,7 +444,7 @@ func (components *Components) GrpcStreamInterceptor() grpc.StreamServerIntercept
 		}
 
 		components.grpcStreamInterceptor = grpcMiddleware.ChainStreamServer(
-			handler.GrpcMeteringInterceptor(components.Blockchain().CurrentBlock), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
+			handler.GrpcMeteringInterceptor(components.Blockchain().CurrentBlock, components.Background()), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcStreamPaymentValidationInterceptor())
 	} else {
 		components.grpcStreamInterceptor = grpcMiddleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
@@ -621,8 +645,9 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 
 	components.daemonHeartbeat = &metrics.DaemonHeartbeat{
+		Background: components.Background(),
 		TrainingMetadata: func() (*training.TrainingMetadata, error) {
-			return components.TrainingService().GetTrainingMetadata(context.Background(), nil)
+			return components.TrainingService().GetTrainingMetadata(components.Calls().Context(), nil)
 		},
 		DynamicPricing: components.ServiceMetaData().DynamicPriceMethodMapping,
 		DaemonID:       metrics.GetDaemonID(),
@@ -711,7 +736,7 @@ func (components *Components) TrainingService() training.DaemonServer {
 		return &training.NoTrainingDaemonServer{}
 	}
 	components.trainingService = training.NewTrainingService(components.Blockchain(), components.ServiceMetaData(),
-		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage(), training.DefaultAllowBlockDifference)
+		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage(), training.DefaultAllowBlockDifference, components.Background())
 	return components.trainingService
 }
 

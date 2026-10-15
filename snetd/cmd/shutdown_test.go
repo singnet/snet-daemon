@@ -146,6 +146,8 @@ func shutdownAmount(t *testing.T, outcome string, err error) int64 {
 		require.Equal(t, codes.Internal, status.Code(err))
 	case "cancel":
 		require.Equal(t, codes.Canceled, status.Code(err))
+	case "timeout":
+		require.Error(t, err)
 	default:
 		t.Fatalf("unknown shutdown outcome %q", outcome)
 	}

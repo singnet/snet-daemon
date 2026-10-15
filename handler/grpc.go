@@ -52,10 +52,16 @@ func (g *grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
 }
 
 func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHandler {
+	streamHandler, _ := NewGrpcHandlerWithClose(serviceMetadata)
+	return streamHandler
+}
+
+// NewGrpcHandlerWithClose returns cleanup for the proxy's backend connections.
+func NewGrpcHandlerWithClose(serviceMetadata *blockchain.ServiceMetadata) (grpc.StreamHandler, func()) {
 	passthroughEnabled := config.GetBool(config.PassthroughEnabledKey)
 
 	if !passthroughEnabled {
-		return grpcLoopback
+		return grpcLoopback, func() {}
 	}
 
 	timeout := config.GetDuration(config.ServiceTimeout)
@@ -73,7 +79,20 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	}
 
 	// Add small slack so http.Client.Timeout does not fire before context deadline
-	h.httpClient = &http.Client{Timeout: timeout + time.Second}
+	transport := http.DefaultTransport
+	if standard, ok := transport.(*http.Transport); ok {
+		transport = standard.Clone()
+	}
+	h.httpClient = &http.Client{Timeout: timeout + time.Second, Transport: transport}
+	cleanup := func() {
+		if h.grpcConn != nil {
+			_ = h.grpcConn.Close()
+		}
+		if h.grpcModelConn != nil {
+			_ = h.grpcModelConn.Close()
+		}
+		h.httpClient.CloseIdleConnections()
+	}
 
 	switch serviceMetadata.GetServiceType() {
 	case "grpc":
@@ -81,9 +100,9 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		//if config.GetBool(config.ModelTrainingEnabled) {
 		//	h.grpcModelConn = h.getConnection(h.modelTrainingEndpoint)
 		//}
-		return h.grpcToGRPC
+		return h.grpcToGRPC, cleanup
 	case "jsonrpc":
-		return h.grpcToJSONRPC
+		return h.grpcToJSONRPC, cleanup
 	case "http":
 		h.serviceCredentials = serviceCredentials{}
 		err := config.Vip().UnmarshalKey(config.ServiceCredentialsKey, &h.serviceCredentials)
@@ -94,11 +113,11 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		if err != nil {
 			zap.L().Fatal("invalid config", zap.Error(fmt.Errorf("%v%v", err, errs.ErrDescURL(errs.InvalidServiceCredentials))))
 		}
-		return h.grpcToHTTP
+		return h.grpcToHTTP, cleanup
 	case "process":
-		return h.grpcToProcess
+		return h.grpcToProcess, cleanup
 	}
-	return nil
+	return nil, cleanup
 }
 
 func (g *grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
@@ -476,16 +495,8 @@ func (g *grpcHandler) grpcToProcess(srv any, inStream grpc.ServerStream) error {
 	defer cancel()
 
 	cmd := exec.CommandContext(outCtx, g.executable, method)
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return status.Errorf(codes.Internal, "error creating stdin pipe; error: %+v", err)
-	}
-
-	if _, err := stdin.Write(f.Data); err != nil {
-		stdin.Close()
-		return status.Errorf(codes.Internal, "error writing to stdin; error: %+v", err)
-	}
-	_ = stdin.Close()
+	cmd.Stdin = bytes.NewReader(f.Data)
+	cmd.WaitDelay = time.Second
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {

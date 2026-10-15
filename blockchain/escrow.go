@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"math/big"
@@ -23,7 +24,9 @@ var zeroAddress = common.Address{}
 func (processor *processor) MultiPartyEscrowChannel(channelID *big.Int) (channel *MultiPartyEscrowChannel, ok bool, err error) {
 	channelIdField := zap.Any("channelID", channelID)
 
-	ch, err := processor.multiPartyEscrow.Channels(nil, channelID)
+	ctx, cancel := processor.callContext()
+	defer cancel()
+	ch, err := processor.multiPartyEscrow.Channels(&bind.CallOpts{Context: ctx}, channelID)
 	if err != nil {
 		zap.L().Warn("Error while looking up for channel id in blockchain", zap.Error(err), channelIdField)
 		return nil, false, err

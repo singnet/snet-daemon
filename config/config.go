@@ -39,6 +39,7 @@ const (
 	LighthouseEndpoint        = "lighthouse_endpoint"
 	IpfsTimeout               = "ipfs_timeout"
 	ServiceTimeout            = "service_timeout"
+	ShutdownTimeout           = "shutdown_timeout"
 	LogKey                    = "log"
 	MaxMessageSizeInMB        = "max_message_size_in_mb"
 	MeteringEnabled           = "metering_enabled"
@@ -86,6 +87,7 @@ const (
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/", 
 	"ipfs_timeout" : 30,
 	"service_timeout" : "100s",
+	"shutdown_timeout" : "30s",
 	"passthrough_enabled": true,
 	"service_endpoint":"http://localhost:5000",
 	"service_id": "YOUR_SERVICE_ID", 
@@ -312,6 +314,11 @@ func ValidateConfiguration() ValidationReport {
 	}
 
 	validateDuration(&report, ServiceTimeout, time.Second*100)
+	if vip.IsSet(ShutdownTimeout) {
+		if duration, err := time.ParseDuration(vip.GetString(ShutdownTimeout)); err != nil || duration <= 0 {
+			report.AddError("invalid_shutdown_timeout", ShutdownTimeout, "shutdown_timeout must be a positive duration", "Set shutdown_timeout to a value such as 30s.")
+		}
+	}
 
 	if err := validateMeteringChecks(); err != nil {
 		report.AddError("invalid_metering_endpoint", MeteringEndpoint, err.Error(), "Set metering_endpoint to a valid URL, or disable metering_enabled.")
@@ -400,6 +407,13 @@ func GetBigInt(key string) *big.Int {
 
 func GetDuration(key string) time.Duration {
 	return vip.GetDuration(key)
+}
+
+func ShutdownGracePeriod() time.Duration {
+	if duration := GetDuration(ShutdownTimeout); duration > 0 {
+		return duration
+	}
+	return 30 * time.Second
 }
 
 func GetBool(key string) bool {

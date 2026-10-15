@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"os/signal"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/gorilla/handlers"
@@ -24,6 +24,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/singnet/snet-daemon/v6/handler/httphandler"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
 	"github.com/singnet/snet-daemon/v6/logger"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/training"
@@ -83,32 +84,12 @@ var ServeCmd = &cobra.Command{
 			zap.L().Info("Using internal etcd server because it is enabled in config")
 		}
 
-		var d daemon
-		d, err = newDaemon(components)
+		d, err := newDaemon(components)
 		if err != nil {
 			zap.L().Fatal(fmt.Sprintf("Unable to initialize daemon: %v %v ", err, errs.ErrDescURL(errs.InvalidConfig)))
 		}
 
-		d.start()
-		defer d.stop()
-
-		// Check if the payment storage client is etcd by verifying if d.components.etcdClient exists.
-		// If etcdClient is not nil and hot reload is enabled, initialize a ContractEventListener
-		// to listen for changes in the organization metadata.
-		if d.components.etcdClient != nil && d.components.etcdClient.IsHotReloadEnabled() {
-			contractEventLister := contractListener.ContractEventListener{
-				BlockchainProcessor:         d.blockProc,
-				CurrentOrganizationMetaData: components.OrganizationMetaData(),
-				CurrentEtcdClient:           components.EtcdClient(),
-			}
-			go contractEventLister.ListenOrganizationMetadataChanging()
-		}
-
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-		<-sigChan
-
-		zap.L().Debug("Exiting")
+		d.serve()
 		return nil
 	},
 }
@@ -121,10 +102,38 @@ type daemon struct {
 	lis           net.Listener
 	sslCert       *tls.Certificate
 	components    *Components
+	requests      *lifecycle.Group
+	httpServers   []*http.Server
+	listeners     []net.Listener
+	connections   daemonConnections
+	servers       sync.WaitGroup
+	stopOnce      sync.Once
+	stopping      atomic.Bool
+	closeProxy    func()
 }
 
-func newDaemon(components *Components) (daemon, error) {
-	d := daemon{}
+func (d *daemon) serve() {
+	ctx, stopSignals := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stopSignals()
+
+	d.start()
+	defer d.stop()
+
+	if d.components.etcdClient != nil && d.components.etcdClient.IsHotReloadEnabled() {
+		contractEventListener := contractListener.ContractEventListener{
+			BlockchainProcessor:         d.blockProc,
+			CurrentOrganizationMetaData: d.components.OrganizationMetaData(),
+			CurrentEtcdClient:           d.components.EtcdClient(),
+		}
+		d.components.Background().Go(contractEventListener.ListenOrganizationMetadataChangingContext)
+	}
+
+	<-ctx.Done()
+	zap.L().Debug("Exiting")
+}
+
+func newDaemon(components *Components) (*daemon, error) {
+	d := &daemon{}
 	if err := validateDaemonConfiguration().Error(); err != nil {
 		return d, err
 	}
@@ -167,6 +176,13 @@ func newDaemon(components *Components) (daemon, error) {
 }
 
 func (d *daemon) start() {
+	if d.components == nil {
+		d.components = &Components{}
+	}
+	d.requests = lifecycle.New()
+	if d.lis != nil {
+		d.lis = d.ownListener(d.lis)
+	}
 
 	var tlsConfig *tls.Config
 	var certReloader *CertReloader
@@ -180,7 +196,7 @@ func (d *daemon) start() {
 	}
 
 	if certReloader != nil {
-		certReloader.Listen()
+		d.components.Background().Go(certReloader.ListenContext)
 	}
 
 	if d.autoSSLDomain != "" {
@@ -192,10 +208,8 @@ func (d *daemon) start() {
 		}
 
 		// This is the HTTP server that handles ACME challenge/response
-		acmeSrv := http.Server{
-			Handler: certMgr.HTTPHandler(nil),
-		}
-		go acmeSrv.Serve(d.acmeListener)
+		d.acmeListener = d.ownListener(d.acmeListener)
+		d.serveHTTP(d.acmeListener, certMgr.HTTPHandler(nil))
 
 		tlsConfig = &tls.Config{
 			GetCertificate: func(c *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -226,17 +240,26 @@ func (d *daemon) start() {
 
 	if config.GetString(config.DaemonTypeKey) != "grpc" {
 		zap.L().Debug("starting simple HTTP daemon")
-		go http.Serve(d.lis, handlers.CORS(corsOptionsHTTP...)(httphandler.NewHTTPHandler(d.blockProc)))
+		proxy := httphandler.NewHTTPHandler(d.blockProc)
+		d.closeProxy = proxy.Close
+		d.serveHTTP(d.lis, handlers.CORS(corsOptionsHTTP...)(proxy))
 		return
 	}
 
 	maxsizeOpt := grpc.MaxRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB) * 1024 * 1024)
-	d.grpcServer = grpc.NewServer(
-		grpc.UnknownServiceHandler(handler.NewGrpcHandler(d.components.ServiceMetaData())),
-		grpc.StreamInterceptor(d.components.GrpcStreamInterceptor()),
-		grpc.UnaryInterceptor(d.components.GrpcUnaryInterceptor()),
+	proxy, cleanup := handler.NewGrpcHandlerWithClose(d.components.ServiceMetaData())
+	d.closeProxy = cleanup
+	options := []grpc.ServerOption{
+		grpc.UnknownServiceHandler(proxy),
+		grpc.ChainStreamInterceptor(d.trackStream, d.components.GrpcStreamInterceptor()),
 		maxsizeOpt,
-	)
+	}
+	if unary := d.components.GrpcUnaryInterceptor(); unary != nil {
+		options = append(options, grpc.ChainUnaryInterceptor(d.trackUnary, unary))
+	} else {
+		options = append(options, grpc.UnaryInterceptor(d.trackUnary))
+	}
+	d.grpcServer = grpc.NewServer(options...)
 	escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 	escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
 	freecall.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
@@ -275,15 +298,15 @@ func (d *daemon) start() {
 	for _, ep := range endpoints {
 		switch ep.Type {
 		case L_GRPC:
-			go d.grpcServer.Serve(ep.L)
+			d.runServer(func() error { return d.grpcServer.Serve(ep.L) })
 		case L_GRPC_WEB:
-			go http.Serve(ep.L, corsOpts.Handler(grpcWebServer))
+			d.serveHTTP(ep.L, corsOpts.Handler(grpcWebServer))
 		case L_HTTP:
-			go http.Serve(ep.L, corsOpts.Handler(httpHandler))
+			d.serveHTTP(ep.L, corsOpts.Handler(httpHandler))
 		}
 	}
 
-	go gmux.Serve()
+	d.runServer(gmux.Serve)
 
 	zap.L().Info("✅ Daemon successfully started and ready to accept requests")
 }
@@ -323,8 +346,12 @@ func (d *daemon) startWithTrafficSplit(exp *config.ExperimentalSettings) {
 	httpHandler := d.newHTTPHandler(grpcWebServer)
 	corsOpts := handler.Cors()
 
-	go d.grpcServer.Serve(grpcLis)
-	go http.Serve(httpLis, corsOpts.Handler(httpHandler))
+	if d.requests == nil {
+		d.requests = lifecycle.New()
+	}
+	grpcLis, httpLis = d.ownListener(grpcLis), d.ownListener(httpLis)
+	d.runServer(func() error { return d.grpcServer.Serve(grpcLis) })
+	d.serveHTTP(httpLis, corsOpts.Handler(httpHandler))
 
 	zap.L().Info("✅ Daemon started in traffic_split mode",
 		zap.String("grpc_addr", grpcAddr),
@@ -379,14 +406,15 @@ func (d *daemon) newHTTPHandler(grpcWebServer *grpcweb.WrappedGrpcServer) http.H
 		case "encoding":
 			fmt.Fprintln(resp, d.components.ServiceMetaData().GetWireEncoding())
 		case "heartbeat":
-			metrics.HeartbeatHandler(resp,
+			metrics.HeartbeatHandlerContext(req.Context(), resp,
 				func() (*training.TrainingMetadata, error) {
 					return d.components.TrainingService().GetTrainingMetadata(
-						context.Background(), &emptypb.Empty{},
+						req.Context(), &emptypb.Empty{},
 					)
 				},
 				d.components.DaemonHeartBeat().DynamicPricing,
 				d.components.Blockchain().CurrentBlock,
+				d.components.Background(),
 			)
 		default:
 			http.NotFound(resp, req)
@@ -395,20 +423,4 @@ func (d *daemon) newHTTPHandler(grpcWebServer *grpcweb.WrappedGrpcServer) http.H
 
 		zap.L().Debug("http headers", zap.Any("headers", resp.Header()))
 	})
-}
-
-func (d *daemon) stop() {
-	if d.grpcServer != nil {
-		d.grpcServer.GracefulStop()
-	}
-
-	if d.lis != nil {
-		d.lis.Close()
-	}
-
-	if d.acmeListener != nil {
-		d.acmeListener.Close()
-	}
-
-	// TODO add d.blockProc.StopLoop()
 }

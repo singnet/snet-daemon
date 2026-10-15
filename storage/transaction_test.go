@@ -1,11 +1,28 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestExecuteTransactionCancellationStopsConflictRetries(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	attempts := 0
+	backend := &transactionBackendStub{
+		start: func([]string) (Transaction, error) {
+			return &transactionValuesStub{read: func() ([]KeyValueData, error) { return nil, nil }}, nil
+		},
+		complete: func(Transaction, []KeyValueData) (bool, error) { attempts++; cancel(); return false, nil },
+	}
+	ok, err := ExecuteTransaction(backend, CASRequest{RetryTillSuccessOrError: true, Update: func([]KeyValueData) ([]KeyValueData, bool, error) { return nil, true, nil }}, TransactionPolicy{Context: ctx})
+	require.False(t, ok)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, 1, attempts)
+}
 
 type transactionBackendStub struct {
 	AtomicStorage

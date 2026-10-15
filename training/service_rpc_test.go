@@ -386,6 +386,8 @@ type coverageUploadStream struct {
 	sendErr  error
 }
 
+func (s *coverageUploadStream) Context() context.Context { return context.Background() }
+
 func (s *coverageUploadStream) Recv() (*UploadAndValidateRequest, error) {
 	if len(s.requests) == 0 {
 		return nil, io.EOF

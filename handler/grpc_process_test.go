@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -18,8 +19,13 @@ import (
 
 func init() {
 	// Allow the test binary to be re-executed as a sub-process for grpcToProcess tests.
-	if os.Getenv("SNET_PASSTHROUGH_HELPER") != "1" {
+	mode := os.Getenv("SNET_PASSTHROUGH_HELPER")
+	if mode != "1" && mode != "blocked" {
 		return
+	}
+	if mode == "blocked" {
+		<-time.After(time.Minute)
+		os.Exit(0)
 	}
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -29,6 +35,24 @@ func init() {
 		os.Exit(1)
 	}
 	os.Exit(0)
+}
+
+func TestGrpcToProcessCancellationWithLargeInput(t *testing.T) {
+	executable, err := os.Executable()
+	require.NoError(t, err)
+	t.Setenv("SNET_PASSTHROUGH_HELPER", "blocked")
+	g := newCoverageHandler(50 * time.Millisecond)
+	g.executable = executable
+	ctx := metadata.NewIncomingContext(streamContextWithMethod("/test.Service/run"), metadata.Pairs("x", "1"))
+	stream := &coverageServerStream{ctx: ctx, recvQueue: []*codec.GrpcFrame{{Data: bytes.Repeat([]byte("x"), 1024*1024)}}}
+	done := make(chan error, 1)
+	go func() { done <- g.grpcToProcess(nil, stream) }()
+	select {
+	case err := <-done:
+		require.Error(t, err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("process cancellation blocked writing stdin")
+	}
 }
 
 func TestGrpcToProcess_NoMethod(t *testing.T) {

@@ -63,6 +63,11 @@ block is a 32-byte big-endian integer, and `Token` is the full raw token byte
 sequence. The signature must recover to the supplied address. `GroupID` is the
 selected metadata group's ID string, not `daemon_group_name`. Current-block
 freshness is checked within five blocks of the daemon's latest observed block.
+Both boundary blocks are accepted; a difference of six in either direction is
+rejected. The shared
+[EthereumBlockValidator](../blockchain/block_validator.go) compares full-width
+integers without changing the supplied block, so validation preserves the signed
+request. It rejects missing or negative current-block values.
 
 The daemon-issued token contains a 65-byte signature, an underscore byte, and
 the decimal expiration block. Its signature covers organization ID, daemon

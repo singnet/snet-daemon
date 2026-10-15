@@ -28,14 +28,14 @@ func (validator *AllowedUserPaymentValidator) Validate(payment *Payment) (err er
 
 // ChannelPaymentValidator validates payment using payment channel state.
 type ChannelPaymentValidator struct {
-	currentBlock               func() (currentBlock *big.Int, err error)
+	blockValidator             *blockchain.EthereumBlockValidator
 	paymentExpirationThreshold func() (threshold *big.Int)
 }
 
 // NewChannelPaymentValidator returns a new payment validator instance
 func NewChannelPaymentValidator(processor blockchain.Processor, metadata *blockchain.OrganizationMetaData) *ChannelPaymentValidator {
 	return &ChannelPaymentValidator{
-		currentBlock: processor.CurrentBlock,
+		blockValidator: blockchain.NewEthereumBlockValidator(processor.CurrentBlock),
 		paymentExpirationThreshold: func() *big.Int {
 			return metadata.GetPaymentExpirationThreshold()
 		},
@@ -63,7 +63,7 @@ func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *Pa
 		zap.L().Warn("Channel signer is not equal to payment signer/sender", signerAddressFieldLog)
 		return NewPaymentError(Unauthenticated, "payment is not signed by channel signer/sender")
 	}
-	currentBlock, e := validator.currentBlock()
+	currentBlock, e := validator.blockValidator.CurrentBlock()
 	if e != nil {
 		return NewPaymentError(Internal, "cannot determine current block")
 	}

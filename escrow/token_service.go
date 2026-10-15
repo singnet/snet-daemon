@@ -15,12 +15,12 @@ import (
 )
 
 type TokenService struct {
-	channelService          PaymentChannelService
-	prePaidUsageService     PrePaidService
-	tokenManager            token.Manager
-	validator               *ChannelPaymentValidator
-	serviceMetaData         blockchain.ServiceMetadata
-	allowedBlockNumberCheck func(blockNumber *big.Int) (err error)
+	channelService      PaymentChannelService
+	prePaidUsageService PrePaidService
+	tokenManager        token.Manager
+	validator           *ChannelPaymentValidator
+	blockValidator      *blockchain.EthereumBlockValidator
+	serviceMetaData     blockchain.ServiceMetadata
 }
 
 func (service *TokenService) mustEmbedUnimplementedTokenServiceServer() {
@@ -41,25 +41,16 @@ func (service BlockChainDisabledTokenService) GetToken(ctx context.Context, requ
 }
 
 func NewTokenService(paymentChannelService PaymentChannelService,
-	usageService PrePaidService, tokenManager token.Manager, validator *ChannelPaymentValidator, metadata *blockchain.ServiceMetadata) *TokenService {
+	usageService PrePaidService, tokenManager token.Manager, validator *ChannelPaymentValidator,
+	blockValidator *blockchain.EthereumBlockValidator, metadata *blockchain.ServiceMetadata) *TokenService {
 
 	return &TokenService{
 		channelService:      paymentChannelService,
 		prePaidUsageService: usageService,
 		tokenManager:        tokenManager,
 		validator:           validator,
+		blockValidator:      blockValidator,
 		serviceMetaData:     *metadata,
-		allowedBlockNumberCheck: func(blockNumber *big.Int) error {
-			currentBlockNumber, err := validator.currentBlock()
-			if err != nil {
-				return err
-			}
-			differenceInBlockNumber := blockNumber.Sub(blockNumber, currentBlockNumber)
-			if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > AllowedBlockDifference {
-				return fmt.Errorf("authentication failed as the signature passed has expired")
-			}
-			return nil
-		},
 	}
 }
 
@@ -132,7 +123,7 @@ func (service *TokenService) verifySignature(request *TokenRequest, channel *Pay
 		return nil, fmt.Errorf("only channel signer/sender/receiver can get a Valid Token")
 	}
 
-	if err = service.allowedBlockNumberCheck(big.NewInt(0).SetUint64(request.CurrentBlock)); err != nil {
+	if err = service.blockValidator.ValidateBlock(new(big.Int).SetUint64(request.CurrentBlock), AllowedBlockDifference); err != nil {
 		return nil, err
 	}
 	return sender, nil

@@ -151,16 +151,7 @@ func (processor *processor) CurrentBlock() (currentBlock *big.Int, err error) {
 }
 
 func (processor *processor) CompareWithLatestBlockNumber(blockNumberPassed *big.Int, allowedBlockChainDifference uint64) (err error) {
-	latestBlockNumber, err := processor.CurrentBlock()
-	if err != nil {
-		return err
-	}
-
-	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
-	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > allowedBlockChainDifference {
-		return fmt.Errorf("authentication failed as the signature passed has expired")
-	}
-	return
+	return NewEthereumBlockValidator(processor.CurrentBlock).ValidateBlock(blockNumberPassed, allowedBlockChainDifference)
 }
 
 func (processor *processor) HasIdentity() bool {

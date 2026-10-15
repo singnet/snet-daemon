@@ -725,6 +725,7 @@ func (components *Components) TokenService() escrow.TokenServiceServer {
 	components.tokenService = escrow.NewTokenService(components.PaymentChannelService(),
 		components.PrePaidService(), components.TokenManager(),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), components.OrganizationMetaData()),
+		blockchain.NewEthereumBlockValidator(components.Blockchain().CurrentBlock),
 		components.ServiceMetaData())
 
 	return components.tokenService

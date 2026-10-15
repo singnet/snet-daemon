@@ -101,7 +101,7 @@ func (suite *ControlServiceTestSuite) SetupSuite() {
 		},
 		storage.NewLocker(memoryStorage),
 		&ChannelPaymentValidator{
-			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+			blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil }),
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 		}, func() [32]byte {
 			return [32]byte{123}

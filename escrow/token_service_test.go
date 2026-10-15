@@ -90,6 +90,7 @@ func (suite *TokenServiceTestSuite) SetupSuite() {
 	memoryStorage := storage.NewMemStorage()
 	suite.storage = NewPaymentChannelStorage(memoryStorage)
 	suite.paymentStorage = NewPaymentStorage(memoryStorage)
+	blockValidator := blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil })
 	suite.channelService = NewPaymentChannelService(
 		suite.storage,
 		suite.paymentStorage,
@@ -103,7 +104,7 @@ func (suite *TokenServiceTestSuite) SetupSuite() {
 		},
 		storage.NewLocker(memoryStorage),
 		&ChannelPaymentValidator{
-			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+			blockValidator:             blockValidator,
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 		}, func() [32]byte {
 			return [32]byte{123}
@@ -111,8 +112,8 @@ func (suite *TokenServiceTestSuite) SetupSuite() {
 
 	tokenManager := token.NewJWTTokenService(*suite.orgMetaData)
 	suite.service = NewTokenService(suite.channelService, NewPrePaidService(NewPrepaidStorage(storage.NewMemStorage()), nil, nil), tokenManager,
-		&ChannelPaymentValidator{currentBlock: func() (*big.Int, error) { return big.NewInt(99), nil },
-			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) }}, suite.serviceMetaData)
+		&ChannelPaymentValidator{blockValidator: blockValidator,
+			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) }}, blockValidator, suite.serviceMetaData)
 	suite.putChannel(big.NewInt(1))
 
 }

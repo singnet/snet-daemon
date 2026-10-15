@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/stretchr/testify/require"
 )
 
@@ -77,6 +78,15 @@ func TestTokenServiceUsageReadFailures(t *testing.T) {
 func TestTokenServiceBlockLookupFailure(t *testing.T) {
 	f := newTokenServiceFixture(t)
 	wantErr := errors.New("blockchain unavailable")
-	f.service.validator.currentBlock = func() (*big.Int, error) { return nil, wantErr }
-	require.ErrorIs(t, f.service.allowedBlockNumberCheck(big.NewInt(99)), wantErr)
+	f.service.blockValidator = blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return nil, wantErr })
+	f.channelMock.paymentChannelFn = func(*PaymentChannelKey) (*PaymentChannelData, bool, error) {
+		return f.channel(), true, nil
+	}
+	request := &TokenRequest{ChannelId: 1, SignedAmount: 11, CurrentBlock: 99}
+	f.signRequest(request, f.senderKey)
+	reply, err := f.service.GetToken(t.Context(), request)
+	require.Nil(t, reply)
+	require.ErrorIs(t, err, wantErr)
+	require.False(t, f.tokenMock.created)
+	require.Empty(t, f.usageMock.updatedType)
 }

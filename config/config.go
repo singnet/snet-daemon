@@ -571,6 +571,9 @@ func ValidateEndpoints(daemonEndpoint string, serviceEndpoint string) error {
 	if err != nil {
 		return errors.New("couldn't split host:post of daemon endpoint")
 	}
+	if _, err := net.LookupPort("tcp", daemonPort); err != nil {
+		return fmt.Errorf("invalid daemon_endpoint port: %w", err)
+	}
 
 	if daemonHost == serviceURL.Hostname() && daemonPort == serviceURL.Port() {
 		return errors.New("service_endpoint can't be the same as daemon endpoint")

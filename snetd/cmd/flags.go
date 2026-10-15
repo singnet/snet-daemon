@@ -33,13 +33,13 @@ func RunAndCleanup(cmd *cobra.Command, args []string, constructor CommandConstru
 }
 
 var RootCmd = &cobra.Command{
-	Use: "snetd",
-	Run: func(cmd *cobra.Command, args []string) {
+	Use:           "snetd",
+	SilenceErrors: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if command, _, err := cmd.Find(args); err != nil && command != nil {
-			command.Execute()
-		} else {
-			ServeCmd.Run(cmd, args)
+			return command.Execute()
 		}
+		return ServeCmd.RunE(cmd, args)
 	},
 }
 

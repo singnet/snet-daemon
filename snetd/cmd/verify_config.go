@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/logger"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/spf13/cobra"
 )
@@ -56,6 +58,7 @@ func newVerifyConfigCommand() *cobra.Command {
 
 func validateDaemonConfiguration() config.ValidationReport {
 	report := config.ValidateConfiguration()
+	report.Diagnostics = append(report.Diagnostics, logger.ValidateConfiguration().Diagnostics...)
 	validateTLSKeyPair(&report)
 
 	if err := metrics.ValidateHeartbeatConfig(config.GetString(config.ServiceHeartbeatType), config.GetString(config.HeartbeatServiceEndpoint)); err != nil {
@@ -106,17 +109,18 @@ func writeConfigValidationReport(writer io.Writer, format, source string, report
 
 	errorsCount := report.Count(config.DiagnosticError)
 	warningsCount := report.Count(config.DiagnosticWarning)
+	var output strings.Builder
 	if errorsCount == 0 {
-		fmt.Fprint(writer, "✅ ")
+		fmt.Fprint(&output, "✅ ")
 	}
-	fmt.Fprintf(writer, "Configuration: %s\n", source)
+	fmt.Fprintf(&output, "Configuration: %s\n", source)
 	switch {
 	case errorsCount > 0:
-		fmt.Fprintf(writer, "Result: INVALID - %d errors, %d warnings\n", errorsCount, warningsCount)
+		fmt.Fprintf(&output, "Result: INVALID - %d errors, %d warnings\n", errorsCount, warningsCount)
 	case warningsCount > 0:
-		fmt.Fprintf(writer, "Result: VALID WITH WARNINGS - %d warnings\n", warningsCount)
+		fmt.Fprintf(&output, "Result: VALID WITH WARNINGS - %d warnings\n", warningsCount)
 	default:
-		fmt.Fprintln(writer, "Result: VALID")
+		fmt.Fprintln(&output, "Result: VALID")
 	}
 
 	for _, severity := range []config.DiagnosticSeverity{config.DiagnosticError, config.DiagnosticWarning} {
@@ -124,14 +128,15 @@ func writeConfigValidationReport(writer io.Writer, format, source string, report
 			if diagnostic.Severity != severity {
 				continue
 			}
-			fmt.Fprintln(writer)
-			fmt.Fprintf(writer, "%s [%s] %s\n", diagnostic.Severity, diagnostic.Field, diagnostic.Code)
-			fmt.Fprintf(writer, "  %s\n", diagnostic.Message)
+			fmt.Fprintln(&output)
+			fmt.Fprintf(&output, "%s [%s] %s\n", diagnostic.Severity, diagnostic.Field, diagnostic.Code)
+			fmt.Fprintf(&output, "  %s\n", diagnostic.Message)
 			if diagnostic.Hint != "" {
-				fmt.Fprintf(writer, "  Hint: %s\n", diagnostic.Hint)
+				fmt.Fprintf(&output, "  Hint: %s\n", diagnostic.Hint)
 			}
 		}
 	}
 
-	return nil
+	_, err := io.WriteString(writer, output.String())
+	return err
 }

@@ -45,21 +45,30 @@ var corsOptionsHTTP = []handlers.CORSOption{
 var ServeCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Is the default option which starts the Daemon.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 
 		components := InitComponents(cmd)
 		defer components.Close()
 
-		logger.Initialize()
 		validationReport := validateDaemonConfiguration()
+		if validationReport.HasErrors() {
+			cmd.SilenceUsage = true
+			source := config.Vip().ConfigFileUsed()
+			if source == "" {
+				source = "defaults"
+			}
+			if err := writeConfigValidationReport(cmd.ErrOrStderr(), "text", source, validationReport); err != nil {
+				return err
+			}
+			return ErrInvalidConfiguration
+		}
+
+		logger.Initialize()
 		for _, diagnostic := range validationReport.Diagnostics {
 			if diagnostic.Severity == config.DiagnosticWarning {
 				zap.L().Warn(diagnostic.Message, zap.String("code", diagnostic.Code), zap.String("field", diagnostic.Field))
 			}
-		}
-		if err := validationReport.Error(); err != nil {
-			zap.L().Fatal(fmt.Sprintf("Unable to initialize daemon: %v %v ", err, errs.ErrDescURL(errs.InvalidConfig)))
 		}
 
 		config.LogConfig()
@@ -100,6 +109,7 @@ var ServeCmd = &cobra.Command{
 		<-sigChan
 
 		zap.L().Debug("Exiting")
+		return nil
 	},
 }
 

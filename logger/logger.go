@@ -182,13 +182,26 @@ func createEncoder(encoderConfig *zapcore.EncoderConfig) (zapcore.Encoder, error
 	return encoder, nil
 }
 
-func createWriterSyncer() (zapcore.WriteSyncer, error) {
-	var writers []zapcore.WriteSyncer
-
+func configuredOutputTypes() ([]string, error) {
 	configWriters := config.GetStringSlice(LogOutputTypeKey)
-
 	if len(configWriters) == 0 {
 		return nil, fmt.Errorf("failed to read log.output.type from config: %v", configWriters)
+	}
+	for _, writer := range configWriters {
+		switch writer {
+		case "stdout", "stderr", "file":
+		default:
+			return nil, fmt.Errorf("unsupported log output type: %v", writer)
+		}
+	}
+	return configWriters, nil
+}
+
+func createWriterSyncer() (zapcore.WriteSyncer, error) {
+	var writers []zapcore.WriteSyncer
+	configWriters, err := configuredOutputTypes()
+	if err != nil {
+		return nil, err
 	}
 
 	for _, writer := range configWriters {
@@ -221,8 +234,6 @@ func createWriterSyncer() (zapcore.WriteSyncer, error) {
 					return nil, fmt.Errorf("failed to create symlink: %v", err)
 				}
 			}
-		default:
-			return nil, fmt.Errorf("unsupported log output type: %v", writer)
 		}
 	}
 

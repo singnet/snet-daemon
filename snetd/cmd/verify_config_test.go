@@ -3,11 +3,13 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -62,6 +64,19 @@ func TestVerifyConfigCommandAcceptsValidConfiguration(t *testing.T) {
 	require.Empty(t, result.Diagnostics)
 }
 
+type failingValidationWriter struct{}
+
+func (failingValidationWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestWriteConfigValidationReportPropagatesWriteErrors(t *testing.T) {
+	for _, format := range []string{"text", "json"} {
+		t.Run(format, func(t *testing.T) {
+			err := writeConfigValidationReport(failingValidationWriter{}, format, "config.json", config.ValidationReport{})
+			require.ErrorIs(t, err, io.ErrClosedPipe)
+		})
+	}
+}
+
 func TestVerifyConfigCommandReportsInvalidConfiguration(t *testing.T) {
 	prepareVerifyConfigTestConfiguration(t)
 	configFile := writeVerifyConfigTestFile(t, `{
@@ -114,6 +129,10 @@ func prepareVerifyConfigTestConfiguration(t *testing.T) {
 	v.SetDefault(config.ServiceEndpointKey, "http://127.0.0.1:1")
 	v.SetDefault(config.ServiceHeartbeatType, "none")
 	v.SetDefault(config.ServiceTimeout, "100s")
+	v.SetDefault(logger.LogLevelKey, "info")
+	v.SetDefault(logger.LogTimezoneKey, "UTC")
+	v.SetDefault(logger.LogFormatterTypeKey, "text")
+	v.SetDefault(logger.LogOutputTypeKey, []string{"stdout"})
 	config.SetVip(v)
 }
 

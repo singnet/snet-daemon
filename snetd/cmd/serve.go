@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"os/signal"
 	"strings"
 	"sync"
@@ -89,26 +88,7 @@ var ServeCmd = &cobra.Command{
 			zap.L().Fatal(fmt.Sprintf("Unable to initialize daemon: %v %v ", err, errs.ErrDescURL(errs.InvalidConfig)))
 		}
 
-		d.start()
-		defer d.stop()
-
-		// Check if the payment storage client is etcd by verifying if d.components.etcdClient exists.
-		// If etcdClient is not nil and hot reload is enabled, initialize a ContractEventListener
-		// to listen for changes in the organization metadata.
-		if d.components.etcdClient != nil && d.components.etcdClient.IsHotReloadEnabled() {
-			contractEventLister := contractListener.ContractEventListener{
-				BlockchainProcessor:         d.blockProc,
-				CurrentOrganizationMetaData: components.OrganizationMetaData(),
-				CurrentEtcdClient:           components.EtcdClient(),
-			}
-			go contractEventLister.ListenOrganizationMetadataChanging()
-		}
-
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-		<-sigChan
-
-		zap.L().Debug("Exiting")
+		d.serve()
 		return nil
 	},
 }
@@ -121,6 +101,26 @@ type daemon struct {
 	lis           net.Listener
 	sslCert       *tls.Certificate
 	components    *Components
+}
+
+func (d *daemon) serve() {
+	ctx, stopSignals := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stopSignals()
+
+	d.start()
+	defer d.stop()
+
+	if d.components.etcdClient != nil && d.components.etcdClient.IsHotReloadEnabled() {
+		contractEventListener := contractListener.ContractEventListener{
+			BlockchainProcessor:         d.blockProc,
+			CurrentOrganizationMetaData: d.components.OrganizationMetaData(),
+			CurrentEtcdClient:           d.components.EtcdClient(),
+		}
+		go contractEventListener.ListenOrganizationMetadataChanging()
+	}
+
+	<-ctx.Done()
+	zap.L().Debug("Exiting")
 }
 
 func newDaemon(components *Components) (daemon, error) {

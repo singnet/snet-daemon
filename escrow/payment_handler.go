@@ -98,7 +98,7 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 }
 
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
-	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil {
+	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil && config.GetBool(config.MeteringEnabled) {
 		go PublishChannelStats(payment, h.currentBlock)
 	}
 	return err

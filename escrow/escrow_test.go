@@ -7,16 +7,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/storage"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/singnet/snet-daemon/v6/utils"
 )
 
 type paymentChannelServiceMock struct {
@@ -123,9 +121,9 @@ func (suite *PaymentChannelServiceSuite) SetupSuite() {
 				return suite.recipientAddress
 			},
 		},
-		NewEtcdLocker(suite.memoryStorage),
+		storage.NewLocker(suite.memoryStorage),
 		&ChannelPaymentValidator{
-			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+			blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil }),
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 		}, func() [32]byte {
 			return [32]byte{123}

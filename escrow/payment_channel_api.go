@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"github.com/singnet/snet-daemon/v6/utils"
 )
 
@@ -129,43 +130,22 @@ type PaymentChannelService interface {
 	PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
 }
 
-// PaymentErrorCode contains all types of errors which we need to handle on the
-// client side.
-type PaymentErrorCode int
+// PaymentErrorCode identifies errors returned by payment handlers.
+type PaymentErrorCode = errs.PaymentErrorCode
 
 const (
-	// Internal error code means that error is caused by improper daemon
-	// configuration or functioning. Client cannot do anything with it.
-	Internal PaymentErrorCode = 1
-	// Unauthenticated error code means that client sent payment which cannot
-	// be applied to the channel.
-	Unauthenticated PaymentErrorCode = 2
-	// FailedPrecondition means that request cannot be handled because system
-	// is not in appropriate state.
-	FailedPrecondition PaymentErrorCode = 3
-	// IncorrectNonce is returned when nonce value sent by client is incorrect.
-	IncorrectNonce PaymentErrorCode = 4
+	Internal           = errs.Internal
+	Unauthenticated    = errs.Unauthenticated
+	FailedPrecondition = errs.FailedPrecondition
+	IncorrectNonce     = errs.IncorrectNonce
 )
 
-// PaymentError contains error code and message and implements Error interface.
-type PaymentError struct {
-	// Code is error code
-	Code PaymentErrorCode
-	// Message is message
-	Message string
-}
+// PaymentError is shared with other payment handlers.
+type PaymentError = errs.PaymentError
 
-// NewPaymentError constructs new PaymentError instance with given error code
-// and message.
-func NewPaymentError(code PaymentErrorCode, format string, msg ...any) *PaymentError {
-	if len(msg) == 0 {
-		return &PaymentError{Code: code, Message: format}
-	}
-	return &PaymentError{Code: code, Message: fmt.Sprintf(format, msg...)}
-}
-
-func (err *PaymentError) Error() string {
-	return err.Message
+// NewPaymentError constructs a payment error.
+func NewPaymentError(code PaymentErrorCode, format string, args ...any) *PaymentError {
+	return errs.NewPaymentError(code, format, args...)
 }
 
 // PaymentTransaction is a payment transaction in progress.

@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -54,16 +53,7 @@ func (m *MockProcessor) CurrentBlock() (*big.Int, error) {
 }
 
 func (m *MockProcessor) CompareWithLatestBlockNumber(blockNumberPassed *big.Int, allowedBlockChainDifference uint64) error {
-	latestBlockNumber, err := m.CurrentBlock()
-	if err != nil {
-		return err
-	}
-
-	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
-	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > allowedBlockChainDifference {
-		return fmt.Errorf("authentication failed as the signature passed has expired")
-	}
-	return nil
+	return NewEthereumBlockValidator(m.CurrentBlock).ValidateBlock(blockNumberPassed, allowedBlockChainDifference)
 }
 
 func (m *MockProcessor) HasIdentity() bool {

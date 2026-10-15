@@ -1,11 +1,12 @@
-package escrow
+package freecall
 
 import (
 	"fmt"
 	"math/big"
 )
 
-type FreeCallPayment struct {
+// Payment contains the signed credentials for a free call.
+type Payment struct {
 	// Address of the user or trusted backend making the request.
 	// In Web3 flow, this is the user's wallet address.
 	// In Web2 (e.g., marketplace), this is the backend's signing address (must be trusted).
@@ -31,12 +32,13 @@ type FreeCallPayment struct {
 	AuthTokenExpiryBlockNumber *big.Int
 }
 
-func (key *FreeCallPayment) String() string {
+func (key *Payment) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v/%v}", key.Address, key.UserID, key.OrganizationId,
 		key.ServiceId)
 }
 
-type FreeCallUserKey struct {
+// UserKey identifies a user's allowance within a service and replica group.
+type UserKey struct {
 	UserId         string
 	Address        string
 	OrganizationId string
@@ -44,12 +46,14 @@ type FreeCallUserKey struct {
 	GroupID        string
 }
 
-func (key *FreeCallUserKey) String() string {
+func (key *UserKey) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v/%v/%v}", key.Address, key.UserId, key.OrganizationId,
 		key.ServiceId, key.GroupID)
 }
 
-type FreeCallUserData struct {
+// UserData is persisted using gob. Field names are kept for compatibility with
+// records written before free-call support was moved out of escrow.
+type UserData struct {
 	Address        string
 	UserID         string
 	FreeCallsMade  int
@@ -58,34 +62,33 @@ type FreeCallUserData struct {
 	GroupID        string
 }
 
-func (data *FreeCallUserData) String() string {
+func (data *UserData) String() string {
 	return fmt.Sprintf("{Addr:%v (id:%v) has made %v free calls for org_id=%v, service_id=%v, group_id=%v }", data.Address, data.UserID,
 		data.FreeCallsMade, data.OrganizationId, data.ServiceId, data.GroupID)
 }
 
-type FreeCallUserService interface {
-	GetFreeCallUserKey(payment *FreeCallPayment) (userKey *FreeCallUserKey, err error)
+// UserService tracks usage and starts transactions against a user's allowance.
+type UserService interface {
+	UserKey(payment *Payment) (userKey *UserKey, err error)
 
-	//if the user details are not found, send back a new entry to be persisted
-	FreeCallUser(key *FreeCallUserKey) (freeCallUser *FreeCallUserData, ok bool, err error)
+	// User returns a new entry if the user has no stored usage yet.
+	User(key *UserKey) (freeCallUser *UserData, ok bool, err error)
 
-	ListFreeCallUsers() (freeCallUsers []*FreeCallUserData, err error)
+	ListUsers() (freeCallUsers []*UserData, err error)
 
-	StartFreeCallUserTransaction(payment *FreeCallPayment) (transaction FreeCallTransaction, err error)
+	StartTransaction(payment *Payment) (transaction Transaction, err error)
 }
 
-type FreeCallTransaction interface {
-	FreeCallUser() *FreeCallUserData
+// Transaction holds the user lock until Commit or Rollback completes.
+type Transaction interface {
+	User() *UserData
 
 	Commit() error
 
 	Rollback() error
 }
 
-type FreeCallUserUpdate func(user *FreeCallUserData)
-
-var (
-	IncrementFreeCallCount FreeCallUserUpdate = func(user *FreeCallUserData) {
-		user.FreeCallsMade += 1
-	}
-)
+// IncrementCallCount records one successful free call.
+func IncrementCallCount(user *UserData) {
+	user.FreeCallsMade++
+}

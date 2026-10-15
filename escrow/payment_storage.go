@@ -17,7 +17,7 @@ type PaymentStorage struct {
 func NewPaymentStorage(atomicStorage storage.AtomicStorage) *PaymentStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/payment/storage")
 	storage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializeKey, reflect.TypeFor[string](), serialize, deserialize,
+		prefixedStorage, serializeKey, reflect.TypeFor[string](), storage.EncodeGob, storage.DecodeGob,
 		reflect.TypeFor[Payment](),
 	)
 	return &PaymentStorage{delegate: storage}

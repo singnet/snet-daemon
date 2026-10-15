@@ -1,18 +1,15 @@
 package escrow
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"math/big"
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-
-	"github.com/singnet/snet-daemon/v6/blockchain"
 )
 
 // PaymentChannelStorage is a storage for PaymentChannelData by
@@ -26,7 +23,7 @@ type PaymentChannelStorage struct {
 func NewPaymentChannelStorage(atomicStorage storage.AtomicStorage) *PaymentChannelStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/payment-channel/storage")
 	storage := storage.NewTypedAtomicStorageImpl(
-		prefixedStorage, serializeKey, reflect.TypeFor[PaymentChannelKey](), serialize, deserialize,
+		prefixedStorage, serializeKey, reflect.TypeFor[PaymentChannelKey](), storage.EncodeGob, storage.DecodeGob,
 		reflect.TypeFor[PaymentChannelData](),
 	)
 	return &PaymentChannelStorage{delegate: storage}
@@ -35,23 +32,6 @@ func NewPaymentChannelStorage(atomicStorage storage.AtomicStorage) *PaymentChann
 
 func serializeKey(key any) (slice string, err error) {
 	return fmt.Sprintf("%v", key), nil
-}
-func serialize(value any) (slice string, err error) {
-	var b bytes.Buffer
-	e := gob.NewEncoder(&b)
-	err = e.Encode(value)
-	if err != nil {
-		return
-	}
-
-	return b.String(), err
-}
-
-func deserialize(slice string, value any) (err error) {
-	b := bytes.NewBuffer([]byte(slice))
-	d := gob.NewDecoder(b)
-	err = d.Decode(value)
-	return
 }
 
 // Get returns payment channel by key

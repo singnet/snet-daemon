@@ -1,4 +1,10 @@
-package escrow
+// go generate runs in this package's directory. Use the module root as the
+// include path so the descriptor is named "freecall/state_service.proto";
+// "-I ." would register "state_service.proto", colliding with escrow's descriptor.
+//
+//go:generate protoc -I .. freecall/state_service.proto --go-grpc_out=paths=source_relative:.. --go_out=paths=source_relative:..
+
+package freecall
 
 import (
 	"context"
@@ -16,11 +22,12 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-type FreeCallStateService struct {
+type StateService struct {
+	UnimplementedFreeCallStateServiceServer
 	orgMetadata           *blockchain.OrganizationMetaData
 	serviceMetadata       *blockchain.ServiceMetadata
-	freeCallService       FreeCallUserService
-	freeCallValidator     *FreeCallPaymentValidator
+	freeCallService       UserService
+	freeCallValidator     *PaymentValidator
 	tokenInstance         ERC20
 	minBalanceForFreeCall *big.Int // in asi, not aasi
 }
@@ -29,7 +36,7 @@ type ERC20 interface {
 	BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error)
 }
 
-func (service *FreeCallStateService) CheckBalanceForFreeCall(ctx context.Context, address common.Address) error {
+func (service *StateService) CheckBalanceForFreeCall(ctx context.Context, address common.Address) error {
 
 	balance, err := service.tokenInstance.BalanceOf(&bind.CallOpts{Context: ctx}, address)
 	if err != nil {
@@ -48,7 +55,7 @@ func (service *FreeCallStateService) CheckBalanceForFreeCall(ctx context.Context
 	return nil
 }
 
-func (service *FreeCallStateService) GetFreeCallToken(ctx context.Context, request *GetFreeCallTokenRequest) (*FreeCallToken, error) {
+func (service *StateService) GetFreeCallToken(ctx context.Context, request *GetFreeCallTokenRequest) (*FreeCallToken, error) {
 
 	signer, err := getAddressFromSignatureForNewFreeCallToken(request, service.orgMetadata.GetGroupIdString())
 	if err != nil {
@@ -78,7 +85,7 @@ func (service *FreeCallStateService) GetFreeCallToken(ctx context.Context, reque
 		}
 	}
 
-	token, block := service.freeCallValidator.NewFreeCallToken(request.Address, request.UserId, request.TokenLifetimeInBlocks)
+	token, block := service.freeCallValidator.NewToken(request.Address, request.UserId, request.TokenLifetimeInBlocks)
 	return &FreeCallToken{
 		TokenHex:             hex.EncodeToString(token), // string
 		Token:                token,                     // bytes
@@ -86,17 +93,12 @@ func (service *FreeCallStateService) GetFreeCallToken(ctx context.Context, reque
 	}, nil
 }
 
-func (service *FreeCallStateService) mustEmbedUnimplementedFreeCallStateServiceServer() {
-	//TODO implement me
-	panic("implement me")
-}
-
-func NewFreeCallStateService(orgMetadata *blockchain.OrganizationMetaData,
+func NewStateService(orgMetadata *blockchain.OrganizationMetaData,
 	srvMetaData *blockchain.ServiceMetadata,
-	service FreeCallUserService,
-	validator *FreeCallPaymentValidator,
-	tokenInstance ERC20, minBalanceForFreeCall *big.Int) *FreeCallStateService {
-	return &FreeCallStateService{
+	service UserService,
+	validator *PaymentValidator,
+	tokenInstance ERC20, minBalanceForFreeCall *big.Int) *StateService {
+	return &StateService{
 		orgMetadata:           orgMetadata,
 		serviceMetadata:       srvMetaData,
 		freeCallService:       service,
@@ -105,7 +107,7 @@ func NewFreeCallStateService(orgMetadata *blockchain.OrganizationMetaData,
 		tokenInstance:         tokenInstance}
 }
 
-func (service *FreeCallStateService) GetFreeCallsAvailable(context context.Context,
+func (service *StateService) GetFreeCallsAvailable(context context.Context,
 	request *FreeCallStateRequest) (reply *FreeCallStateReply, err error) {
 
 	payment, err := service.getFreeCallPayment(request)
@@ -125,20 +127,20 @@ func (service *FreeCallStateService) GetFreeCallsAvailable(context context.Conte
 	return &FreeCallStateReply{FreeCallsAvailable: availableCalls}, nil
 }
 
-func (service *FreeCallStateService) verify(payment *FreeCallPayment) (err error) {
+func (service *StateService) verify(payment *Payment) (err error) {
 	if err := service.freeCallValidator.Validate(payment); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment) (callsAvailable uint64, err error) {
+func (service *StateService) checkForFreeCalls(payment *Payment) (callsAvailable uint64, err error) {
 	//Now get the state from etcd for this user, if there are no records, then return the free calls
-	key, err := service.freeCallService.GetFreeCallUserKey(payment)
+	key, err := service.freeCallService.UserKey(payment)
 	if err != nil {
 		return 0, err
 	}
-	data, ok, err := service.freeCallService.FreeCallUser(key)
+	data, ok, err := service.freeCallService.User(key)
 	if err != nil {
 		return 0, err
 	}
@@ -166,12 +168,12 @@ func (service *FreeCallStateService) checkForFreeCalls(payment *FreeCallPayment)
 	return uint64(freeCallsAllowed), nil
 }
 
-func (service *FreeCallStateService) getFreeCallPayment(request *FreeCallStateRequest) (*FreeCallPayment, error) {
-	parsedToken, block, err := ParseFreeCallToken(request.FreeCallToken)
+func (service *StateService) getFreeCallPayment(request *FreeCallStateRequest) (*Payment, error) {
+	parsedToken, block, err := ParseToken(request.FreeCallToken)
 	if err != nil {
 		return nil, err
 	}
-	return &FreeCallPayment{
+	return &Payment{
 		GroupId:                    service.orgMetadata.GetGroupIdString(),
 		OrganizationId:             config.GetString(config.OrganizationId),
 		ServiceId:                  config.GetString(config.ServiceId),
@@ -185,18 +187,14 @@ func (service *FreeCallStateService) getFreeCallPayment(request *FreeCallStateRe
 	}, nil
 }
 
-type BlockChainDisabledFreeCallStateService struct {
+type DisabledStateService struct {
+	UnimplementedFreeCallStateServiceServer
 }
 
-func (service *BlockChainDisabledFreeCallStateService) GetFreeCallToken(ctx context.Context, request *GetFreeCallTokenRequest) (*FreeCallToken, error) {
+func (service *DisabledStateService) GetFreeCallToken(ctx context.Context, request *GetFreeCallTokenRequest) (*FreeCallToken, error) {
 	return &FreeCallToken{}, fmt.Errorf("error in generating token because blockchain is disabled, contact service provider")
 }
 
-func (service *BlockChainDisabledFreeCallStateService) mustEmbedUnimplementedFreeCallStateServiceServer() {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (service *BlockChainDisabledFreeCallStateService) GetFreeCallsAvailable(context.Context, *FreeCallStateRequest) (*FreeCallStateReply, error) {
+func (service *DisabledStateService) GetFreeCallsAvailable(context.Context, *FreeCallStateRequest) (*FreeCallStateReply, error) {
 	return &FreeCallStateReply{FreeCallsAvailable: 0}, fmt.Errorf("error in determining free calls because blockchain is disabled, contact service provider")
 }

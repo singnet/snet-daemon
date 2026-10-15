@@ -12,29 +12,28 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/singnet/snet-daemon/v6/errs"
-	"github.com/singnet/snet-daemon/v6/handler/httphandler"
-	"google.golang.org/protobuf/types/known/emptypb"
-
+	"github.com/gorilla/handlers"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"github.com/pkg/errors"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/configuration_service"
 	contractListener "github.com/singnet/snet-daemon/v6/contract_event_listener"
+	"github.com/singnet/snet-daemon/v6/errs"
 	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/handler/httphandler"
 	"github.com/singnet/snet-daemon/v6/logger"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/training"
-
-	"github.com/gorilla/handlers"
-	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var corsOptionsHTTP = []handlers.CORSOption{
@@ -46,14 +45,38 @@ var corsOptionsHTTP = []handlers.CORSOption{
 var ServeCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Is the default option which starts the Daemon.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 
 		components := InitComponents(cmd)
 		defer components.Close()
 
+		validationReport := validateDaemonConfiguration()
+		if validationReport.HasErrors() {
+			cmd.SilenceUsage = true
+			source := config.Vip().ConfigFileUsed()
+			if source == "" {
+				source = "defaults"
+			}
+			if err := writeConfigValidationReport(cmd.ErrOrStderr(), "text", source, validationReport); err != nil {
+				return err
+			}
+			return ErrInvalidConfiguration
+		}
+
 		logger.Initialize()
+		for _, diagnostic := range validationReport.Diagnostics {
+			if diagnostic.Severity == config.DiagnosticWarning {
+				zap.L().Warn(diagnostic.Message, zap.String("code", diagnostic.Code), zap.String("field", diagnostic.Field))
+			}
+		}
+
 		config.LogConfig()
+		if message, err := config.CheckVersionOfDaemon(); err != nil {
+			zap.L().Warn(err.Error())
+		} else {
+			zap.L().Info(message)
+		}
 
 		etcdServer := components.EtcdServer()
 		if etcdServer != nil {
@@ -86,6 +109,7 @@ var ServeCmd = &cobra.Command{
 		<-sigChan
 
 		zap.L().Debug("Exiting")
+		return nil
 	},
 }
 
@@ -101,18 +125,7 @@ type daemon struct {
 
 func newDaemon(components *Components) (daemon, error) {
 	d := daemon{}
-
-	if err := config.Validate(); err != nil {
-		return d, err
-	}
-
-	// validate heartbeat configuration
-	if err := metrics.ValidateHeartbeatConfig(config.GetString(config.ServiceHeartbeatType), config.GetString(config.HeartbeatServiceEndpoint)); err != nil {
-		return d, err
-	}
-
-	// validate alerts/notifications configuration
-	if err := metrics.ValidateNotificationConfig(); err != nil {
+	if err := validateDaemonConfiguration().Error(); err != nil {
 		return d, err
 	}
 
@@ -226,7 +239,7 @@ func (d *daemon) start() {
 	)
 	escrow.RegisterPaymentChannelStateServiceServer(d.grpcServer, d.components.PaymentChannelStateService())
 	escrow.RegisterProviderControlServiceServer(d.grpcServer, d.components.ProviderControlService())
-	escrow.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
+	freecall.RegisterFreeCallStateServiceServer(d.grpcServer, d.components.FreeCallStateService())
 	escrow.RegisterTokenServiceServer(d.grpcServer, d.components.TokenService())
 	training.RegisterDaemonServer(d.grpcServer, d.components.TrainingService())
 	grpc_health_v1.RegisterHealthServer(d.grpcServer, d.components.DaemonHeartBeat())

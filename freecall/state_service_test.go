@@ -1,4 +1,4 @@
-package escrow
+package freecall
 
 import (
 	"bytes"
@@ -23,13 +23,13 @@ type FreeCallStateServiceSuite struct {
 	mpeContractAddress       common.Address
 	userPrivateKey           *ecdsa.PrivateKey
 	userAddress              common.Address
-	freeCallPaymentValidator *FreeCallPaymentValidator
+	freeCallPaymentValidator *PaymentValidator
 	serviceMetaData          *blockchain.ServiceMetadata
 	orgMetaData              *blockchain.OrganizationMetaData
-	stateService             *FreeCallStateService
+	stateService             *StateService
 	memoryStorage            *storage.MemoryStorage
-	storage                  *FreeCallUserStorage
-	service                  FreeCallUserService
+	storage                  *UserStorage
+	service                  UserService
 	useFreeCallRequest       *FreeCallStateRequest
 	newTokenRequest          *GetFreeCallTokenRequest
 }
@@ -64,8 +64,8 @@ func (suite *FreeCallStateServiceSuite) SetupSuite() {
 	suite.userAddress = crypto.PubkeyToAddress(suite.userPrivateKey.PublicKey)
 	suite.T().Logf("user addr: %v", suite.userAddress)
 
-	suite.freeCallPaymentValidator = &FreeCallPaymentValidator{freeCallSignerAddress: suite.signerAddress, freeCallSigner: suite.signerPrivateKey,
-		currentBlock: func() (*big.Int, error) { return big.NewInt(99), nil }}
+	suite.freeCallPaymentValidator = &PaymentValidator{freeCallSignerAddress: suite.signerAddress, freeCallSigner: suite.signerPrivateKey,
+		blockValidator: blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil })}
 	testJsonOrgGroupData = "{   \"org_name\": \"organization_name\",   \"org_id\": \"ExampleOrganizationId\",   \"groups\": [     {       \"group_name\": \"default_group2\",       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     },      {       \"group_name\": \"default_group\",       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"payment\": {         \"payment_address\": \"0x671276c61943A35D5F230d076bDFd91B0c47bF09\",         \"payment_expiration_threshold\": 40320,         \"payment_channel_storage_type\": \"etcd\",         \"payment_channel_storage_client\": {           \"connection_timeout\": \"15s\",           \"request_timeout\": \"13s\",           \"endpoints\": [             \"http://127.0.0.1:2379\"           ]         }       }     }   ] }"
 	testJsonData = "{   \"version\": 1,   \"display_name\": \"Example1\",   \"encoding\": \"grpc\",   \"service_type\": \"grpc\",   \"payment_expiration_threshold\": 40320, " +
 		"  \"mpe_address\": \"0x7E6366Fbe3bdfCE3C906667911FC5237Cc96BD08\",   \"groups\": [     {    \"free_calls\": 10,  \"free_call_signer_address\": \"0xF627CE8635cdC34b2f619FDDb4E4b61308D6BD68\",  \"endpoints\": [\"http://34.344.33.1:2379\",\"http://34.344.33.1:2389\"],       \"group_id\": \"88ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",\"group_name\": \"default_group\",       \"pricing\": [         {           \"price_model\": \"fixed_price\",           \"price_in_cogs\": 2         },          {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"default\":true,         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     },     {       \"endpoints\": [\"http://97.344.33.1:2379\",\"http://67.344.33.1:2389\"],       \"group_id\": \"99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=\",       \"pricing\": [         {         \"package_name\": \"example_service\",         \"price_model\": \"fixed_price_per_method\",         \"details\": [           {             \"service_name\": \"Calculator\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 3               }             ]           },           {             \"service_name\": \"Calculator2\",             \"method_pricing\": [               {                 \"method_name\": \"add\",                 \"price_in_cogs\": 2               },               {                 \"method_name\": \"sub\",                 \"price_in_cogs\": 1               },               {                 \"method_name\": \"div\",                 \"price_in_cogs\": 3               },               {                 \"method_name\": \"mul\",                 \"price_in_cogs\": 2               }             ]           }         ]       }]     }   ] } "
@@ -75,12 +75,12 @@ func (suite *FreeCallStateServiceSuite) SetupSuite() {
 	suite.serviceMetaData, err = blockchain.InitServiceMetaDataFromJson([]byte(testJsonData))
 	suite.Require().NoError(err)
 	suite.memoryStorage = storage.NewMemStorage()
-	suite.storage = NewFreeCallUserStorage(suite.memoryStorage)
-	suite.service = NewFreeCallUserService(suite.storage,
-		NewEtcdLocker(suite.memoryStorage), func() ([32]byte, error) { return suite.orgMetaData.GetGroupId(), nil },
+	suite.storage = NewUserStorage(suite.memoryStorage)
+	suite.service = NewUserService(suite.storage,
+		storage.NewLocker(suite.memoryStorage), func() ([32]byte, error) { return suite.orgMetaData.GetGroupId(), nil },
 		suite.serviceMetaData)
 	erc20 := MockedERC20{}
-	suite.stateService = NewFreeCallStateService(suite.orgMetaData, suite.serviceMetaData, suite.service, suite.freeCallPaymentValidator, erc20, big.NewInt(1))
+	suite.stateService = NewStateService(suite.orgMetaData, suite.serviceMetaData, suite.service, suite.freeCallPaymentValidator, erc20, big.NewInt(1))
 }
 
 func (suite *FreeCallStateServiceSuite) TestGetFreeCallsAvailable() {
@@ -113,7 +113,7 @@ func (suite *FreeCallStateServiceSuite) TestErrors() {
 		CurrentBlock: 99,
 	}
 
-	token, _ := suite.freeCallPaymentValidator.NewFreeCallToken(suite.signerAddress.Hex(), nil, nil)
+	token, _ := suite.freeCallPaymentValidator.NewToken(suite.signerAddress.Hex(), nil, nil)
 	suite.useFreeCallRequest.FreeCallToken = getSignature(token, suite.signerPrivateKey)
 	suite.SetSignatureWithToken()
 
@@ -128,7 +128,7 @@ func (suite *FreeCallStateServiceSuite) TestErrors() {
 
 func (suite *FreeCallStateServiceSuite) SetSignatureWithToken() {
 	message := bytes.Join([][]byte{
-		[]byte(FreeCallPrefixSignature),
+		[]byte(PrefixSignature),
 		[]byte(suite.userAddress.Hex()),
 		[]byte(suite.useFreeCallRequest.GetUserId()),
 		[]byte(config.GetString(config.OrganizationId)),
@@ -143,7 +143,7 @@ func (suite *FreeCallStateServiceSuite) SetSignatureWithToken() {
 
 func (suite *FreeCallStateServiceSuite) SetSignatureForNewToken() {
 	message := bytes.Join([][]byte{
-		[]byte(FreeCallPrefixSignature),
+		[]byte(PrefixSignature),
 		[]byte(suite.userAddress.Hex()),
 		[]byte(suite.newTokenRequest.GetUserId()),
 		[]byte(config.GetString(config.OrganizationId)),

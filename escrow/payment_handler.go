@@ -4,14 +4,13 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v6/utils"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/singnet/snet-daemon/v6/metrics"
+	"github.com/singnet/snet-daemon/v6/utils"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -146,27 +145,5 @@ func (h *paymentChannelPaymentHandler) CompleteAfterError(payment handler.Paymen
 }
 
 func paymentErrorToGrpcError(err error) *handler.GrpcError {
-	if err == nil {
-		return nil
-	}
-
-	if _, ok := err.(*PaymentError); !ok {
-		return handler.NewGrpcErrorf(codes.Internal, "internal error: %v", err)
-	}
-
-	var grpcCode codes.Code
-	switch err.(*PaymentError).Code {
-	case Internal:
-		grpcCode = codes.Internal
-	case Unauthenticated:
-		grpcCode = codes.Unauthenticated
-	case FailedPrecondition:
-		grpcCode = codes.FailedPrecondition
-	case IncorrectNonce:
-		grpcCode = handler.IncorrectNonce
-	default:
-		grpcCode = codes.Internal
-	}
-
-	return handler.NewGrpcError(grpcCode, err.(*PaymentError).Message)
+	return handler.PaymentErrorToGRPCError(err)
 }

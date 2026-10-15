@@ -29,20 +29,6 @@ func SignTestPayment(payment *Payment, privateKey *ecdsa.PrivateKey) {
 	payment.Signature = getSignature(message, privateKey)
 }
 
-func SignFreeTestPayment(payment *FreeCallPayment, privateKey *ecdsa.PrivateKey) {
-	message := bytes.Join([][]byte{
-		[]byte(FreeCallPrefixSignature),
-		[]byte(payment.Address),
-		[]byte(config.GetString(config.OrganizationId)),
-		[]byte(config.GetString(config.ServiceId)),
-		[]byte(payment.GroupId),
-		bigIntToBytes(payment.CurrentBlockNumber),
-		payment.AuthToken,
-	}, nil)
-
-	payment.Signature = getSignature(message, privateKey)
-}
-
 func getSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	hash := crypto.Keccak256(
 		blockchain.HashPrefix32Bytes,
@@ -68,16 +54,13 @@ func GenerateTestPrivateKey() (privateKey *ecdsa.PrivateKey) {
 type ValidationTestSuite struct {
 	suite.Suite
 
-	senderAddress          common.Address
-	signerPrivateKey       *ecdsa.PrivateKey
-	signerAddress          common.Address
-	recipientAddress       common.Address
-	mpeContractAddress     common.Address
-	freeCallUserPrivateKey *ecdsa.PrivateKey
-	freeCallUserAddress    common.Address
+	senderAddress      common.Address
+	signerPrivateKey   *ecdsa.PrivateKey
+	signerAddress      common.Address
+	recipientAddress   common.Address
+	mpeContractAddress common.Address
 
-	validator                ChannelPaymentValidator
-	freeCallPaymentValidator FreeCallPaymentValidator
+	validator ChannelPaymentValidator
 }
 
 func TestValidationTestSuite(t *testing.T) {
@@ -89,39 +72,15 @@ func (suite *ValidationTestSuite) SetupSuite() {
 	config.Validate()
 	suite.senderAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.signerPrivateKey = GenerateTestPrivateKey()
-	suite.freeCallUserPrivateKey = GenerateTestPrivateKey()
 
 	suite.signerAddress = crypto.PubkeyToAddress(suite.signerPrivateKey.PublicKey)
-	suite.freeCallUserAddress = crypto.PubkeyToAddress(suite.freeCallUserPrivateKey.PublicKey)
 	suite.recipientAddress = crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	suite.mpeContractAddress = utils.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	suite.validator = ChannelPaymentValidator{
-		currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+		blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil }),
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 	}
-	suite.freeCallPaymentValidator = FreeCallPaymentValidator{freeCallSignerAddress: suite.signerAddress, freeCallSigner: suite.signerPrivateKey,
-		currentBlock: func() (*big.Int, error) { return big.NewInt(99), nil }}
-}
-
-func (suite *ValidationTestSuite) FreeCallPayment() *FreeCallPayment {
-	payment := &FreeCallPayment{
-		Address:                    suite.freeCallUserAddress.Hex(),
-		ServiceId:                  config.GetString(config.ServiceId),
-		OrganizationId:             config.GetString(config.OrganizationId),
-		CurrentBlockNumber:         big.NewInt(99),
-		AuthTokenExpiryBlockNumber: big.NewInt(120),
-		GroupId:                    "default_group",
-	}
-	var tokenLifetimeBlocks uint64 = 21
-	//GenerateFreeCallTokenPayment(payment, suite.signerPrivateKey, suite.userAddress)
-	payment.AuthToken, payment.AuthTokenExpiryBlockNumber = suite.freeCallPaymentValidator.NewFreeCallToken(payment.Address, nil, &tokenLifetimeBlocks)
-	tokenParsed, block, err := ParseFreeCallToken(payment.AuthToken)
-	assert.Nil(suite.T(), err)
-	assert.NotNil(suite.T(), block)
-	payment.AuthTokenParsed = tokenParsed
-	SignFreeTestPayment(payment, suite.freeCallUserPrivateKey)
-	return payment
 }
 
 func (suite *ValidationTestSuite) payment() *Payment {
@@ -148,18 +107,6 @@ func (suite *ValidationTestSuite) channel() *PaymentChannelData {
 		AuthorizedAmount: big.NewInt(12300),
 		Signature:        nil,
 	}
-}
-
-func (suite *ValidationTestSuite) TestFreeCallNewToken() {
-	payment := suite.FreeCallPayment()
-	_, deadlineBlock := suite.freeCallPaymentValidator.NewFreeCallToken(payment.Address, nil, nil)
-	assert.NotNil(suite.T(), deadlineBlock, "deadlineBlock can't be nil")
-}
-
-func (suite *ValidationTestSuite) TestFreeCallPaymentIsValid() {
-	payment := suite.FreeCallPayment()
-	err := suite.freeCallPaymentValidator.Validate(payment)
-	assert.Nil(suite.T(), err, "Unexpected error: %v", err)
 }
 
 func (suite *ValidationTestSuite) TestPaymentIsValid() {
@@ -212,7 +159,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentIncorrectSigner() {
 
 func (suite *ValidationTestSuite) TestValidatePaymentChannelCannotGetCurrentBlock() {
 	validator := &ChannelPaymentValidator{
-		currentBlock: func() (*big.Int, error) { return nil, errors.New("blockchain error") },
+		blockValidator: blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return nil, errors.New("blockchain error") }),
 	}
 
 	err := validator.Validate(suite.payment(), suite.channel())
@@ -222,7 +169,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentChannelCannotGetCurrentBloc
 
 func (suite *ValidationTestSuite) TestValidatePaymentExpiredChannel() {
 	validator := &ChannelPaymentValidator{
-		currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+		blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil }),
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 	}
 	channel := suite.channel()
@@ -235,7 +182,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentExpiredChannel() {
 
 func (suite *ValidationTestSuite) TestValidatePaymentChannelExpirationThreshold() {
 	validator := &ChannelPaymentValidator{
-		currentBlock:               func() (*big.Int, error) { return big.NewInt(98), nil },
+		blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(98), nil }),
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(1) },
 	}
 	channel := suite.channel()
@@ -244,6 +191,40 @@ func (suite *ValidationTestSuite) TestValidatePaymentChannelExpirationThreshold(
 	err := validator.Validate(suite.payment(), channel)
 
 	assert.Equal(suite.T(), NewPaymentError(Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 98, expiration threshold: 1"), err)
+}
+
+func (suite *ValidationTestSuite) TestValidatePaymentChannelExpirationBoundaries() {
+	currentBlock := big.NewInt(98)
+	threshold := big.NewInt(3)
+	validator := &ChannelPaymentValidator{
+		blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return currentBlock, nil }),
+		paymentExpirationThreshold: func() *big.Int { return threshold },
+	}
+	for _, expiration := range []int64{100, 101, 102} {
+		suite.Run(fmt.Sprintf("expiration %d", expiration), func() {
+			channel := suite.channel()
+			channel.Expiration = big.NewInt(expiration)
+			err := validator.Validate(suite.payment(), channel)
+			if expiration > 101 {
+				assert.NoError(suite.T(), err)
+			} else {
+				assert.Equal(suite.T(), NewPaymentError(Unauthenticated,
+					"payment channel is near to be expired, expiration time: %v, current block: 98, expiration threshold: 3", expiration), err)
+			}
+			assert.Equal(suite.T(), big.NewInt(98), currentBlock)
+			assert.Equal(suite.T(), big.NewInt(3), threshold)
+		})
+	}
+}
+
+func (suite *ValidationTestSuite) TestValidatePaymentChannelInvalidCurrentBlock() {
+	for _, block := range []*big.Int{nil, big.NewInt(-1)} {
+		validator := &ChannelPaymentValidator{
+			blockValidator: blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return block, nil }),
+		}
+		assert.Equal(suite.T(), NewPaymentError(Internal, "cannot determine current block"),
+			validator.Validate(suite.payment(), suite.channel()))
+	}
 }
 
 func (suite *ValidationTestSuite) TestValidatePaymentAmountIsTooBig() {

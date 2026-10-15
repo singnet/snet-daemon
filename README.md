@@ -549,6 +549,13 @@ You can edit `ethereum_json_rpc_http_endpoint` in `resources/blockchain_network_
 
 * [Payment Signatures](/escrow/README.md).
 
+Signed channel-state, prepaid-token, provider claim/list, and free-call requests
+must supply a current block within five blocks of the daemon's latest observed
+block, including both boundaries. Payment-channel expiration is checked
+separately against the organization's `payment_expiration_threshold`.
+See the [payment authorization guide](escrow/README.md#block-validation) and
+[free-call guide](freecall/README.md#tokens-and-requests) for the request formats.
+
 ## Versioning
 
 We use [SemVer](http://semver.org/) for versioning. For the versions available, see the

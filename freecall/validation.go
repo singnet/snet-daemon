@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/errs"
 	"github.com/singnet/snet-daemon/v6/utils"
@@ -22,7 +23,7 @@ const (
 )
 
 type PaymentValidator struct {
-	currentBlock                   func() (currentBlock *big.Int, err error)
+	blockValidator                 *blockchain.EthereumBlockValidator
 	freeCallSignerAddress          common.Address
 	trustedFreeCallSignerAddresses []common.Address
 	freeCallSigner                 *ecdsa.PrivateKey
@@ -30,7 +31,7 @@ type PaymentValidator struct {
 
 func NewPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int, err error), signerAddress common.Address, signer *ecdsa.PrivateKey, trustedAddresses []common.Address) *PaymentValidator {
 	return &PaymentValidator{
-		currentBlock:                   funcCurrentBlock,
+		blockValidator:                 blockchain.NewEthereumBlockValidator(funcCurrentBlock),
 		freeCallSignerAddress:          signerAddress,
 		trustedFreeCallSignerAddresses: trustedAddresses,
 		freeCallSigner:                 signer,
@@ -41,7 +42,7 @@ func (validator *PaymentValidator) NewToken(userAddress string, userID *string, 
 
 	userAddr := common.HexToAddress(userAddress)
 
-	latestBlockNumber, err := validator.currentBlock()
+	latestBlockNumber, err := validator.blockValidator.CurrentBlock()
 	if err != nil {
 		return nil, nil
 	}
@@ -137,19 +138,11 @@ func (validator *PaymentValidator) Validate(payment *Payment) (err error) {
 
 // Check if the block number passed is not more +- 5 from the latest block number on chain
 func (validator *PaymentValidator) compareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
-	latestBlockNumber, err := validator.currentBlock()
-	if err != nil {
-		return err
-	}
-	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
-	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > allowedBlockDifference {
-		return fmt.Errorf("authentication failed as the signature passed has expired")
-	}
-	return nil
+	return validator.blockValidator.ValidateBlock(blockNumberPassed, allowedBlockDifference)
 }
 
 func (validator *PaymentValidator) CheckIfBlockExpired(expiredBlock *big.Int) error {
-	currentBlockNumber, err := validator.currentBlock()
+	currentBlockNumber, err := validator.blockValidator.CurrentBlock()
 	if err != nil {
 		return err
 	}

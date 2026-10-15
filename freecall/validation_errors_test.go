@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/errs"
 	"github.com/singnet/snet-daemon/v6/utils"
@@ -70,7 +71,7 @@ func uint64Pointer(value uint64) *uint64 { return &value }
 func TestValidatorBlockchainErrors(t *testing.T) {
 	f := newAuthFixture(t)
 	wantErr := errors.New("blockchain unavailable")
-	f.validator.currentBlock = func() (*big.Int, error) { return nil, wantErr }
+	f.validator.blockValidator = blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return nil, wantErr })
 	token, expiration := f.validator.NewToken(common.Address{}.Hex(), nil, nil)
 	require.Nil(t, token)
 	require.Nil(t, expiration)
@@ -111,7 +112,7 @@ func TestValidateRejectsInvalidAuthorization(t *testing.T) {
 		}, "token sign is not valid"},
 		{"curation", func(_ *authFixture, _ *Payment) { config.Vip().Set(config.AllowedUserFlag, true) }, "not Authorized"},
 		{"expired token", func(f *authFixture, _ *Payment) {
-			f.validator.currentBlock = func() (*big.Int, error) { return big.NewInt(100 + TokenLifetime + 1), nil }
+			f.validator.blockValidator = blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(100 + TokenLifetime + 1), nil })
 		}, "Token passed has expired"},
 		{"stale request", func(f *authFixture, p *Payment) {
 			p.CurrentBlockNumber = big.NewInt(94)
@@ -119,6 +120,10 @@ func TestValidateRejectsInvalidAuthorization(t *testing.T) {
 		}, "signature passed has expired"},
 		{"future request", func(f *authFixture, p *Payment) {
 			p.CurrentBlockNumber = big.NewInt(106)
+			signPaymentRequest(p, f.userKey)
+		}, "signature passed has expired"},
+		{"large future request", func(f *authFixture, p *Payment) {
+			p.CurrentBlockNumber = new(big.Int).Add(big.NewInt(100), new(big.Int).Lsh(big.NewInt(1), 64))
 			signPaymentRequest(p, f.userKey)
 		}, "signature passed has expired"},
 	} {
@@ -139,4 +144,27 @@ func TestBlockValidityBoundaries(t *testing.T) {
 	require.NoError(t, f.validator.CheckIfBlockExpired(big.NewInt(100)))
 	require.NoError(t, f.validator.CheckIfBlockExpired(big.NewInt(101)))
 	require.Error(t, f.validator.CheckIfBlockExpired(big.NewInt(99)))
+}
+
+func TestValidatePreservesBlockAndSignature(t *testing.T) {
+	f := newAuthFixture(t)
+	payment := f.payment(t)
+	payment.CurrentBlockNumber = big.NewInt(105)
+	signPaymentRequest(payment, f.userKey)
+	for range 2 {
+		require.NoError(t, f.validator.Validate(payment))
+		require.Equal(t, big.NewInt(105), payment.CurrentBlockNumber)
+	}
+}
+
+func TestNewTokenPreservesCurrentBlock(t *testing.T) {
+	f := newAuthFixture(t)
+	source := big.NewInt(100)
+	f.validator.blockValidator = blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return source, nil })
+	for range 2 {
+		token, expiration := f.validator.NewToken(common.Address{}.Hex(), nil, uint64Pointer(20))
+		require.NotEmpty(t, token)
+		require.Equal(t, big.NewInt(120), expiration)
+		require.Equal(t, big.NewInt(100), source)
+	}
 }

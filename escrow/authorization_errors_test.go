@@ -73,7 +73,7 @@ func TestBlockchainReaderAndValidatorConstructors(t *testing.T) {
 	require.Equal(t, org.GetPaymentAddress(), channel.Recipient)
 	require.Equal(t, big.NewInt(30), channel.FullAmount)
 	validator := NewChannelPaymentValidator(processor, org)
-	block, err := validator.currentBlock()
+	block, err := validator.blockValidator.CurrentBlock()
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(blockchain.MockedCurrentBlock), block)
 	require.Equal(t, org.GetPaymentExpirationThreshold(), validator.paymentExpirationThreshold())

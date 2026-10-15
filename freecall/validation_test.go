@@ -72,7 +72,7 @@ func (suite *ValidationTestSuite) SetupSuite() {
 	suite.freeCallPaymentValidator = PaymentValidator{
 		freeCallSignerAddress: suite.signerAddress,
 		freeCallSigner:        suite.signerPrivateKey,
-		currentBlock:          func() (*big.Int, error) { return big.NewInt(99), nil },
+		blockValidator:        blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil }),
 	}
 }
 

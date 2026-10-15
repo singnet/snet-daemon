@@ -27,6 +27,24 @@ Signatures are 65-byte `R || S || V` values. The verifier accepts recovery IDs
 encoded as 0/1 or 27/28. Binary gRPC metadata fields contain signature bytes,
 not their hex text representation.
 
+## Block validation
+
+Escrow, free-call authorization, and the blockchain processor use the shared
+[EthereumBlockValidator](../blockchain/block_validator.go). Request freshness
+accepts an absolute block difference of at most five for escrow and free calls:
+both `current - 5` and `current + 5` are accepted. Other protocols keep their own
+allowances when calling `Processor.CompareWithLatestBlockNumber`.
+
+The validator reads the latest block for each check, rejects missing or negative
+block values, and compares full-width integers without modifying the request or
+the block returned by its source. It does not cache block numbers.
+
+Payment-channel expiration has a separate rule:
+`current + payment_expiration_threshold < channel.Expiration`. Equality is
+rejected. The threshold comes from organization metadata, not the five-block
+request window. Failure to obtain a valid current block remains an internal
+payment error.
+
 ## Read payment-channel state
 
 Call `escrow.PaymentChannelStateService/GetChannelState` using
@@ -106,6 +124,17 @@ operations; they do not replace provider transaction submission.
 ## Prepaid tokens and storage
 
 [TokenService](token_service.proto) issues HS256 JWT tokens for prepaid calls.
+Its `GetToken` request signs `ClaimSignature || CurrentBlock`, with the block
+encoded as a 32-byte big-endian integer. The signature must recover to the
+channel signer, sender, or recipient, and the block must pass the inclusive
+five-block freshness check. The claim signature and channel eligibility are
+also validated before any payment/usage update or JWT issuance.
+
+For Go callers, `NewTokenService` takes an explicit
+`*blockchain.EthereumBlockValidator` after the channel-payment validator and
+before service metadata. Token freshness uses this dependency independently of
+the channel-payment validator's block source.
+
 `token_expiry_in_minutes` defaults to `1440`.
 `token_secret_key` must contain at least 32 bytes when blockchain is enabled.
 The shipped value is a public test default: configure your own secret and use

@@ -78,7 +78,7 @@ func (suite *ValidationTestSuite) SetupSuite() {
 	suite.mpeContractAddress = utils.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
 
 	suite.validator = ChannelPaymentValidator{
-		currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+		blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil }),
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 	}
 }
@@ -159,7 +159,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentIncorrectSigner() {
 
 func (suite *ValidationTestSuite) TestValidatePaymentChannelCannotGetCurrentBlock() {
 	validator := &ChannelPaymentValidator{
-		currentBlock: func() (*big.Int, error) { return nil, errors.New("blockchain error") },
+		blockValidator: blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return nil, errors.New("blockchain error") }),
 	}
 
 	err := validator.Validate(suite.payment(), suite.channel())
@@ -169,7 +169,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentChannelCannotGetCurrentBloc
 
 func (suite *ValidationTestSuite) TestValidatePaymentExpiredChannel() {
 	validator := &ChannelPaymentValidator{
-		currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+		blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil }),
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 	}
 	channel := suite.channel()
@@ -182,7 +182,7 @@ func (suite *ValidationTestSuite) TestValidatePaymentExpiredChannel() {
 
 func (suite *ValidationTestSuite) TestValidatePaymentChannelExpirationThreshold() {
 	validator := &ChannelPaymentValidator{
-		currentBlock:               func() (*big.Int, error) { return big.NewInt(98), nil },
+		blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(98), nil }),
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(1) },
 	}
 	channel := suite.channel()
@@ -191,6 +191,40 @@ func (suite *ValidationTestSuite) TestValidatePaymentChannelExpirationThreshold(
 	err := validator.Validate(suite.payment(), channel)
 
 	assert.Equal(suite.T(), NewPaymentError(Unauthenticated, "payment channel is near to be expired, expiration time: 99, current block: 98, expiration threshold: 1"), err)
+}
+
+func (suite *ValidationTestSuite) TestValidatePaymentChannelExpirationBoundaries() {
+	currentBlock := big.NewInt(98)
+	threshold := big.NewInt(3)
+	validator := &ChannelPaymentValidator{
+		blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return currentBlock, nil }),
+		paymentExpirationThreshold: func() *big.Int { return threshold },
+	}
+	for _, expiration := range []int64{100, 101, 102} {
+		suite.Run(fmt.Sprintf("expiration %d", expiration), func() {
+			channel := suite.channel()
+			channel.Expiration = big.NewInt(expiration)
+			err := validator.Validate(suite.payment(), channel)
+			if expiration > 101 {
+				assert.NoError(suite.T(), err)
+			} else {
+				assert.Equal(suite.T(), NewPaymentError(Unauthenticated,
+					"payment channel is near to be expired, expiration time: %v, current block: 98, expiration threshold: 3", expiration), err)
+			}
+			assert.Equal(suite.T(), big.NewInt(98), currentBlock)
+			assert.Equal(suite.T(), big.NewInt(3), threshold)
+		})
+	}
+}
+
+func (suite *ValidationTestSuite) TestValidatePaymentChannelInvalidCurrentBlock() {
+	for _, block := range []*big.Int{nil, big.NewInt(-1)} {
+		validator := &ChannelPaymentValidator{
+			blockValidator: blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return block, nil }),
+		}
+		assert.Equal(suite.T(), NewPaymentError(Internal, "cannot determine current block"),
+			validator.Validate(suite.payment(), suite.channel()))
+	}
 }
 
 func (suite *ValidationTestSuite) TestValidatePaymentAmountIsTooBig() {

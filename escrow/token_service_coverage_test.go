@@ -77,9 +77,11 @@ func (m *tokenPrePaidServiceMock) UpdateUsage(channelId *big.Int, amount *big.In
 
 type tokenServiceTokenManager struct {
 	createErr error
+	created   bool
 }
 
 func (m *tokenServiceTokenManager) CreateToken(key token.PayLoad, signer string) (token.CustomToken, error) {
+	m.created = true
 	if m.createErr != nil {
 		return nil, m.createErr
 	}
@@ -116,11 +118,12 @@ func newTokenServiceFixture(t *testing.T) *tokenServiceFixture {
 	channelMock := &tokenChannelServiceMock{}
 	usageMock := &tokenPrePaidServiceMock{}
 	tokenMock := &tokenServiceTokenManager{}
+	blockValidator := blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil })
 	validator := &ChannelPaymentValidator{
-		currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+		blockValidator:             blockValidator,
 		paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 	}
-	service := NewTokenService(channelMock, usageMock, tokenMock, validator, svcMD)
+	service := NewTokenService(channelMock, usageMock, tokenMock, validator, blockValidator, svcMD)
 
 	return &tokenServiceFixture{
 		service:      service,
@@ -168,8 +171,8 @@ func TestNewTokenService(t *testing.T) {
 	f := newTokenServiceFixture(t)
 	require.NotNil(t, f.service)
 
-	assert.NoError(t, f.service.allowedBlockNumberCheck(big.NewInt(99)))
-	assert.Error(t, f.service.allowedBlockNumberCheck(big.NewInt(200)))
+	assert.NoError(t, f.service.blockValidator.ValidateBlock(big.NewInt(99), AllowedBlockDifference))
+	assert.Error(t, f.service.blockValidator.ValidateBlock(big.NewInt(200), AllowedBlockDifference))
 }
 
 func TestTokenServiceFixtureIsolatesConfig(t *testing.T) {

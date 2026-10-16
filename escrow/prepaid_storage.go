@@ -21,8 +21,7 @@ func (payment *PrePaidPayment) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v}", payment.ChannelID, payment.OrganizationId, payment.GroupId)
 }
 
-// Kept the bare minimum here , other details like group and sender address of this channel can
-// always be retrieved from BlockChain
+// PrePaidData stores only the amount; the channel ID and usage type are stored in PrePaidDataKey.
 type PrePaidData struct {
 	Amount *big.Int
 }

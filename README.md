@@ -23,6 +23,7 @@ are then passed to the service after validation by the daemon.
     2. [Additional properties](#other_properties)
 3. [Channel Claim and other commands](#commands)
 4. [Build and development](#build)
+5. [Contributing](#contributing)
 
 ## Install and use <a name="use"></a>
 
@@ -555,6 +556,11 @@ block, including both boundaries. Payment-channel expiration is checked
 separately against the organization's `payment_expiration_threshold`.
 See the [payment authorization guide](escrow/README.md#block-validation) and
 [free-call guide](freecall/README.md#tokens-and-requests) for the request formats.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting issues and
+submitting pull requests.
 
 ## Versioning
 

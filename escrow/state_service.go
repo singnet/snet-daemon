@@ -18,10 +18,13 @@ import (
 )
 
 const (
+	// AllowedBlockDifference is the inclusive freshness window for signed
+	// state, provider-list, batch-claim, and prepaid-token requests.
 	AllowedBlockDifference = 5
 )
 
-// PaymentChannelStateService is an implementation of PaymentChannelStateServiceServer gRPC interface
+// PaymentChannelStateService exposes merged channel state to an authenticated
+// channel signer, sender, or recipient, including a previous pending authorization.
 type PaymentChannelStateService struct {
 	channelService               PaymentChannelService
 	paymentStorage               *PaymentStorage
@@ -30,15 +33,17 @@ type PaymentChannelStateService struct {
 }
 
 func (service *PaymentChannelStateService) mustEmbedUnimplementedPaymentChannelStateServiceServer() {
-	//TODO implement me
+	// This marker satisfies the generated gRPC interface; RPC dispatch does not call it.
 	panic("implement me")
 }
 
+// BlockChainDisabledStateService returns empty channel state without signature
+// verification when blockchain integration is disabled.
 type BlockChainDisabledStateService struct {
 }
 
 func (service *BlockChainDisabledStateService) mustEmbedUnimplementedPaymentChannelStateServiceServer() {
-	//TODO implement me
+	// This marker satisfies the generated gRPC interface; RPC dispatch does not call it.
 	panic("implement me")
 }
 
@@ -46,7 +51,8 @@ func (service *BlockChainDisabledStateService) GetChannelState(context context.C
 	return &ChannelStateReply{}, nil
 }
 
-// StorageNonceMatchesWithBlockchainNonce verifies whether storage channel nonce is equal to blockchain nonce or not
+// StorageNonceMatchesWithBlockchainNonce compares the supplied channel snapshot's
+// nonce with a direct blockchain read and reports an error if the read fails.
 func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonce(storageChannel *PaymentChannelData) (equal bool, err error) {
 	h := service.channelService
 
@@ -61,7 +67,8 @@ func (service *PaymentChannelStateService) StorageNonceMatchesWithBlockchainNonc
 	return storageChannel.Nonce.Cmp(blockchainChannel.Nonce) == 0, nil
 }
 
-// NewPaymentChannelStateService returns new instance of PaymentChannelStateService
+// NewPaymentChannelStateService creates the authenticated channel-state service
+// with the processor's MPE address and request-block freshness check.
 func NewPaymentChannelStateService(channelService PaymentChannelService, paymentStorage *PaymentStorage, processor blockchain.Processor) *PaymentChannelStateService {
 	return &PaymentChannelStateService{
 		channelService: channelService,
@@ -73,26 +80,22 @@ func NewPaymentChannelStateService(channelService PaymentChannelService, payment
 	}
 }
 
-// GetChannelState returns the latest state of the channel which id is passed
-// in request. To authenticate sender request should also contain the correct
-// signature of the channel id.
-/* Simple case current_nonce == blockchain_nonce
-unspent_amount = blockchain_value - current_signed_amount
-Complex case current_nonce != blockchain_nonce
-Taking into account our assumptions, we know that current_nonce = blockchain_nonce + 1.
-
-Unspent_amount = blockchain_value - oldnonce_signed_amount - current_signed_amount
-It should be noted that in this case the server could send us smaller old nonce_signed_amount (not the actually last one which was used for channelClaim).
-In this case, the server can only make us believe that we have more money in the channel then we actually have.
-That means that one possible attack via unspent_amount is to make us believe that we have less tokens than we truly have,
-and therefore reject future calls (or force us to call channelAddFunds).*/
+// GetChannelState authenticates a signature over "__get_channel_state" || MPE
+// address || channel ID || current block and returns the latest available state.
+// The signer must be the channel signer, sender, or recipient, and the block must
+// pass the inclusive AllowedBlockDifference freshness check.
+//
+// If the returned nonce differs from the blockchain nonce, the response includes
+// the pending payment for current_nonce - 1. A missing payment is an error. This
+// lookup assumes a previous pending claim; it does not validate that the nonce
+// difference is exactly one. Prepaid usage fields are not populated here.
 func (service *PaymentChannelStateService) GetChannelState(context context.Context, request *ChannelStateRequest) (reply *ChannelStateReply, err error) {
 	zap.L().Debug("GetChannelState called",
 		zap.Any("context", context),
 		zap.Any("request", request))
 
 	channelID := bytesToBigInt(request.GetChannelId())
-	// signature verification
+	// Numeric signed fields use fixed-width, 32-byte big-endian encoding.
 	message := bytes.Join([][]byte{
 		[]byte("__get_channel_state"),
 		service.mpeAddress().Bytes(),
@@ -121,14 +124,15 @@ func (service *PaymentChannelStateService) GetChannelState(context context.Conte
 		return nil, err
 	}
 
-	// check if nonce matches with blockchain or not
+	// A prepared claim can advance local state before its blockchain settlement.
 	nonceEqual, err := service.StorageNonceMatchesWithBlockchainNonce(channel)
 	if err != nil {
 		zap.L().Info("payment data not available in payment storage.", zap.Error(err))
 		return nil, err
 
 	} else if !nonceEqual {
-		// check for payments in the payment storage with current nonce - 1, this will happen if cli has issues in claiming process
+		// Return the previous nonce's pending authorization so the client can
+		// account for it while the local and blockchain states differ.
 
 		paymentID := PaymentID(channel.ChannelID, (&big.Int{}).Sub(channel.Nonce, big.NewInt(1)))
 		payment, ok, err := service.paymentStorage.Get(paymentID)

@@ -245,7 +245,8 @@ func (suite *ValidationTestSuite) TestGetPublicKeyFromPayment() {
 		ChannelID:          big.NewInt(1789),
 		ChannelNonce:       big.NewInt(1917),
 		Amount:             big.NewInt(31415),
-		// message hash: 04cc38aa4a27976907ef7382182bc549957dc9d2e21eb73651ad6588d5cd4d8f
+		// Digest: Keccak256("\x19Ethereum Signed Message:\n32" || Keccak256(claim message)).
+		// a844e6defd97fac28d0662b8d0c985dc2a71006182f01dc94a7195a46f0e262f
 		Signature: utils.HexToBytes("0xa4d2ae6f3edd1f7fe77e4f6f78ba18d62e6093bcae01ef86d5de902d33662fa372011287ea2d8d8436d9db8a366f43480678df25453b484c67f80941ef2c05ef01"),
 	}
 

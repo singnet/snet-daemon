@@ -13,27 +13,21 @@ import (
 	"github.com/singnet/snet-daemon/v6/handler"
 )
 
-// IncomeStreamData is used to pass information to the pricing validation system.
-// This system can use information about call to calculate price and verify
-// income received.
+// IncomeStreamData supplies the payment increment and stream context used to
+// verify that a call's price is covered by the new authorization.
 type IncomeStreamData struct {
-	// Income is a difference between previous authorized amount and amount
-	// which was received with the current call.
+	// Income is the new cumulative signed amount minus the previously accepted
+	// AuthorizedAmount for the same nonce, in token base units.
 	Income *big.Int
-	// GrpcContext contains gRPC stream context information. For instance,
-	// metadata could be used to pass invoice id to check pricing.
+	// GrpcContext provides the RPC method and metadata used to determine price.
 	GrpcContext *handler.GrpcStreamContext
 }
 
-// IncomeStreamValidator uses pricing information to check that call was paid
-// correctly by channel sender. This interface can be implemented differently
-// depending on pricing policy. For instance one can verify that call is paid
-// according to invoice. Each RPC method can have different price and so on. To
-// implement these strategies additional information from gRPC context can be
-// required. In such case it should be added into handler.GrpcStreamContext.
+// IncomeStreamValidator checks a stream call's payment increment against its
+// pricing policy before the payment transaction is committed.
 type IncomeStreamValidator interface {
-	// Validate returns nil if validation is successful or correct PaymentError
-	// status to be sent to client in case of validation error.
+	// Validate returns nil on success. Errors can include PaymentError for a
+	// price mismatch or errors from price/model lookup.
 	Validate(*IncomeStreamData) (err error)
 }
 
@@ -42,7 +36,8 @@ type incomeStreamValidator struct {
 	storage       *training.ModelStorage
 }
 
-// NewIncomeStreamValidator returns new income validator instance
+// NewIncomeStreamValidator uses model ValidatePrice for upload_and_validate
+// methods and the supplied pricing strategy for other stream methods.
 func NewIncomeStreamValidator(pricing *pricing.PricingStrategy, storage *training.ModelStorage) (validator IncomeStreamValidator) {
 	return &incomeStreamValidator{priceStrategy: pricing, storage: storage}
 }
@@ -83,22 +78,24 @@ type trainUnaryValidator struct {
 	storage       *training.ModelStorage
 }
 
+// IncomeUnaryValidator checks the payment increment for a unary training call.
 type IncomeUnaryValidator interface {
-	// Validate returns nil if validation is successful or correct PaymentError
-	// status to be sent to client in case of validation error.
+	// Validate returns nil on success or an error from pricing validation or
+	// model lookup. A price mismatch is reported as PaymentError.
 	Validate(data *IncomeUnaryData) (err error)
 }
 
+// IncomeUnaryData supplies a unary call's payment increment and pricing context.
 type IncomeUnaryData struct {
-	// Income is a difference between previous authorized amount and amount
-	// which was received with current call.
+	// Income is the new cumulative signed amount minus the previously accepted
+	// AuthorizedAmount for the same nonce, in token base units.
 	Income *big.Int
-	// GrpcContext contains gRPC stream context information. For instance
-	// metadata could be used to pass invoice id to check pricing.
+	// GrpcContext identifies the unary method and training model in metadata.
 	GrpcContext *handler.GrpcUnaryContext
 }
 
-// NewTrainValidator returns a new income validator instance
+// NewTrainValidator checks train_model and validate_model against their stored
+// model prices. Other methods skip the price comparison after model lookup.
 func NewTrainValidator(storage *training.ModelStorage) (validator IncomeUnaryValidator) {
 	return &trainUnaryValidator{storage: storage}
 }

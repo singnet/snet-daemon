@@ -8,9 +8,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// lockingPaymentChannelService implements PaymentChannelService interface
-// using locks around proxied service call to guarantee that only one payment
-// at a time is applied to channel
+// lockingPaymentChannelService serializes payment transactions and claim
+// preparation with a lock per channel ID. Channel reads do not acquire this lock.
 type lockingPaymentChannelService struct {
 	storage          *PaymentChannelStorage
 	paymentStorage   *PaymentStorage
@@ -52,8 +51,8 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	blockchainChannel, blockchainOk, err := h.blockchainReader.GetChannelStateFromBlockchain(key)
 
 	if !storageOk {
-		// Group ID check is only done for the first time, when the channel is added to storage from the blockchain.
-		// If the channel is already present in the storage, the group ID check is skipped.
+		// Validate the group when there is no stored channel. This read does not
+		// persist the channel; cached channels skip this group check.
 		if blockchainChannel != nil {
 			blockChainGroupID := h.replicaGroupID()
 			if err = h.verifyGroupId(blockChainGroupID, blockchainChannel.GroupID); err != nil {
@@ -69,7 +68,7 @@ func (h *lockingPaymentChannelService) PaymentChannel(key *PaymentChannelKey) (c
 	return MergeStorageAndBlockchainChannelState(storageChannel, blockchainChannel), true, nil
 }
 
-// Check if the channel belongs to the same group ID
+// verifyGroupId rejects channels assigned to a different replica group.
 func (h *lockingPaymentChannelService) verifyGroupId(configGroupID [32]byte, blockChainGroupID [32]byte) error {
 	if blockChainGroupID != configGroupID {
 		zap.L().Warn("Channel received belongs to another group of replicas", zap.Any("configGroupId", configGroupID))
@@ -166,8 +165,8 @@ func (h *lockingPaymentChannelService) ListClaims() (claims []Claim, err error) 
 
 func getPaymentFromChannel(channel *PaymentChannelData) *Payment {
 	return &Payment{
-		// TODO: add MpeContractAddress to channel state
-		//MpeContractAddress: channel.MpeContractAddress,
+		// Channel state does not retain the MPE address. Provider claim RPCs use
+		// the contract address from service metadata when authorizing requests.
 		ChannelID:    channel.ChannelID,
 		ChannelNonce: channel.Nonce,
 		Amount:       channel.AuthorizedAmount,

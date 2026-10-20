@@ -6,10 +6,15 @@ import (
 	"github.com/singnet/snet-daemon/v6/storage"
 )
 
+// UserStorage persists free-call usage independently of MPE channels. Its legacy
+// key format and gob field names are preserved for existing daemon instances.
 type UserStorage struct {
 	delegate storage.TypedAtomicStorage
 }
 
+// NewUserStorage adds the /free-call-user/storage prefix to the supplied backend.
+// Daemon components supply organization/group/network-scoped atomic storage,
+// without the MPE-address prefix used for payment-channel storage.
 func NewUserStorage(atomicStorage storage.AtomicStorage) *UserStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/free-call-user/storage")
 	storage := storage.NewTypedAtomicStorageImpl(

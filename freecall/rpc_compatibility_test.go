@@ -19,6 +19,8 @@ import (
 )
 
 // This is the original schema from dev before the freecall package was extracted.
+// Keep its historical comments and definitions unchanged as a compatibility
+// fixture; current protocol documentation belongs in state_service.proto.
 //
 //go:embed testdata/legacy_state_service.proto
 var legacyStateProto string

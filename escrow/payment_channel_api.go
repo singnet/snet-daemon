@@ -9,18 +9,21 @@ import (
 	"github.com/singnet/snet-daemon/v6/utils"
 )
 
-// Payment contains MultiPartyEscrow payment details
+// Payment authorizes a cumulative amount to be claimed from a MultiPartyEscrow
+// channel at a specific nonce. Amounts are expressed in token base units.
 type Payment struct {
 	// MpeContractAddress is an address of the MultiPartyEscrow contract which
 	// was used to open the payment channel.
 	MpeContractAddress common.Address
 	// ChannelID is an id of the payment channel used.
 	ChannelID *big.Int
-	// ChannelNonce is nonce of the payment channel.
+	// ChannelNonce identifies the channel state covered by the signature.
 	ChannelNonce *big.Int
-	// Amount is the amount of the payment.
+	// Amount is the cumulative amount authorized for ChannelNonce, not the price
+	// of a single call.
 	Amount *big.Int
-	// Signature is a signature of the payment.
+	// Signature authorizes the MPE address, channel ID, nonce, and amount using
+	// the claim-message format checked by getSignerAddressFromPayment.
 	Signature []byte
 }
 
@@ -33,14 +36,15 @@ func (p *Payment) ID() string {
 	return PaymentID(p.ChannelID, p.ChannelNonce)
 }
 
+// PaymentID identifies a pending claim by channel ID and nonce. Unlike a channel
+// storage key, it distinguishes successive claims for the same channel.
 func PaymentID(channelID *big.Int, channelNonce *big.Int) string {
 	return fmt.Sprintf("%v/%v", channelID, channelNonce)
 }
 
-// PaymentChannelKey specifies the channel in MultiPartyEscrow contract. It
-// consists of two parts: channel id and channel nonce. Channel nonce is
-// incremented each time when amount of tokens in channel decreases. Nonce
-// allows reusing channel id without risk of overexpenditure.
+// PaymentChannelKey identifies a channel by ID in channel storage and blockchain
+// lookups. The nonce belongs to PaymentChannelData, not this key. Pending claims
+// use PaymentID to distinguish authorizations for successive channel nonces.
 type PaymentChannelKey struct {
 	ID *big.Int
 }
@@ -49,14 +53,14 @@ func (key *PaymentChannelKey) String() string {
 	return fmt.Sprintf("{ID: %v}", key.ID)
 }
 
-// PaymentChannelState is a current state of a payment channel. Payment
-// channel may be in Open or Closed state.
+// PaymentChannelState is the local Open or Closed marker stored with a channel.
 type PaymentChannelState int
 
 const (
-	// Open means that channel is open and can be used to pay for calls.
+	// Open marks an open channel; payment eligibility is validated separately.
 	Open PaymentChannelState = 0
-	// Closed means that channel is closed cannot be used to pay for calls.
+	// Closed marks a closed channel. Setting this marker alone does not close
+	// the channel on the blockchain.
 	Closed PaymentChannelState = 1
 )
 
@@ -67,38 +71,42 @@ func (state PaymentChannelState) String() string {
 	}[state]
 }
 
-// PaymentChannelData is to keep all channel related information.
+// PaymentChannelData combines blockchain channel details with locally accepted
+// payment authorizations. A pending claim can advance the local nonce and reduce
+// FullAmount before the corresponding blockchain transaction is submitted.
 type PaymentChannelData struct {
-	// ChannelID is an id of the channel
+	// ChannelID is the channel's identifier in the MultiPartyEscrow contract.
 	ChannelID *big.Int
-	// Nonce is nonce of this channel state
+	// Nonce identifies this channel state and the signatures valid for it.
 	Nonce *big.Int
 	// State is a payment channel state: Open or Closed.
 	State PaymentChannelState
-	// Sender is an Ethereum address of the client which created the channel.
-	// It is an address to be charged for RPC call.
+	// Sender is the Ethereum address that funded the channel and can authorize
+	// payments from it.
 	Sender common.Address
-	// The Recipient is an address that can claim funds from a channel using
-	// signature. It is an address of service provider.
+	// Recipient is the provider's Ethereum address authorized to claim funds
+	// using a payment signature.
 	Recipient common.Address
 	// GroupID is an id of the group of service replicas which share the same
 	// payment channel.
 	GroupID [32]byte
-	// FullAmount is an amount deposited in the channel by Sender.
+	// FullAmount is the channel balance for Nonce, before subtracting the
+	// current AuthorizedAmount. Starting a claim deducts that authorization
+	// locally when advancing to the next nonce.
 	FullAmount *big.Int
-	// Expiration is a time at which channel will be expired. This time is
-	// expressed in Ethereum block number. Since this block is added to
-	// blockchain Sender can withdraw tokens from the channel.
+	// Expiration is the blockchain block number at which the channel expires.
+	// Payment validation also requires the configured expiration safety margin.
 	Expiration *big.Int
-	// Signer is and address to be used to sign the payments. Usually it is
-	// equal to channel sender.
+	// Signer is the channel's designated payment-signing address. Payments from
+	// Sender are also accepted by ChannelPaymentValidator.
 	Signer common.Address
 
-	// service provider. This amount increments on price after each successful
-	// RPC call.
+	// AuthorizedAmount is the latest accepted cumulative amount for Nonce.
+	// Paid calls authorize their price as an increment; prepaid authorization
+	// can cover future calls. Advancing the nonce resets this amount to zero.
 	AuthorizedAmount *big.Int
-	// Signature is a signature of last message containing Authorized amount.
-	// It is required to claim tokens from channel.
+	// Signature authorizes AuthorizedAmount for Nonce and is retained for a
+	// future claim. It is cleared when the nonce advances.
 	Signature []byte
 }
 
@@ -107,26 +115,30 @@ func (data *PaymentChannelData) String() string {
 		data.ChannelID, data.Nonce, data.State, utils.AddressToHex(&data.Sender), utils.AddressToHex(&data.Recipient), utils.BytesToBase64(data.GroupID[:]), data.FullAmount, data.Expiration, utils.AddressToHex(&data.Signer), data.AuthorizedAmount, utils.BytesToBase64(data.Signature))
 }
 
-// PaymentChannelService interface is API for payment channel functionality.
+// PaymentChannelService manages local authorizations and prepares payment claims.
+// Blockchain reads are used for validation; callers submit claim transactions.
 type PaymentChannelService interface {
-	// PaymentChannel returns latest payment channel state. This method uses
-	// shared storage and blockchain to construct and return latest channel
-	// state.
+	// PaymentChannel merges stored and blockchain channel state. Stored state
+	// is returned if the blockchain read fails or the channel is absent there.
+	// Reading a previously unstored channel does not persist it.
 	PaymentChannel(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
-	// ListChannels returns list of payment channels from payment channel
-	// storage.
+	// ListChannels returns locally stored channels without refreshing them
+	// from the blockchain.
 	ListChannels() (channels []*PaymentChannelData, err error)
 
-	// StartClaim gets channel from storage, applies update on it and adds
-	// payment for claiming into the storage.
+	// StartClaim locks a stored channel, persists update, and records the
+	// pre-update authorization as a pending claim. These are separate writes:
+	// an error recording the payment can leave the channel already updated.
 	StartClaim(key *PaymentChannelKey, update ChannelUpdate) (claim Claim, err error)
-	// ListClaims returns list of payment claims in progress
+	// ListClaims returns pending claims without checking blockchain settlement.
 	ListClaims() (claim []Claim, err error)
 
-	// StartPaymentTransaction validates payment and starts payment transaction
+	// StartPaymentTransaction locks the channel and validates the payment.
+	// A successful transaction must be completed with Commit or Rollback.
 	StartPaymentTransaction(payment *Payment) (transaction PaymentTransaction, err error)
 
-	//Get Channel from BlockChain
+	// PaymentChannelFromBlockChain reads channel details directly from the
+	// blockchain without merging locally accepted authorizations.
 	PaymentChannelFromBlockChain(key *PaymentChannelKey) (channel *PaymentChannelData, ok bool, err error)
 }
 
@@ -148,44 +160,42 @@ func NewPaymentError(code PaymentErrorCode, format string, args ...any) *Payment
 	return errs.NewPaymentError(code, format, args...)
 }
 
-// PaymentTransaction is a payment transaction in progress.
+// PaymentTransaction holds a channel lock until Commit or Rollback is called.
+// Callers must invoke exactly one of these completion methods.
 type PaymentTransaction interface {
-	// Channel returns the channel which is used to apply the payment
+	// Channel returns the channel snapshot used to validate this payment,
+	// including the previously accepted AuthorizedAmount.
 	Channel() *PaymentChannelData
-	// Commit finishes transaction and applies payment.
+	// Commit stores the new authorization and releases the channel lock.
 	Commit() error
-	// Rollback rolls transaction back.
+	// Rollback releases the channel lock without storing the new authorization.
 	Rollback() error
 }
 
-// Claim is a handle of payment channel claim in progress. It is returned by
-// StartClaim method and provides caller information about payment to call
-// MultiPartyEscrow.channelClaim function. After transaction is written to
-// blockchain caller should call Finish() method to update payment repository
-// state.
+// Claim holds a pending payment prepared for blockchain settlement. Starting a
+// claim has already updated local channel state; Finish only removes the pending
+// payment record after settlement has been confirmed.
 type Claim interface {
-	// Payment returns the payment which is being claimed, caller uses details of
-	// the payment to start blockchain transaction.
+	// Payment returns the pre-update nonce, amount, and signature needed to
+	// submit the claim to the MultiPartyEscrow contract.
 	Payment() *Payment
-	// Finish to be called after blockchain transaction is finished successfully.
-	// Updates repository state.
+	// Finish deletes the pending payment record. It does not submit a
+	// transaction or check settlement, so the caller must verify it first.
 	Finish() error
 }
 
-// ChannelUpdate is an type of channel update which should be applied when
-// StartClaim() method is called.
+// ChannelUpdate changes the local channel copy persisted by StartClaim.
 type ChannelUpdate func(channel *PaymentChannelData)
 
 var (
-	// CloseChannel is an update which zeroes full amount of the channel to
-	// designate that channel sender should add funds to the channel before
-	// continue working.
+	// CloseChannel sets the local FullAmount to zero. It does not change State
+	// or Nonce, or close the channel on the blockchain.
 	CloseChannel ChannelUpdate = func(channel *PaymentChannelData) {
 		channel.FullAmount = big.NewInt(0)
 	}
-	// IncrementChannelNonce is an update which increments channel nonce and
-	// decreases full amount to allow channel sender continue working with
-	// remaining amount.
+	// IncrementChannelNonce prepares the next local channel state by deducting
+	// AuthorizedAmount, incrementing Nonce, and clearing the authorization and
+	// signature. The remaining balance can fund calls while the old claim settles.
 	IncrementChannelNonce ChannelUpdate = func(channel *PaymentChannelData) {
 		channel.Nonce = (&big.Int{}).Add(channel.Nonce, big.NewInt(1))
 		channel.FullAmount = (&big.Int{}).Sub(channel.FullAmount, channel.AuthorizedAmount)

@@ -156,7 +156,8 @@ func (suite *PaymentChannelServiceSuite) payment() *Payment {
 		Amount:       big.NewInt(12300),
 		ChannelID:    big.NewInt(42),
 		ChannelNonce: big.NewInt(3),
-		//MpeContractAddress: suite.mpeContractAddress,
+		// Channel snapshots do not retain the MPE address, so pending payments
+		// reconstructed from them use the zero address in these fixtures.
 	}
 	SignTestPayment(payment, suite.signerPrivateKey)
 	return payment
@@ -292,16 +293,15 @@ func (suite *PaymentChannelServiceSuite) TestVerifyGroupId() {
 		func() [32]byte {
 			return [32]byte{125}
 		}
-	//GroupId check will be applied only the first time when a channel is added to storage from the blockchain.
-	//Group ID is different
+	// Without a stored channel, PaymentChannel validates the blockchain group.
+	// This read must fail while the configured and blockchain group IDs differ.
 	channel, ok, err := service.PaymentChannel(&PaymentChannelKey{ID: big.NewInt(13)})
 	assert.Equal(suite.T(), errors.New("channel received belongs to another group of replicas, current group: [125 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0], channel group: [123 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]"), err)
 	assert.False(suite.T(), ok)
 	assert.Nil(suite.T(), channel)
 	assert.NotNil(suite.T(), err)
-	//GroupId check will be applied only the first time when the channel is added to storage from the blockchain.
-	//Group ID is the same (no error should happen)
-	//also re setting the value here again to make sure the original state is retained
+	// Reading the channel does not persist it. Restore the matching group and
+	// verify that another blockchain-only read succeeds.
 	service.(*lockingPaymentChannelService).replicaGroupID =
 		func() [32]byte {
 			return [32]byte{123}

@@ -71,7 +71,6 @@ func (suite *ControlServiceTestSuite) mpeChannel() *blockchain.MultiPartyEscrowC
 }
 
 func (suite *ControlServiceTestSuite) SetupSuite() {
-	//
 	var errs error
 	suite.receiverPvtKy = GenerateTestPrivateKey()
 	println(errs)
@@ -134,10 +133,8 @@ func (suite *ControlServiceTestSuite) SignListInProgress(request *GetPaymentsLis
 	request.Signature = getSignature(message, suite.receiverPvtKy)
 }
 
-// Build Request
-// Validate Signature
-// Add 2 elements in ChannelData
-// After claims, check if 2 payments have come in
+// TestStartClaimForMultipleChannels prepares two authorizations with one batch
+// signature and verifies that pending claim signatures are available afterward.
 func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 	suite.putChannel(big.NewInt(1))
 	suite.putChannel(big.NewInt(2))
@@ -145,7 +142,6 @@ func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), len(reply.Payments), 2)
 	ids := make([]uint64, 0)
-	//
 	ids = append(ids, 2)
 	ids = append(ids, 1)
 	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")

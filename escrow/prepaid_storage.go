@@ -8,7 +8,8 @@ import (
 	"github.com/singnet/snet-daemon/v6/storage"
 )
 
-// To Support PrePaid calls and also concurrency
+// PrePaidPayment contains the channel, service-group context, and JWT presented
+// with a prepaid call. It does not carry a new claim signature for each call.
 type PrePaidPayment struct {
 	ChannelID      *big.Int
 	OrganizationId string
@@ -16,17 +17,19 @@ type PrePaidPayment struct {
 	AuthToken      string
 }
 
-// Used when the Request comes in
+// String identifies the channel and service group without exposing AuthToken.
 func (payment *PrePaidPayment) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v}", payment.ChannelID, payment.OrganizationId, payment.GroupId)
 }
 
-// Kept the bare minimum here , other details like group and sender address of this channel can
-// always be retrieved from BlockChain
+// PrePaidData stores one cumulative prepaid accounting amount in token base units.
+// Its channel ID and accounting category are stored separately in PrePaidDataKey.
 type PrePaidData struct {
 	Amount *big.Int
 }
 
+// PrePaidDataKey identifies a planned, used, or refund counter by channel ID and
+// UsageType. These counters span channel nonces; nonce is not part of the key.
 type PrePaidDataKey struct {
 	ChannelID *big.Int
 	UsageType string
@@ -40,12 +43,18 @@ func (key *PrePaidDataKey) String() string {
 }
 
 const (
-	USED_AMOUNT    string = "U"
+	// USED_AMOUNT counts charges recorded before forwarding prepaid calls,
+	// including failed calls that are credited separately in REFUND_AMOUNT.
+	USED_AMOUNT string = "U"
+	// PLANNED_AMOUNT accumulates additional amounts authorized for prepaid use.
 	PLANNED_AMOUNT string = "P"
-	REFUND_AMOUNT  string = "R"
+	// REFUND_AMOUNT accumulates credits for failed calls. These credits restore
+	// spending capacity without reducing USED_AMOUNT or transferring tokens.
+	REFUND_AMOUNT string = "R"
 )
 
-// This will only be used for doing any business checks
+// PrePaidUsageData combines the three stored counters for an atomic usage update.
+// UpdateUsageType selects the counter written back after validation.
 type PrePaidUsageData struct {
 	ChannelID       *big.Int
 	PlannedAmount   *big.Int
@@ -71,6 +80,8 @@ func (data *PrePaidUsageData) GetAmountForUsageType() (*big.Int, error) {
 	return nil, fmt.Errorf("Unknown Usage Type %v", data.UpdateUsageType)
 }
 
+// Clone copies the accounting amounts so changes do not affect the source
+// counters. ChannelID is shared and must not be mutated through the clone.
 func (data PrePaidUsageData) Clone() *PrePaidUsageData {
 	return &PrePaidUsageData{
 		ChannelID:       data.ChannelID,
@@ -86,7 +97,8 @@ func serializePrePaidKey(key any) (serialized string, err error) {
 	return myKey.String(), nil
 }
 
-// NewPrepaidStorage returns new instance of TypedAtomicStorage
+// NewPrepaidStorage stores PrePaidData values under channel/category keys in the
+// /PrePaid/storage namespace of the supplied atomic storage backend.
 func NewPrepaidStorage(atomicStorage storage.AtomicStorage) storage.TypedAtomicStorage {
 	prefixedStorage := storage.NewPrefixedAtomicStorage(atomicStorage, "/PrePaid/storage")
 	storage := storage.NewTypedAtomicStorageImpl(

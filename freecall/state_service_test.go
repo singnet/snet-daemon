@@ -35,7 +35,6 @@ type FreeCallStateServiceSuite struct {
 }
 
 type MockedERC20 struct {
-	//
 }
 
 func (m MockedERC20) BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error) {
@@ -117,7 +116,7 @@ func (suite *FreeCallStateServiceSuite) TestErrors() {
 	suite.useFreeCallRequest.FreeCallToken = getSignature(token, suite.signerPrivateKey)
 	suite.SetSignatureWithToken()
 
-	//now change the address so that signature becomes invalid
+	// Changing the signed address and token fields must invalidate authorization.
 	suite.useFreeCallRequest.Address = "0xInvalidAddress"
 	suite.useFreeCallRequest.FreeCallToken = token
 	reply, err := suite.stateService.GetFreeCallsAvailable(nil, suite.useFreeCallRequest)

@@ -383,5 +383,3 @@ func TestGetChannelStateNonceIncrementedInBlockchainNoOldPayment(t *testing.T) {
 	assert.Nil(t, reply)
 	assert.Equal(t, errors.New("channel has different nonce in local storage and blockchain and old payment is not found in storage"), err)
 }
-
-// Claim tests are already added to escrow_test.go

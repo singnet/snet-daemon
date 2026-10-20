@@ -15,8 +15,8 @@ import (
 
 const (
 
-	// EscrowPaymentType each call should have id and nonce of payment channel
-	// in metadata.
+	// EscrowPaymentType selects paid calls carrying a channel ID, nonce,
+	// cumulative signed amount, and claim signature in gRPC metadata.
 	EscrowPaymentType = "escrow"
 )
 
@@ -27,7 +27,9 @@ type paymentChannelPaymentHandler struct {
 	currentBlock       func() (*big.Int, error)
 }
 
-// NewPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewPaymentHandler validates a stream call's escrow authorization and price.
+// Complete commits the authorization on success; CompleteAfterError releases the
+// channel lock without committing it.
 func NewPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
@@ -59,7 +61,8 @@ func (h *paymentChannelPaymentHandler) Payment(context *handler.GrpcStreamContex
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
 	e = h.incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: context})
 	if e != nil {
-		// Make sure the transaction is rolled back, else this will cause a lock on the channel
+		// Release the channel lock because this rejected call will not reach
+		// Complete or CompleteAfterError.
 		transaction.Rollback()
 		return nil, paymentErrorToGrpcError(e)
 	}

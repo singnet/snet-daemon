@@ -420,7 +420,7 @@ These instructions are intended to facilitate the development and testing of Sin
 
 Toolchain versions:
 
-* [Go](https://go.dev/dl/): at least the version in [go.mod](go.mod), currently **1.27.2**; CI uses that version.
+* [Go](https://go.dev/dl/): at least the version in [go.mod](go.mod), currently **1.27.3**; CI uses that version.
 * [Protoc](https://github.com/protocolbuffers/protobuf/releases): CI uses **36.2**.
 
 Put `go`, `protoc`, and the Go-installed code generators (`GOBIN`, or `GOPATH/bin`

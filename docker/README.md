@@ -17,7 +17,7 @@ and use `/etc/singnet` as the configuration mount point.
 
 | Build argument | Default | Availability |
 | --- | --- | --- |
-| `GO_VERSION` | `1.27.2` | Source and binary-extraction builds; maintained alongside `go.mod`, not read from it automatically. |
+| `GO_VERSION` | `1.27.3` | Source and binary-extraction builds; maintained alongside `go.mod`, not read from it automatically. |
 | `VERSION` | `v6.2.3` | All three Dockerfiles; build version or release download tag. This is not an automatic selection of the latest release. |
 | `TARGETOS` | `linux` | Explicitly declared in `Dockerfile.release` and `Dockerfile.build`. |
 | `TARGETARCH` | `amd64` | Explicitly declared in `Dockerfile.release` and `Dockerfile.build`. |

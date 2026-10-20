@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// EthereumClient exposes typed and raw views of the same RPC connection.
 type EthereumClient struct {
 	EthClient *ethclient.Client
 	RawClient *rpc.Client
@@ -25,10 +26,10 @@ func basicAuth(username, password string) string {
 	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
 
-// getAuthOption returns the appropriate RPC auth option based on endpoint and apiKey.
-// - Infura requires Basic Auth with an empty username and apiKey as password. Also can be replaced with jwt token.
-// - Other providers (e.g. Alchemy) use Bearer token in the Authorization header.
-// - If apiKey is empty, no auth header is added.
+// getAuthOption selects the daemon's HTTP RPC authentication policy. Empty keys
+// add no header. JWT-shaped keys use Bearer auth; other keys use Basic auth for
+// endpoints containing "infura" and Bearer auth elsewhere. IsJWT only recognizes
+// token shape and does not authenticate the supplied credential.
 func getAuthOption(endpoint, apiKey string) rpc.ClientOption {
 
 	apiKey = strings.TrimSpace(apiKey)
@@ -36,16 +37,16 @@ func getAuthOption(endpoint, apiKey string) rpc.ClientOption {
 		return nil
 	}
 
-	// infura can accept jwt
+	// JWT-shaped credentials take precedence over the endpoint-specific rule.
 	if utils.IsJWT(apiKey) {
 		return rpc.WithHeader("Authorization", "Bearer "+apiKey)
 	}
-	// infura need Basic auth for a classic secret key
+	// The Infura rule uses an empty username and the configured key as password.
 	if strings.Contains(endpoint, "infura") {
 		return rpc.WithHeader("Authorization", "Basic "+basicAuth("", apiKey))
 	}
 
-	// other ways use Bearer for most providers
+	// Other endpoints receive the supplied key as a Bearer credential.
 	return rpc.WithHeader("Authorization", "Bearer "+apiKey)
 }
 
@@ -80,6 +81,8 @@ func CreateHTTPEthereumClientContext(ctx context.Context) (*EthereumClient, erro
 	return ethereumHttpClient, nil
 }
 
+// CreateWSEthereumClient uses the configured WebSocket endpoint and always adds
+// Basic auth with an empty username. It does not use the HTTP auth-selection rule.
 func CreateWSEthereumClient() (*EthereumClient, error) {
 	return CreateWSEthereumClientContext(context.Background())
 }

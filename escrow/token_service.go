@@ -14,6 +14,8 @@ import (
 	"github.com/singnet/snet-daemon/v6/utils"
 )
 
+// TokenService validates prepaid authorizations and issues channel-bound JWTs.
+// Claim signatures authorize funds; the separate request signature adds freshness.
 type TokenService struct {
 	channelService      PaymentChannelService
 	prePaidUsageService PrePaidService
@@ -24,15 +26,17 @@ type TokenService struct {
 }
 
 func (service *TokenService) mustEmbedUnimplementedTokenServiceServer() {
-	//TODO implement me
+	// This marker satisfies the generated gRPC interface; RPC dispatch does not call it.
 	panic("implement me")
 }
 
+// BlockChainDisabledTokenService returns an empty reply without issuing a JWT or
+// validating payment authorization when blockchain integration is disabled.
 type BlockChainDisabledTokenService struct {
 }
 
 func (service BlockChainDisabledTokenService) mustEmbedUnimplementedTokenServiceServer() {
-	//TODO implement me
+	// This marker satisfies the generated gRPC interface; RPC dispatch does not call it.
 	panic("implement me")
 }
 
@@ -40,6 +44,8 @@ func (service BlockChainDisabledTokenService) GetToken(ctx context.Context, requ
 	return &TokenReply{}, nil
 }
 
+// NewTokenService uses blockValidator for token-request freshness independently
+// of the channel-payment validator's block source and expiration check.
 func NewTokenService(paymentChannelService PaymentChannelService,
 	usageService PrePaidService, tokenManager token.Manager, validator *ChannelPaymentValidator,
 	blockValidator *blockchain.EthereumBlockValidator, metadata *blockchain.ServiceMetadata) *TokenService {
@@ -71,7 +77,7 @@ func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId
 	if channel.FullAmount.Cmp(latestAuthorizedAmount) < 0 {
 		return nil, fmt.Errorf("signed amount for token request cannot be greater than full amount in channel")
 	}
-	// Verify signature
+	// Authenticate the fresh token request separately from its claim authorization.
 	signer, err := service.verifySignature(request, channel)
 	if err != nil {
 		return nil, err
@@ -80,7 +86,9 @@ func (service *TokenService) verifySignatureAndSignedAmountEligibility(channelId
 	if err = service.validator.Validate(payment, channel); err != nil {
 		return nil, err
 	}
-	// Update the channel Signature if you have a new Signed Amount received
+	// A higher cumulative authorization is committed to channel storage, then
+	// its increase is added to the prepaid planned counter. These are separate
+	// writes; an unchanged authorization skips both updates.
 	if latestAuthorizedAmount.Cmp(channel.AuthorizedAmount) > 0 {
 		transaction, err := service.channelService.StartPaymentTransaction(payment)
 		if err != nil {
@@ -107,6 +115,9 @@ func (service *TokenService) getPayment(channelId *big.Int, latestAuthorizedAmou
 	}
 }
 
+// verifySignature authenticates claim-signature bytes || current block, allowing
+// the channel signer, sender, or recipient to request a token. The embedded claim
+// signature is checked separately by ChannelPaymentValidator.
 func (service *TokenService) verifySignature(request *TokenRequest, channel *PaymentChannelData) (send *common.Address, err error) {
 	message := bytes.Join([][]byte{
 		request.GetClaimSignature(),
@@ -129,9 +140,12 @@ func (service *TokenService) verifySignature(request *TokenRequest, channel *Pay
 	return sender, nil
 }
 
+// GetToken validates authorization, updates prepaid credit if the signed amount
+// increases, and returns a JWT with stored planned and used totals. Renewing with
+// an unchanged amount requires an existing planned counter; spending limits are
+// enforced when prepaid calls are charged, not when the token is issued.
 func (service *TokenService) GetToken(ctx context.Context, request *TokenRequest) (reply *TokenReply, err error) {
 
-	// Check for update state
 	channelID := big.NewInt(0).SetUint64(request.ChannelId)
 	latestAuthorizedAmount := big.NewInt(0).SetUint64(request.SignedAmount)
 

@@ -23,6 +23,7 @@ are then passed to the service after validation by the daemon.
     2. [Additional properties](#other_properties)
 3. [Channel Claim and other commands](#commands)
 4. [Build and development](#build)
+5. [Contributing](#contributing)
 
 ## Install and use <a name="use"></a>
 
@@ -420,7 +421,7 @@ These instructions are intended to facilitate the development and testing of Sin
 
 Toolchain versions:
 
-* [Go](https://go.dev/dl/): at least the version in [go.mod](go.mod), currently **1.27.2**; CI uses that version.
+* [Go](https://go.dev/dl/): at least the version in [go.mod](go.mod), currently **1.27.3**; CI uses that version.
 * [Protoc](https://github.com/protocolbuffers/protobuf/releases): CI uses **36.2**.
 
 Put `go`, `protoc`, and the Go-installed code generators (`GOBIN`, or `GOPATH/bin`
@@ -555,6 +556,11 @@ block, including both boundaries. Payment-channel expiration is checked
 separately against the organization's `payment_expiration_threshold`.
 See the [payment authorization guide](escrow/README.md#block-validation) and
 [free-call guide](freecall/README.md#tokens-and-requests) for the request formats.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting issues and
+submitting pull requests.
 
 ## Versioning
 

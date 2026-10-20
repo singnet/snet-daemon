@@ -86,7 +86,6 @@ func (suite *ValidationTestSuite) Payment() *Payment {
 		GroupId:                    "default_group",
 	}
 	var tokenLifetimeBlocks uint64 = 21
-	//GenerateFreeCallTokenPayment(payment, suite.signerPrivateKey, suite.userAddress)
 	payment.AuthToken, payment.AuthTokenExpiryBlockNumber = suite.freeCallPaymentValidator.NewToken(payment.Address, nil, &tokenLifetimeBlocks)
 	tokenParsed, block, err := ParseToken(payment.AuthToken)
 	assert.Nil(suite.T(), err)

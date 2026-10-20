@@ -8,7 +8,8 @@ import (
 	"github.com/singnet/snet-daemon/v6/escrow"
 )
 
-// ListClaimsCmd shows list of channels from shared storage
+// ListClaimsCmd lists pending payments from shared storage without refreshing
+// channel state from MPE or submitting claims to the blockchain.
 var ListClaimsCmd = &cobra.Command{
 	Use:   "claims",
 	Short: "List payments which are not written to blockchain yet",

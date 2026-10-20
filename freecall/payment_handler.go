@@ -18,7 +18,11 @@ type paymentHandler struct {
 	serviceMetadata          *blockchain.ServiceMetadata
 }
 
-// NewPaymentHandler authorizes free calls and accounts for successful requests.
+// NewPaymentHandler verifies the caller request and token against the free-call
+// signer from service metadata before checking the local quota. Complete records
+// a successful call; CompleteAfterError releases the user lock without charging
+// usage. Wallet balance is checked at token issuance, not on every service call,
+// and no MPE claim is created.
 func NewPaymentHandler(
 	freeCallService UserService, processor blockchain.Processor, metadata *blockchain.OrganizationMetaData,
 	pServiceMetaData *blockchain.ServiceMetadata) handler.StreamPaymentHandler {

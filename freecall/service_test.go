@@ -101,8 +101,8 @@ func restoreFreeCallsPerAddress(t *testing.T) {
 	})
 }
 
-// failingStorage is an AtomicStorage that can be forced to fail on Get, Put or
-// CompareAndSwap operations. All other methods are delegated to MemoryStorage.
+// failingStorage injects errors into Get/GetByKeyPrefix, Put/PutIfAbsent, and
+// CompareAndSwap. Other operations are delegated to MemoryStorage.
 type failingStorage struct {
 	*storage.MemoryStorage
 	getErr error

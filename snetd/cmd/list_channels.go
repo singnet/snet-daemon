@@ -10,7 +10,8 @@ import (
 	"github.com/singnet/snet-daemon/v6/escrow"
 )
 
-// ListChannelsCmd shows the list of channels from shared storage
+// ListChannelsCmd lists locally stored channel state without refreshing it from MPE.
+// It is not an enumeration of all channels in the contract.
 var ListChannelsCmd = &cobra.Command{
 	Use:   "channels",
 	Short: "List payment channels",

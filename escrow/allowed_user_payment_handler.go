@@ -17,7 +17,8 @@ func AllowedUserPaymentHandler() handler.StreamPaymentHandler {
 	}
 }
 
-// clients should be oblivious to this handler
+// Type preserves the normal escrow metadata protocol for this signature-only
+// handler; clients do not need a separate payment type.
 func (h *allowedUserPaymentHandler) Type() (typ string) {
 	return EscrowPaymentType
 }

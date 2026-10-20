@@ -17,11 +17,19 @@ import (
 )
 
 const (
-	PrefixSignature        = "__prefix_free_trial"
-	TokenLifetime          = 172800 // in blocks
+	// PrefixSignature identifies caller-signed free-call requests. These are
+	// separate from MPE claim authorizations and their __MPE_claim_message prefix.
+	PrefixSignature = "__prefix_free_trial"
+	// TokenLifetime is the default and maximum accepted custom lifetime in blocks.
+	// Larger requested values fall back to this default rather than being rejected.
+	TokenLifetime = 172800
+	// allowedBlockDifference is the inclusive request-block freshness window.
 	allowedBlockDifference = 5
 )
 
+// PaymentValidator authenticates the caller and provider token, checks token
+// expiration, and validates request-block freshness. It does not check MPE channel
+// state, wallet balance, or the remaining local free-call allowance.
 type PaymentValidator struct {
 	blockValidator                 *blockchain.EthereumBlockValidator
 	freeCallSignerAddress          common.Address
@@ -29,6 +37,10 @@ type PaymentValidator struct {
 	freeCallSigner                 *ecdsa.PrivateKey
 }
 
+// NewPaymentValidator uses the service group's metadata signer as the token
+// authority. signer is needed for NewToken and may be nil for validation-only
+// handlers. trustedAddresses controls backend eligibility at token issuance;
+// it does not allow those backends to sign provider-issued tokens themselves.
 func NewPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int, err error), signerAddress common.Address, signer *ecdsa.PrivateKey, trustedAddresses []common.Address) *PaymentValidator {
 	return &PaymentValidator{
 		blockValidator:                 blockchain.NewEthereumBlockValidator(funcCurrentBlock),
@@ -38,6 +50,10 @@ func NewPaymentValidator(funcCurrentBlock func() (currentBlock *big.Int, err err
 	}
 }
 
+// NewToken signs a free-call token expiring at the daemon's current block plus
+// the resolved lifetime. A nil or oversized lifetime uses TokenLifetime; zero
+// makes the token valid through the current block. StateService checks request
+// authentication and eligibility separately. A block-read failure returns nil, nil.
 func (validator *PaymentValidator) NewToken(userAddress string, userID *string, tokenLifetimeBlocks *uint64) ([]byte, *big.Int) {
 
 	userAddr := common.HexToAddress(userAddress)
@@ -61,6 +77,9 @@ func (validator *PaymentValidator) NewToken(userAddress string, userID *string, 
 	return signedToken, deadlineBlockOfToken
 }
 
+// ParseToken splits the full token at its last underscore into raw signature
+// bytes and a decimal expiration block. Signature bytes may contain underscores.
+// Parsing alone does not authenticate the signature or check its expiration.
 func ParseToken(token []byte) (sig []byte, block *big.Int, err error) {
 	i := bytes.LastIndexByte(token, '_')
 	if i == -1 {
@@ -76,6 +95,10 @@ func ParseToken(token []byte) (sig []byte, block *big.Int, err error) {
 	return sig, block, nil
 }
 
+// getAddressFromSignatureForNewFreeCallToken recovers the token-request signer.
+// Address and identifiers are exact UTF-8 strings, while current_block uses
+// 32-byte big-endian encoding. groupID is the metadata group ID, not its name.
+// The requested token lifetime is not included in this signed payload.
 func getAddressFromSignatureForNewFreeCallToken(request *GetFreeCallTokenRequest, groupID string) (signer *common.Address, err error) {
 
 	message := bytes.Join([][]byte{
@@ -100,6 +123,9 @@ func getAddressFromSignatureForNewFreeCallToken(request *GetFreeCallTokenRequest
 	return signer, err
 }
 
+// CompareSignerAddrs accepts a trusted backend or the configured token signer.
+// Token validation is stricter: only freeCallSignerAddress may issue a token.
+// StateService separately checks trusted backend membership for user-ID issuance.
 func (validator *PaymentValidator) CompareSignerAddrs(addr common.Address) error {
 	if slices.ContainsFunc(validator.trustedFreeCallSignerAddresses, func(address common.Address) bool {
 		return addr == address
@@ -119,7 +145,8 @@ func (validator *PaymentValidator) Validate(payment *Payment) (err error) {
 		return errs.NewPaymentError(errs.Unauthenticated, "sign is not valid: %v", err)
 	}
 
-	// check that free call token signed by daemon
+	// Only the free_call_signer_address from service metadata may sign tokens.
+	// A trusted backend signs caller requests, not the provider's authorization.
 	if *tokenSignerAddress != validator.freeCallSignerAddress {
 		return errs.NewPaymentError(errs.Unauthenticated, "token sign is not valid")
 	}
@@ -128,7 +155,7 @@ func (validator *PaymentValidator) Validate(payment *Payment) (err error) {
 		return err
 	}
 
-	//Check for the current block Number
+	// Request freshness is independent of the token's inclusive expiration block.
 	if err := validator.compareWithLatestBlockNumber(payment.CurrentBlockNumber); err != nil {
 		return err
 	}
@@ -136,11 +163,14 @@ func (validator *PaymentValidator) Validate(payment *Payment) (err error) {
 	return nil
 }
 
-// Check if the block number passed is not more +- 5 from the latest block number on chain
+// compareWithLatestBlockNumber accepts an absolute block difference of at most
+// five, including both boundaries. Missing or negative request blocks are invalid.
 func (validator *PaymentValidator) compareWithLatestBlockNumber(blockNumberPassed *big.Int) error {
 	return validator.blockValidator.ValidateBlock(blockNumberPassed, allowedBlockDifference)
 }
 
+// CheckIfBlockExpired rejects tokens only after their expiration block. Equality
+// is valid; the request freshness tolerance does not extend the token's lifetime.
 func (validator *PaymentValidator) CheckIfBlockExpired(expiredBlock *big.Int) error {
 	currentBlockNumber, err := validator.blockValidator.CurrentBlock()
 	if err != nil {
@@ -153,6 +183,12 @@ func (validator *PaymentValidator) CheckIfBlockExpired(expiredBlock *big.Int) er
 	return nil
 }
 
+// BuildTokenMessage builds the provider-signed payload from the configured
+// organization ID and daemon group name, a raw 20-byte caller address, optional
+// user-ID text, and a 32-byte expiration block. Strings are concatenated without
+// separators or lengths. Unlike caller requests, it omits the service ID and
+// metadata group ID; it also contains no MPE or Registry address.
+// A nil userID is encoded as an empty string.
 func BuildTokenMessage(addr *common.Address, expirationBlock *big.Int, userID *string) (token []byte) {
 	if userID == nil {
 		userID = new(string)
@@ -161,7 +197,7 @@ func BuildTokenMessage(addr *common.Address, expirationBlock *big.Int, userID *s
 	message := bytes.Join([][]byte{
 		[]byte(config.GetString(config.OrganizationId)),
 		[]byte(config.GetString(config.DaemonGroupName)),
-		addr.Bytes(), // user or market app address
+		addr.Bytes(), // Raw wallet/backend address, unlike the address text in caller requests.
 		[]byte(*userID),
 		bigIntToBytes(expirationBlock),
 	}, nil)
@@ -169,22 +205,25 @@ func BuildTokenMessage(addr *common.Address, expirationBlock *big.Int, userID *s
 	return message
 }
 
+// getSignerOfAuthTokenForFreeCall first authenticates the caller's signed request,
+// then recovers the provider signature over that caller's token payload.
 func (validator *PaymentValidator) getSignerOfAuthTokenForFreeCall(payment *Payment) (signer *common.Address, err error) {
 	signer, err = getAddressFromSigForFreeCall(payment)
 	if err != nil {
 		return nil, err
 	}
-	// checking that address in the message is the same that in metadata
+	// Require the recovered caller to match the address supplied in the request.
 	if common.HexToAddress(payment.Address) != *signer {
 		return nil, fmt.Errorf("unauthorized signer: %v not equal %v, maybe invalid signature struct", payment.Address, signer.Hex())
 	}
-
-	//zap.L().Debug("Signer of request will be passed to token", zap.String("address", signer.Hex()))
 
 	message := BuildTokenMessage(signer, payment.AuthTokenExpiryBlockNumber, &payment.UserID)
 	return utils.GetSignerAddressFromMessage(message, payment.AuthTokenParsed)
 }
 
+// getAddressFromSigForFreeCall authenticates an availability request or service
+// call. Its payload extends the token-request format with the full raw token,
+// including its expiration suffix, and applies the optional curation allowlist.
 func getAddressFromSigForFreeCall(payment *Payment) (signer *common.Address, err error) {
 
 	message := bytes.Join([][]byte{
@@ -215,8 +254,8 @@ func bigIntToBytes(value *big.Int) []byte {
 }
 
 func checkCurationValidations(signer *common.Address) error {
-	//This is only to protect the Service provider in test environment from being
-	//hit by unknown users during a curation process
+	// Apply the optional testing/curation allowlist to the caller, independently
+	// of trusted backend membership and the service's token-signing address.
 	if config.GetBool(config.AllowedUserFlag) {
 		if !config.IsAllowedUser(signer) {
 			return fmt.Errorf("you are not Authorized to call this service during curation process")

@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+// SimulatedEthereumEnvironment provides test wallets and deployed FetchToken/MPE
+// bindings on a local simulated chain. It does not deploy a Registry contract.
 type SimulatedEthereumEnvironment struct {
 	SingnetPrivateKey       *ecdsa.PrivateKey
 	SingnetWallet           *bind.TransactOpts
@@ -26,6 +28,7 @@ type SimulatedEthereumEnvironment struct {
 	MultiPartyEscrow        *MultiPartyEscrow
 }
 
+// SnetTransferTokens submits an ERC-20 wallet transfer, not an MPE deposit.
 func (env *SimulatedEthereumEnvironment) SnetTransferTokens(to *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
 	_, err := env.FetToken.Transfer(EstimateGas(env.SingnetWallet), to.From, big.NewInt(amount))
 	if err != nil {
@@ -34,6 +37,7 @@ func (env *SimulatedEthereumEnvironment) SnetTransferTokens(to *bind.TransactOpt
 	return env
 }
 
+// SnetApproveMpe sets the wallet's token allowance for MPE; it does not move funds.
 func (env *SimulatedEthereumEnvironment) SnetApproveMpe(from *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
 	_, err := env.FetToken.Approve(EstimateGas(from), env.MultiPartyEscrowAddress, big.NewInt(amount))
 	if err != nil {
@@ -42,6 +46,7 @@ func (env *SimulatedEthereumEnvironment) SnetApproveMpe(from *bind.TransactOpts,
 	return env
 }
 
+// MpeDeposit submits a transfer from the approved wallet into its MPE balance.
 func (env *SimulatedEthereumEnvironment) MpeDeposit(from *bind.TransactOpts, amount int64) *SimulatedEthereumEnvironment {
 	_, err := env.MultiPartyEscrow.Deposit(EstimateGas(from), big.NewInt(amount))
 	if err != nil {
@@ -50,6 +55,8 @@ func (env *SimulatedEthereumEnvironment) MpeDeposit(from *bind.TransactOpts, amo
 	return env
 }
 
+// MpeOpenChannel allocates the sender's MPE balance to a channel with the supplied
+// recipient, group, and expiration block, using the sender as its channel signer.
 func (env *SimulatedEthereumEnvironment) MpeOpenChannel(from *bind.TransactOpts, to *bind.TransactOpts, amount int64, expiration int64, groupId [32]byte) *SimulatedEthereumEnvironment {
 	_, err := env.MultiPartyEscrow.OpenChannel(EstimateGas(from), from.From, to.From, groupId, big.NewInt(amount), big.NewInt(expiration))
 	if err != nil {
@@ -58,6 +65,8 @@ func (env *SimulatedEthereumEnvironment) MpeOpenChannel(from *bind.TransactOpts,
 	return env
 }
 
+// Commit mines pending simulated transactions. The transaction helpers above
+// submit transactions but leave block production to the caller.
 func (env *SimulatedEthereumEnvironment) Commit() *SimulatedEthereumEnvironment {
 	env.Backend.Commit()
 	return env
@@ -114,6 +123,8 @@ func deployContracts(env *SimulatedEthereumEnvironment) {
 	env.MultiPartyEscrowAddress = mpeAddress
 }
 
+// EstimateGas copies the wallet identity into fresh transaction options with a
+// zero gas limit, asking the binding to estimate gas instead of setting a fixed cap.
 func EstimateGas(wallet *bind.TransactOpts) (opts *bind.TransactOpts) {
 	return &bind.TransactOpts{
 		From:     wallet.From,

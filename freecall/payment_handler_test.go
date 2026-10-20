@@ -65,8 +65,6 @@ func (suite *FreeCallPaymentHandlerTestSuite) SetupSuite() {
 
 	suite.userAddr = crypto.PubkeyToAddress(suite.ownerPrivateKey.PublicKey)
 
-	//suite.data = &UserData{FreeCallsMade: 10, UserAddress: "0x101a018fe784bf01d538b5d4dfa311d047dba491"}
-	//suite.key = suite.getKey("0x101a018fe784bf01d538b5d4dfa311d047dba491")
 	suite.paymentHandler = paymentHandler{
 		orgMetadata:     suite.orgMetadata,
 		serviceMetadata: suite.metadata,

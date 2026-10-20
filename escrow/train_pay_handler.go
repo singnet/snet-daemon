@@ -51,7 +51,8 @@ func (t trainStreamPaymentHandler) Payment(context *handler.GrpcStreamContext) (
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
 	e = t.incomeValidator.Validate(&IncomeStreamData{Income: income, GrpcContext: context})
 	if e != nil {
-		// Make sure the transaction is rolled back, else this will cause a lock on the channel
+		// Release the channel lock because this rejected call will not reach
+		// Complete or CompleteAfterError.
 		transaction.Rollback()
 		return nil, paymentErrorToGrpcError(e)
 	}
@@ -100,7 +101,8 @@ func (t trainStreamPaymentHandler) getPaymentFromContext(md metadata.MD) (paymen
 	}, nil
 }
 
-// NewTrainUnaryPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewTrainUnaryPaymentHandler validates escrow authorizations for unary training
+// calls using the supplied income validator and the train-call payment type.
 func NewTrainUnaryPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
@@ -117,7 +119,8 @@ func NewTrainUnaryPaymentHandler(
 	return h
 }
 
-// NewTrainStreamPaymentHandler returns new MultiPartyEscrow contract payment handler.
+// NewTrainStreamPaymentHandler validates escrow authorizations for streaming
+// training calls using the supplied income validator and the train-call type.
 func NewTrainStreamPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
@@ -154,7 +157,8 @@ func (h *trainUnaryPaymentHandler) Payment(context *handler.GrpcUnaryContext) (p
 	income.Sub(internalPayment.Amount, transaction.Channel().AuthorizedAmount)
 	e = h.incomeValidator.Validate(&IncomeUnaryData{Income: income, GrpcContext: context})
 	if e != nil {
-		// Make sure the transaction is rolled back, else this will cause a lock on the channel
+		// Release the channel lock because this rejected call will not reach
+		// Complete or CompleteAfterError.
 		transaction.Rollback()
 		return nil, paymentErrorToGrpcError(e)
 	}

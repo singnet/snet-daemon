@@ -22,6 +22,9 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+// StateService issues provider-signed free-call tokens and reports local usage
+// allowances. It reads the configured ERC-20 token for wallet eligibility, not
+// MPE balances or channels, and does not submit blockchain transactions.
 type StateService struct {
 	UnimplementedFreeCallStateServiceServer
 	orgMetadata           *blockchain.OrganizationMetaData
@@ -29,13 +32,18 @@ type StateService struct {
 	freeCallService       UserService
 	freeCallValidator     *PaymentValidator
 	tokenInstance         ERC20
-	minBalanceForFreeCall *big.Int // in asi, not aasi
+	minBalanceForFreeCall *big.Int // Whole token units, converted with an assumed 18 decimals.
 }
 
+// ERC20 exposes the wallet-balance read needed for free-call token eligibility.
+// It is the network token contract, not an MPE contract or an escrow account.
 type ERC20 interface {
 	BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error)
 }
 
+// CheckBalanceForFreeCall requires the caller's wallet token balance to meet
+// the configured whole-token minimum. It does not read MPE deposits, channel
+// balances, ERC-20 allowances, or a native-currency balance.
 func (service *StateService) CheckBalanceForFreeCall(ctx context.Context, address common.Address) error {
 
 	balance, err := service.tokenInstance.BalanceOf(&bind.CallOpts{Context: ctx}, address)
@@ -44,8 +52,8 @@ func (service *StateService) CheckBalanceForFreeCall(ctx context.Context, addres
 		return handler.NewGrpcErrorf(codes.PermissionDenied, "you must have at least %s FET (ASI) in your balance to use free calls", service.minBalanceForFreeCall.String())
 	}
 
-	// 10 * 10^18
-	// convert to aasi
+	// Convert the configured whole-token threshold to ERC-20 base units. The
+	// implementation assumes 18 decimals rather than querying the token contract.
 	factor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(18)), nil)
 	threshold := new(big.Int).Mul(service.minBalanceForFreeCall, factor)
 
@@ -55,6 +63,10 @@ func (service *StateService) CheckBalanceForFreeCall(ctx context.Context, addres
 	return nil
 }
 
+// GetFreeCallToken authenticates a recent caller request and issues a token.
+// Only configured trusted backends may supply a nonempty user ID; they also skip
+// the wallet-balance check. Issuance does not check or reserve remaining calls,
+// reset usage, or create an MPE payment authorization.
 func (service *StateService) GetFreeCallToken(ctx context.Context, request *GetFreeCallTokenRequest) (*FreeCallToken, error) {
 
 	signer, err := getAddressFromSignatureForNewFreeCallToken(request, service.orgMetadata.GetGroupIdString())
@@ -71,7 +83,8 @@ func (service *StateService) GetFreeCallToken(ctx context.Context, request *GetF
 		return nil, err
 	}
 
-	// If address is not trusted we can't allow user-id in request
+	// Trust is checked against the backend list itself. Being the provider's
+	// free-call token signer alone does not grant this backend exemption.
 	if !slices.ContainsFunc(service.freeCallValidator.trustedFreeCallSignerAddresses,
 		func(addr common.Address) bool {
 			return *signer == addr
@@ -87,12 +100,16 @@ func (service *StateService) GetFreeCallToken(ctx context.Context, request *GetF
 
 	token, block := service.freeCallValidator.NewToken(request.Address, request.UserId, request.TokenLifetimeInBlocks)
 	return &FreeCallToken{
-		TokenHex:             hex.EncodeToString(token), // string
-		Token:                token,                     // bytes
+		TokenHex:             hex.EncodeToString(token),
+		Token:                token,
 		TokenExpirationBlock: block.Uint64(),
 	}, nil
 }
 
+// NewStateService uses the selected organization's group ID for caller signatures
+// and the service group's default quota for availability. minBalanceForFreeCall
+// is expressed in whole tokens. Daemon components supply the network ERC-20
+// client and a signing key matching the service metadata's free-call signer.
 func NewStateService(orgMetadata *blockchain.OrganizationMetaData,
 	srvMetaData *blockchain.ServiceMetadata,
 	service UserService,
@@ -107,6 +124,9 @@ func NewStateService(orgMetadata *blockchain.OrganizationMetaData,
 		tokenInstance:         tokenInstance}
 }
 
+// GetFreeCallsAvailable validates the caller and token, then reads the remaining
+// allowance. It neither locks nor consumes calls; token renewal does not reset
+// the stored usage used for this calculation.
 func (service *StateService) GetFreeCallsAvailable(context context.Context,
 	request *FreeCallStateRequest) (reply *FreeCallStateReply, err error) {
 
@@ -134,8 +154,12 @@ func (service *StateService) verify(payment *Payment) (err error) {
 	return nil
 }
 
+// checkForFreeCalls subtracts committed usage from the per-address override or
+// metadata quota, clamping exhausted quotas to zero. A configured unlimited
+// override is represented by the legacy sentinel 99999999, not a finite quota.
 func (service *StateService) checkForFreeCalls(payment *Payment) (callsAvailable uint64, err error) {
-	//Now get the state from etcd for this user, if there are no records, then return the free calls
+	// The supplied storage may be etcd or memory. User returns an unpersisted
+	// zero-count entry for an identity with no record yet.
 	key, err := service.freeCallService.UserKey(payment)
 	if err != nil {
 		return 0, err
@@ -187,6 +211,8 @@ func (service *StateService) getFreeCallPayment(request *FreeCallStateRequest) (
 	}, nil
 }
 
+// DisabledStateService rejects token and availability RPCs when blockchain
+// integration or the required free-call signing setup is unavailable.
 type DisabledStateService struct {
 	UnimplementedFreeCallStateServiceServer
 }

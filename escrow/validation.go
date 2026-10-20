@@ -13,11 +13,15 @@ import (
 )
 
 const (
+	// PrefixInSignature separates MPE claim authorizations from other signed messages.
 	PrefixInSignature = "__MPE_claim_message"
-	//Agreed constant value
+	// AllowedUserPrefixSignature is a legacy prefix. Current allowed-user
+	// validation uses the standard MPE claim-message format instead.
 	AllowedUserPrefixSignature = "__authorized_user"
 )
 
+// AllowedUserPaymentValidator verifies the MPE-format signature and optional
+// configured allowlist without consulting channel state or the blockchain.
 type AllowedUserPaymentValidator struct {
 }
 
@@ -32,7 +36,8 @@ type ChannelPaymentValidator struct {
 	paymentExpirationThreshold func() (threshold *big.Int)
 }
 
-// NewChannelPaymentValidator returns a new payment validator instance
+// NewChannelPaymentValidator uses the processor's current block and the
+// organization's payment-expiration safety margin.
 func NewChannelPaymentValidator(processor blockchain.Processor, metadata *blockchain.OrganizationMetaData) *ChannelPaymentValidator {
 	return &ChannelPaymentValidator{
 		blockValidator: blockchain.NewEthereumBlockValidator(processor.CurrentBlock),
@@ -42,8 +47,9 @@ func NewChannelPaymentValidator(processor blockchain.Processor, metadata *blockc
 	}
 }
 
-// Validate returns instance of PaymentError as error if validation fails, nil
-// otherwise.
+// Validate checks the channel nonce, claim signer, expiration margin, and balance.
+// It returns PaymentError on failure. The payment increment and per-call price
+// are checked separately by the payment handler's income validator.
 func (validator *ChannelPaymentValidator) Validate(payment *Payment, channel *PaymentChannelData) (err error) {
 	paymentFieldLog := zap.Any("payment", payment)
 	channelFieldLog := zap.Any("channel", channel)
@@ -91,8 +97,7 @@ func bytesToBigInt(bytes []byte) *big.Int {
 }
 
 func checkCurationValidations(signer *common.Address) error {
-	//This is only to protect the Service provider in test environment from being
-	//hit by unknown users during a curation process
+	// Apply the optional signer allowlist used for service curation/testing.
 	if config.GetBool(config.AllowedUserFlag) {
 		if !config.IsAllowedUser(signer) {
 			return fmt.Errorf("you are not Authorized to call this service during curation process")
@@ -101,6 +106,9 @@ func checkCurationValidations(signer *common.Address) error {
 	return nil
 }
 
+// getSignerAddressFromPayment recovers the signer of the MPE claim message and
+// applies the optional curation allowlist. Channel ownership is checked by the
+// caller. Numeric payload fields use 32-byte big-endian encoding.
 func getSignerAddressFromPayment(payment *Payment) (signer *common.Address, err error) {
 	message := bytes.Join([][]byte{
 		[]byte(PrefixInSignature),

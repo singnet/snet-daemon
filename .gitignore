@@ -37,6 +37,7 @@ blockchain/snet-contracts.go
 *.out
 cover
 cover*.ps1
+/coverage.sh
 
 # vim temporary files
 *~
@@ -61,4 +62,3 @@ data.etcd/
 .tool-versions
 
 .env
-

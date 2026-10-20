@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Components lazily constructs and caches daemon services and their shared dependencies.
 type Components struct {
 	callsOnce                  sync.Once
 	backgroundOnce             sync.Once
@@ -77,6 +78,7 @@ type Components struct {
 	publicModelStorage         *training.PublicModelStorage
 }
 
+// InitComponents loads command-line configuration without eagerly opening RPC or storage clients.
 func InitComponents(cmd *cobra.Command) (components *Components) {
 	components = &Components{}
 	defer func() {
@@ -97,8 +99,8 @@ func InitComponents(cmd *cobra.Command) (components *Components) {
 	} else {
 		fmt.Println("[CONFIG] Configuration file is not set, using default configuration")
 	}
-	// Management commands rely on configuration-derived process state such as
-	// the selected blockchain network. Their command boundary handles errors.
+	// Populate configuration-derived state, including the selected network.
+	// This initialization path discards the validation report.
 	_ = config.ValidateConfiguration()
 	return
 }
@@ -109,7 +111,7 @@ func loadConfigFileFromCommandLine(configFlag *pflag.Flag) (configFile string, l
 	}
 	configFile = configFlag.Value.String()
 
-	// if file is not specified by user then configFile contains default name
+	// An unchanged flag contains the default filename; load it only if it exists.
 	if configFlag.Changed || isFileExist(configFile) {
 		if err := config.LoadConfig(configFile); err != nil {
 			return configFile, false, err
@@ -124,6 +126,7 @@ func isFileExist(fileName string) bool {
 	return !os.IsNotExist(err)
 }
 
+// Close releases instantiated etcd clients, the embedded server, and blockchain clients.
 func (components *Components) Close() {
 	components.Calls().Cancel()
 	components.Background().Cancel()
@@ -223,6 +226,8 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	return components.etcdClient
 }
 
+// FreeCallLockerStorage scopes usage locks to the shared network/organization/group store,
+// independently of the MPE contract address.
 func (components *Components) FreeCallLockerStorage() *storage.PrefixedAtomicStorage {
 	if components.freeCallLockerStorage != nil {
 		return components.freeCallLockerStorage
@@ -239,11 +244,9 @@ func (components *Components) LockerStorage() *storage.PrefixedAtomicStorage {
 	return components.etcdLockerStorage
 }
 
-/*
-AtomicStorage - create new PrefixedStorage using /<network_name> as a prefix, use this storage as base for other storages
-(i.e. return it from GetAtomicStorage of components.go);
-this guarantees that storages for different networks never intersect
-*/
+// AtomicStorage selects etcd or an in-memory backend and prefixes keys with
+// <network_name>/<organization_id>/<metadata_group_id>. Services in the same
+// organization group share this base namespace; individual stores add their own keys.
 func (components *Components) AtomicStorage() storage.AtomicStorage {
 	var store storage.AtomicStorage
 	if components.atomicStorage != nil {
@@ -255,16 +258,15 @@ func (components *Components) AtomicStorage() storage.AtomicStorage {
 	} else {
 		store = storage.NewMemStorage()
 	}
-	//by default set the network selected in the storage path
+	// Use the configured network name and the original group ID string from metadata.
 	components.atomicStorage = storage.NewPrefixedAtomicStorage(store, config.GetString(config.BlockChainNetworkSelected)+"/"+config.GetString(config.OrganizationId)+"/"+components.OrganizationMetaData().GetGroupIdString())
 
 	return components.atomicStorage
 }
 
-/*
-MPESpecificStorage it is also instance of PrefixedStorage using /<mpe_contract_address> as a prefix; as it is also based on storage from previous item the effective prefix is /<network_id>/<mpe_contract_address>; this guarantees that storages which are specific for MPE contract version don't intersect;
-use MPESpecificStorage as base for PaymentChannelStorage, PaymentStorage, LockStorage for channels;
-*/
+// MPESpecificStorage adds the service metadata's MPE address to AtomicStorage's
+// network/organization/group namespace. Channel state, pending payments, and
+// channel locks use this store; free-call, prepaid, and training stores do not.
 func (components *Components) MPESpecificStorage() *storage.PrefixedAtomicStorage {
 	if components.mpeSpecificStorage != nil {
 		return components.mpeSpecificStorage
@@ -393,7 +395,8 @@ func (components *Components) FreeCallPaymentHandler() handler.StreamPaymentHand
 	return components.freeCallPaymentHandler
 }
 
-// AllowedUserPaymentHandler Only for testing when blockchain disabled
+// AllowedUserPaymentHandler supplies the blockchain-disabled testing/curation policy:
+// verify an MPE-format signature and the optional allowlist without reading channel state.
 func (components *Components) AllowedUserPaymentHandler() handler.StreamPaymentHandler {
 	if components.allowedUserPaymentHandler != nil {
 		return components.allowedUserPaymentHandler
@@ -428,7 +431,9 @@ func (components *Components) PrePaidService() escrow.PrePaidService {
 	return components.prepaidUserService
 }
 
-// GrpcStreamInterceptor - Add a chain of interceptors
+// GrpcStreamInterceptor chains rate limiting and payment validation. When both
+// blockchain access and metering are enabled, it first verifies metering credentials
+// and wraps the chain with request/response statistics collection.
 func (components *Components) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcStreamInterceptor != nil {
 		return components.grpcStreamInterceptor
@@ -453,6 +458,8 @@ func (components *Components) GrpcStreamInterceptor() grpc.StreamServerIntercept
 	return components.grpcStreamInterceptor
 }
 
+// GrpcUnaryInterceptor installs training payment validation only when blockchain
+// access is enabled. Other unary RPCs rely on their service-level authorization.
 func (components *Components) GrpcUnaryInterceptor() grpc.UnaryServerInterceptor {
 	if components.grpcUnaryInterceptor != nil {
 		return components.grpcUnaryInterceptor
@@ -463,7 +470,9 @@ func (components *Components) GrpcUnaryInterceptor() grpc.UnaryServerInterceptor
 	return components.grpcUnaryInterceptor
 }
 
-// Metering end point authentication is now mandatory for daemon
+// verifyAuthenticationSetUpForFreeCall verifies metering credentials, despite its
+// legacy name. Startup calls it only when blockchain access and metering are enabled;
+// it uses pvt_key_for_metering, not the free-call token signing key.
 func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string, groupId string) (ok bool, err error) {
 
 	if _, err = utils.ParsePrivateKeyWithError(config.GetString(config.PvtKeyForMetering)); err != nil {
@@ -497,7 +506,7 @@ func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL st
 	return checkResponse(response)
 }
 
-// Check if the response received was proper
+// checkResponse requires HTTP 200 and a JSON response whose data field is "success".
 func checkResponse(response *http.Response) (allowed bool, err error) {
 	if response == nil {
 		zap.L().Error("Empty response received.")
@@ -532,6 +541,9 @@ type VerifyMeteringResponse struct {
 	Data string `json:"data"`
 }
 
+// GrpcStreamPaymentValidationInterceptor registers escrow (the default), free-call,
+// prepaid, and training policies. With blockchain disabled, it selects either the
+// signature-only testing policy or a no-op, depending on the allowlist flag.
 func (components *Components) GrpcStreamPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		if config.GetBool(config.AllowedUserFlag) {
@@ -587,6 +599,9 @@ func (components *Components) ProviderControlService() (service escrow.ProviderC
 	return components.providerControlService
 }
 
+// FreeCallStateService enables token issuance only with blockchain access and a
+// private key matching the free-call signer in service metadata. Balance eligibility
+// uses the configured FetchToken contract, not the MPE channel's internal balance.
 func (components *Components) FreeCallStateService() (service freecall.FreeCallStateServiceServer) {
 
 	if !config.GetBool(config.BlockchainEnabledKey) {
@@ -740,6 +755,7 @@ func (components *Components) TrainingService() training.DaemonServer {
 	return components.trainingService
 }
 
+// TokenManager supplies HMAC JWTs for prepaid calls, separate from ECDSA free-call tokens.
 func (components *Components) TokenManager() token.Manager {
 	if components.tokenManager != nil {
 		return components.tokenManager

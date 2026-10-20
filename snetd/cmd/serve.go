@@ -119,6 +119,8 @@ func (d *daemon) serve() {
 	d.start()
 	defer d.stop()
 
+	// With an initialized, hot-reload-enabled etcd client, watch Registry
+	// organization updates and reconnect when the metadata's etcd endpoints change.
 	if d.components.etcdClient != nil && d.components.etcdClient.IsHotReloadEnabled() {
 		contractEventListener := contractListener.ContractEventListener{
 			BlockchainProcessor:         d.blockProc,
@@ -155,8 +157,7 @@ func newDaemon(components *Components) (*daemon, error) {
 	}
 
 	d.autoSSLDomain = config.GetString(config.AutoSSLDomainKey)
-	// In order to perform the LetsEncrypt (ACME) http-01 challenge-response, we need to bind
-	// port 80 (privileged) to listen for the challenge.
+	// ACME HTTP-01 domain validation requires a listener on port 80.
 	if d.autoSSLDomain != "" {
 		d.acmeListener, err = net.Listen("tcp", ":80")
 		if err != nil {
@@ -207,7 +208,7 @@ func (d *daemon) start() {
 			Cache:      autocert.DirCache(config.GetString(config.AutoSSLCacheDirKey)),
 		}
 
-		// This is the HTTP server that handles ACME challenge/response
+		// Serve ACME HTTP-01 challenges separately from the daemon listener.
 		d.acmeListener = d.ownListener(d.acmeListener)
 		d.serveHTTP(d.acmeListener, certMgr.HTTPHandler(nil))
 
@@ -231,7 +232,7 @@ func (d *daemon) start() {
 	}
 
 	if tlsConfig != nil {
-		// See: https://gist.github.com/soheilhy/bb272c000f1987f17063
+		// Advertise HTTP/1.1 and HTTP/2 so HTTP and native gRPC can share the TLS listener.
 		tlsConfig.NextProtos = []string{"http/1.1", http2.NextProtoTLS, "h2-14"}
 
 		// Wrap underlying listener with a TLS listener
@@ -314,11 +315,11 @@ func (d *daemon) start() {
 // startWithTrafficSplit starts separate listeners for gRPC and HTTP
 // instead of using cmux. This mode is intended for setups where
 // L7 proxies (nginx/ingress/traefik) already split traffic by port.
+// These listeners are plain TCP; any required TLS termination must happen upstream.
 func (d *daemon) startWithTrafficSplit(exp *config.ExperimentalSettings) {
 	ts := exp.TrafficSplit
 
-	// Optional safety check: traffic_split is typically used when TLS is terminated
-	// before the daemon. If needed, you can enforce this.
+	// This warning does not apply TLS to the separate listeners below.
 	if d.sslCert != nil || d.autoSSLDomain != "" {
 		zap.L().Warn("traffic_split mode is enabled, but TLS is also configured on daemon side; make sure this is really what you want")
 	}
@@ -368,16 +369,13 @@ func (d *daemon) newGRPCWebServer() *grpcweb.WrappedGrpcServer {
 	)
 }
 
-// newHTTPHandler builds a shared HTTP handler used both in cmux mode
-// and in traffic_split mode. It handles:
-//   - CORS preflight (OPTIONS),
-//   - gRPC-Web requests,
-//   - /encoding and /heartbeat endpoints,
-//   - 404 for everything else.
+// newHTTPHandler serves gRPC-Web, encoding, and heartbeat routes in both cmux
+// and traffic_split modes. HTTP routes use the first path component; other
+// requests return 404. Callers wrap it with the CORS handler.
 func (d *daemon) newHTTPHandler(grpcWebServer *grpcweb.WrappedGrpcServer) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		// We should never manually process preflight here in normal flow,
-		// but keep this branch to be explicit.
+		// The outer CORS handler normally handles preflight. This fallback also
+		// returns 204 when this handler is used without that wrapper.
 		if req.Method == http.MethodOptions {
 			zap.L().Debug("[options] manual options",
 				zap.String("path", req.URL.Path),
@@ -387,7 +385,7 @@ func (d *daemon) newHTTPHandler(grpcWebServer *grpcweb.WrappedGrpcServer) http.H
 			return
 		}
 
-		// gRPC-Web over HTTP/1.1
+		// Dispatch gRPC-Web before interpreting the path as a utility endpoint.
 		if grpcWebServer != nil && grpcWebServer.IsGrpcWebRequest(req) {
 			zap.L().Debug("[grpc-web]",
 				zap.String("path", req.URL.Path),

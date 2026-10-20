@@ -19,7 +19,8 @@ type lockingUserService struct {
 	serviceMetadata *blockchain.ServiceMetadata
 }
 
-// NewUserService manages free-call limits and transactions in shared storage.
+// NewUserService manages usage and locks in the supplied storage backend. Quotas
+// come from daemon configuration or service metadata, not an MPE/Registry rule.
 func NewUserService(userStorage *UserStorage, locker storage.Locker,
 	groupIDReader func() ([32]byte, error), metadata *blockchain.ServiceMetadata) UserService {
 	return &lockingUserService{
@@ -71,10 +72,12 @@ func (h *lockingUserService) UserKey(payment *Payment) (userKey *UserKey, err er
 		ServiceId: payment.ServiceId, GroupID: utils.BytesToBase64(groupId[:])}, err
 }
 
-// StartTransaction acquires a user-level lock and returns a transaction
-// handle for free-call. It validates the per-address/global free-call
-// limits (where -1 means unlimited) and fails if the limit is exceeded.
-// The returned transaction keeps the lock and must be finalized elsewhere.
+// StartTransaction reads the user's usage snapshot, acquires its storage-key lock,
+// and checks the allowance for that identity. A per-address override takes
+// precedence over the service-group metadata quota; a resolved -1 skips the limit
+// check. The snapshot is read before acquiring the lock. Signatures and token
+// eligibility must already have been validated by the payment handler.
+// The returned transaction must be finalized with Commit or Rollback.
 func (h *lockingUserService) StartTransaction(payment *Payment) (transaction Transaction, err error) {
 
 	userKey, err := h.UserKey(payment)
@@ -108,7 +111,7 @@ func (h *lockingUserService) StartTransaction(payment *Payment) (transaction Tra
 		if err != nil {
 			e := lock.Unlock()
 			if e != nil {
-				// todo send a notification to the developer ( contact email is in service metadata)
+				// TODO: Notify the operator when a user lock cannot be released.
 				zap.L().Error("Transaction is cancelled because of err, but freeCallUserData cannot be unlocked. All other transactions on this freeCallUserData will be blocked until unlock. Please unlock freeCallUserData manually.",
 					zap.Any("userKey", userKey),
 					zap.Error(err))
@@ -116,10 +119,11 @@ func (h *lockingUserService) StartTransaction(payment *Payment) (transaction Tra
 		}
 	}(lock)
 
-	// Check if free calls are allowed for this user
+	// A zero override selects the service group's JSON metadata value.
+	// Registry stores its metadata URI; it does not validate this quota.
 	allowed := config.GetFreeCallsAllowed(userKey.Address)
 	if allowed == 0 {
-		allowed = h.serviceMetadata.GetFreeCallsAllowed() // meta is >= 0 by contract
+		allowed = h.serviceMetadata.GetFreeCallsAllowed()
 	}
 
 	if allowed != -1 {
@@ -145,7 +149,7 @@ func (transaction *userTransaction) Commit() error {
 	defer func(payment *userTransaction) {
 		err := payment.lock.Unlock()
 		if err != nil {
-			//todo send a notification to the developer defined in service metadata
+			// TODO: Notify the operator when a user lock cannot be released.
 			zap.L().Error("free call user cannot be unlocked because of error."+
 				" All other transactions on this channel will be blocked until unlock."+
 				" Please unlock user for free calls manually.", zap.Any("transaction", payment), zap.Error(err))

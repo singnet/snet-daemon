@@ -17,6 +17,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// Processor exposes Ethereum RPC clients, block freshness checks, and reads of
+// MPE channel state. The daemon prepares payment claims separately; creating this
+// processor does not submit transactions or establish a channel-signing identity.
 type Processor interface {
 	ReconnectToWsClient() error
 	ConnectToWsClient() error
@@ -33,7 +36,8 @@ type Processor interface {
 }
 
 var (
-	// HashPrefix32Bytes is an Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
+	// HashPrefix32Bytes is the Ethereum signed-message prefix for a 32-byte digest,
+	// matching the convention used by utils.GetSignature and MPE claim verification.
 	HashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
 	hashPrefix42Bytes = []byte("\x19Ethereum Signed Message:\n420x")
 )
@@ -59,7 +63,9 @@ type processor struct {
 	multiPartyEscrow        *MultiPartyEscrow
 }
 
-// NewProcessor creates a new blockchain processor
+// NewProcessor creates an HTTP RPC client and an MPE binding at the address in
+// service metadata when blockchain integration is enabled. Disabled mode creates
+// no clients or bindings; WebSocket connectivity is initialized separately.
 func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	return NewProcessorContext(context.Background(), metadata)
 }
@@ -77,7 +83,7 @@ func NewProcessorContext(ctx context.Context, metadata *ServiceMetadata) (Proces
 		return &p, nil
 	}
 
-	// Setup ethereum client
+	// HTTP RPC configuration is independent of the MPE address in service metadata.
 	if ethHttpClients, err := CreateHTTPEthereumClientContext(ctx); err != nil {
 		return &p, errors.Wrap(err, "error creating RPC client")
 	} else {
@@ -85,8 +91,8 @@ func NewProcessorContext(ctx context.Context, metadata *ServiceMetadata) (Proces
 		p.ethHttpClient = ethHttpClients.EthClient
 	}
 
-	// TODO: if address is not in config, try to load it using network
-	// TODO: Read this from github
+	// The MPE address comes from service metadata, not a Registry contract field
+	// or a direct per-network fallback in this constructor.
 
 	p.escrowContractAddress = metadata.GetMpeAddress()
 
@@ -96,7 +102,7 @@ func NewProcessorContext(ctx context.Context, metadata *ServiceMetadata) (Proces
 		p.multiPartyEscrow = mpe
 	}
 
-	// set a local signature hash creator
+	// Hash the payload before applying the Ethereum 32-byte signed-message prefix.
 	p.sigHasher = func(i []byte) []byte {
 		return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 	}
@@ -164,6 +170,8 @@ func (processor *processor) GetEthWSClient() *ethclient.Client {
 	return processor.ethWSClient
 }
 
+// CurrentBlock reads eth_blockNumber over HTTP for each call; it does not return
+// a cached block height or start a polling loop.
 func (processor *processor) CurrentBlock() (currentBlock *big.Int, err error) {
 	ctx, cancel := processor.callContext()
 	defer cancel()
@@ -187,10 +195,14 @@ func (processor *processor) callContext() (context.Context, context.CancelFunc) 
 	return context.WithTimeout(ctx, timeout)
 }
 
+// CompareWithLatestBlockNumber checks the caller-supplied inclusive window in
+// either direction. The allowance is protocol-specific, not fixed by MPE/Registry.
 func (processor *processor) CompareWithLatestBlockNumber(blockNumberPassed *big.Int, allowedBlockChainDifference uint64) (err error) {
 	return NewEthereumBlockValidator(processor.CurrentBlock).ValidateBlock(blockNumberPassed, allowedBlockChainDifference)
 }
 
+// HasIdentity reports whether the legacy address field is populated.
+// NewProcessor does not initialize a signing identity from daemon keys.
 func (processor *processor) HasIdentity() bool {
 	return processor.address != ""
 }

@@ -12,14 +12,9 @@ import (
 )
 
 func TestGetLighthouseFile_Success(t *testing.T) {
-	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("filecoin-content"))
-	})
-	defer ts.Close()
-
-	withTestConfig(t, map[string]string{config.LighthouseEndpoint: ts.URL + "/"})
-
-	data, err := GetLighthouseFile("testcid")
+	block := unixFSFixture(t, []byte("filecoin-content"))
+	serveBlocks(t, true, block)
+	data, err := GetLighthouseFile(block.cid.String())
 	require.NoError(t, err)
 	assert.Equal(t, "filecoin-content", string(data))
 }
@@ -33,15 +28,15 @@ func TestGetLighthouseFile_HTTPError(t *testing.T) {
 
 	withTestConfig(t, map[string]string{config.LighthouseEndpoint: ts.URL + "/"})
 
-	data, err := GetLighthouseFile("testcid")
-	require.NoError(t, err)
-	assert.Equal(t, "server error", string(data))
+	data, err := GetLighthouseFile(rawFixture(t, []byte("file")).cid.String())
+	require.ErrorContains(t, err, "HTTP 500: server error")
+	assert.Nil(t, data)
 }
 
 func TestGetLighthouseFile_ConnectionRefused(t *testing.T) {
 	withTestConfig(t, map[string]string{config.LighthouseEndpoint: "http://127.0.0.1:1/"})
 
-	data, err := GetLighthouseFile("testcid")
+	data, err := GetLighthouseFile(rawFixture(t, []byte("file")).cid.String())
 	assert.Error(t, err)
 	assert.Nil(t, data)
 }
@@ -65,7 +60,7 @@ func TestGetLighthouseFile_ReadBodyError(t *testing.T) {
 
 	withTestConfig(t, map[string]string{config.LighthouseEndpoint: ts.URL + "/"})
 
-	data, err := GetLighthouseFile("testcid")
+	data, err := GetLighthouseFile(rawFixture(t, []byte("file")).cid.String())
 	assert.Error(t, err)
 	assert.Nil(t, data)
 }

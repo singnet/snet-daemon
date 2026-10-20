@@ -2,9 +2,11 @@ package ipfsutils
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"net/http"
-	"time"
+	"net/url"
+
+	"github.com/ipfs/go-cid"
 
 	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
@@ -16,22 +18,37 @@ func GetLighthouseFile(cID string) ([]byte, error) {
 
 func GetLighthouseFileContext(ctx context.Context, cID string) ([]byte, error) {
 	zap.L().Debug("Getting lighthouse file", zap.String("cid", cID))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, config.GetString(config.LighthouseEndpoint)+cID, nil)
+	root, err := parseReference(cID, FilecoinPrefix)
 	if err != nil {
 		return nil, err
 	}
-	timeout := time.Duration(config.GetInt(config.IpfsTimeout)) * time.Second
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	resp, err := (&http.Client{Timeout: timeout}).Do(req)
+	endpoint, err := url.Parse(config.GetString(config.LighthouseEndpoint))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid gateway endpoint: %w", err)
 	}
-	defer resp.Body.Close()
-	file, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	if endpoint.User != nil {
+		return nil, fmt.Errorf("gateway endpoint must not contain credentials")
 	}
-	return file, nil
+	timeout := retrievalTimeout(true)
+	ctx, cancel := retrievalContext(ctx, timeout)
+	defer cancel()
+	client := &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if req.URL.User != nil {
+				return fmt.Errorf("gateway redirect must not contain credentials")
+			}
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 gateway redirects")
+			}
+			return nil
+		},
+	}
+	return readVerifiedUnixFSFile(ctx, root, func(ctx context.Context, c cid.Cid) ([]byte, error) {
+		u := endpoint.JoinPath(c.String())
+		query := u.Query()
+		query.Set("format", "raw")
+		u.RawQuery = query.Encode()
+		return fetchHTTPBlock(ctx, client, http.MethodGet, u.String())
+	})
 }

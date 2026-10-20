@@ -2,15 +2,15 @@ package ipfsutils
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/kubo/client/rpc"
 	"github.com/singnet/snet-daemon/v6/config"
 	"go.uber.org/zap"
-
-	"io"
-	"net/http"
-	"time"
 )
 
 func GetIpfsFile(hash string) (content []byte, err error) {
@@ -21,43 +21,39 @@ func GetIpfsFileContext(ctx context.Context, hash string) (content []byte, err e
 
 	zap.L().Debug("getting file from IPFS", zap.String("hash", hash))
 
-	ipfsClient := GetIPFSClient()
-
-	cID, err := cid.Parse(hash)
+	cID, err := parseReference(hash, IpfsPrefix)
 	if err != nil {
-		zap.L().Error("error parsing the ipfs hash", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return nil, err
 	}
-
-	req := ipfsClient.Request("cat", cID.String())
-	resp, err := req.Send(ctx)
+	address := config.GetString(config.IpfsEndpoint)
+	// Match Kubo's support for a bare host:port endpoint.
+	if !strings.Contains(address, "://") {
+		address = "http://" + address
+	}
+	endpoint, err := url.JoinPath(address, "api/v0/block/get")
 	if err != nil {
-		zap.L().Error("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
+		return nil, fmt.Errorf("invalid IPFS endpoint: %w", err)
+	}
+	blockURL, err := url.Parse(endpoint)
+	if err != nil {
 		return nil, err
 	}
-	defer func(resp *rpc.Response) {
-		err := resp.Close()
-		if err != nil {
-			zap.L().Error(err.Error())
-		}
-	}(resp)
-
-	if resp.Error != nil {
-		zap.L().Error("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(resp.Error))
-		return nil, resp.Error
-	}
-	fileContent, err := io.ReadAll(resp.Output)
-	if err != nil {
-		zap.L().Error("error: in Reading the meta data file", zap.Error(err), zap.String("hashFromMetaData", hash))
-		return nil, err
-	}
-
-	return fileContent, nil
+	timeout := retrievalTimeout(false)
+	ctx, cancel := retrievalContext(ctx, timeout)
+	defer cancel()
+	client := &http.Client{Timeout: timeout}
+	return readVerifiedUnixFSFile(ctx, cID, func(ctx context.Context, c cid.Cid) ([]byte, error) {
+		u := *blockURL
+		query := u.Query()
+		query.Set("arg", c.String())
+		u.RawQuery = query.Encode()
+		return fetchHTTPBlock(ctx, client, http.MethodPost, u.String())
+	})
 }
 
 func GetIPFSClient() *rpc.HttpApi {
 	httpClient := http.Client{
-		Timeout: time.Duration(config.GetInt(config.IpfsTimeout)) * time.Second,
+		Timeout: retrievalTimeout(false),
 	}
 	// NewURLApiWithClient only builds an HTTP client and always returns a nil error.
 	// Connection errors are reported when a request is sent.

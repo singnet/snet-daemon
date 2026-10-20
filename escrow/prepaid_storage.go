@@ -22,8 +22,8 @@ func (payment *PrePaidPayment) String() string {
 	return fmt.Sprintf("{ID:%v/%v/%v}", payment.ChannelID, payment.OrganizationId, payment.GroupId)
 }
 
-// PrePaidData stores one cumulative prepaid accounting amount in token base units.
-// Its channel ID and accounting category are stored separately in PrePaidDataKey.
+// PrePaidData stores only one cumulative prepaid accounting amount in token base
+// units. Its channel ID and UsageType are stored separately in PrePaidDataKey.
 type PrePaidData struct {
 	Amount *big.Int
 }

@@ -42,9 +42,11 @@ func PaymentID(channelID *big.Int, channelNonce *big.Int) string {
 	return fmt.Sprintf("%v/%v", channelID, channelNonce)
 }
 
-// PaymentChannelKey identifies a channel by ID in channel storage and blockchain
-// lookups. The nonce belongs to PaymentChannelData, not this key. Pending claims
-// use PaymentID to distinguish authorizations for successive channel nonces.
+// PaymentChannelKey identifies a MultiPartyEscrow channel by ID in channel storage
+// and blockchain lookups. The nonce belongs to PaymentChannelData, not this key.
+// When a claim reduces the channel balance, the nonce advances so earlier
+// authorizations cannot be reused. Pending claims use PaymentID to distinguish
+// authorizations for successive channel nonces.
 type PaymentChannelKey struct {
 	ID *big.Int
 }

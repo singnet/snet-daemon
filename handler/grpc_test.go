@@ -146,7 +146,7 @@ type exampleServiceMock struct {
 }
 
 func (service *exampleServiceMock) mustEmbedUnimplementedExampleServiceServer() {
-	//TODO implement me
+	// This generated-interface marker is not invoked by RPC dispatch.
 	panic("implement me")
 }
 

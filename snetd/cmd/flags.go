@@ -9,17 +9,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// Command is an CLI command abstraction
+// Command represents an executable management command.
 type Command interface {
 	Run() error
 }
 
-// CommandConstructor creates new command using command line arguments,
-// cobra context and initialized components
+// CommandConstructor builds a command from Cobra arguments and lazily initialized components.
 type CommandConstructor func(cmd *cobra.Command, args []string, components *Components) (command Command, err error)
 
-// RunAndCleanup initializes components, constructs command, runs it, cleanups
-// components and returns results
+// RunAndCleanup initializes components, constructs and runs the command, and
+// closes any dependencies opened along the way, including on command errors.
 func RunAndCleanup(cmd *cobra.Command, args []string, constructor CommandConstructor) (err error) {
 	components := InitComponents(cmd)
 	defer components.Close()
@@ -32,6 +31,7 @@ func RunAndCleanup(cmd *cobra.Command, args []string, constructor CommandConstru
 	return command.Run()
 }
 
+// RootCmd defaults to serving the daemon when no management subcommand is selected.
 var RootCmd = &cobra.Command{
 	Use:           "snetd",
 	SilenceErrors: true,
@@ -43,7 +43,7 @@ var RootCmd = &cobra.Command{
 	},
 }
 
-// ListCmd command to list channels, claims, etc
+// ListCmd groups read-only commands for objects in shared storage.
 var ListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List channels, claims in progress, etc",
@@ -58,6 +58,8 @@ var FreeCallUserCmd = &cobra.Command{
 		"unlock will release the lock on the given user ",
 }
 
+// GenerateEvmKeys prints a new local Ethereum key/address pair. It does not save
+// the private key, register a Registry organization, or fund an MPE account.
 var GenerateEvmKeys = &cobra.Command{
 	Use:   "generate-key",
 	Short: "Generate new pair of keys",

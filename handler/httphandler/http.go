@@ -18,6 +18,9 @@ type httpHandler struct {
 	rateLimiter         rate.Limiter
 }
 
+// NewHTTPHandler builds the simple HTTP forwarding/echo handler, separate from
+// the gRPC-to-HTTP bridge. It rate-limits forwarded requests but does not validate
+// MPE payments or use blockProc; gRPC payment interceptors do not wrap this handler.
 func NewHTTPHandler(blockProc blockchain.Processor) http.Handler {
 	return &httpHandler{
 		passthroughEnabled:  config.GetBool(config.PassthroughEnabledKey),

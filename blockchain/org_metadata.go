@@ -15,63 +15,15 @@ import (
 	"go.uber.org/zap"
 )
 
-/*
-This metadata structure defines the organization to group mappings.
-Please note that groups are logical bucketing of managing payments (the same recipient for each group across the services in an organization)
-A given Organization will be associated with multiple groups, and every group will be associated to a payment
-Sample example of the JSON structure from the blockchain is given below.
-Please note that all the services that belong to a given group in an organization will have the same recipient address.
-*/
-
-/*
-{
-  "org_name": "organization_name",
-  "org_id": "org_id1",
-  "groups": [
-    {
-      "group_name": "default_group2",
-      "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
-      "license_server_endpoints": [
-        "http://licenseendpont:8082"
-      ],
-      "payment": {
-        "payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
-        "payment_expiration_threshold": 40320,
-        "payment_channel_storage_type": "etcd",
-        "payment_channel_storage_client": {
-          "connection_timeout": "5s",
-          "request_timeout": "3s",
-          "endpoints": [
-            "http://127.0.0.1:2379"
-          ]
-        }
-      }
-    },
-
-    {
-      "group_name": "default_group2",
-      "group_id": "99ybRIg2wAx55mqVsA6sB4S7WxPQHNKqa4BPu/bhj+U=",
-      "payment": {
-        "payment_address": "0x671276c61943A35D5F230d076bDFd91B0c47bF09",
-        "payment_expiration_threshold": 40320,
-        "payment_channel_storage_type": "etcd",
-        "payment_channel_storage_client": {
-          "connection_timeout": "5s",
-          "request_timeout": "3s",
-          "endpoints": [
-            "http://127.0.0.1:2379"
-          ]
-        }
-      }
-    }
-  ]
-}*/
-
+// OrganizationMetaData is off-chain JSON referenced by an organization's Registry metadata URI.
+// Its named replica groups provide group IDs, provider payment addresses, and
+// storage settings shared by services using a group. daemon_group_name selects
+// the local group; MPE recipient/group checks are performed separately by escrow.
 type OrganizationMetaData struct {
 	OrgName string  `json:"org_name"`
 	OrgID   string  `json:"org_id"`
 	Groups  []Group `json:"groups"`
-	//This will used to determine which group the daemon belongs to
+	// Derived fields belong to the group selected by daemon_group_name.
 	daemonGroup             *Group
 	daemonGroupID           [32]byte
 	recipientPaymentAddress common.Address
@@ -84,7 +36,8 @@ type Payment struct {
 	PaymentChannelStorageClient PaymentChannelStorageClient `json:"payment_channel_storage_client"`
 }
 
-// Group Structure to hold the individual group details, an Organization can have multiple groups
+// Group defines one organization-level replica group and its shared payment,
+// storage, and license-server settings. These values are read from metadata JSON.
 type Group struct {
 	GroupName        string   `json:"group_name"`
 	GroupID          string   `json:"group_id"`
@@ -92,14 +45,16 @@ type Group struct {
 	LicenseEndpoints []string `json:"license_server_endpoints"`
 }
 
-// PaymentChannelStorageClient to hold the storage details of the payment
+// PaymentChannelStorageClient contains etcd connection settings shared by the
+// daemon's scoped payment, prepaid, free-call, and training storage.
 type PaymentChannelStorageClient struct {
 	ConnectionTimeout string   `json:"connection_timeout" mapstructure:"connection_timeout"`
 	RequestTimeout    string   `json:"request_timeout" mapstructure:"request_timeout"`
 	Endpoints         []string `json:"endpoints"`
 }
 
-// InitOrganizationMetaDataFromJson Construct the Organization metadata from the JSON Passed
+// InitOrganizationMetaDataFromJson parses metadata, selects daemon_group_name,
+// decodes its group ID, and validates the required recipient/storage settings.
 func InitOrganizationMetaDataFromJson(jsonData []byte) (metaData *OrganizationMetaData, err error) {
 	metaData = new(OrganizationMetaData)
 	err = json.Unmarshal(jsonData, &metaData)
@@ -108,7 +63,7 @@ func InitOrganizationMetaDataFromJson(jsonData []byte) (metaData *OrganizationMe
 		return nil, err
 	}
 
-	// Check for mandatory validations
+	// Check the required fields after selecting and deriving the local group.
 	if err = setDerivedAttributes(metaData); err != nil {
 		zap.L().Error("Error in setting derived attributes", zap.Error(err))
 		return nil, err
@@ -137,14 +92,15 @@ func setDerivedAttributes(metaData *OrganizationMetaData) (err error) {
 		return err
 	}
 	metaData.daemonGroupID, err = utils.ConvertBase64Encoding(metaData.daemonGroup.GroupID)
-	//use the checksum address (convert the address in to a checksum address and set it back)
+	// Normalize the selected group's payment-address text and retain its byte value.
 	metaData.daemonGroup.PaymentDetails.PaymentAddress = utils.ToChecksumAddressStr(metaData.daemonGroup.PaymentDetails.PaymentAddress)
 	metaData.recipientPaymentAddress = common.HexToAddress(metaData.daemonGroup.PaymentDetails.PaymentAddress)
 
 	return err
 }
 
-// Determine the group this Daemon belongs to
+// getDaemonGroup selects the organization group by configured name, not by an
+// MPE channel lookup or Registry ownership.
 func getDaemonGroup(metaData OrganizationMetaData) (group *Group, err error) {
 	groupName := config.GetString(config.DaemonGroupName)
 	for _, group := range metaData.Groups {
@@ -158,8 +114,8 @@ func getDaemonGroup(metaData OrganizationMetaData) (group *Group, err error) {
 	return nil, err
 }
 
-// GetOrganizationMetaData will be used to load the Organization metadata when Daemon starts
-// To be part of components
+// GetOrganizationMetaData resolves the organization's Registry metadata URI and
+// loads its JSON through IPFS. Blockchain-disabled mode returns an empty group.
 func GetOrganizationMetaData() *OrganizationMetaData {
 	var metadata *OrganizationMetaData
 	var err error
@@ -184,7 +140,7 @@ func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error)
 }
 
 func getMetaDataURI() []byte {
-	// Blockchain call to get the hash of the metadata for the given Organization
+	// Registry stores the metadata URI; the JSON itself is loaded off chain.
 	reg := getRegistryCaller()
 	orgId := utils.StringToBytes32(config.GetString(config.OrganizationId))
 
@@ -195,12 +151,14 @@ func getMetaDataURI() []byte {
 	return organizationRegistered.OrgMetadataURI[:]
 }
 
-// GetGroupIdString Get the Group ID the Daemon needs to associate itself to, requests belonging to a different group if will be rejected
+// GetGroupIdString returns the selected group's original metadata ID string.
+// It does not validate a request; free-call payloads use this string as text.
 func (metaData *OrganizationMetaData) GetGroupIdString() string {
 	return metaData.daemonGroup.GroupID
 }
 
-// GetGroupId Return the group id in bytes
+// GetGroupId returns the decoded bytes32 group ID used in MPE comparisons and
+// canonical storage keys. GetGroupIdString retains the metadata's textual form.
 func (metaData *OrganizationMetaData) GetGroupId() [32]byte {
 	return metaData.daemonGroupID
 }
@@ -209,22 +167,25 @@ func (metaData *OrganizationMetaData) GetLicenseEndPoints() []string {
 	return metaData.daemonGroup.LicenseEndpoints
 }
 
-// GetPaymentAddress retrieve the details of the payment address/ recipient address for current group.
+// GetPaymentAddress returns the selected group's provider payment address,
+// expected as an MPE channel recipient and provider-control request signer.
 func (metaData *OrganizationMetaData) GetPaymentAddress() common.Address {
 	return metaData.recipientPaymentAddress
 }
 
-// GetPaymentExpirationThreshold get expiration threshold
+// GetPaymentExpirationThreshold returns the safety margin in blocks used when
+// accepting channel payments, not the request-signature freshness allowance.
 func (metaData *OrganizationMetaData) GetPaymentExpirationThreshold() *big.Int {
 	return metaData.daemonGroup.PaymentDetails.PaymentExpirationThreshold
 }
 
-// GetPaymentStorageEndPoints Get the End points of the Payment Storage used to update the storage state
+// GetPaymentStorageEndPoints returns the selected group's shared etcd endpoints.
 func (metaData *OrganizationMetaData) GetPaymentStorageEndPoints() []string {
 	return metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.Endpoints
 }
 
-// GetConnectionTimeOut Get the connection time out defined
+// GetConnectionTimeOut parses the group's connection timeout. An invalid duration
+// is logged and produces a zero duration.
 func (metaData *OrganizationMetaData) GetConnectionTimeOut() (connectionTimeOut time.Duration) {
 	connectionTimeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.ConnectionTimeout)
 	if err != nil {
@@ -233,7 +194,8 @@ func (metaData *OrganizationMetaData) GetConnectionTimeOut() (connectionTimeOut 
 	return connectionTimeOut
 }
 
-// GetRequestTimeOut Get the Request time out defined
+// GetRequestTimeOut parses the group's request timeout. An invalid duration is
+// logged and produces a zero duration.
 func (metaData *OrganizationMetaData) GetRequestTimeOut() time.Duration {
 	timeOut, err := time.ParseDuration(metaData.daemonGroup.PaymentDetails.PaymentChannelStorageClient.RequestTimeout)
 	if err != nil {

@@ -19,23 +19,25 @@ type GrpcUnaryContext struct {
 	Info *grpc.UnaryServerInfo
 }
 
-// SenderProvider allows retrieving the sender's Ethereum address,
-// independent of the specific type from pkg/escrow.
+// SenderProvider exposes the payment handle's sender for downstream metadata
+// without depending on escrow, freecall, or prepaid concrete transaction types.
 type SenderProvider interface {
 	GetSender() common.Address
 }
 
+// UnaryPaymentHandler supplies payment validation and completion for unary
+// training calls. Other unary RPCs perform any required authorization themselves.
 type UnaryPaymentHandler interface {
 	// Type is a content of the PaymentTypeHeader field that triggers usage of the
 	// payment handler.
 	Type() (typ string)
-	// Payment extracts payment data from gRPC request context and checks
-	// validity of payment data. It returns nil if data is valid or
-	// appropriate gRPC status otherwise.
+	// Payment returns payment-specific state and a nil error on success. On
+	// failure it must release acquired resources; completion hooks are not called.
 	Payment(context *GrpcUnaryContext) (payment Payment, err *GrpcError)
 	// Complete completes payment if the service successfully processed the gRPC call
 	Complete(payment Payment) (err *GrpcError)
-	// CompleteAfterError completes payment if service returns error.
+	// CompleteAfterError finalizes after a service error or panic. A non-nil returned
+	// status replaces the service error; panic cleanup is followed by a new panic.
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
 }
 
@@ -59,7 +61,8 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata").Err()
 	}
 
-	// pass non-training requests and free requests
+	// Only train_model and validate_model use this payment interceptor. Other
+	// unary methods pass through after the metadata check, regardless of payment type.
 	if methodName != "validate_model" && methodName != "train_model" {
 		ctx = metadata.NewIncomingContext(ctx, md)
 		resp, e := handler(ctx, req)
@@ -101,13 +104,11 @@ func (interceptor *paymentValidationUnaryInterceptor) unaryIntercept(ctx context
 		} else if e == nil {
 			err = paymentHandler.Complete(payment)
 			if err != nil {
-				// return err.Err()
 				e = err.Err()
 			}
 		} else {
 			err = paymentHandler.CompleteAfterError(payment, e)
 			if err != nil {
-				// return err.Err()
 				e = err.Err()
 			}
 		}
@@ -144,6 +145,9 @@ func (interceptor *paymentValidationUnaryInterceptor) getPaymentHandler(context 
 	return paymentHandler, nil
 }
 
+// GrpcPaymentValidationUnaryInterceptor registers payment handlers for train_model
+// and validate_model. It does not select blockchain-disabled policy or authenticate
+// other unary operator RPCs.
 func GrpcPaymentValidationUnaryInterceptor(serviceData *blockchain.ServiceMetadata, defaultPaymentHandler UnaryPaymentHandler, paymentHandler ...UnaryPaymentHandler) grpc.UnaryServerInterceptor {
 	interceptor := &paymentValidationUnaryInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,

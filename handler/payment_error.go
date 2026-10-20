@@ -5,7 +5,9 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-// PaymentErrorToGRPCError maps payment errors to the public gRPC status codes.
+// PaymentErrorToGRPCError maps direct *errs.PaymentError values to public status
+// codes, including the custom IncorrectNonce code. Other errors, including wrapped
+// payment errors, become Internal; nil remains nil.
 func PaymentErrorToGRPCError(err error) *GrpcError {
 	if err == nil {
 		return nil

@@ -35,12 +35,11 @@ type grpcHandler struct {
 	options             grpc.DialOption
 	enc                 string
 	passthroughEndpoint string
-	//modelTrainingEndpoint string
-	executable         string
-	serviceMetaData    *blockchain.ServiceMetadata
-	serviceCredentials serviceCredentials
-	httpClient         *http.Client
-	timeout            time.Duration
+	executable          string
+	serviceMetaData     *blockchain.ServiceMetadata
+	serviceCredentials  serviceCredentials
+	httpClient          *http.Client
+	timeout             time.Duration
 }
 
 func (g *grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
@@ -51,6 +50,9 @@ func (g *grpcHandler) GrpcConn(isModelTraining bool) *grpc.ClientConn {
 	return g.grpcConn
 }
 
+// NewGrpcHandler selects a backend bridge from service metadata: gRPC, JSON-RPC,
+// protobuf-to-HTTP/JSON, or a local process. Disabling passthrough echoes one frame
+// instead; payment validation remains the responsibility of the server's interceptors.
 func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHandler {
 	passthroughEnabled := config.GetBool(config.PassthroughEnabledKey)
 
@@ -65,22 +67,19 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 		serviceMetaData:     serviceMetadata,
 		enc:                 serviceMetadata.GetWireEncoding(),
 		passthroughEndpoint: config.GetString(config.ServiceEndpointKey),
-		//modelTrainingEndpoint: config.GetString(config.ModelTrainingEndpoint),
-		executable: config.GetString(config.ExecutablePathKey),
+		executable:          config.GetString(config.ExecutablePathKey),
 		options: grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
 			grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024)),
 	}
 
-	// Add small slack so http.Client.Timeout does not fire before context deadline
+	// The HTTP client has a separate limit of service_timeout plus one second.
+	// An existing caller deadline is preserved, so it may be longer than this limit.
 	h.httpClient = &http.Client{Timeout: timeout + time.Second}
 
 	switch serviceMetadata.GetServiceType() {
 	case "grpc":
 		h.grpcConn = h.getConnection(h.passthroughEndpoint)
-		//if config.GetBool(config.ModelTrainingEnabled) {
-		//	h.grpcModelConn = h.getConnection(h.modelTrainingEndpoint)
-		//}
 		return h.grpcToGRPC
 	case "jsonrpc":
 		return h.grpcToJSONRPC
@@ -101,6 +100,7 @@ func NewGrpcHandler(serviceMetadata *blockchain.ServiceMetadata) grpc.StreamHand
 	return nil
 }
 
+// getConnection uses TLS only for an https endpoint; other schemes use plaintext gRPC.
 func (g *grpcHandler) getConnection(endpoint string) (conn *grpc.ClientConn) {
 
 	if !strings.Contains(endpoint, "://") {
@@ -160,26 +160,23 @@ func (g *grpcHandler) grpcToGRPC(srv any, inStream grpc.ServerStream) error {
 		select {
 		case s2cErr := <-s2cErrChan:
 			if s2cErr == io.EOF {
-				// this is the happy case where the sender has encountered io.EOF, and won't be sending anymore./
-				// the clientStream>inStream may continue pumping though.
+				// The caller has finished sending requests. Half-close the backend
+				// request stream while continuing to receive backend responses.
 				errCloseSend := outStream.CloseSend()
 				if errCloseSend != nil {
 					zap.L().Debug("failed close outStream", zap.Error(err))
 				}
 				break
 			} else {
-				// however, we may have gotten a receive error (stream disconnected, a read error etc) in which case we need
-				// to cancel the clientStream to the backend, let all of its goroutines be freed up by the CancelFunc and
-				// exit with an error to the stack
+				// A frontend receive/forwarding error aborts the backend call.
 				outCancel()
 				return status.Errorf(codes.Internal, "failed proxying s2c: %v%s", s2cErr, errs.ErrDescURL(errs.ServiceUnavailable))
 			}
 		case c2sErr := <-c2sErrChan:
-			// This happens when the clientStream has nothing else to offer (io.EOF), returned a gRPC error. In those two
-			// cases we may have received Trailers as part of the call. In case of other errors (stream closed) the trailers
-			// will be nil.
+			// The backend response stream ended or forwarding failed. Relay any
+			// available trailers before returning the final status to the caller.
 			inStream.SetTrailer(outStream.Trailer())
-			// c2sErr will contain RPC error from client code. If not io.EOF return the RPC error as server stream error.
+			// Preserve backend RPC errors; io.EOF is normal completion.
 			if c2sErr != io.EOF {
 				return c2sErr
 			}
@@ -195,18 +192,19 @@ Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-
 Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
 */
 func forwardClientToServer(src grpc.ClientStream, dst grpc.ServerStream) chan error {
+	// The client stream is the daemon's backend connection; the server stream
+	// is its frontend connection. Copy backend responses to the original caller.
 	ret := make(chan error, 1)
 	go func() {
 		f := &codec.GrpcFrame{}
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
-				ret <- err // this can be io.EOF which is happy case
+				ret <- err // io.EOF indicates normal backend completion.
 				break
 			}
 			if i == 0 {
-				// This is a bit of a hack, but client to server headers are only readable after first client msg is
-				// received but must be written to server stream before the first msg is flushed.
-				// This is the only place to do it nicely.
+				// After receiving the first backend response, forward its headers
+				// before sending the response frame to the original caller.
 				md, err := src.Header()
 				if err != nil {
 					ret <- err
@@ -232,12 +230,13 @@ Original Copyright 2017 Michal Witkowski. All Rights Reserved. See LICENSE-GRPC-
 Modifications Copyright 2018 SingularityNET Foundation. All Rights Reserved. See LICENSE for licensing terms.
 */
 func forwardServerToClient(src grpc.ServerStream, dst grpc.ClientStream) chan error {
+	// Copy frontend requests to the daemon's backend client stream.
 	ret := make(chan error, 1)
 	go func() {
 		f := &codec.GrpcFrame{}
 		for {
 			if err := src.RecvMsg(f); err != nil {
-				ret <- err // io.EOF — normal end
+				ret <- err // io.EOF means the caller has finished sending requests.
 				break
 			}
 			if err := dst.SendMsg(f); err != nil {
@@ -263,6 +262,8 @@ type serviceCredential struct {
 
 type serviceCredentials []serviceCredential
 
+// grpcToHTTP converts one protobuf request to an HTTP JSON POST and converts the
+// JSON response back to protobuf. It is a single-request bridge, not a streaming transport.
 func (g *grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 
 	methodFull, ok := grpc.MethodFromServerStream(inStream)
@@ -270,10 +271,10 @@ func (g *grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "could not determine method from server stream")
 	}
 
-	// we are expecting "/service/method", but we are normalizing it just in case
-	methodFull = strings.Trim(methodFull, "/") // removes both the lead and tail '/'
+	// Normalize surrounding slashes before validating the service/method path.
+	methodFull = strings.Trim(methodFull, "/")
 
-	// we guarantee the availability of service/method
+	// Require exactly two nonempty path components.
 	svc, method, ok := strings.Cut(methodFull, "/")
 	if !ok || svc == "" || method == "" {
 		return status.Errorf(codes.Internal, "unexpected grpc method format: %q", methodFull)
@@ -290,7 +291,7 @@ func (g *grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "error receiving grpc msg: %v%v", err, errs.ErrDescURL(errs.ReceiveMsgError))
 	}
 
-	// convert proto msg to json
+	// Resolve the request type from the compiled proto descriptors.
 	jsonBody, err := protoToJson(g.serviceMetaData.ProtoDescriptors, f.Data, method)
 	if err != nil {
 		return status.Errorf(codes.Internal, "protoToJson error: %+v", errs.ErrDescURL(errs.InvalidProto))
@@ -304,7 +305,7 @@ func (g *grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 		return status.Errorf(codes.Internal, "can't parse service_endpoint %v%v", err, errs.ErrDescURL(errs.InvalidConfig))
 	}
 
-	base.Path = path.Join(base.Path, method) // method from proto should be the same as http handler path
+	base.Path = path.Join(base.Path, method) // Append the RPC method name, not the service name.
 
 	params := url.Values{}
 	headers := http.Header{}
@@ -388,6 +389,8 @@ func (g *grpcHandler) grpcToHTTP(srv any, inStream grpc.ServerStream) error {
 	return nil
 }
 
+// grpcToJSONRPC treats one incoming frame as JSON parameters for the method's
+// final path component and returns the JSON-RPC result as a JSON frame.
 func (g *grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 	if !ok {
@@ -456,6 +459,8 @@ func (g *grpcHandler) grpcToJSONRPC(srv any, inStream grpc.ServerStream) error {
 	return nil
 }
 
+// grpcToProcess passes the method's final path component as an executable argument
+// and one request frame on stdin. Combined stdout/stderr becomes the response frame.
 func (g *grpcHandler) grpcToProcess(srv any, inStream grpc.ServerStream) error {
 	method, ok := grpc.MethodFromServerStream(inStream)
 
@@ -501,6 +506,7 @@ func (g *grpcHandler) grpcToProcess(srv any, inStream grpc.ServerStream) error {
 	return nil
 }
 
+// grpcLoopback echoes one frame without invoking a backend service.
 func grpcLoopback(srv any, inStream grpc.ServerStream) error {
 	f := &codec.GrpcFrame{}
 	if err := inStream.RecvMsg(f); err != nil {
@@ -514,6 +520,8 @@ func grpcLoopback(srv any, inStream grpc.ServerStream) error {
 	return nil
 }
 
+// withDefaultTimeout adds a deadline only when the caller has none and d is positive.
+// It preserves an existing deadline, even if it exceeds the configured default.
 func withDefaultTimeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
 	if _, ok := ctx.Deadline(); ok || d <= 0 {
 		return context.WithCancel(ctx)

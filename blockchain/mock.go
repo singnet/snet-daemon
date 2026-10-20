@@ -65,15 +65,7 @@ func (m *MockProcessor) Close() {
 
 func (m *MockProcessor) MultiPartyEscrowChannel(channelID *big.Int) (channel *MultiPartyEscrowChannel, ok bool, err error) {
 
-	//ch, err := processor.multiPartyEscrow.Channels(nil, channelID)
-	//if err != nil {
-	//	zap.L().Warn("Error while looking up for channel id in blockchain", zap.Error(err), channelIdField)
-	//	return nil, false, err
-	//}
-	//if ch.Sender == zeroAddress {
-	//	zap.L().Warn("Unable to find channel id in blockchain", channelIdField)
-	//	return nil, false, nil
-	//}
+	// Return a deterministic placeholder for every ID without consulting a contract.
 
 	channel = &MultiPartyEscrowChannel{
 		Sender:     common.HexToAddress("0x000"),

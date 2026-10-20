@@ -24,130 +24,10 @@ import (
 	"go.uber.org/zap"
 )
 
-/*
-	{
-	    "version": 1,
-	    "display_name": "Entity Disambiguation",
-	    "encoding": "proto",
-	    "service_type": "grpc",
-	    "model_ipfs_hash": "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv",
-	    "mpe_address": "0x34E2EeE197EfAAbEcC495FdF3B1781a3b894eB5f",
-	    "groups": [
-	        {
-	            "group_name": "default_group",
-	            "free_calls": 12,
-	            "free_call_signer_address": "0x7DF35C98f41F3Af0df1dc4c7F7D4C19a71Dd059F",
-	            "pricing": [
-	                {
-	                    "price_model": "fixed_price",
-	                    "price_in_cogs": 1,
-	                    "default": true
-	                }
-	            ],
-	            "endpoints": [
-	                "https://tz-services-1.snet.sh:8005"
-	            ],
-	            "group_id": "EoFmN3nvaXpf6ew8jJbIPVghE5NXfYupFF7PkRmVyGQ=",
-
-	{
-	  "licenses": {
-
-	    "tiers": [{
-	      "type": "Tier",
-	      "planName": "Tier AAA",
-	      "grpcServiceName": "ServiceA",
-	      "grpcMethodName": "MethodA",
-	      "range": [
-	        {
-	          "high": 100,
-	          "DiscountInPercentage": 3
-	        },
-	        {
-	          "high": 200,
-	          "DiscountInPercentage": 4
-	        },
-	        {
-	          "high": 300,
-	          "DiscountInPercentage": 6
-	        }
-	      ],
-	      "detailsUrl": "http://abc.org/licenses/Tier.html",
-	      "isActive": "true/false"
-	    },
-	     {
-	      "type": "Tier",
-	      "planName": "Tier BBB Applicable for All service.methods",
-	      "range": [
-	        {
-	          "high": 100,
-	          "DiscountInPercentage": 1
-	        },
-	        {
-	          "high": 200,
-	          "DiscountInPercentage": 1.75
-	        },
-	        {
-	          "high": 300,
-	          "DiscountInPercentage": 2.50
-	        }
-	      ],
-	      "detailsUrl": "http://abc.org/licenses/Tier.html",
-	      "isActive": "true/false"
-	    }],
-	    "subscriptions": {
-	      "type": "Subscription",
-	      "subscription": [
-	        {
-	          "periodInDays": 30,
-	          "DiscountInPercentage": 10,
-	          "planName": "Monthly For ServiceA/MethodA",
-	          "LicenseCost": 90,
-	          "grpcServiceName": "ServiceA",
-	          "grpcMethodName": "MethodA"
-	        },
-	        {
-	          "periodInDays": 30,
-	          "DiscountInPercentage": 12,
-	          "planName": "Monthly",
-	          "LicenseCost": 93
-	        },
-	        {
-	          "periodInDays": 120,
-	          "DiscountInPercentage": 16,
-	          "LicenseCost": 120,
-	          "planName": "Quarterly"
-	        },
-	        {
-	          "periodInDays": 365,
-	          "DiscountInPercentage": 23,
-	          "LicenseCost": 390,
-	          "planName": "Yearly"
-	        }
-	      ],
-	      "detailsUrl": "http://abc.org/licenses/Subscription.html",
-	      "isActive": "true/false"
-	    }
-	  }
-	}
-
-	    ],
-	    "assets": {
-	        "hero_image": "Qmb1n3LxPXLHTUMu7afrpZdpug4WhhcmVVCEwUxjLQafq1/hero_named-entity-disambiguation.png"
-	    },
-	    "service_description": {
-	        "url": "https://singnet.github.io/nlp-services-misc/users_guide/named-entity-disambiguation-service.html",
-	        "description": "Provide further clarity regarding entities named within a piece of text. For example, \"Paris is the capital of France\", we would want to link \"Paris\" to Paris the city not Paris Hilton in this case.",
-	        "short_description": "text of 180 chars"
-	    }
-	    "contributors": [
-	            {
-	                "name": "dummy dummy",
-	                "email_id": "dummy@dummy.io"
-	            }
-	        ]
-	}
-*/
-
+// ServiceMetadata is off-chain JSON referenced by a Registry service registration.
+// It supplies the MPE address, backend protocol, and per-group pricing, free-call
+// quota, and token signer. Derived fields select daemon_group_name; Registry stores
+// the metadata URI rather than validating these JSON settings.
 type ServiceMetadata struct {
 	Version          int                 `json:"version"`
 	DisplayName      string              `json:"display_name"`
@@ -219,6 +99,8 @@ type Licenses struct {
 	Tiers         []Tier        `json:"tiers"`
 }
 
+// OrganizationGroup contains service settings for a named replica group. Its
+// free-call quota and signing address are metadata values, not Registry/MPE fields.
 type OrganizationGroup struct {
 	Endpoints      []string  `json:"endpoints"`
 	GroupID        string    `json:"group_id"`
@@ -252,6 +134,9 @@ func getRegistryAddressKey() common.Address {
 	return common.HexToAddress(address)
 }
 
+// ServiceMetaData resolves the configured organization/service through Registry,
+// downloads the referenced metadata via IPFS, and derives the selected group's
+// settings. Blockchain-disabled mode returns minimal proto/gRPC defaults instead.
 func ServiceMetaData() *ServiceMetadata {
 	var metadata *ServiceMetadata
 	var err error
@@ -310,6 +195,9 @@ func GetRegistryFilterer(ethWsClient *ethclient.Client) *RegistryFilterer {
 	return reg
 }
 
+// getServiceMetaDataURIFromRegistry reads a service's metadata URI using the
+// Registry bytes32 IDs. Pricing, group settings, and MPE address are in the JSON
+// retrieved through that URI, not fields of the registration itself.
 func getServiceMetaDataURIFromRegistry() ([]byte, error) {
 	reg := getRegistryCaller()
 
@@ -332,6 +220,8 @@ func GetServiceMetaDataFromIPFS(hash string) (*ServiceMetadata, error) {
 	return InitServiceMetaDataFromJson(jsondata)
 }
 
+// InitServiceMetaDataFromJson parses service JSON, selects the configured group
+// and default pricing, derives free-call settings, and loads its protobuf API.
 func InitServiceMetaDataFromJson(jsonData []byte) (*ServiceMetadata, error) {
 	metaData := new(ServiceMetadata)
 	err := json.Unmarshal(jsonData, &metaData)
@@ -426,6 +316,8 @@ func (metaData *ServiceMetadata) GetMpeAddress() common.Address {
 	return metaData.multiPartyEscrowAddress
 }
 
+// FreeCallSignerAddress returns the provider's token-signing address from service
+// metadata. It is independent of the group's MPE recipient/payment address.
 func (metaData *ServiceMetadata) FreeCallSignerAddress() common.Address {
 	return metaData.freeCallSignerAddress
 }
@@ -446,10 +338,14 @@ func (metaData *ServiceMetadata) GetDisplayName() string {
 	return metaData.DisplayName
 }
 
+// IsFreeCallAllowed reports whether the selected group declares a free-call
+// signer. It does not check remaining quota or the daemon's signing-key setup.
 func (metaData *ServiceMetadata) IsFreeCallAllowed() bool {
 	return metaData.isfreeCallAllowed
 }
 
+// GetFreeCallsAllowed returns the selected group's parsed metadata quota.
+// Registry does not enforce this value or maintain the daemon's usage counters.
 func (metaData *ServiceMetadata) GetFreeCallsAllowed() int {
 	return metaData.freeCallsAllowed
 }
@@ -458,12 +354,10 @@ func (metaData *ServiceMetadata) GetLicenses() Licenses {
 	return metaData.defaultGroup.Licenses
 }
 
-// GetDynamicPricingMethodAssociated accept methodFullName, example "/example_service.Calculator/add"
+// GetDynamicPricingMethodAssociated resolves an RPC path such as
+// "/example_service.Calculator/add" to its configured pricing method when dynamic
+// pricing is enabled. This lookup does not validate the target method's signature.
 func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullName string) (pricingMethod string, isDynamicPricingEligible bool) {
-	// Check if Method Level Options are defined for the given Service and method,
-	// If Defined check if it's in the format supported, then return the full method Name
-	// i.e., /package.service/method format; this will be directly fed in to the grpc called to made to
-	// determine dynamic pricing
 	if !config.GetBool(config.EnableDynamicPricing) {
 		return
 	}
@@ -476,7 +370,8 @@ func (metaData *ServiceMetadata) GetDynamicPricingMethodAssociated(methodFullNam
 	return
 }
 
-// IsModelTraining accept methodFullName, example "/example_service.Calculator/add"
+// IsModelTraining reports whether model training is enabled and the full RPC path
+// was collected from the service's training-method annotations.
 func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useModelTrainingEndPoint bool) {
 	if !config.GetBool(config.ModelTrainingEnabled) {
 		return false
@@ -484,7 +379,8 @@ func (metaData *ServiceMetadata) IsModelTraining(methodFullName string) (useMode
 	return slices.Contains(metaData.TrainingMethods, methodFullName)
 }
 
-// getProtoDescriptors converts text of proto files to bufbuild linker
+// getProtoDescriptors compiles all supplied proto sources with standard imports
+// into linked descriptors used by the HTTP/protobuf bridge.
 func getProtoDescriptors(protoFiles map[string]string) (linker.Files, error) {
 	accessor := protocompile.SourceAccessorFromMap(protoFiles)
 	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})
@@ -505,7 +401,8 @@ func (metaData *ServiceMetadata) setServiceProto() (err error) {
 	metaData.TrainingMethods = make([]string, 0)
 	var rawFile []byte
 
-	// for backwards compatibility
+	// Support legacy model_ipfs_hash. If service_api_source is also set, its
+	// download replaces this content and any error from the legacy read.
 	if metaData.ModelIpfsHash != "" {
 		rawFile, err = ipfsutils.GetIpfsFile(metaData.ModelIpfsHash)
 	}
@@ -539,8 +436,8 @@ func (metaData *ServiceMetadata) setServiceProto() (err error) {
 	for _, file := range metaData.ProtoFiles {
 		zap.L().Debug("Protofile", zap.String("file", file))
 
-		// If Dynamic pricing is enabled, there will be mandatory checks on the service proto
-		//this is to ensure that the standards on how one defines the methods to invoke is followed
+		// Extract pricing/training annotations when either feature is enabled.
+		// This parser builds method maps rather than validating contract policy.
 		if config.GetBool(config.EnableDynamicPricing) || config.GetBool(config.ModelTrainingEnabled) {
 			if srvProto, err := parseServiceProto(file); err != nil {
 				return err
@@ -558,7 +455,8 @@ func (metaData *ServiceMetadata) setServiceProto() (err error) {
 	return nil
 }
 
-// deprecated
+// parseServiceProto is the legacy syntax parser still used to extract method
+// annotations. HTTP message conversion uses compiled linked descriptors instead.
 func parseServiceProto(serviceProtoFile string) (*pproto.Proto, error) {
 	reader := strings.NewReader(serviceProtoFile)
 	parser := pproto.NewParser(reader)
@@ -569,14 +467,16 @@ func parseServiceProto(serviceProtoFile string) (*pproto.Proto, error) {
 	return parsedProto, nil
 }
 
-// deprecated
+// buildDynamicPricingMethodsMap collects pricing targets and methods declaring
+// trainingMethodIndicator. Presence of that option is sufficient; its value and
+// the referenced pricing method's signature are not validated here.
 func buildDynamicPricingMethodsMap(serviceProto *pproto.Proto) (dynamicPricingMethodMapping map[string]string,
 	trainingMethodPricing []string, err error) {
 	dynamicPricingMethodMapping = make(map[string]string, 0)
 	trainingMethodPricing = make([]string, 0)
 	var pkgName, serviceName, methodName string
 	for _, elem := range serviceProto.Elements {
-		//package is parsed earlier than service ( per documentation)
+		// Track the declared package when building fully qualified RPC paths.
 		if pkg, ok := elem.(*pproto.Package); ok {
 			pkgName = pkg.Name
 		}

@@ -1,12 +1,14 @@
 package escrow
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/utils"
 	"go.uber.org/zap"
@@ -21,6 +23,7 @@ const (
 )
 
 type paymentChannelPaymentHandler struct {
+	background         *lifecycle.Group
 	service            PaymentChannelService
 	mpeContractAddress func() common.Address
 	incomeValidator    IncomeStreamValidator
@@ -33,13 +36,17 @@ type paymentChannelPaymentHandler struct {
 func NewPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
-	incomeValidator IncomeStreamValidator) handler.StreamPaymentHandler {
-	return &paymentChannelPaymentHandler{
+	incomeValidator IncomeStreamValidator, background ...*lifecycle.Group) handler.StreamPaymentHandler {
+	h := &paymentChannelPaymentHandler{
 		service:            service,
 		mpeContractAddress: processor.EscrowContractAddress,
 		currentBlock:       processor.CurrentBlock,
 		incomeValidator:    incomeValidator,
 	}
+	if len(background) > 0 {
+		h.background = background[0]
+	}
+	return h
 }
 
 func (h *paymentChannelPaymentHandler) Type() (typ string) {
@@ -102,12 +109,22 @@ func (h *paymentChannelPaymentHandler) getPaymentFromContext(context *handler.Gr
 
 func (h *paymentChannelPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil {
-		go PublishChannelStats(payment, h.currentBlock)
+		publishChannelStats(h.background, payment, h.currentBlock)
 	}
 	return err
 }
 
+func publishChannelStats(background *lifecycle.Group, payment handler.Payment, currentBlock func() (*big.Int, error)) {
+	if config.GetBool(config.MeteringEnabled) {
+		background.Go(func(ctx context.Context) { PublishChannelStatsContext(ctx, payment, currentBlock) })
+	}
+}
+
 func PublishChannelStats(payment handler.Payment, currentBlock func() (*big.Int, error)) (grpcErr *handler.GrpcError) {
+	return PublishChannelStatsContext(context.Background(), payment, currentBlock)
+}
+
+func PublishChannelStatsContext(ctx context.Context, payment handler.Payment, currentBlock func() (*big.Int, error)) (grpcErr *handler.GrpcError) {
 	if !config.GetBool(config.MeteringEnabled) {
 		return nil
 	}
@@ -135,7 +152,7 @@ func PublishChannelStats(payment handler.Payment, currentBlock func() (*big.Int,
 	if err != nil {
 		return handler.NewGrpcErrorf(codes.Internal, "Unable to get latest block")
 	}
-	status := metrics.Publish(channelStats, meteringURL, commonStats, block)
+	status := metrics.PublishContext(ctx, channelStats, meteringURL, commonStats, block)
 	if !status {
 		zap.L().Warn("Payment handler unable to post latest off-chain Channel state on contract API Endpoint for metering", zap.String("meteringURL", meteringURL))
 		return handler.NewGrpcErrorf(codes.Internal, "Unable to publish status error")

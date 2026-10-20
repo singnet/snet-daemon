@@ -51,6 +51,10 @@ func getAuthOption(endpoint, apiKey string) rpc.ClientOption {
 }
 
 func CreateHTTPEthereumClient() (*EthereumClient, error) {
+	return CreateHTTPEthereumClientContext(context.Background())
+}
+
+func CreateHTTPEthereumClientContext(ctx context.Context) (*EthereumClient, error) {
 
 	opts := getAuthOption(config.GetBlockChainHTTPEndPoint(), config.GetString(config.BlockchainProviderApiKey))
 
@@ -59,11 +63,11 @@ func CreateHTTPEthereumClient() (*EthereumClient, error) {
 	var err error
 	if opts == nil {
 		httpClient, err = rpc.DialOptions(
-			context.Background(),
+			ctx,
 			config.GetBlockChainHTTPEndPoint())
 	} else {
 		httpClient, err = rpc.DialOptions(
-			context.Background(),
+			ctx,
 			config.GetBlockChainHTTPEndPoint(), opts)
 	}
 
@@ -80,9 +84,13 @@ func CreateHTTPEthereumClient() (*EthereumClient, error) {
 // CreateWSEthereumClient uses the configured WebSocket endpoint and always adds
 // Basic auth with an empty username. It does not use the HTTP auth-selection rule.
 func CreateWSEthereumClient() (*EthereumClient, error) {
+	return CreateWSEthereumClientContext(context.Background())
+}
+
+func CreateWSEthereumClientContext(ctx context.Context) (*EthereumClient, error) {
 	ethereumWsClient := new(EthereumClient)
 	wsClient, err := rpc.DialOptions(
-		context.Background(),
+		ctx,
 		config.GetBlockChainWSEndPoint(),
 		rpc.WithHeader("Authorization", "Basic "+basicAuth("", config.GetString(config.BlockchainProviderApiKey))))
 	if err != nil {

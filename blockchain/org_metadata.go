@@ -1,8 +1,10 @@
 package blockchain
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"math/big"
 	"strings"
 	"time"
@@ -129,6 +131,37 @@ func GetOrganizationMetaData() *OrganizationMetaData {
 		zap.L().Panic("error on retrieving / parsing organization metadata from block chain", zap.Error(err))
 	}
 	return metadata
+}
+
+// GetOrganizationMetaDataContext keeps hot-reload reads cancellable until all data is fetched.
+func GetOrganizationMetaDataContext(ctx context.Context) (*OrganizationMetaData, error) {
+	timeout := config.GetDuration(config.ServiceTimeout)
+	if timeout <= 0 {
+		timeout = 100 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	client, err := CreateHTTPEthereumClientContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	registry, err := NewRegistryCaller(getRegistryAddressKey(), client.EthClient)
+	if err != nil {
+		return nil, err
+	}
+	org, err := registry.GetOrganizationById(&bind.CallOpts{Context: ctx}, utils.StringToBytes32(config.GetString(config.OrganizationId)))
+	if err != nil {
+		return nil, err
+	}
+	if !org.Found {
+		return nil, fmt.Errorf("organization not found")
+	}
+	data, err := ipfsutils.ReadFileContext(ctx, string(org.OrgMetadataURI[:]))
+	if err != nil {
+		return nil, err
+	}
+	return InitOrganizationMetaDataFromJson(data)
 }
 
 func GetOrganizationMetaDataFromIPFS(hash string) (*OrganizationMetaData, error) {

@@ -472,8 +472,10 @@ func (client *EtcdClient) revokeSessionLease(id clientv3.LeaseID) {
 }
 
 func (client *EtcdClient) ExecuteTransaction(request storage.CASRequest) (ok bool, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	defer cancel()
 	// CompleteTransaction refreshes the snapshot on conflict; callback rejection stops retries.
-	return storage.ExecuteTransaction(client, request, storage.TransactionPolicy{})
+	return storage.ExecuteTransaction(client, request, storage.TransactionPolicy{Context: ctx})
 }
 
 // CompleteTransaction atomically applies updates if the etcd state still matches

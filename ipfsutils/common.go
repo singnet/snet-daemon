@@ -1,6 +1,7 @@
 package ipfsutils
 
 import (
+	"context"
 	"regexp"
 	"strings"
 )
@@ -11,10 +12,14 @@ const (
 )
 
 func ReadFile(hash string) (rawFile []byte, err error) {
+	return ReadFileContext(context.Background(), hash)
+}
+
+func ReadFileContext(ctx context.Context, hash string) (rawFile []byte, err error) {
 	if strings.HasPrefix(hash, FilecoinPrefix) {
-		rawFile, err = GetLighthouseFile(formatHash(hash))
+		rawFile, err = GetLighthouseFileContext(ctx, formatHash(hash))
 	} else {
-		rawFile, err = GetIpfsFile(formatHash(hash))
+		rawFile, err = GetIpfsFileContext(ctx, formatHash(hash))
 	}
 	return rawFile, err
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
 )
 
 const (
@@ -16,6 +17,7 @@ const (
 )
 
 type trainUnaryPaymentHandler struct {
+	background         *lifecycle.Group
 	service            PaymentChannelService
 	mpeContractAddress func() common.Address
 	incomeValidator    IncomeUnaryValidator
@@ -23,6 +25,7 @@ type trainUnaryPaymentHandler struct {
 }
 
 type trainStreamPaymentHandler struct {
+	background         *lifecycle.Group
 	service            PaymentChannelService
 	mpeContractAddress func() common.Address
 	currentBlock       func() (*big.Int, error)
@@ -59,7 +62,7 @@ func (t trainStreamPaymentHandler) Payment(context *handler.GrpcStreamContext) (
 
 func (t trainStreamPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil {
-		go PublishChannelStats(payment, t.currentBlock)
+		publishChannelStats(t.background, payment, t.currentBlock)
 	}
 	return err
 }
@@ -103,13 +106,17 @@ func (t trainStreamPaymentHandler) getPaymentFromContext(md metadata.MD) (paymen
 func NewTrainUnaryPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
-	incomeValidator IncomeUnaryValidator) handler.UnaryPaymentHandler {
-	return &trainUnaryPaymentHandler{
+	incomeValidator IncomeUnaryValidator, background ...*lifecycle.Group) handler.UnaryPaymentHandler {
+	h := &trainUnaryPaymentHandler{
 		service:            service,
 		mpeContractAddress: processor.EscrowContractAddress,
 		currentBlock:       processor.CurrentBlock,
 		incomeValidator:    incomeValidator,
 	}
+	if len(background) > 0 {
+		h.background = background[0]
+	}
+	return h
 }
 
 // NewTrainStreamPaymentHandler validates escrow authorizations for streaming
@@ -117,13 +124,17 @@ func NewTrainUnaryPaymentHandler(
 func NewTrainStreamPaymentHandler(
 	service PaymentChannelService,
 	processor blockchain.Processor,
-	incomeValidator IncomeStreamValidator) handler.StreamPaymentHandler {
-	return &trainStreamPaymentHandler{
+	incomeValidator IncomeStreamValidator, background ...*lifecycle.Group) handler.StreamPaymentHandler {
+	h := &trainStreamPaymentHandler{
 		service:            service,
 		mpeContractAddress: processor.EscrowContractAddress,
 		currentBlock:       processor.CurrentBlock,
 		incomeValidator:    incomeValidator,
 	}
+	if len(background) > 0 {
+		h.background = background[0]
+	}
+	return h
 }
 
 func (h *trainUnaryPaymentHandler) Type() (typ string) {
@@ -187,7 +198,7 @@ func (h *trainUnaryPaymentHandler) getPaymentFromContext(md metadata.MD) (paymen
 
 func (h *trainUnaryPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	if err = paymentErrorToGrpcError(payment.(*paymentTransaction).Commit()); err == nil {
-		go PublishChannelStats(payment, h.currentBlock)
+		publishChannelStats(h.background, payment, h.currentBlock)
 	}
 	return err
 }

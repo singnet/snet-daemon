@@ -1,7 +1,11 @@
 package storage
 
+import "context"
+
 // TransactionPolicy controls retries and snapshot handling in ExecuteTransaction.
 type TransactionPolicy struct {
+	// Context bounds retries; individual backend operations retain their own deadlines.
+	Context context.Context
 	// MaxAttempts includes the initial attempt. Non-positive values mean no limit.
 	MaxAttempts int
 	// RetryOnUpdateDeclined allows retrying when Update returns false without an error.
@@ -18,6 +22,9 @@ type TransactionPolicy struct {
 func ExecuteTransaction(backend AtomicStorage, request CASRequest, policy TransactionPolicy) (bool, error) {
 	var transaction Transaction
 	for attempt := 0; policy.MaxAttempts <= 0 || attempt < policy.MaxAttempts; attempt++ {
+		if policy.Context != nil && policy.Context.Err() != nil {
+			return false, policy.Context.Err()
+		}
 		if attempt == 0 || policy.RestartTransactionOnRetry {
 			var err error
 			transaction, err = backend.StartTransaction(request.ConditionKeys)

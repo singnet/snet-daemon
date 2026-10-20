@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"sync"
@@ -38,14 +39,21 @@ func (cr *CertReloader) GetCertificate() *tls.Certificate {
 // Listen reloads the pair every three seconds, keeping the previous pair on errors.
 // TODO: Accept a context so the polling goroutine can stop with the daemon.
 func (cr *CertReloader) Listen() {
+	go cr.ListenContext(context.Background())
+}
+
+func (cr *CertReloader) ListenContext(ctx context.Context) {
 	ticker := time.NewTicker(3 * time.Second)
-	go func() {
-		defer ticker.Stop()
-		for range ticker.C {
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
 			err := cr.reloadCertificate()
 			if err != nil {
 				zap.L().Error("Error in reloading ssl certificates", zap.Error(err))
 			}
 		}
-	}()
+	}
 }

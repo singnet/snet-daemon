@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -47,6 +48,7 @@ type jobInfo struct {
 }
 
 type processor struct {
+	ctx                     context.Context
 	enabled                 bool
 	ethHttpClient           *ethclient.Client
 	rawHttpClient           *rpc.Client
@@ -65,9 +67,14 @@ type processor struct {
 // service metadata when blockchain integration is enabled. Disabled mode creates
 // no clients or bindings; WebSocket connectivity is initialized separately.
 func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
+	return NewProcessorContext(context.Background(), metadata)
+}
+
+func NewProcessorContext(ctx context.Context, metadata *ServiceMetadata) (Processor, error) {
 	// TODO(aiden) accept configuration as a parameter
 
 	p := processor{
+		ctx:                ctx,
 		jobCompletionQueue: make(chan *jobInfo, 1000),
 		enabled:            config.GetBool(config.BlockchainEnabledKey),
 	}
@@ -77,7 +84,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 	}
 
 	// HTTP RPC configuration is independent of the MPE address in service metadata.
-	if ethHttpClients, err := CreateHTTPEthereumClient(); err != nil {
+	if ethHttpClients, err := CreateHTTPEthereumClientContext(ctx); err != nil {
 		return &p, errors.Wrap(err, "error creating RPC client")
 	} else {
 		p.rawHttpClient = ethHttpClients.RawClient
@@ -104,8 +111,12 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 }
 
 func (processor *processor) ReconnectToWsClient() error {
-	processor.ethWSClient.Close()
-	processor.rawHttpClient.Close()
+	if processor.ethWSClient != nil {
+		processor.ethWSClient.Close()
+	}
+	if processor.rawWSClient != nil {
+		processor.rawWSClient.Close()
+	}
 
 	zap.L().Debug("Try to reconnect to websocket client")
 
@@ -113,10 +124,22 @@ func (processor *processor) ReconnectToWsClient() error {
 }
 
 func (processor *processor) ConnectToWsClient() error {
+	ctx, cancel := processor.callContext()
+	defer cancel()
+	return processor.ConnectToWsClientContext(ctx)
+}
+
+func (processor *processor) ConnectToWsClientContext(ctx context.Context) error {
+	timeout := config.GetDuration(config.ServiceTimeout)
+	if timeout <= 0 {
+		timeout = 100 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	zap.L().Debug("Try to connect to websocket client")
 
-	newEthWSClients, err := CreateWSEthereumClient()
+	newEthWSClients, err := CreateWSEthereumClientContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -150,12 +173,26 @@ func (processor *processor) GetEthWSClient() *ethclient.Client {
 // CurrentBlock reads eth_blockNumber over HTTP for each call; it does not return
 // a cached block height or start a polling loop.
 func (processor *processor) CurrentBlock() (currentBlock *big.Int, err error) {
-	latestBlock, err := processor.ethHttpClient.BlockNumber(context.Background())
+	ctx, cancel := processor.callContext()
+	defer cancel()
+	latestBlock, err := processor.ethHttpClient.BlockNumber(ctx)
 	if err != nil {
 		zap.L().Error("error determining current block", zap.Error(err))
 		return nil, fmt.Errorf("error determining current block: %v", err)
 	}
 	return new(big.Int).SetUint64(latestBlock), nil
+}
+
+func (processor *processor) callContext() (context.Context, context.CancelFunc) {
+	ctx := processor.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	timeout := config.GetDuration(config.ServiceTimeout)
+	if timeout <= 0 {
+		timeout = 100 * time.Second
+	}
+	return context.WithTimeout(ctx, timeout)
 }
 
 // CompareWithLatestBlockNumber checks the caller-supplied inclusive window in

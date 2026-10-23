@@ -150,9 +150,33 @@ embedded mapping. Nonempty local endpoint/Registry overrides still apply.
 
 | Key | Type | Default | Meaning / constraints |
 |-----|------|---------|-----------------------|
-| `ipfs_endpoint` | string | `"https://ipfs.singularitynet.io:443"` | IPFS API endpoint for metadata and model/proto retrieval. |
-| `lighthouse_endpoint` | string | `"https://gateway.lighthouse.storage/ipfs/"` | Gateway prefix for `filecoin://` metadata references. The CID is appended directly; include the required trailing slash. |
-| `ipfs_timeout` | integer seconds | `30` | IPFS HTTP client timeout. `0` disables that timeout. Does not control Lighthouse requests, which currently use the default HTTP client without an explicit timeout. |
+| `ipfs_endpoint` | string | `"https://ipfs.singularitynet.io:443"` | Kubo RPC endpoint. Must support `POST /api/v0/block/get` for metadata and model/proto retrieval. |
+| `lighthouse_endpoint` | string | `"https://gateway.lighthouse.storage/ipfs/"` | Public HTTP gateway prefix for `filecoin://` references. Any compatible gateway can be used; the daemon appends each block CID and requests `format=raw`. No Lighthouse account or credentials are used. |
+| `ipfs_timeout` | integer seconds | `30` | Timeout for an entire file retrieval, including all child blocks, for both transports. `0` disables the IPFS timeout; Lighthouse retains its 30-second fallback when the value is nonpositive. A shorter caller context deadline still applies. |
+
+Metadata and proto archives are assembled locally from verified IPFS blocks.
+Every block is checked against its expected CID before DAG-PB/UnixFS decoding;
+the daemon does not use `cat`, re-upload files, or fall back to unverified data.
+CIDv0 and CIDv1 files using the `raw` codec or UnixFS File/legacy Raw nodes in
+DAG-PB are supported, including multi-block files. Each block is limited to
+2 MiB; this is not a limit on the assembled file size. Unsupported codecs,
+non-file nodes, malformed file sizes, missing blocks, and CID mismatches fail
+the retrieval without returning partial content.
+
+References may be bare CIDs, `ipfs://CID`, or `filecoin://CID`. Surrounding
+whitespace and trailing Registry NUL padding are accepted. Paths within a CID,
+HTTP URLs, and malformed references are rejected rather than repaired by
+removing characters.
+
+For HTTP gateways the request is `GET <prefix>/<CID>?format=raw` with
+`Accept: application/vnd.ipld.raw`. No API keys, wallets, signatures, cookies,
+or payment operations are required. The configured gateway must serve the
+requested blocks publicly; endpoint URLs containing credentials are rejected.
+Gateway operators can impose access restrictions and rate limits, so free
+availability of the default Lighthouse gateway is not guaranteed. Configure
+another compatible public gateway or your own IPFS infrastructure if needed.
+HTTP errors, including authentication and payment requirements, are returned
+as retrieval errors. Public reading does not upload, pin, or renew storage.
 
 ## API TLS
 

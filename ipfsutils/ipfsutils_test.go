@@ -39,17 +39,11 @@ func startMockServer(handler http.HandlerFunc) *httptest.Server {
 	return ts
 }
 
-func serveIPFSFile(t *testing.T, hash string, content []byte) {
+func serveIPFSFile(t *testing.T, content []byte) string {
 	t.Helper()
-	server := startMockServer(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/api/v0/cat", r.URL.Path)
-		assert.Equal(t, hash, r.URL.Query().Get("arg"))
-		w.Header().Set("Content-Type", "application/octet-stream")
-		_, _ = w.Write(content)
-	})
-	t.Cleanup(server.Close)
-	withTestConfig(t, map[string]string{config.IpfsEndpoint: server.URL})
+	block := unixFSFixture(t, content)
+	serveBlocks(t, false, block)
+	return block.cid.String()
 }
 
 func TestGetIpfsFile_InvalidHash(t *testing.T) {
@@ -109,18 +103,8 @@ func TestGetIpfsFile_ServerJSONError(t *testing.T) {
 
 func TestGetIpfsFile_Success(t *testing.T) {
 	content := []byte("IPFS file content")
-	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Write(content)
-	})
-	defer ts.Close()
-
-	withTestConfig(t, map[string]string{
-		config.IpfsEndpoint: ts.URL,
-		config.IpfsTimeout:  "10",
-	})
-
-	data, err := GetIpfsFile("QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
+	hash := serveIPFSFile(t, content)
+	data, err := GetIpfsFile(hash)
 	require.NoError(t, err)
 	assert.Equal(t, content, data)
 }
@@ -179,10 +163,9 @@ func TestIpfsUtilsTestSuite(t *testing.T) {
 }
 
 func (suite *IpfsUtilsTestSuite) TestGetProtoFiles() {
-	hash := "Qmc32Gi3e62gcw3fFfRPidxrGR7DncNki2ptfh9rVESsTc"
 	archive, err := createTarEntries([]struct{ name, content string }{{"example_service.proto", testCalculatorProto}})
 	suite.Require().NoError(err)
-	serveIPFSFile(suite.T(), hash, gzipData(archive))
+	hash := serveIPFSFile(suite.T(), gzipData(archive))
 
 	data, err := ReadFile("ipfs://" + hash)
 	suite.Require().NoError(err)
@@ -206,10 +189,9 @@ func TestIsGzipFile(t *testing.T) {
 }
 
 func (suite *IpfsUtilsTestSuite) TestReadFiles() {
-	hash := "QmeyrQkEyba8dd4rc3jrLd5pEwsxHutfH2RvsSaeSMqTtQ"
 	archive, err := createTarEntries([]struct{ name, content string }{{"example_service.proto", testCalculatorProto}})
 	suite.Require().NoError(err)
-	serveIPFSFile(suite.T(), hash, archive)
+	hash := serveIPFSFile(suite.T(), archive)
 
 	data, err := GetIpfsFile(hash)
 	suite.Require().NoError(err)

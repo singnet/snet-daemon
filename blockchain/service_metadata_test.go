@@ -69,8 +69,7 @@ func TestInitServiceMetaDataFromJson(t *testing.T) {
 }
 
 func TestReadServiceMetaDataFromLocalFile(t *testing.T) {
-	serveServiceProto(t, "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv")
-	metadata, err := ReadServiceMetaDataFromLocalFile("../resources/testing/service_metadata.json")
+	metadata, err := ReadServiceMetaDataFromLocalFile(serviceMetadataLocalFixture(t))
 	require.NoError(t, err)
 	assert.Equal(t, metadata.Version, 1)
 	assert.Equal(t, map[string]string{"service.proto": testServiceProto}, metadata.ProtoFiles)
@@ -151,8 +150,7 @@ func TestServiceMetadata_parseServiceProto(t *testing.T) {
 }
 
 func TestServiceMetadata_addOns(t *testing.T) {
-	serveServiceProto(t, "Qmd21xqgX8fkU4fD2bFMNG2Q86wAB4GmGBekQfLoiLtXYv")
-	metadata, err := ReadServiceMetaDataFromLocalFile("../resources/testing/service_metadata.json")
+	metadata, err := ReadServiceMetaDataFromLocalFile(serviceMetadataLocalFixture(t))
 	require.NoError(t, err)
 	assert.Equal(t, metadata.Groups[0].AddOns[0].DiscountInPercentage, 4.0)
 }

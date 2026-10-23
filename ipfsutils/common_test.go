@@ -1,101 +1,83 @@
 package ipfsutils
 
 import (
-	"net/http"
+	"context"
 	"testing"
+	"time"
 
+	mb "github.com/multiformats/go-multibase"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestReadFile_FilecoinPrefix(t *testing.T) {
-	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("filecoin-data"))
-	})
-	defer ts.Close()
-
-	withTestConfig(t, map[string]string{config.LighthouseEndpoint: ts.URL + "/"})
-
-	data, err := ReadFile("filecoin://somecid123")
-	require.NoError(t, err)
-	assert.Equal(t, "filecoin-data", string(data))
-}
-
-func TestReadFile_IpfsPrefix(t *testing.T) {
-	ts := startMockServer(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Write([]byte("ipfs-data"))
-	})
-	defer ts.Close()
-
-	withTestConfig(t, map[string]string{
-		config.IpfsEndpoint: ts.URL,
-		config.IpfsTimeout:  "10",
-	})
-
-	data, err := ReadFile("ipfs://QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn")
-	require.NoError(t, err)
-	assert.Equal(t, "ipfs-data", string(data))
-}
-
-// ========== ipfsutils.go ==========
-
-func TestFilecoinReadFile(t *testing.T) {
-	const hash = "bafkreibk4ham7y6mwad2qxwyrhpmxh2fho7xwvsfw26lcra5bt5r5fvcwe"
-	content := []byte("filecoin fixture")
-	server := startMockServer(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/ipfs/"+hash, r.URL.Path)
-		_, _ = w.Write(content)
-	})
-	t.Cleanup(server.Close)
-	withTestConfig(t, map[string]string{config.LighthouseEndpoint: server.URL + "/ipfs/"})
-
-	file, err := ReadFile("filecoin://" + hash)
-	require.NoError(t, err)
-	assert.Equal(t, content, file)
-}
-
-func TestIpfsReadFile(t *testing.T) {
-	const hash = "QmQcT5SJB9s8LXom8zuNGksCa7d34XbVn52dACWvgzeWAW"
-	content := []byte("ipfs fixture")
-	serveIPFSFile(t, hash, content)
-
-	file, err := ReadFile("ipfs://" + hash)
-	require.NoError(t, err)
-	assert.Equal(t, content, file)
-}
-
-func TestFormatHash(t *testing.T) {
-	s2 := []byte("ipfs://Here is a string....+=")
-	hash := formatHash(string(s2))
-	assert.Equal(t, hash, "Hereisastring=")
-
-	s2 = []byte("filecoin://QmaGnQ3iVZPuPwdam2rEeQcCSoCYRpxjnZhQ6Z2oeeRSrp")
-	b4 := append(s2, make([]byte, 3)...)
-	assert.NotEqual(t, "QmaGnQ3iVZPuPwdam2rEeQcCSoCYRpxjnZhQ6Z2oeeRSrp", string(b4))
-	assert.Equal(t, "QmaGnQ3iVZPuPwdam2rEeQcCSoCYRpxjnZhQ6Z2oeeRSrp", formatHash(string(b4)))
-}
-
-func TestRemoveSpecialCharactersfromHash(t *testing.T) {
-	testCases := []struct {
-		input          string
-		expectedOutput string
-	}{
-		{"abc123", "abc123"},
-		{"abc123!@#", "abc123"},
-		{"a1b2c3 ~`!@#$%^&*()_+-={}[]|\\:;\"'<>,.?/", "a1b2c3="},
-		{"abc=123", "abc=123"},
-		{"a1!b2@c3#=4", "a1b2c3=4"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.input, func(t *testing.T) {
-			output := removeSpecialCharacters(tc.input)
-			if output != tc.expectedOutput {
-				t.Errorf("RemoveSpecialCharactersfromHash(%q) = %q; want %q", tc.input, output, tc.expectedOutput)
-			}
+func TestReadFileReferences(t *testing.T) {
+	for _, lighthouse := range []bool{false, true} {
+		prefix := IpfsPrefix
+		if lighthouse {
+			prefix = FilecoinPrefix
+		}
+		t.Run(prefix, func(t *testing.T) {
+			block := unixFSFixture(t, []byte("reference fixture"))
+			serveBlocks(t, lighthouse, block)
+			file, err := ReadFile(" \t" + prefix + block.cid.String() + "\x00\x00\n")
+			require.NoError(t, err)
+			assert.Equal(t, "reference fixture", string(file))
 		})
 	}
+	block := rawFixture(t, []byte("bare CID"))
+	serveBlocks(t, false, block)
+	file, err := ReadFile(block.cid.String())
+	require.NoError(t, err)
+	assert.Equal(t, "bare CID", string(file))
+}
+
+func TestParseReferenceMultibase(t *testing.T) {
+	block := rawFixture(t, []byte("\xfb\xff\xff CID multibase fixture"))
+	for _, encoding := range []mb.Encoding{mb.Base32, mb.Base58BTC, mb.Base64, mb.Base64pad, mb.Base64url, mb.Base64urlPad} {
+		encoded, err := block.cid.StringOfBase(encoding)
+		require.NoError(t, err)
+		parsed, err := parseReference(IpfsPrefix+encoded, IpfsPrefix)
+		require.NoError(t, err)
+		assert.Equal(t, block.cid, parsed)
+	}
+}
+
+func TestReadFileRejectsMalformedReferences(t *testing.T) {
+	block := rawFixture(t, []byte("reference"))
+	valid := block.cid.String()
+	base64CID, err := block.cid.StringOfBase(mb.Base64)
+	require.NoError(t, err)
+	withTestConfig(t, map[string]string{config.IpfsEndpoint: ":invalid", config.LighthouseEndpoint: ":invalid"})
+	for _, reference := range []string{
+		"", "not-a-cid", "https://example.com/ipfs/" + valid, "/ipfs/" + valid,
+		IpfsPrefix + valid + "/file", FilecoinPrefix + valid + "?download=true",
+		IpfsPrefix + valid + "!", IpfsPrefix + "ipfs://" + valid,
+		valid[:10] + " " + valid[10:], valid[:10] + "\x00" + valid[10:],
+		base64CID[:10] + "\n" + base64CID[10:],
+	} {
+		t.Run(reference, func(t *testing.T) {
+			file, err := ReadFile(reference)
+			require.ErrorContains(t, err, "invalid content reference")
+			assert.Nil(t, file)
+		})
+	}
+}
+
+func TestRetrievalTimeout(t *testing.T) {
+	for _, tc := range []struct {
+		configured string
+		ipfs       time.Duration
+		lighthouse time.Duration
+	}{{"3", 3 * time.Second, 3 * time.Second}, {"0", 0, 30 * time.Second}} {
+		t.Run(tc.configured, func(t *testing.T) {
+			withTestConfig(t, map[string]string{config.IpfsTimeout: tc.configured})
+			assert.Equal(t, tc.ipfs, retrievalTimeout(false))
+			assert.Equal(t, tc.lighthouse, retrievalTimeout(true))
+		})
+	}
+	ctx, cancel := retrievalContext(context.Background(), 0)
+	defer cancel()
+	_, deadline := ctx.Deadline()
+	assert.False(t, deadline)
 }

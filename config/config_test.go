@@ -149,6 +149,19 @@ func TestValidateEndpoints(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestValidateDaemonEndpointPort(t *testing.T) {
+	for _, endpoint := range []string{"127.0.0.1:0", "127.0.0.1:65535", ":", "[::1]:8080", "unresolved.invalid:http"} {
+		t.Run(endpoint, func(t *testing.T) {
+			require.NoError(t, ValidateEndpoints(endpoint, "http://127.0.0.1:5000"))
+		})
+	}
+	for _, port := range []string{"-1", "65536", "70000", "999999999999999999999", "not-a-service"} {
+		t.Run(port, func(t *testing.T) {
+			require.ErrorContains(t, ValidateEndpoints("127.0.0.1:"+port, "http://127.0.0.1:5000"), "invalid daemon_endpoint port")
+		})
+	}
+}
+
 func TestAllowedUserChecks(t *testing.T) {
 	isolatedConfig(t)
 	err := allowedUserConfigurationChecks()
@@ -165,6 +178,23 @@ func TestAllowedUserChecks(t *testing.T) {
 	vip.Set(BlockChainNetworkSelected, "main")
 	err = allowedUserConfigurationChecks()
 	assert.Equal(t, "service cannot be restricted to certain users when set up against Ethereum mainnet,the flag allowed_user_flag is set to true", err.Error())
+}
+
+func TestShutdownTimeoutValidation(t *testing.T) {
+	for _, value := range []string{"30s", "100ms", "0s", "-1s", "invalid"} {
+		t.Run(value, func(t *testing.T) {
+			isolatedConfig(t)
+			Vip().Set(ShutdownTimeout, value)
+			report := ValidateConfiguration()
+			invalid := false
+			for _, diagnostic := range report.Diagnostics {
+				if diagnostic.Code == "invalid_shutdown_timeout" {
+					invalid = true
+				}
+			}
+			assert.Equal(t, value != "30s" && value != "100ms", invalid)
+		})
+	}
 }
 
 func Test_IsAllowedUser(t *testing.T) {

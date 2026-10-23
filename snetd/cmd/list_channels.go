@@ -10,12 +10,13 @@ import (
 	"github.com/singnet/snet-daemon/v6/escrow"
 )
 
-// ListChannelsCmd shows the list of channels from shared storage
+// ListChannelsCmd lists locally stored channel state without refreshing it from MPE.
+// It is not an enumeration of all channels in the contract.
 var ListChannelsCmd = &cobra.Command{
 	Use:   "channels",
 	Short: "List payment channels",
-	Long: "List payment channels for which at least on payment was received." +
-		" User can use 'snetd claim --channel-id' command to claim funds from channel.",
+	Long: "List payment channels for which at least one payment was received.\n\n" +
+		"To claim funds, use 'snet treasurer claim --endpoint <DAEMON_ENDPOINT> <CHANNEL_ID>' from the separate SNET CLI.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return RunAndCleanup(cmd, args, newListChannelsCommand)
 	},

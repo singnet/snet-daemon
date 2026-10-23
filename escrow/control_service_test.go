@@ -10,14 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/singnet/snet-daemon/v6/utils"
-	"github.com/stretchr/testify/suite"
-
 	"github.com/stretchr/testify/assert"
-
-	"github.com/singnet/snet-daemon/v6/blockchain"
+	"github.com/stretchr/testify/suite"
 )
 
 type ControlServiceTestSuite struct {
@@ -73,7 +71,6 @@ func (suite *ControlServiceTestSuite) mpeChannel() *blockchain.MultiPartyEscrowC
 }
 
 func (suite *ControlServiceTestSuite) SetupSuite() {
-	//
 	var errs error
 	suite.receiverPvtKy = GenerateTestPrivateKey()
 	println(errs)
@@ -101,9 +98,9 @@ func (suite *ControlServiceTestSuite) SetupSuite() {
 				return suite.receiverAddress
 			},
 		},
-		NewEtcdLocker(memoryStorage),
+		storage.NewLocker(memoryStorage),
 		&ChannelPaymentValidator{
-			currentBlock:               func() (*big.Int, error) { return big.NewInt(99), nil },
+			blockValidator:             blockchain.NewEthereumBlockValidator(func() (*big.Int, error) { return big.NewInt(99), nil }),
 			paymentExpirationThreshold: func() *big.Int { return big.NewInt(0) },
 		}, func() [32]byte {
 			return [32]byte{123}
@@ -136,10 +133,8 @@ func (suite *ControlServiceTestSuite) SignListInProgress(request *GetPaymentsLis
 	request.Signature = getSignature(message, suite.receiverPvtKy)
 }
 
-// Build Request
-// Validate Signature
-// Add 2 elements in ChannelData
-// After claims, check if 2 payments have come in
+// TestStartClaimForMultipleChannels prepares two authorizations with one batch
+// signature and verifies that pending claim signatures are available afterward.
 func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 	suite.putChannel(big.NewInt(1))
 	suite.putChannel(big.NewInt(2))
@@ -147,7 +142,6 @@ func (suite *ControlServiceTestSuite) TestStartClaimForMultipleChannels() {
 	assert.Nil(suite.T(), err)
 	assert.Equal(suite.T(), len(reply.Payments), 2)
 	ids := make([]uint64, 0)
-	//
 	ids = append(ids, 2)
 	ids = append(ids, 1)
 	config.Vip().Set(config.BlockChainNetworkSelected, "sepolia")

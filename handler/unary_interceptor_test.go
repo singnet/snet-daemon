@@ -32,6 +32,8 @@ type unaryPaymentHandlerMock struct {
 	completeAfterErrorErr    *GrpcError
 	completeCalled           bool
 	completeAfterErrorCalled bool
+	completedPayment         Payment
+	completionError          error
 }
 
 func (handler *unaryPaymentHandlerMock) Type() string {
@@ -47,8 +49,10 @@ func (handler *unaryPaymentHandlerMock) Complete(Payment) *GrpcError {
 	return handler.completeErr
 }
 
-func (handler *unaryPaymentHandlerMock) CompleteAfterError(Payment, error) *GrpcError {
+func (handler *unaryPaymentHandlerMock) CompleteAfterError(payment Payment, result error) *GrpcError {
 	handler.completeAfterErrorCalled = true
+	handler.completedPayment = payment
+	handler.completionError = result
 	return handler.completeAfterErrorErr
 }
 
@@ -140,4 +144,74 @@ func TestSetAdditionalDetailsCopiesOptionalMetadata(t *testing.T) {
 	require.Equal(t, "42", stats.ChannelId)
 	require.Equal(t, "user", stats.UserName)
 	require.Equal(t, "escrow", stats.PaymentMode)
+}
+
+func TestUnaryPaymentValidationInterceptorCleansUpAfterPanic(t *testing.T) {
+	payment := &paymentMock{}
+	paymentHandler := &unaryPaymentHandlerMock{typ: "train", payment: payment}
+	interceptor := GrpcPaymentValidationUnaryInterceptor(&blockchain.ServiceMetadata{}, paymentHandler)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{})
+	require.Panics(t, func() {
+		_, _ = interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/training.Service/train_model"}, func(context.Context, any) (any, error) {
+			panic("training provider failed")
+		})
+	})
+	require.True(t, paymentHandler.completeAfterErrorCalled)
+	require.False(t, paymentHandler.completeCalled)
+	require.Same(t, payment, paymentHandler.completedPayment)
+	require.ErrorContains(t, paymentHandler.completionError, "training provider failed")
+}
+
+func TestUnaryPaymentValidationInterceptorReturnsPaymentErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name                                   string
+		paymentErr, completeErr, cleanupErr    *GrpcError
+		handlerErr                             error
+		wantCode                               codes.Code
+		wantHandler, wantComplete, wantCleanup bool
+	}{
+		{"payment rejected", NewGrpcError(codes.Unauthenticated, "invalid signature"), nil, nil, nil, codes.Unauthenticated, false, false, false},
+		{"completion failed", nil, NewGrpcError(codes.Internal, "storage failed"), nil, nil, codes.Internal, true, true, false},
+		{"cleanup failed", nil, nil, NewGrpcError(codes.FailedPrecondition, "channel locked"), errors.New("provider failed"), codes.FailedPrecondition, true, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			paymentHandler := &unaryPaymentHandlerMock{typ: "train", payment: &paymentMock{}, paymentErr: tc.paymentErr, completeErr: tc.completeErr, completeAfterErrorErr: tc.cleanupErr}
+			interceptor := GrpcPaymentValidationUnaryInterceptor(&blockchain.ServiceMetadata{}, paymentHandler)
+			ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{})
+			called := false
+			_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/training.Service/validate_model"}, func(context.Context, any) (any, error) {
+				called = true
+				return "response", tc.handlerErr
+			})
+			require.Equal(t, tc.wantCode, status.Code(err))
+			require.Equal(t, tc.wantHandler, called)
+			require.Equal(t, tc.wantComplete, paymentHandler.completeCalled)
+			require.Equal(t, tc.wantCleanup, paymentHandler.completeAfterErrorCalled)
+			if tc.wantCleanup {
+				require.ErrorIs(t, paymentHandler.completionError, tc.handlerErr)
+			}
+		})
+	}
+}
+
+func TestUnaryPaymentValidationInterceptorSelectsAdditionalHandler(t *testing.T) {
+	defaultHandler := &unaryPaymentHandlerMock{typ: "default", payment: &paymentMock{}}
+	selected := &unaryPaymentHandlerMock{typ: "alternative", payment: &paymentMock{}}
+	interceptor := GrpcPaymentValidationUnaryInterceptor(&blockchain.ServiceMetadata{}, defaultHandler, selected)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(PaymentTypeHeader, selected.typ))
+	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/training.Service/train_model"}, func(context.Context, any) (any, error) { return nil, nil })
+	require.NoError(t, err)
+	require.True(t, selected.completeCalled)
+	require.False(t, defaultHandler.completeCalled)
+}
+
+func TestUnaryPaymentValidationInterceptorPreservesNonTrainingError(t *testing.T) {
+	paymentHandler := &unaryPaymentHandlerMock{typ: "train"}
+	interceptor := GrpcPaymentValidationUnaryInterceptor(&blockchain.ServiceMetadata{}, paymentHandler)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{})
+	expected := errors.New("ordinary provider failure")
+	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/example.Service/ping"}, func(context.Context, any) (any, error) { return nil, expected })
+	require.ErrorIs(t, err, expected)
+	require.False(t, paymentHandler.completeCalled)
+	require.False(t, paymentHandler.completeAfterErrorCalled)
 }

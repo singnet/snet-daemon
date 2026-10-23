@@ -13,6 +13,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/training"
 	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/spf13/viper"
@@ -123,7 +124,7 @@ func TestComponentsBlockchainDisabledServices(t *testing.T) {
 
 	assert.IsType(t, &escrow.BlockChainDisabledStateService{}, components.PaymentChannelStateService())
 	assert.IsType(t, &escrow.BlockChainDisabledProviderControlService{}, components.ProviderControlService())
-	assert.IsType(t, &escrow.BlockChainDisabledFreeCallStateService{}, components.FreeCallStateService())
+	assert.IsType(t, &freecall.DisabledStateService{}, components.FreeCallStateService())
 	assert.IsType(t, &escrow.BlockChainDisabledTokenService{}, components.TokenService())
 	assert.IsType(t, &training.NoTrainingDaemonServer{}, components.TrainingService())
 }

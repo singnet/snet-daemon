@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,31 +8,37 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/singnet/snet-daemon/v6/utils"
-
+	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/configuration_service"
 	"github.com/singnet/snet-daemon/v6/errs"
 	"github.com/singnet/snet-daemon/v6/escrow"
 	"github.com/singnet/snet-daemon/v6/etcddb"
+	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/handler"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
 	"github.com/singnet/snet-daemon/v6/metrics"
 	"github.com/singnet/snet-daemon/v6/pricing"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/singnet/snet-daemon/v6/token"
 	"github.com/singnet/snet-daemon/v6/training"
-
-	grpcMiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/singnet/snet-daemon/v6/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
+// Components lazily constructs and caches daemon services and their shared dependencies.
 type Components struct {
+	callsOnce                  sync.Once
+	backgroundOnce             sync.Once
+	calls                      *lifecycle.Group
+	background                 *lifecycle.Group
 	allowedUserPaymentHandler  handler.StreamPaymentHandler
 	serviceMetadata            *blockchain.ServiceMetadata
 	blockchain                 blockchain.Processor
@@ -48,7 +53,7 @@ type Components struct {
 	etcdLockerStorage          *storage.PrefixedAtomicStorage
 	mpeSpecificStorage         *storage.PrefixedAtomicStorage
 	providerControlService     *escrow.ProviderControlService
-	freeCallStateService       *escrow.FreeCallStateService
+	freeCallStateService       *freecall.StateService
 	daemonHeartbeat            *metrics.DaemonHeartbeat
 	paymentStorage             *escrow.PaymentStorage
 	priceStrategy              *pricing.PricingStrategy
@@ -61,8 +66,8 @@ type Components struct {
 	freeCallPaymentHandler     handler.StreamPaymentHandler
 	trainUnaryPaymentHandler   handler.UnaryPaymentHandler
 	trainStreamPaymentHandler  handler.StreamPaymentHandler
-	freeCallUserService        escrow.FreeCallUserService
-	freeCallUserStorage        *escrow.FreeCallUserStorage
+	freeCallUserService        freecall.UserService
+	freeCallUserStorage        *freecall.UserStorage
 	freeCallLockerStorage      *storage.PrefixedAtomicStorage
 	tokenManager               token.Manager
 	tokenService               *escrow.TokenService
@@ -73,6 +78,7 @@ type Components struct {
 	publicModelStorage         *training.PublicModelStorage
 }
 
+// InitComponents loads command-line configuration without eagerly opening RPC or storage clients.
 func InitComponents(cmd *cobra.Command) (components *Components) {
 	components = &Components{}
 	defer func() {
@@ -84,24 +90,35 @@ func InitComponents(cmd *cobra.Command) (components *Components) {
 		}
 	}()
 
-	loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
-	config.Validate()
-	return
-}
-
-func loadConfigFileFromCommandLine(configFlag *pflag.Flag) {
-	var configFile = configFlag.Value.String()
-
-	// if file is not specified by user then configFile contains default name
-	if configFlag.Changed || isFileExist(configFile) {
-		err := config.LoadConfig(configFile)
-		if err != nil {
-			panic(fmt.Sprintf("[CONFIG] Error reading configuration file: %v%s", err, errs.ErrDescURL(errs.InvalidConfig)))
-		}
-		fmt.Println("[CONFIG] Using custom configuration file")
+	configFile, loaded, err := loadConfigFileFromCommandLine(cmd.Flags().Lookup("config"))
+	if err != nil {
+		panic(fmt.Sprintf("[CONFIG] Error reading configuration file: %v%s", err, errs.ErrDescURL(errs.InvalidConfig)))
+	}
+	if loaded {
+		fmt.Printf("[CONFIG] Using custom configuration file: %s\n", configFile)
 	} else {
 		fmt.Println("[CONFIG] Configuration file is not set, using default configuration")
 	}
+	// Populate configuration-derived state, including the selected network.
+	// This initialization path discards the validation report.
+	_ = config.ValidateConfiguration()
+	return
+}
+
+func loadConfigFileFromCommandLine(configFlag *pflag.Flag) (configFile string, loaded bool, err error) {
+	if configFlag == nil {
+		return "", false, errors.New("config flag is not available")
+	}
+	configFile = configFlag.Value.String()
+
+	// An unchanged flag contains the default filename; load it only if it exists.
+	if configFlag.Changed || isFileExist(configFile) {
+		if err := config.LoadConfig(configFile); err != nil {
+			return configFile, false, err
+		}
+		return configFile, true, nil
+	}
+	return "defaults", false, nil
 }
 
 func isFileExist(fileName string) bool {
@@ -109,7 +126,14 @@ func isFileExist(fileName string) bool {
 	return !os.IsNotExist(err)
 }
 
+// Close releases instantiated etcd clients, the embedded server, and blockchain clients.
 func (components *Components) Close() {
+	components.Calls().Cancel()
+	components.Background().Cancel()
+	components.Background().Wait()
+	if components.configurationBroadcaster != nil {
+		components.configurationBroadcaster.Close()
+	}
 	if components.etcdClient != nil {
 		components.etcdClient.Close()
 	}
@@ -121,12 +145,22 @@ func (components *Components) Close() {
 	}
 }
 
+func (components *Components) Calls() *lifecycle.Group {
+	components.callsOnce.Do(func() { components.calls = lifecycle.New() })
+	return components.calls
+}
+
+func (components *Components) Background() *lifecycle.Group {
+	components.backgroundOnce.Do(func() { components.background = lifecycle.New() })
+	return components.background
+}
+
 func (components *Components) Blockchain() blockchain.Processor {
 	if components.blockchain != nil {
 		return components.blockchain
 	}
 
-	processor, err := blockchain.NewProcessor(components.ServiceMetaData())
+	processor, err := blockchain.NewProcessorContext(components.Calls().Context(), components.ServiceMetaData())
 	if err != nil {
 		zap.L().Panic("unable to initialize blockchain processor", zap.Error(err))
 	}
@@ -192,6 +226,8 @@ func (components *Components) EtcdClient() *etcddb.EtcdClient {
 	return components.etcdClient
 }
 
+// FreeCallLockerStorage scopes usage locks to the shared network/organization/group store,
+// independently of the MPE contract address.
 func (components *Components) FreeCallLockerStorage() *storage.PrefixedAtomicStorage {
 	if components.freeCallLockerStorage != nil {
 		return components.freeCallLockerStorage
@@ -208,11 +244,9 @@ func (components *Components) LockerStorage() *storage.PrefixedAtomicStorage {
 	return components.etcdLockerStorage
 }
 
-/*
-AtomicStorage - create new PrefixedStorage using /<network_name> as a prefix, use this storage as base for other storages
-(i.e. return it from GetAtomicStorage of components.go);
-this guarantees that storages for different networks never intersect
-*/
+// AtomicStorage selects etcd or an in-memory backend and prefixes keys with
+// <network_name>/<organization_id>/<metadata_group_id>. Services in the same
+// organization group share this base namespace; individual stores add their own keys.
 func (components *Components) AtomicStorage() storage.AtomicStorage {
 	var store storage.AtomicStorage
 	if components.atomicStorage != nil {
@@ -224,16 +258,15 @@ func (components *Components) AtomicStorage() storage.AtomicStorage {
 	} else {
 		store = storage.NewMemStorage()
 	}
-	//by default set the network selected in the storage path
+	// Use the configured network name and the original group ID string from metadata.
 	components.atomicStorage = storage.NewPrefixedAtomicStorage(store, config.GetString(config.BlockChainNetworkSelected)+"/"+config.GetString(config.OrganizationId)+"/"+components.OrganizationMetaData().GetGroupIdString())
 
 	return components.atomicStorage
 }
 
-/*
-MPESpecificStorage it is also instance of PrefixedStorage using /<mpe_contract_address> as a prefix; as it is also based on storage from previous item the effective prefix is /<network_id>/<mpe_contract_address>; this guarantees that storages which are specific for MPE contract version don't intersect;
-use MPESpecificStorage as base for PaymentChannelStorage, PaymentStorage, LockStorage for channels;
-*/
+// MPESpecificStorage adds the service metadata's MPE address to AtomicStorage's
+// network/organization/group namespace. Channel state, pending payments, and
+// channel locks use this store; free-call, prepaid, and training stores do not.
 func (components *Components) MPESpecificStorage() *storage.PrefixedAtomicStorage {
 	if components.mpeSpecificStorage != nil {
 		return components.mpeSpecificStorage
@@ -252,12 +285,12 @@ func (components *Components) PaymentStorage() *escrow.PaymentStorage {
 	return components.paymentStorage
 }
 
-func (components *Components) FreeCallUserStorage() *escrow.FreeCallUserStorage {
+func (components *Components) FreeCallUserStorage() *freecall.UserStorage {
 	if components.freeCallUserStorage != nil {
 		return components.freeCallUserStorage
 	}
 
-	components.freeCallUserStorage = escrow.NewFreeCallUserStorage(components.AtomicStorage())
+	components.freeCallUserStorage = freecall.NewUserStorage(components.AtomicStorage())
 
 	return components.freeCallUserStorage
 }
@@ -281,7 +314,7 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 		escrow.NewPaymentChannelStorage(components.MPESpecificStorage()),
 		components.PaymentStorage(),
 		escrow.NewBlockchainChannelReader(components.Blockchain(), config.Vip(), components.OrganizationMetaData()),
-		escrow.NewEtcdLocker(components.LockerStorage()),
+		storage.NewLocker(components.LockerStorage()),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), components.OrganizationMetaData()), func() [32]byte {
 			return components.OrganizationMetaData().GetGroupId()
 		},
@@ -290,14 +323,14 @@ func (components *Components) PaymentChannelService() escrow.PaymentChannelServi
 	return components.paymentChannelService
 }
 
-func (components *Components) FreeCallUserService() escrow.FreeCallUserService {
+func (components *Components) FreeCallUserService() freecall.UserService {
 	if components.freeCallUserService != nil {
 		return components.freeCallUserService
 	}
 
-	components.freeCallUserService = escrow.NewFreeCallUserService(
+	components.freeCallUserService = freecall.NewUserService(
 		components.FreeCallUserStorage(),
-		escrow.NewEtcdLocker(components.FreeCallLockerStorage()),
+		storage.NewLocker(components.FreeCallLockerStorage()),
 		func() ([32]byte, error) {
 			s := components.OrganizationMetaData().GetGroupId()
 			return s, nil
@@ -315,6 +348,7 @@ func (components *Components) EscrowPaymentHandler() handler.StreamPaymentHandle
 		components.PaymentChannelService(),
 		components.Blockchain(),
 		escrow.NewIncomeStreamValidator(components.PricingStrategy(), components.ModelStorage()),
+		components.Background(),
 	)
 
 	return components.escrowPaymentHandler
@@ -329,6 +363,7 @@ func (components *Components) TrainUnaryPaymentHandler() handler.UnaryPaymentHan
 		components.PaymentChannelService(),
 		components.Blockchain(),
 		escrow.NewTrainValidator(components.ModelStorage()),
+		components.Background(),
 	)
 
 	return components.trainUnaryPaymentHandler
@@ -343,6 +378,7 @@ func (components *Components) TrainStreamPaymentHandler() handler.StreamPaymentH
 		components.PaymentChannelService(),
 		components.Blockchain(),
 		escrow.NewIncomeStreamValidator(components.PricingStrategy(), components.ModelStorage()),
+		components.Background(),
 	)
 
 	return components.trainStreamPaymentHandler
@@ -353,13 +389,14 @@ func (components *Components) FreeCallPaymentHandler() handler.StreamPaymentHand
 		return components.freeCallPaymentHandler
 	}
 
-	components.freeCallPaymentHandler = escrow.FreeCallPaymentHandler(components.FreeCallUserService(),
+	components.freeCallPaymentHandler = freecall.NewPaymentHandler(components.FreeCallUserService(),
 		components.Blockchain(), components.OrganizationMetaData(), components.ServiceMetaData())
 
 	return components.freeCallPaymentHandler
 }
 
-// AllowedUserPaymentHandler Only for testing when blockchain disabled
+// AllowedUserPaymentHandler supplies the blockchain-disabled testing/curation policy:
+// verify an MPE-format signature and the optional allowlist without reading channel state.
 func (components *Components) AllowedUserPaymentHandler() handler.StreamPaymentHandler {
 	if components.allowedUserPaymentHandler != nil {
 		return components.allowedUserPaymentHandler
@@ -394,7 +431,9 @@ func (components *Components) PrePaidService() escrow.PrePaidService {
 	return components.prepaidUserService
 }
 
-// GrpcStreamInterceptor - Add a chain of interceptors
+// GrpcStreamInterceptor chains rate limiting and payment validation. When both
+// blockchain access and metering are enabled, it first verifies metering credentials
+// and wraps the chain with request/response statistics collection.
 func (components *Components) GrpcStreamInterceptor() grpc.StreamServerInterceptor {
 	if components.grpcStreamInterceptor != nil {
 		return components.grpcStreamInterceptor
@@ -410,7 +449,7 @@ func (components *Components) GrpcStreamInterceptor() grpc.StreamServerIntercept
 		}
 
 		components.grpcStreamInterceptor = grpcMiddleware.ChainStreamServer(
-			handler.GrpcMeteringInterceptor(components.Blockchain().CurrentBlock), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
+			handler.GrpcMeteringInterceptor(components.Blockchain().CurrentBlock, components.Background()), handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
 			components.GrpcStreamPaymentValidationInterceptor())
 	} else {
 		components.grpcStreamInterceptor = grpcMiddleware.ChainStreamServer(handler.GrpcRateLimitInterceptor(components.ChannelBroadcast()),
@@ -419,6 +458,8 @@ func (components *Components) GrpcStreamInterceptor() grpc.StreamServerIntercept
 	return components.grpcStreamInterceptor
 }
 
+// GrpcUnaryInterceptor installs training payment validation only when blockchain
+// access is enabled. Other unary RPCs rely on their service-level authorization.
 func (components *Components) GrpcUnaryInterceptor() grpc.UnaryServerInterceptor {
 	if components.grpcUnaryInterceptor != nil {
 		return components.grpcUnaryInterceptor
@@ -429,7 +470,9 @@ func (components *Components) GrpcUnaryInterceptor() grpc.UnaryServerInterceptor
 	return components.grpcUnaryInterceptor
 }
 
-// Metering end point authentication is now mandatory for daemon
+// verifyAuthenticationSetUpForFreeCall verifies metering credentials, despite its
+// legacy name. Startup calls it only when blockchain access and metering are enabled;
+// it uses pvt_key_for_metering, not the free-call token signing key.
 func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL string, groupId string) (ok bool, err error) {
 
 	if _, err = utils.ParsePrivateKeyWithError(config.GetString(config.PvtKeyForMetering)); err != nil {
@@ -463,7 +506,7 @@ func (components *Components) verifyAuthenticationSetUpForFreeCall(serviceURL st
 	return checkResponse(response)
 }
 
-// Check if the response received was proper
+// checkResponse requires HTTP 200 and a JSON response whose data field is "success".
 func checkResponse(response *http.Response) (allowed bool, err error) {
 	if response == nil {
 		zap.L().Error("Empty response received.")
@@ -498,6 +541,9 @@ type VerifyMeteringResponse struct {
 	Data string `json:"data"`
 }
 
+// GrpcStreamPaymentValidationInterceptor registers escrow (the default), free-call,
+// prepaid, and training policies. With blockchain disabled, it selects either the
+// signature-only testing policy or a no-op, depending on the allowlist flag.
 func (components *Components) GrpcStreamPaymentValidationInterceptor() grpc.StreamServerInterceptor {
 	if !components.Blockchain().Enabled() {
 		if config.GetBool(config.AllowedUserFlag) {
@@ -553,10 +599,13 @@ func (components *Components) ProviderControlService() (service escrow.ProviderC
 	return components.providerControlService
 }
 
-func (components *Components) FreeCallStateService() (service escrow.FreeCallStateServiceServer) {
+// FreeCallStateService enables token issuance only with blockchain access and a
+// private key matching the free-call signer in service metadata. Balance eligibility
+// uses the configured FetchToken contract, not the MPE channel's internal balance.
+func (components *Components) FreeCallStateService() (service freecall.FreeCallStateServiceServer) {
 
 	if !config.GetBool(config.BlockchainEnabledKey) {
-		return &escrow.BlockChainDisabledFreeCallStateService{}
+		return &freecall.DisabledStateService{}
 	}
 	if components.freeCallStateService != nil {
 		return components.freeCallStateService
@@ -564,12 +613,12 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 
 	tokenInstance, err := blockchain.NewFetchToken(common.HexToAddress(config.GetTokenAddress()), components.Blockchain().GetEthHttpClient())
 	if err != nil {
-		return &escrow.BlockChainDisabledFreeCallStateService{}
+		return &freecall.DisabledStateService{}
 	}
 
 	if config.GetString(config.PvtKeyForFreeCalls) == "" {
 		zap.L().Warn(fmt.Sprintf("Free calls disabled: no %s in the config", config.PvtKeyForFreeCalls))
-		return &escrow.BlockChainDisabledFreeCallStateService{}
+		return &freecall.DisabledStateService{}
 	}
 
 	privateKey := utils.ParsePrivateKey(config.GetString(config.PvtKeyForFreeCalls))
@@ -578,7 +627,7 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 	if addrFromPrvKey != freeCallSignerAddr {
 		zap.L().Error(fmt.Sprintf("Free calls disabled: %s does not match expected free_call_signer_address from srvMetadata", config.PvtKeyForFreeCalls),
 			zap.String("expected signer", freeCallSignerAddr.Hex()), zap.String("parsed addr from conf", addrFromPrvKey.Hex()))
-		return &escrow.BlockChainDisabledFreeCallStateService{}
+		return &freecall.DisabledStateService{}
 	}
 
 	zap.L().Info("Free calls enabled")
@@ -589,11 +638,11 @@ func (components *Components) FreeCallStateService() (service escrow.FreeCallSta
 		zap.L().Warn("Free calls for Marketplace disabled: no trusted signer addresses configured")
 	}
 
-	components.freeCallStateService = escrow.NewFreeCallStateService(
+	components.freeCallStateService = freecall.NewStateService(
 		components.OrganizationMetaData(),
 		components.ServiceMetaData(),
 		components.FreeCallUserService(),
-		escrow.NewFreeCallPaymentValidator(
+		freecall.NewPaymentValidator(
 			components.Blockchain().CurrentBlock,
 			components.ServiceMetaData().FreeCallSignerAddress(),
 			privateKey,
@@ -611,8 +660,9 @@ func (components *Components) DaemonHeartBeat() (service *metrics.DaemonHeartbea
 	metrics.SetDaemonGrpId(components.OrganizationMetaData().GetGroupIdString())
 
 	components.daemonHeartbeat = &metrics.DaemonHeartbeat{
+		Background: components.Background(),
 		TrainingMetadata: func() (*training.TrainingMetadata, error) {
-			return components.TrainingService().GetTrainingMetadata(context.Background(), nil)
+			return components.TrainingService().GetTrainingMetadata(components.Calls().Context(), nil)
 		},
 		DynamicPricing: components.ServiceMetaData().DynamicPriceMethodMapping,
 		DaemonID:       metrics.GetDaemonID(),
@@ -701,10 +751,11 @@ func (components *Components) TrainingService() training.DaemonServer {
 		return &training.NoTrainingDaemonServer{}
 	}
 	components.trainingService = training.NewTrainingService(components.Blockchain(), components.ServiceMetaData(),
-		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage(), training.DefaultAllowBlockDifference)
+		components.OrganizationMetaData(), components.ModelStorage(), components.ModelUserStorage(), components.PendingModelStorage(), components.PublicModelStorage(), training.DefaultAllowBlockDifference, components.Background())
 	return components.trainingService
 }
 
+// TokenManager supplies HMAC JWTs for prepaid calls, separate from ECDSA free-call tokens.
 func (components *Components) TokenManager() token.Manager {
 	if components.tokenManager != nil {
 		return components.tokenManager
@@ -726,6 +777,7 @@ func (components *Components) TokenService() escrow.TokenServiceServer {
 	components.tokenService = escrow.NewTokenService(components.PaymentChannelService(),
 		components.PrePaidService(), components.TokenManager(),
 		escrow.NewChannelPaymentValidator(components.Blockchain(), components.OrganizationMetaData()),
+		blockchain.NewEthereumBlockValidator(components.Blockchain().CurrentBlock),
 		components.ServiceMetaData())
 
 	return components.tokenService

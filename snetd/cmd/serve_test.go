@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// TODO
+// TestDaemonPort checks the default daemon endpoint, including its host and port.
 func TestDaemonPort(t *testing.T) {
 	assert.Equal(t, config.GetString(config.DaemonEndpoint), "127.0.0.1:8080")
 }

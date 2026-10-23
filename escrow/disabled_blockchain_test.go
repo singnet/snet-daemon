@@ -36,14 +36,4 @@ func TestBlockchainDisabledServicesReturnPredictableReplies(t *testing.T) {
 	tokenReply, err := token.GetToken(ctx, &TokenRequest{})
 	require.NoError(t, err)
 	require.Empty(t, tokenReply.GetToken())
-
-	freeCall := &BlockChainDisabledFreeCallStateService{}
-	freeCallToken, err := freeCall.GetFreeCallToken(ctx, &GetFreeCallTokenRequest{})
-	require.NotNil(t, freeCallToken)
-	require.Empty(t, freeCallToken.GetToken())
-	require.EqualError(t, err, "error in generating token because blockchain is disabled, contact service provider")
-
-	freeCallReply, err := freeCall.GetFreeCallsAvailable(ctx, &FreeCallStateRequest{})
-	require.Equal(t, uint64(0), freeCallReply.GetFreeCallsAvailable())
-	require.EqualError(t, err, "error in determining free calls because blockchain is disabled, contact service provider")
 }

@@ -1,4 +1,4 @@
-package escrow
+package freecall
 
 import (
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -8,37 +8,38 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-const (
+// PaymentType selects free-call authorization in the payment interceptor.
+const PaymentType = "free-call"
 
-	// EscrowPaymentType each call should have id and nonce of payment channel
-	// in metadata.
-	FreeCallPaymentType = "free-call"
-)
-
-type freeCallPaymentHandler struct {
-	service                  FreeCallUserService
-	freeCallPaymentValidator *FreeCallPaymentValidator
+type paymentHandler struct {
+	service                  UserService
+	freeCallPaymentValidator *PaymentValidator
 	orgMetadata              *blockchain.OrganizationMetaData
 	serviceMetadata          *blockchain.ServiceMetadata
 }
 
-func FreeCallPaymentHandler(
-	freeCallService FreeCallUserService, processor blockchain.Processor, metadata *blockchain.OrganizationMetaData,
+// NewPaymentHandler verifies the caller request and token against the free-call
+// signer from service metadata before checking the local quota. Complete records
+// a successful call; CompleteAfterError releases the user lock without charging
+// usage. Wallet balance is checked at token issuance, not on every service call,
+// and no MPE claim is created.
+func NewPaymentHandler(
+	freeCallService UserService, processor blockchain.Processor, metadata *blockchain.OrganizationMetaData,
 	pServiceMetaData *blockchain.ServiceMetadata) handler.StreamPaymentHandler {
-	return &freeCallPaymentHandler{
+	return &paymentHandler{
 		service:         freeCallService,
 		orgMetadata:     metadata,
 		serviceMetadata: pServiceMetaData,
-		freeCallPaymentValidator: NewFreeCallPaymentValidator(processor.CurrentBlock,
+		freeCallPaymentValidator: NewPaymentValidator(processor.CurrentBlock,
 			pServiceMetaData.FreeCallSignerAddress(), nil, config.GetTrustedFreeCallSignersAddresses()),
 	}
 }
 
-func (h *freeCallPaymentHandler) Type() (typ string) {
-	return FreeCallPaymentType
+func (h *paymentHandler) Type() (typ string) {
+	return PaymentType
 }
 
-func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *handler.GrpcError) {
+func (h *paymentHandler) Payment(context *handler.GrpcStreamContext) (payment handler.Payment, err *handler.GrpcError) {
 	internalPayment, err := h.getPaymentFromContext(context)
 	if err != nil {
 		return
@@ -46,18 +47,18 @@ func (h *freeCallPaymentHandler) Payment(context *handler.GrpcStreamContext) (pa
 
 	e := h.freeCallPaymentValidator.Validate(internalPayment)
 	if e != nil {
-		return nil, paymentErrorToGrpcError(e)
+		return nil, handler.PaymentErrorToGRPCError(e)
 	}
 
-	transaction, e := h.service.StartFreeCallUserTransaction(internalPayment)
+	transaction, e := h.service.StartTransaction(internalPayment)
 	if e != nil {
-		return nil, paymentErrorToGrpcError(e)
+		return nil, handler.PaymentErrorToGRPCError(e)
 	}
 
 	return transaction, nil
 }
 
-func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *FreeCallPayment, err *handler.GrpcError) {
+func (h *paymentHandler) getPaymentFromContext(context *handler.GrpcStreamContext) (payment *Payment, err *handler.GrpcError) {
 
 	userID, _ := handler.GetSingleValue(context.MD, handler.FreeCallUserIdHeader)
 
@@ -81,13 +82,13 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 		return
 	}
 
-	parsedToken, blockExpiration, err2 := ParseFreeCallToken(authToken)
+	parsedToken, blockExpiration, err2 := ParseToken(authToken)
 	if err2 != nil {
 		zap.L().Debug(err2.Error())
 		return nil, handler.NewGrpcErrorf(codes.InvalidArgument, "invalid token: %v", err2)
 	}
 
-	return &FreeCallPayment{
+	return &Payment{
 		OrganizationId:             config.GetString(config.OrganizationId),
 		ServiceId:                  config.GetString(config.ServiceId),
 		UserID:                     userID,
@@ -101,10 +102,10 @@ func (h *freeCallPaymentHandler) getPaymentFromContext(context *handler.GrpcStre
 	}, nil
 }
 
-func (h *freeCallPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
-	return paymentErrorToGrpcError(payment.(*freeCallTransaction).Commit())
+func (h *paymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
+	return handler.PaymentErrorToGRPCError(payment.(Transaction).Commit())
 }
 
-func (h *freeCallPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
-	return paymentErrorToGrpcError(payment.(*freeCallTransaction).Rollback())
+func (h *paymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
+	return handler.PaymentErrorToGRPCError(payment.(Transaction).Rollback())
 }

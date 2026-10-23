@@ -39,6 +39,7 @@ const (
 	LighthouseEndpoint        = "lighthouse_endpoint"
 	IpfsTimeout               = "ipfs_timeout"
 	ServiceTimeout            = "service_timeout"
+	ShutdownTimeout           = "shutdown_timeout"
 	LogKey                    = "log"
 	MaxMessageSizeInMB        = "max_message_size_in_mb"
 	MeteringEnabled           = "metering_enabled"
@@ -86,6 +87,7 @@ const (
 	"lighthouse_endpoint": "https://gateway.lighthouse.storage/ipfs/", 
 	"ipfs_timeout" : 30,
 	"service_timeout" : "100s",
+	"shutdown_timeout" : "30s",
 	"passthrough_enabled": true,
 	"service_endpoint":"http://localhost:5000",
 	"service_id": "YOUR_SERVICE_ID", 
@@ -185,27 +187,38 @@ func init() {
 	vip.AddConfigPath(".")
 }
 
-// support old deprecated alias
-func migrateDeprecatedParams(v *viper.Viper) {
-
-	deprecated := map[string]string{
-		"daemon_end_point":           DaemonEndpoint,
-		"ipfs_end_point":             IpfsEndpoint,
-		"passthrough_endpoint":       ServiceEndpointKey,
-		"metering_end_point":         MeteringEndpoint,
-		"heartbeat_svc_end_point":    HeartbeatServiceEndpoint,
-		"notification_svc_end_point": NotificationServiceEndpoint,
-		"pvt_key_for_metering":       PvtKeyForMetering,
-		"pvt_key_for_free_calls":     PvtKeyForFreeCalls,
+// migrateDeprecatedParams supports old configuration aliases and returns the
+// warnings needed by callers that render a validation report.
+func migrateDeprecatedParams(v *viper.Viper) []Diagnostic {
+	deprecated := []struct {
+		oldKey string
+		newKey string
+	}{
+		{"daemon_end_point", DaemonEndpoint},
+		{"ipfs_end_point", IpfsEndpoint},
+		{"passthrough_endpoint", ServiceEndpointKey},
+		{"metering_end_point", MeteringEndpoint},
+		{"heartbeat_svc_end_point", HeartbeatServiceEndpoint},
+		{"notification_svc_end_point", NotificationServiceEndpoint},
+		{"pvt_key_for_metering", PvtKeyForMetering},
+		{"pvt_key_for_free_calls", PvtKeyForFreeCalls},
 	}
 
-	for oldKey, newKey := range deprecated {
+	var diagnostics []Diagnostic
+	for _, key := range deprecated {
+		oldKey, newKey := key.oldKey, key.newKey
 		if v.IsSet(oldKey) {
 			val := v.Get(oldKey)
 			v.Set(newKey, val)
-			zap.L().Warn(fmt.Sprintf("Config parameter '%s' is deprecated, use '%s' instead", oldKey, newKey))
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: DiagnosticWarning,
+				Code:     "deprecated_config_key",
+				Field:    oldKey,
+				Message:  fmt.Sprintf("Config parameter '%s' is deprecated, use '%s' instead", oldKey, newKey),
+			})
 		}
 	}
+	return diagnostics
 }
 
 // SetVip allows setting a new Viper instance.
@@ -234,63 +247,96 @@ func Vip() *viper.Viper {
 }
 
 func Validate() error {
+	report := ValidateConfiguration()
+	for _, diagnostic := range report.Diagnostics {
+		if diagnostic.Severity == DiagnosticWarning {
+			zap.L().Warn(diagnostic.Message)
+		}
+	}
+	if err := report.Error(); err != nil {
+		return err
+	}
 
-	migrateDeprecatedParams(Vip())
+	// Check if the Daemon is on the latest version or not. This is intentionally
+	// kept out of ValidateConfiguration so static config verification is offline.
+	if message, err := CheckVersionOfDaemon(); err != nil {
+		zap.L().Warn(err.Error())
+	} else {
+		zap.L().Info(message)
+	}
+
+	return nil
+}
+
+// ValidateConfiguration performs static configuration checks without network
+// requests. It returns every independent problem it can detect in one report.
+func ValidateConfiguration() ValidationReport {
+	report := ValidationReport{Diagnostics: []Diagnostic{}}
+	report.Diagnostics = append(report.Diagnostics, migrateDeprecatedParams(Vip())...)
 
 	switch dType := vip.GetString(DaemonTypeKey); dType {
 	case "grpc":
 	case "http":
-		zap.L().Warn("daemon type http is not for production mode, be careful")
+		report.AddWarning("http_daemon_type", DaemonTypeKey, "daemon type http is not for production mode, be careful", "Use grpc for production deployments.")
 	default:
-		return fmt.Errorf("unrecognized DAEMON_TYPE '%+v'", dType)
+		report.AddError("invalid_daemon_type", DaemonTypeKey, fmt.Sprintf("unrecognized DAEMON_TYPE '%+v'", dType), "Use grpc or http.")
 	}
 	if err := setBlockChainNetworkDetails(BlockChainNetworkFileName); err != nil {
-		return err
+		report.AddError("invalid_blockchain_network", BlockChainNetworkSelected, err.Error(), "Select a network defined in the blockchain network configuration.")
 	}
 	certPath, keyPath := vip.GetString(SSLCertPathKey), vip.GetString(SSLKeyPathKey)
 	if (certPath != "" && keyPath == "") || (certPath == "" && keyPath != "") {
-		return errors.New("SSL requires both key and certificate when enabled")
+		report.AddError("incomplete_ssl_configuration", SSLCertPathKey+", "+SSLKeyPathKey, "SSL requires both key and certificate when enabled", "Set both ssl_cert and ssl_key, or leave both empty.")
 	}
 
-	// Validate metrics URL and set state
 	serviceEndpoint := vip.GetString(ServiceEndpointKey)
 	daemonEndpoint := vip.GetString(DaemonEndpoint)
-	err := ValidateEndpoints(daemonEndpoint, serviceEndpoint)
-	if err != nil {
-		return err
+	if err := ValidateEndpoints(daemonEndpoint, serviceEndpoint); err != nil {
+		report.AddError("invalid_service_endpoint", DaemonEndpoint+", "+ServiceEndpointKey, err.Error(), "Use a daemon host:port and a valid service URL.")
 	}
 
-	// Check if the Daemon is on the latest version or not
-	if message, err := CheckVersionOfDaemon(); err != nil {
-		// In case of any error on version check, just log it
-		zap.L().Warn(err.Error())
-	} else {
-		// Print current version of daemon
-		zap.L().Info(message)
-	}
-
-	// Check the maximum message size (The maximum that the server can receive - 2GB).
 	maxMessageSize := vip.GetInt(MaxMessageSizeInMB)
 	if maxMessageSize <= 0 || maxMessageSize > 2048 {
-		return errors.New(" max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number")
+		report.AddError("invalid_max_message_size", MaxMessageSizeInMB, "max_message_size_in_mb cannot be more than 2GB (i.e 2048 MB) and has to be a positive number", "Set a value between 1 and 2048.")
 	}
-	if err = allowedUserConfigurationChecks(); err != nil {
-		return err
+	if err := allowedUserConfigurationChecks(); err != nil {
+		report.AddError("invalid_allowed_users", AllowedUserFlag, err.Error(), "Provide valid allowed_user_addresses on a non-mainnet network, or disable allowed_user_flag.")
 	}
 
 	if GetString(PvtKeyForFreeCalls) != "" {
 		if utils.ParsePrivateKey(GetString(PvtKeyForFreeCalls)) == nil {
-			return errors.New("invalid " + PvtKeyForFreeCalls)
+			report.AddError("invalid_free_call_private_key", PvtKeyForFreeCalls, "invalid "+PvtKeyForFreeCalls, "Provide a valid hexadecimal private key.")
 		}
 	}
 
 	if vip.GetBool(BlockchainEnabledKey) && len(GetString(TokenSecretKey)) < 32 {
-		return fmt.Errorf("%s must be set to a value of at least 32 bytes when %s is true", TokenSecretKey, BlockchainEnabledKey)
+		report.AddError("short_token_secret", TokenSecretKey, fmt.Sprintf("%s must be set to a value of at least 32 bytes when %s is true", TokenSecretKey, BlockchainEnabledKey), "Set token_secret_key to at least 32 bytes, or disable blockchain_enabled.")
 	}
 
-	mustDuration(ServiceTimeout, time.Second*100)
+	validateDuration(&report, ServiceTimeout, time.Second*100)
+	if vip.IsSet(ShutdownTimeout) {
+		if duration, err := time.ParseDuration(vip.GetString(ShutdownTimeout)); err != nil || duration <= 0 {
+			report.AddError("invalid_shutdown_timeout", ShutdownTimeout, "shutdown_timeout must be a positive duration", "Set shutdown_timeout to a value such as 30s.")
+		}
+	}
 
-	return validateMeteringChecks()
+	if err := validateMeteringChecks(); err != nil {
+		report.AddError("invalid_metering_endpoint", MeteringEndpoint, err.Error(), "Set metering_endpoint to a valid URL, or disable metering_enabled.")
+	}
+
+	return report
+}
+
+func validateDuration(report *ValidationReport, key string, def time.Duration) {
+	raw := vip.Get(key)
+	s, ok := raw.(string)
+	if !ok {
+		report.AddWarning("invalid_duration_type", key, "invalid duration type; daemon will use the default", fmt.Sprintf("Set %s to a duration string such as %q.", key, def))
+		return
+	}
+	if _, err := time.ParseDuration(s); err != nil {
+		report.AddWarning("invalid_duration", key, "invalid duration format; daemon will use the default", fmt.Sprintf("Set %s to a duration string such as %q.", key, def))
+	}
 }
 
 func GetTrustedFreeCallSignersAddresses() []common.Address {
@@ -361,6 +407,13 @@ func GetBigInt(key string) *big.Int {
 
 func GetDuration(key string) time.Duration {
 	return vip.GetDuration(key)
+}
+
+func ShutdownGracePeriod() time.Duration {
+	if duration := GetDuration(ShutdownTimeout); duration > 0 {
+		return duration
+	}
+	return 30 * time.Second
 }
 
 func GetBool(key string) bool {
@@ -531,6 +584,9 @@ func ValidateEndpoints(daemonEndpoint string, serviceEndpoint string) error {
 	daemonHost, daemonPort, err := net.SplitHostPort(daemonEndpoint)
 	if err != nil {
 		return errors.New("couldn't split host:post of daemon endpoint")
+	}
+	if _, err := net.LookupPort("tcp", daemonPort); err != nil {
+		return fmt.Errorf("invalid daemon_endpoint port: %w", err)
 	}
 
 	if daemonHost == serviceURL.Hostname() && daemonPort == serviceURL.Port() {

@@ -11,6 +11,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -27,11 +28,12 @@ func Test_allowedUserPaymentHandler_Payment(t *testing.T) {
 }
 
 func Test_allowedUserPaymentHandler_getPaymentFromContext(t *testing.T) {
+	isolateConfig(t)
 	config.Vip().Set(config.AllowedUserFlag, true)
 	allowedUserPvtKey := GenerateTestPrivateKey()
 	allowedUser := crypto.PubkeyToAddress(allowedUserPvtKey.PublicKey)
 	config.Vip().Set(config.AllowedUserAddresses, []string{allowedUser.Hex()})
-	config.SetAllowedUsers()
+	require.NoError(t, config.SetAllowedUsers())
 	testhandler := AllowedUserPaymentHandler()
 	md := metadata.New(map[string]string{})
 	md.Set(handler.PaymentChannelSignatureHeader, string(SignAllowedUserSignature(allowedUserPvtKey)))
@@ -43,6 +45,7 @@ func Test_allowedUserPaymentHandler_getPaymentFromContext(t *testing.T) {
 		MD: md,
 	}
 	_, err := testhandler.Payment(cntxt)
+	require.NotNil(t, err)
 	assert.Equal(t, "rpc error: code = InvalidArgument desc = missing \"snet-payment-mpe-address\"", err.Err().Error())
 	md.Set(handler.PaymentMultiPartyEscrowAddressHeader, "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207")
 	_, err = testhandler.Payment(cntxt)

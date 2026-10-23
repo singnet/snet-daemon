@@ -8,6 +8,8 @@ import (
 	"github.com/singnet/snet-daemon/v6/storage"
 )
 
+// lockingPrepaidService uses storage compare-and-swap transactions across all
+// three channel counters so concurrent usage updates see consistent balances.
 type lockingPrepaidService struct {
 	storage        storage.TypedAtomicStorage
 	validator      *PrePaidPaymentValidator
@@ -33,11 +35,14 @@ func (h *lockingPrepaidService) GetUsage(key PrePaidDataKey) (data *PrePaidData,
 	return value.(*PrePaidData), ok, err
 }
 
-// ConditionFunc Defines the condition that needs to be met, it generates the respective typed Data when
-// conditions are satisfied; you define your own validations in here
-// It takes in the latest typed values read.
+// ConditionFunc computes counter updates from the latest stored values and an
+// amount delta. It may run again after a compare-and-swap conflict and must return
+// an error when an accounting constraint would be violated.
 type ConditionFunc func(conditionValues []storage.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) ([]storage.TypedKeyValueData, error)
 
+// UpdateUsage adds an amount delta, retrying storage conflicts until the update
+// succeeds or an error occurs. All three counters participate in the condition
+// check, although only the selected counter is written.
 func (h *lockingPrepaidService) UpdateUsage(channelId *big.Int, revisedAmount *big.Int, updateUsageType string) (err error) {
 	var conditionFunc ConditionFunc = nil
 
@@ -84,8 +89,8 @@ func getAllKeys(channelId *big.Int) []any {
 	return keys
 }
 
-// this function will be used to read typed data ,convert it in to a business structure
-// on which validations can be easily performed and return back the business structure.
+// convertTypedDataToPrePaidUsage collects stored counters into an accounting
+// snapshot, treating absent records as zero.
 func convertTypedDataToPrePaidUsage(data []storage.TypedKeyValueData) (new *PrePaidUsageData, err error) {
 	usageData := &PrePaidUsageData{PlannedAmount: big.NewInt(0),
 		UsedAmount: big.NewInt(0), RefundAmount: big.NewInt(0)}
@@ -109,6 +114,8 @@ func convertTypedDataToPrePaidUsage(data []storage.TypedKeyValueData) (new *PreP
 	return usageData, nil
 }
 
+// BuildOldAndNewValuesForCAS builds the replacement value for UpdateUsageType.
+// The previous values used for comparison belong to the enclosing transaction.
 func BuildOldAndNewValuesForCAS(data *PrePaidUsageData) (newValues []storage.TypedKeyValueData, err error) {
 	updateUsageData := &PrePaidData{}
 	updateUsageKey := PrePaidDataKey{ChannelID: data.ChannelID, UsageType: data.UpdateUsageType}
@@ -125,6 +132,8 @@ func BuildOldAndNewValuesForCAS(data *PrePaidUsageData) (newValues []storage.Typ
 }
 
 var (
+	// IncrementUsedAmount adds a call's price and rejects an updated used total
+	// greater than planned plus refund credits.
 	IncrementUsedAmount ConditionFunc = func(conditionValues []storage.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []storage.TypedKeyValueData, err error) {
 		oldState, err := convertTypedDataToPrePaidUsage(conditionValues)
 		if err != nil {
@@ -140,14 +149,15 @@ var (
 		return BuildOldAndNewValuesForCAS(newState)
 
 	}
-	//Make sure you update the planned amount ONLY when the new value is greater than what was last persisted
+	// IncrementPlannedAmount adds an authorization delta, not an absolute signed
+	// amount. The token service determines that delta from the new authorization;
+	// this function does not itself enforce monotonic signed amounts.
 	IncrementPlannedAmount ConditionFunc = func(conditionValues []storage.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []storage.TypedKeyValueData, err error) {
 		oldState, err := convertTypedDataToPrePaidUsage(conditionValues)
 		if err != nil {
 			return nil, err
 		}
-		//Assuming there are no entries yet on this channel, it is very easy to pass the channel ID to the condition
-		//function and pick it from there
+		// Use the requested channel ID even when all counter records are absent.
 		oldState.ChannelID = channelId
 		newState := oldState.Clone()
 		usageKey := PrePaidDataKey{UsageType: PLANNED_AMOUNT, ChannelID: oldState.ChannelID}
@@ -155,7 +165,8 @@ var (
 		return BuildOldAndNewValuesForCAS(newState)
 
 	}
-	//If there is no refund amount yet, put it , else add latest value in DB with the additional refund to be done
+	// IncrementRefundAmount adds a credit for a failed call. UsedAmount remains
+	// unchanged; subsequent usage checks include the refund counter as credit.
 	IncrementRefundAmount ConditionFunc = func(conditionValues []storage.TypedKeyValueData, revisedAmount *big.Int, channelId *big.Int) (newValues []storage.TypedKeyValueData, err error) {
 		newState, err := convertTypedDataToPrePaidUsage(conditionValues)
 		if err != nil {

@@ -52,20 +52,21 @@ func TestLoadConfigFileFromCommandLine(t *testing.T) {
 		cmd.Flags().Set("config", cfgPath)
 
 		flag := cmd.Flags().Lookup("config")
-		assert.NotPanics(t, func() {
-			loadConfigFileFromCommandLine(flag)
-		})
+		source, loaded, err := loadConfigFileFromCommandLine(flag)
+		require.NoError(t, err)
+		assert.Equal(t, cfgPath, source)
+		assert.True(t, loaded)
 	})
 
-	t.Run("config file not found panics", func(t *testing.T) {
+	t.Run("config file not found returns an error", func(t *testing.T) {
 		cmd := &cobra.Command{}
 		cmd.Flags().String("config", "/nonexistent/config.json", "")
 		cmd.Flags().Set("config", "/nonexistent/config.json")
 
 		flag := cmd.Flags().Lookup("config")
-		assert.Panics(t, func() {
-			loadConfigFileFromCommandLine(flag)
-		})
+		_, loaded, err := loadConfigFileFromCommandLine(flag)
+		require.Error(t, err)
+		assert.False(t, loaded)
 	})
 
 	t.Run("default config file not set", func(t *testing.T) {
@@ -73,9 +74,10 @@ func TestLoadConfigFileFromCommandLine(t *testing.T) {
 		cmd.Flags().String("config", "snetd.config.json", "")
 
 		flag := cmd.Flags().Lookup("config")
-		assert.NotPanics(t, func() {
-			loadConfigFileFromCommandLine(flag)
-		})
+		source, loaded, err := loadConfigFileFromCommandLine(flag)
+		require.NoError(t, err)
+		assert.Equal(t, "defaults", source)
+		assert.False(t, loaded)
 	})
 }
 

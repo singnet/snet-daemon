@@ -60,7 +60,15 @@ func Initialize() {
 		panic(fmt.Errorf("failed to get logger writer, error: %v", err))
 	}
 
-	core := zapcore.NewCore(encoder, writerSyncer, level)
+	// Preserve crash diagnostics in every configured output, even at log.level=fatal.
+	core := zapcore.NewCore(encoder, writerSyncer, zap.LevelEnablerFunc(func(entryLevel zapcore.Level) bool {
+		return level.Enabled(entryLevel) || entryLevel >= zapcore.PanicLevel
+	}))
+	if !slices.Contains(config.GetStringSlice(LogOutputTypeKey), "stderr") {
+		core = zapcore.NewTee(core, zapcore.NewCore(
+			encoder.Clone(), zapcore.Lock(zapcore.AddSync(os.Stderr)), zapcore.PanicLevel,
+		))
+	}
 	logger := zap.New(core)
 
 	var hooks []zap.Option
@@ -69,6 +77,7 @@ func Initialize() {
 		hook, err := initHookByConfig(config.Vip().Sub(config.LogKey + "." + hookConfigName))
 		if err != nil {
 			fmt.Printf("unable to add log hook \"%v\", error: %v", hookConfigName, err)
+			continue
 		}
 		hooks = append(hooks, hook)
 	}
@@ -173,13 +182,26 @@ func createEncoder(encoderConfig *zapcore.EncoderConfig) (zapcore.Encoder, error
 	return encoder, nil
 }
 
-func createWriterSyncer() (zapcore.WriteSyncer, error) {
-	var writers []zapcore.WriteSyncer
-
+func configuredOutputTypes() ([]string, error) {
 	configWriters := config.GetStringSlice(LogOutputTypeKey)
-
 	if len(configWriters) == 0 {
 		return nil, fmt.Errorf("failed to read log.output.type from config: %v", configWriters)
+	}
+	for _, writer := range configWriters {
+		switch writer {
+		case "stdout", "stderr", "file":
+		default:
+			return nil, fmt.Errorf("unsupported log output type: %v", writer)
+		}
+	}
+	return configWriters, nil
+}
+
+func createWriterSyncer() (zapcore.WriteSyncer, error) {
+	var writers []zapcore.WriteSyncer
+	configWriters, err := configuredOutputTypes()
+	if err != nil {
+		return nil, err
 	}
 
 	for _, writer := range configWriters {
@@ -212,8 +234,6 @@ func createWriterSyncer() (zapcore.WriteSyncer, error) {
 					return nil, fmt.Errorf("failed to create symlink: %v", err)
 				}
 			}
-		default:
-			return nil, fmt.Errorf("unsupported log output type: %v", writer)
 		}
 	}
 

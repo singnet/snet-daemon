@@ -31,6 +31,7 @@ type paymentHandlerMock struct {
 	completeAfterErrorResult *GrpcError
 	paymentResult            *GrpcError
 	payment                  *paymentMock
+	completionError          error
 }
 
 func (handler *paymentHandlerMock) reset() {
@@ -40,6 +41,7 @@ func (handler *paymentHandlerMock) reset() {
 	handler.completeAfterErrorResult = nil
 	handler.paymentResult = nil
 	handler.payment = nil
+	handler.completionError = nil
 }
 
 func (handler *paymentHandlerMock) Type() string {
@@ -64,6 +66,7 @@ func (handler *paymentHandlerMock) Complete(payment Payment) (err *GrpcError) {
 
 func (handler *paymentHandlerMock) CompleteAfterError(payment Payment, result error) (err *GrpcError) {
 	handler.completeAfterErrorCalled = true
+	handler.completionError = result
 	if payment != handler.payment {
 		return NewGrpcError(codes.Internal, "invalid payment")
 	}
@@ -198,16 +201,13 @@ func (suite *InterceptorsSuite) TestCompleteOnHandlerError() {
 }
 
 func (suite *InterceptorsSuite) TestCompleteOnHandlerPanic() {
-	defer func() {
-		if r := recover(); r == nil {
-			assert.Fail(suite.T(), "panic() call expected")
-		}
-	}()
-
-	suite.interceptor(nil, suite.serverStream, nil, suite.panicHandler)
+	assert.Panics(suite.T(), func() {
+		_ = suite.interceptor(nil, suite.serverStream, nil, suite.panicHandler)
+	})
 
 	assert.True(suite.T(), suite.paymentHandler.completeAfterErrorCalled)
 	assert.False(suite.T(), suite.paymentHandler.completeCalled)
+	assert.ErrorContains(suite.T(), suite.paymentHandler.completionError, "some panic")
 }
 
 func (suite *InterceptorsSuite) TestCompleteOnHandlerSuccess() {

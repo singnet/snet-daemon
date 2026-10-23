@@ -14,6 +14,7 @@ import (
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type stateServiceTestType struct {
@@ -24,9 +25,7 @@ type stateServiceTestType struct {
 	receiverAddress    common.Address
 	receiverPvtKy      *ecdsa.PrivateKey
 	channelServiceMock *paymentChannelServiceMock
-	paymentStorage     *PaymentStorage
 	mpeAddress         common.Address
-	ethereumBlock      *big.Int
 	defaultChannelId   *big.Int
 	defaultChannelKey  *PaymentChannelKey
 	defaultChannelData *PaymentChannelData
@@ -34,7 +33,10 @@ type stateServiceTestType struct {
 	defaultReply       *ChannelStateReply
 }
 
-var stateServiceTest = func() stateServiceTestType {
+// newStateServiceTest creates independent mocks, storage, and data for each test.
+func newStateServiceTest(t *testing.T) stateServiceTestType {
+	t.Helper()
+
 	channelServiceMock := &paymentChannelServiceMock{}
 	senderAddress := crypto.PubkeyToAddress(GenerateTestPrivateKey().PublicKey)
 	signerPrivateKey := GenerateTestPrivateKey()
@@ -58,9 +60,7 @@ var stateServiceTest = func() stateServiceTestType {
 	}
 
 	defaultSignature, err := hex.DecodeString("0504030201")
-	if err != nil {
-		panic("Could not make defaultSignature")
-	}
+	require.NoError(t, err)
 
 	paymentStorage := NewPaymentStorage(storage.NewMemStorage())
 	mpeAddress := common.HexToAddress("0xf25186b5081ff5ce73482ad761db0eb0d25abfbf")
@@ -80,7 +80,6 @@ var stateServiceTest = func() stateServiceTestType {
 		channelServiceMock: channelServiceMock,
 		mpeAddress:         mpeAddress,
 
-		ethereumBlock:     ethereumBlock,
 		defaultChannelId:  defaultChannelId,
 		defaultChannelKey: &PaymentChannelKey{ID: defaultChannelId},
 		defaultChannelData: &PaymentChannelData{
@@ -103,10 +102,10 @@ var stateServiceTest = func() stateServiceTestType {
 		defaultReply: &ChannelStateReply{
 			CurrentNonce:        bigIntToBytes(big.NewInt(3)),
 			CurrentSignedAmount: bigIntToBytes(big.NewInt(12345)),
-			CurrentSignature:    defaultSignature,
+			CurrentSignature:    bytes.Clone(defaultSignature),
 		},
 	}
-}()
+}
 
 func getChannelStateRequestMessage(mpeAddress common.Address, channelId *big.Int, currentBlock *big.Int) []byte {
 	message := bytes.Join([][]byte{
@@ -118,38 +117,64 @@ func getChannelStateRequestMessage(mpeAddress common.Address, channelId *big.Int
 	return message
 }
 
-func cleanup() {
-	stateServiceTest.channelServiceMock.blockchainReader.readChannelFromBlockchain = func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
-		mpeChannel := &blockchain.MultiPartyEscrowChannel{
-			Recipient: stateServiceTest.senderAddress,
-			Nonce:     big.NewInt(3),
-		}
-		return mpeChannel, true, nil
+func TestStateServiceFixtureIsolation(t *testing.T) {
+	first := newStateServiceTest(t)
+	second := newStateServiceTest(t)
+
+	first.channelServiceMock.Put(first.defaultChannelKey, first.defaultChannelData)
+	require.NoError(t, first.service.paymentStorage.Put(getPaymentFromChannel(first.defaultChannelData)))
+	first.channelServiceMock.SetError(errors.New("storage error"))
+	first.channelServiceMock.blockchainReader.readChannelFromBlockchain = func(*big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
+		return nil, false, errors.New("blockchain error")
 	}
-	paymentStorage := NewPaymentStorage(storage.NewMemStorage())
-	stateServiceTest.service.paymentStorage = paymentStorage
-	stateServiceTest.channelServiceMock.Clear()
+	first.defaultChannelData.AuthorizedAmount.SetInt64(0)
+	first.defaultChannelData.Signature[0] = 0
+	first.defaultChannelData.AuthorizedAmount = nil
+	first.defaultChannelData.Signature = nil
+	first.defaultRequest.Signature[0] ^= 0xff
+	first.defaultReply.CurrentSignedAmount[0] = 0xff
+	first.defaultReply.CurrentSignature = nil
+
+	_, found, err := second.channelServiceMock.PaymentChannel(second.defaultChannelKey)
+	require.NoError(t, err)
+	require.False(t, found)
+	payments, err := second.service.paymentStorage.GetAll()
+	require.NoError(t, err)
+	require.Empty(t, payments)
+
+	second.channelServiceMock.Put(second.defaultChannelKey, second.defaultChannelData)
+	reply, err := second.service.GetChannelState(t.Context(), second.defaultRequest)
+	require.NoError(t, err)
+	expected := &ChannelStateReply{
+		CurrentNonce:        bigIntToBytes(big.NewInt(3)),
+		CurrentSignedAmount: bigIntToBytes(big.NewInt(12345)),
+		CurrentSignature:    []byte{0x05, 0x04, 0x03, 0x02, 0x01},
+	}
+	assert.Equal(t, expected, reply)
+	assert.Equal(t, expected, second.defaultReply)
 }
 
 func TestGetChannelState(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
 	)
-	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		stateServiceTest.defaultRequest,
 	)
 
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, stateServiceTest.defaultReply, reply)
 
 }
 
 func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
-	previousSignature, _ := hex.DecodeString("0708090A0B")
+	stateServiceTest := newStateServiceTest(t)
+	previousSignature, err := hex.DecodeString("0708090A0B")
+	require.NoError(t, err)
 	previousChannelData := &PaymentChannelData{
 		ChannelID:        stateServiceTest.defaultChannelId,
 		Sender:           stateServiceTest.senderAddress,
@@ -164,7 +189,7 @@ func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
 		stateServiceTest.defaultChannelData,
 	)
 	payment := getPaymentFromChannel(previousChannelData)
-	stateServiceTest.service.paymentStorage.Put(payment)
+	require.NoError(t, stateServiceTest.service.paymentStorage.Put(payment))
 	stateServiceTest.channelServiceMock.blockchainReader.readChannelFromBlockchain = func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 		mpeChannel := &blockchain.MultiPartyEscrowChannel{
 			Recipient: stateServiceTest.senderAddress,
@@ -172,14 +197,14 @@ func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
 		}
 		return mpeChannel, true, nil
 	}
-	defer cleanup()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		stateServiceTest.defaultRequest,
 	)
 
-	assert.Nil(t, err)
+	require.NoError(t, err)
+	require.NotNil(t, reply)
 	assert.Equal(t, bigIntToBytes(big.NewInt(3)), reply.CurrentNonce)
 	assert.Equal(t, stateServiceTest.defaultChannelData.Signature, reply.CurrentSignature)
 	assert.Equal(t, bigIntToBytes(big.NewInt(12345)), reply.CurrentSignedAmount)
@@ -188,11 +213,11 @@ func TestGetChannelStateWhenNonceDiffers(t *testing.T) {
 }
 
 func TestGetChannelStateWhenReceiverMakesRequest(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
 	)
-	defer stateServiceTest.channelServiceMock.Clear()
 
 	_, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -206,11 +231,12 @@ func TestGetChannelStateWhenReceiverMakesRequest(t *testing.T) {
 		},
 	)
 
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 }
 
 func TestGetChannelStateChannelIdIncorrectSignature(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		&ChannelStateRequest{
@@ -224,18 +250,18 @@ func TestGetChannelStateChannelIdIncorrectSignature(t *testing.T) {
 }
 
 func TestGetChannelStateChannelStorageError(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	stateServiceTest.channelServiceMock.SetError(errors.New("storage error"))
-	defer stateServiceTest.channelServiceMock.Clear()
 
-	reply, err := stateServiceTest.service.GetChannelState(nil, stateServiceTest.defaultRequest)
+	reply, err := stateServiceTest.service.GetChannelState(t.Context(), stateServiceTest.defaultRequest)
 
 	assert.Equal(t, errors.New("channel error:storage error"), err)
 	assert.Nil(t, reply)
 }
 
 func TestGetChannelStateChannelNotFound(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	channelId := big.NewInt(42)
-	stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -250,11 +276,11 @@ func TestGetChannelStateChannelNotFound(t *testing.T) {
 }
 
 func TestGetChannelStateIncorrectSender(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
 	)
-	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -271,6 +297,7 @@ func TestGetChannelStateIncorrectSender(t *testing.T) {
 }
 
 func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	channelData := stateServiceTest.defaultChannelData
 	channelData.AuthorizedAmount = nil
 	channelData.Signature = nil
@@ -278,14 +305,13 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 		stateServiceTest.defaultChannelKey,
 		channelData,
 	)
-	defer stateServiceTest.channelServiceMock.Clear()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
 		stateServiceTest.defaultRequest,
 	)
 
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	expectedReply := stateServiceTest.defaultReply
 	expectedReply.CurrentSignedAmount = nil
 	expectedReply.CurrentSignature = nil
@@ -295,6 +321,7 @@ func TestGetChannelStateNoOperationsOnThisChannelYet(t *testing.T) {
 }
 
 func TestGetChannelStateBlockchainError(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
@@ -303,7 +330,6 @@ func TestGetChannelStateBlockchainError(t *testing.T) {
 		func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 			return nil, false, errors.New("Test error from blockchain reads")
 		}
-	defer cleanup()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -315,6 +341,7 @@ func TestGetChannelStateBlockchainError(t *testing.T) {
 }
 
 func TestGetChannelStateNoChannelInBlockchain(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
@@ -323,7 +350,6 @@ func TestGetChannelStateNoChannelInBlockchain(t *testing.T) {
 		func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 			return nil, false, nil
 		}
-	defer cleanup()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -335,6 +361,7 @@ func TestGetChannelStateNoChannelInBlockchain(t *testing.T) {
 }
 
 func TestGetChannelStateNonceIncrementedInBlockchainNoOldPayment(t *testing.T) {
+	stateServiceTest := newStateServiceTest(t)
 	stateServiceTest.channelServiceMock.Put(
 		stateServiceTest.defaultChannelKey,
 		stateServiceTest.defaultChannelData,
@@ -347,7 +374,6 @@ func TestGetChannelStateNonceIncrementedInBlockchainNoOldPayment(t *testing.T) {
 		func(channelID *big.Int) (*blockchain.MultiPartyEscrowChannel, bool, error) {
 			return blockchainChannelData, true, nil
 		}
-	defer cleanup()
 
 	reply, err := stateServiceTest.service.GetChannelState(
 		nil,
@@ -357,5 +383,3 @@ func TestGetChannelStateNonceIncrementedInBlockchainNoOldPayment(t *testing.T) {
 	assert.Nil(t, reply)
 	assert.Equal(t, errors.New("channel has different nonce in local storage and blockchain and old payment is not found in storage"), err)
 }
-
-// Claim tests are already added to escrow_test.go

@@ -204,7 +204,7 @@ func TestGetAddressFromPrivateKeyECDSA(t *testing.T) {
 	// Passing nil returns an empty address
 	assert.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(nil))
 
-	// Passing invalid public key type (simulate)
+	// An uninitialized public key cannot be encoded as a secp256k1 public key.
 	badKey := &ecdsa.PrivateKey{} // no public key set
 	assert.Equal(t, common.Address{}, GetAddressFromPrivateKeyECDSA(badKey))
 }

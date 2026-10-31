@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/singnet/snet-daemon/v6/config"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
 	"github.com/singnet/snet-daemon/v6/training"
 	"github.com/singnet/snet-daemon/v6/utils"
 	"go.uber.org/zap"
@@ -46,6 +47,7 @@ type StorageClientCert struct {
 
 // DaemonHeartbeat data model. Service Status JSON object Array marshalled to a string
 type DaemonHeartbeat struct {
+	Background               *lifecycle.Group                           `json:"-"`
 	DaemonID                 string                                     `json:"daemonID"`
 	Timestamp                string                                     `json:"timestamp"`
 	Status                   string                                     `json:"status"`
@@ -124,7 +126,11 @@ type HeartStatus struct {
 }
 
 // GetHeartbeat prepares the heartbeat, which includes calling the underlying service Daemon is serving
-func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatType string, serviceID string, trainingMetadata func() (*training.TrainingMetadata, error), dynamicPricing map[string]string, currentBlock func() (*big.Int, error)) (heartbeat DaemonHeartbeat, err error) {
+func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatType string, serviceID string, trainingMetadata func() (*training.TrainingMetadata, error), dynamicPricing map[string]string, currentBlock func() (*big.Int, error)) (DaemonHeartbeat, error) {
+	return GetHeartbeatContext(context.Background(), serviceEndpoint, serviceHeartbeatURL, heartbeatType, serviceID, trainingMetadata, dynamicPricing, currentBlock)
+}
+
+func GetHeartbeatContext(ctx context.Context, serviceEndpoint string, serviceHeartbeatURL string, heartbeatType string, serviceID string, trainingMetadata func() (*training.TrainingMetadata, error), dynamicPricing map[string]string, currentBlock func() (*big.Int, error), background ...*lifecycle.Group) (heartbeat DaemonHeartbeat, err error) {
 	heartbeat = DaemonHeartbeat{
 		DaemonID:                 GetDaemonID(),
 		Timestamp:                strconv.FormatInt(getEpochTime(), 10),
@@ -151,7 +157,7 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 	switch heartbeatType {
 	case "grpc":
 		var response grpc_health_v1.HealthCheckResponse_ServingStatus
-		response, err = callGrpcServiceHeartbeat(serviceHeartbeatURL)
+		response, err = callGrpcServiceHeartbeatContext(ctx, serviceHeartbeatURL)
 		//Standardize this as well on the response being sent
 		heartbeat.Status = response.String()
 		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("response", string(response)), zap.Error(err))
@@ -159,7 +165,7 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 		fallthrough
 	case "https":
 		var serviceHeartbeatBytes []byte
-		serviceHeartbeatBytes, err = callHTTPServiceHeartbeat(serviceHeartbeatURL)
+		serviceHeartbeatBytes, err = callHTTPServiceHeartbeatContext(ctx, serviceHeartbeatURL)
 		heartbeat.ServiceHeartbeat = string(serviceHeartbeatBytes)
 		zap.L().Debug("Get heartbeat", zap.String("serviceHeartbeatURL", serviceHeartbeatURL), zap.String("serviceHeartbeatBytes", string(serviceHeartbeatBytes)), zap.Error(err))
 	case "none":
@@ -168,7 +174,7 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 		fallthrough
 	case "":
 		// trying to ping the service with serviceEndpoint
-		err = tcpPingService(serviceEndpoint)
+		err = tcpPingServiceContext(ctx, serviceEndpoint)
 		zap.L().Debug("Get heartbeat [tcpPingService]", zap.String("serviceEndpoint", serviceEndpoint), zap.Error(err))
 	}
 
@@ -190,11 +196,21 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 				DaemonID:  GetDaemonID(),
 				Level:     "ERROR",
 			}
-			c, err := currentBlock()
-			if err != nil {
-				zap.L().Error("Error getting current block", zap.Error(err))
+			var workers *lifecycle.Group
+			if len(background) > 0 {
+				workers = background[0]
 			}
-			go notification.Send(c)
+			workers.Go(func(ctx context.Context) {
+				if currentBlock == nil {
+					return
+				}
+				c, err := currentBlock()
+				if err != nil {
+					zap.L().Error("Error getting current block", zap.Error(err))
+					return
+				}
+				notification.SendContext(ctx, c)
+			})
 		}
 	}
 
@@ -209,11 +225,15 @@ func GetHeartbeat(serviceEndpoint string, serviceHeartbeatURL string, heartbeatT
 // HeartbeatHandler request handler function: upon request it will hit the service for status and
 // wraps the results in daemon's heartbeat
 func HeartbeatHandler(rw http.ResponseWriter, trainingMetadata func() (*training.TrainingMetadata, error), dynamicPricing map[string]string, currentBlock func() (*big.Int, error)) {
+	HeartbeatHandlerContext(context.Background(), rw, trainingMetadata, dynamicPricing, currentBlock)
+}
+
+func HeartbeatHandlerContext(ctx context.Context, rw http.ResponseWriter, trainingMetadata func() (*training.TrainingMetadata, error), dynamicPricing map[string]string, currentBlock func() (*big.Int, error), background ...*lifecycle.Group) {
 	// read the heartbeat service type and corresponding URL
 	heartbeatType := config.GetString(config.ServiceHeartbeatType)
 	serviceURL := config.GetString(config.HeartbeatServiceEndpoint)
 	serviceID := config.GetString(config.ServiceId)
-	heartbeat, _ := GetHeartbeat(config.GetString(config.ServiceEndpointKey), serviceURL, heartbeatType, serviceID, trainingMetadata, dynamicPricing, currentBlock)
+	heartbeat, _ := GetHeartbeatContext(ctx, config.GetString(config.ServiceEndpointKey), serviceURL, heartbeatType, serviceID, trainingMetadata, dynamicPricing, currentBlock, background...)
 	err := json.NewEncoder(rw).Encode(heartbeat)
 	if err != nil {
 		zap.L().Info("Failed to write heartbeat message.", zap.Error(err))
@@ -223,8 +243,8 @@ func HeartbeatHandler(rw http.ResponseWriter, trainingMetadata func() (*training
 // Check implements `service Health`.
 func (service *DaemonHeartbeat) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 
-	heartbeat, err := GetHeartbeat(config.GetString(config.ServiceEndpointKey), config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
-		config.GetString(config.ServiceId), service.TrainingMetadata, service.DynamicPricing, service.CurrentBlock)
+	heartbeat, err := GetHeartbeatContext(ctx, config.GetString(config.ServiceEndpointKey), config.GetString(config.HeartbeatServiceEndpoint), config.GetString(config.ServiceHeartbeatType),
+		config.GetString(config.ServiceId), service.TrainingMetadata, service.DynamicPricing, service.CurrentBlock, service.Background)
 
 	if err != nil {
 		return &grpc_health_v1.HealthCheckResponse{

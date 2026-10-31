@@ -11,7 +11,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// ParseSignature parses Ethereum signature.
+// ParseSignature splits a 65-byte R || S || V signature and returns normalized
+// V, R, and S. Conventional recovery IDs 0/1 and 27/28 become 27/28; only length
+// is checked here, not ECDSA validity or the signer's identity.
 func ParseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error) {
 	r := [32]byte{}
 	s := [32]byte{}
@@ -27,7 +29,7 @@ func ParseSignature(jobSignatureBytes []byte) (uint8, [32]byte, [32]byte, error)
 	return v, r, s, nil
 }
 
-// AddressToHex converts an Ethereum address to hex string representation.
+// AddressToHex returns the checksummed hexadecimal form of an Ethereum address.
 func AddressToHex(address *common.Address) string {
 	return address.Hex()
 }
@@ -37,22 +39,30 @@ func BytesToBase64(bytes []byte) string {
 	return base64.StdEncoding.EncodeToString(bytes)
 }
 
-// HexToBytes converts hex string to a byte array.
+// HexToBytes uses go-ethereum's permissive hex decoder without returning a
+// decoding error. Callers needing strict input validation must check it separately.
 func HexToBytes(str string) []byte {
 	return common.FromHex(str)
 }
 
-// HexToAddress converts hex string to Ethereum address.
+// HexToAddress decodes hex and pads or truncates to a 20-byte address. It does not
+// validate address length, hexadecimal syntax, or an input checksum.
 func HexToAddress(str string) common.Address {
 	return common.BytesToAddress(HexToBytes(str))
 }
 
+// StringToBytes32 copies UTF-8 bytes into a zero-padded 32-byte value, truncating
+// longer input. Registry organization and service IDs use this representation;
+// the string is not hashed.
 func StringToBytes32(str string) [32]byte {
 	var byte32 [32]byte
 	copy(byte32[:], str)
 	return byte32
 }
 
+// ConvertBase64Encoding decodes standard base64 into a 32-byte value, padding or
+// truncating the result. It reports decoding errors but does not enforce length;
+// organization metadata group IDs use this conversion.
 func ConvertBase64Encoding(str string) ([32]byte, error) {
 	var byte32 [32]byte
 	data, err := base64.StdEncoding.DecodeString(str)
@@ -64,33 +74,30 @@ func ConvertBase64Encoding(str string) ([32]byte, error) {
 	return byte32, nil
 }
 
+// ToChecksumAddressStr parses an address and returns checksummed hex text without
+// validating the original input's length or checksum.
 func ToChecksumAddressStr(hexAddress string) string {
 	address := common.HexToAddress(hexAddress)
 	mixedAddress := common.NewMixedcaseAddress(address)
 	return mixedAddress.Address().String()
 }
 
+// ToChecksumAddress parses an address value. A common.Address contains bytes, not
+// a textual checksum; this helper does not validate the original address text.
 func ToChecksumAddress(hexAddress string) common.Address {
 	address := common.HexToAddress(hexAddress)
 	mixedAddress := common.NewMixedcaseAddress(address)
 	return mixedAddress.Address()
 }
 
-/*
-MakeTopicFilterer is used to generate a filter for querying Ethereum logs or contract events.
-Ethereum topics (such as for events) are 32-byte fixed-size values (common for hashing
-in Ethereum logs). This function takes a string parameter, converts it into a 32-byte array,
-and returns it in a slice. This allows developers to create filters when looking for
-specific events or log entries based on the topic.
-*/
+// MakeTopicFilterer builds a single indexed-bytes32 filter value by copying and
+// zero-padding up to 32 UTF-8 bytes. Registry event filters use it for organization
+// and service IDs. It does not hash an event signature or a dynamic string value.
 func MakeTopicFilterer(param string) [][32]byte {
-	// Create a 32-byte array
 	var param32Byte [32]byte
 
-	// Convert the string to a byte slice and copy up to 32 bytes
 	copy(param32Byte[:], []byte(param)[:min(len(param), 32)])
 
-	// Return the filter with a single element (the 32-byte array)
 	return [][32]byte{param32Byte}
 }
 
@@ -117,6 +124,8 @@ func ParsePrivateKey(privateKeyString string) (privateKey *ecdsa.PrivateKey) {
 	return nil
 }
 
+// GetAddressFromPrivateKeyECDSA derives an Ethereum address, returning the zero
+// address for a nil key or a public key that cannot be encoded.
 func GetAddressFromPrivateKeyECDSA(privateKeyECDSA *ecdsa.PrivateKey) common.Address {
 	if privateKeyECDSA == nil {
 		return common.Address{}

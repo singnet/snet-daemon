@@ -9,18 +9,18 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-// WrapperServerStream intercepts gRPC server stream to handle protocol-specific framing
-// and header manipulation for dynamic pricing support
+// WrapperServerStream buffers the first raw frame for price estimation, exposes
+// an updatable metadata context, and preserves legacy SendHeader suppression.
 type WrapperServerStream struct {
-	sendHeaderCalled bool              // Track if headers have been forwarded downstream
+	sendHeaderCalled bool              // The first explicit SendHeader call has been suppressed.
 	stream           grpc.ServerStream // Original gRPC server stream
 	firstMsg         *codec.GrpcFrame  // Initial message read during stream construction
 	firstMsgPending  bool              // Flag indicating first message hasn't been delivered via RecvMsg
 	Ctx              context.Context   // Context with additional metadata for request processing
 }
 
-// NewWrapperServerStream creates a wrapped stream that pre-reads the first message
-// and provides a modified context with enhanced metadata
+// NewWrapperServerStream reads the first frame immediately and replays it on the
+// first RecvMsg call. Context returns the supplied ctx; it is not enriched here.
 func NewWrapperServerStream(stream grpc.ServerStream, ctx context.Context) (grpc.ServerStream, error) {
 	m := &codec.GrpcFrame{}
 	if err := stream.RecvMsg(m); err != nil {
@@ -30,7 +30,7 @@ func NewWrapperServerStream(stream grpc.ServerStream, ctx context.Context) (grpc
 		stream:          stream,
 		firstMsg:        m,
 		firstMsgPending: true,
-		Ctx:             ctx, // Context now includes additional metadata
+		Ctx:             ctx,
 	}, nil
 }
 
@@ -67,13 +67,10 @@ func (w *WrapperServerStream) SetTrailer(md metadata.MD) {
 	w.stream.SetTrailer(md)
 }
 
-// SendHeader implements dynamic pricing support by intercepting header transmission
-// First call is suppressed (contains backend pricing headers in cogs)
-// Subsequent calls are forwarded to the client
+// SendHeader suppresses its first explicit invocation for compatibility with the
+// dynamic-pricing path and forwards later invocations. Suppression is unconditional:
+// header contents are not inspected, and SetHeader/SendMsg still delegate normally.
 func (w *WrapperServerStream) SendHeader(md metadata.MD) error {
-	// Dynamic pricing workaround:
-	// First call -> suppress (backend headers with pricing in cogs)
-	// Second call -> actually transmit to client
 	if !w.sendHeaderCalled {
 		w.sendHeaderCalled = true
 		return nil
@@ -82,7 +79,7 @@ func (w *WrapperServerStream) SendHeader(md metadata.MD) error {
 	return w.stream.SendHeader(md)
 }
 
-// OriginalRecvMsg provides access to the initially read message for special handling
+// OriginalRecvMsg returns the buffered frame without consuming its pending replay.
 func (w *WrapperServerStream) OriginalRecvMsg() any {
 	return w.firstMsg
 }

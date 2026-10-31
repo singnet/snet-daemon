@@ -31,13 +31,14 @@ func TestGetTLSConfig(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			setEtcdTLSPaths(t, tc.cert, tc.key, tc.ca)
-			cfg, err := getTLSConfig()
+			cfg, certificates, err := getTLSConfig()
 			if tc.cert == missingPath || tc.key == missingPath || tc.ca == missingPath {
 				require.ErrorIs(t, err, os.ErrNotExist)
 				if tc.errorText != "" {
 					require.ErrorContains(t, err, tc.errorText)
 				}
 				require.Nil(t, cfg)
+				require.Empty(t, certificates)
 				return
 			}
 			require.NoError(t, err)
@@ -45,6 +46,13 @@ func TestGetTLSConfig(t *testing.T) {
 			require.Equal(t, [][]byte{certDER}, cfg.Certificates[0].Certificate)
 			require.NotNil(t, cfg.Certificates[0].PrivateKey)
 			require.NotNil(t, cfg.RootCAs)
+			require.Len(t, certificates, 2)
+			require.Equal(t, "client", certificates[0].role)
+			require.Equal(t, "CA", certificates[1].role)
+			for _, item := range certificates {
+				require.Equal(t, certDER, item.certificate.Raw)
+				require.Equal(t, certPath, item.path)
+			}
 			cert, err := x509.ParseCertificate(certDER)
 			require.NoError(t, err)
 			_, err = cert.Verify(x509.VerifyOptions{
@@ -79,8 +87,6 @@ func setEtcdTLSPaths(t *testing.T, cert, key, ca string) {
 
 func writeEtcdTestCertificate(t *testing.T) (certPath, keyPath string, certDER []byte) {
 	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
 	now := time.Now()
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "etcd test client"},
@@ -89,6 +95,13 @@ func writeEtcdTestCertificate(t *testing.T) (certPath, keyPath string, certDER [
 		KeyUsage:    x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
+	return writeEtcdTestCertificateFromTemplate(t, template)
+}
+
+func writeEtcdTestCertificateFromTemplate(t *testing.T, template *x509.Certificate) (certPath, keyPath string, certDER []byte) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
 	certDER, err = x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	require.NoError(t, err)
 	keyDER, err := x509.MarshalECPrivateKey(key)

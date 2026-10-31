@@ -8,6 +8,7 @@ package metrics
 import (
 	"testing"
 
+	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 
@@ -33,6 +34,10 @@ func TestRegisterTestSuite(t *testing.T) {
 }
 
 func TestGetDaemonID(t *testing.T) {
+	conf := isolatedMetricsConfig(t)
+	conf.Set(config.OrganizationId, "YOUR_ORG_ID")
+	conf.Set(config.ServiceId, "YOUR_SERVICE_ID")
+	SetDaemonGrpId("group01")
 	daemonID := GetDaemonID()
 	assert.NotNil(t, daemonID, "daemon ID must not be nil")
 	assert.NotEmpty(t, daemonID, "daemon ID must not be empty")
@@ -53,6 +58,8 @@ func TestGetDaemonID(t *testing.T) {
 // }
 
 func (suite *RegisterTestSuite) TestSetDaemonGrpId() {
+	oldGroup := daemonGroupId
+	suite.T().Cleanup(func() { daemonGroupId = oldGroup })
 	grpid := "group01"
 	SetDaemonGrpId(grpid)
 	assert.NotNil(suite.T(), daemonGroupId)

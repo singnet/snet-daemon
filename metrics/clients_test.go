@@ -7,10 +7,12 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	pb "google.golang.org/grpc/health/grpc_health_v1"
@@ -41,10 +43,6 @@ func (s *server) Check(ctx context.Context, in *pb.HealthCheckRequest) (*pb.Heal
 	return &pb.HealthCheckResponse{Status: pb.HealthCheckResponse_SERVING}, nil
 }
 
-const (
-	testPort = ":33333"
-)
-
 type clientImplHeartBeat struct {
 }
 
@@ -63,29 +61,28 @@ func (service *clientImplHeartBeat) Watch(*pb.HealthCheckRequest, pb.Health_Watc
 }
 
 // mocks grpc service endpoint for unit tests
-func StartMockGrpcService() {
-	ch := make(chan int)
+func StartMockGrpcService(t *testing.T) string {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	grpcServer := grpc.NewServer()
+	pb.RegisterHealthServer(grpcServer, &clientImplHeartBeat{})
+	done := make(chan error, 1)
 	go func() {
-		lis, err := net.Listen("tcp", testPort)
-		if err != nil {
-			panic(err)
-		}
-		grpcServer := grpc.NewServer()
-		pb.RegisterHealthServer(grpcServer, &clientImplHeartBeat{})
-		ch <- 0
-		err = grpcServer.Serve(lis)
-		if err != nil {
-			panic(err)
-		}
+		done <- grpcServer.Serve(lis)
 	}()
-	_ = <-ch
+	t.Cleanup(func() {
+		grpcServer.Stop()
+		if err := <-done; !errors.Is(err, grpc.ErrServerStopped) {
+			assert.NoError(t, err)
+		}
+	})
+	return lis.Addr().String()
 }
 
 func (suite *ClientTestSuite) Test_callgRPCServiceHeartbeat() {
 	// Start the grpc mock server
-	StartMockGrpcService()
-
-	serviceURL := "localhost" + testPort
+	serviceURL := StartMockGrpcService(suite.T())
 	heartbeat, err := callGrpcServiceHeartbeat(serviceURL)
 	assert.NoError(suite.T(), err)
 

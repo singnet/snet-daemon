@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -16,6 +17,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// Processor exposes Ethereum RPC clients, block freshness checks, and reads of
+// MPE channel state. The daemon prepares payment claims separately; creating this
+// processor does not submit transactions or establish a channel-signing identity.
 type Processor interface {
 	ReconnectToWsClient() error
 	ConnectToWsClient() error
@@ -32,7 +36,8 @@ type Processor interface {
 }
 
 var (
-	// HashPrefix32Bytes is an Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
+	// HashPrefix32Bytes is the Ethereum signed-message prefix for a 32-byte digest,
+	// matching the convention used by utils.GetSignature and MPE claim verification.
 	HashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
 	hashPrefix42Bytes = []byte("\x19Ethereum Signed Message:\n420x")
 )
@@ -43,6 +48,7 @@ type jobInfo struct {
 }
 
 type processor struct {
+	ctx                     context.Context
 	enabled                 bool
 	ethHttpClient           *ethclient.Client
 	rawHttpClient           *rpc.Client
@@ -57,11 +63,18 @@ type processor struct {
 	multiPartyEscrow        *MultiPartyEscrow
 }
 
-// NewProcessor creates a new blockchain processor
+// NewProcessor creates an HTTP RPC client and an MPE binding at the address in
+// service metadata when blockchain integration is enabled. Disabled mode creates
+// no clients or bindings; WebSocket connectivity is initialized separately.
 func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
+	return NewProcessorContext(context.Background(), metadata)
+}
+
+func NewProcessorContext(ctx context.Context, metadata *ServiceMetadata) (Processor, error) {
 	// TODO(aiden) accept configuration as a parameter
 
 	p := processor{
+		ctx:                ctx,
 		jobCompletionQueue: make(chan *jobInfo, 1000),
 		enabled:            config.GetBool(config.BlockchainEnabledKey),
 	}
@@ -70,16 +83,16 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 		return &p, nil
 	}
 
-	// Setup ethereum client
-	if ethHttpClients, err := CreateHTTPEthereumClient(); err != nil {
+	// HTTP RPC configuration is independent of the MPE address in service metadata.
+	if ethHttpClients, err := CreateHTTPEthereumClientContext(ctx); err != nil {
 		return &p, errors.Wrap(err, "error creating RPC client")
 	} else {
 		p.rawHttpClient = ethHttpClients.RawClient
 		p.ethHttpClient = ethHttpClients.EthClient
 	}
 
-	// TODO: if address is not in config, try to load it using network
-	// TODO: Read this from github
+	// The MPE address comes from service metadata, not a Registry contract field
+	// or a direct per-network fallback in this constructor.
 
 	p.escrowContractAddress = metadata.GetMpeAddress()
 
@@ -89,7 +102,7 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 		p.multiPartyEscrow = mpe
 	}
 
-	// set a local signature hash creator
+	// Hash the payload before applying the Ethereum 32-byte signed-message prefix.
 	p.sigHasher = func(i []byte) []byte {
 		return crypto.Keccak256(HashPrefix32Bytes, crypto.Keccak256(i))
 	}
@@ -98,8 +111,12 @@ func NewProcessor(metadata *ServiceMetadata) (Processor, error) {
 }
 
 func (processor *processor) ReconnectToWsClient() error {
-	processor.ethWSClient.Close()
-	processor.rawHttpClient.Close()
+	if processor.ethWSClient != nil {
+		processor.ethWSClient.Close()
+	}
+	if processor.rawWSClient != nil {
+		processor.rawWSClient.Close()
+	}
 
 	zap.L().Debug("Try to reconnect to websocket client")
 
@@ -107,10 +124,22 @@ func (processor *processor) ReconnectToWsClient() error {
 }
 
 func (processor *processor) ConnectToWsClient() error {
+	ctx, cancel := processor.callContext()
+	defer cancel()
+	return processor.ConnectToWsClientContext(ctx)
+}
+
+func (processor *processor) ConnectToWsClientContext(ctx context.Context) error {
+	timeout := config.GetDuration(config.ServiceTimeout)
+	if timeout <= 0 {
+		timeout = 100 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	zap.L().Debug("Try to connect to websocket client")
 
-	newEthWSClients, err := CreateWSEthereumClient()
+	newEthWSClients, err := CreateWSEthereumClientContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -141,8 +170,12 @@ func (processor *processor) GetEthWSClient() *ethclient.Client {
 	return processor.ethWSClient
 }
 
+// CurrentBlock reads eth_blockNumber over HTTP for each call; it does not return
+// a cached block height or start a polling loop.
 func (processor *processor) CurrentBlock() (currentBlock *big.Int, err error) {
-	latestBlock, err := processor.ethHttpClient.BlockNumber(context.Background())
+	ctx, cancel := processor.callContext()
+	defer cancel()
+	latestBlock, err := processor.ethHttpClient.BlockNumber(ctx)
 	if err != nil {
 		zap.L().Error("error determining current block", zap.Error(err))
 		return nil, fmt.Errorf("error determining current block: %v", err)
@@ -150,26 +183,37 @@ func (processor *processor) CurrentBlock() (currentBlock *big.Int, err error) {
 	return new(big.Int).SetUint64(latestBlock), nil
 }
 
-func (processor *processor) CompareWithLatestBlockNumber(blockNumberPassed *big.Int, allowedBlockChainDifference uint64) (err error) {
-	latestBlockNumber, err := processor.CurrentBlock()
-	if err != nil {
-		return err
+func (processor *processor) callContext() (context.Context, context.CancelFunc) {
+	ctx := processor.ctx
+	if ctx == nil {
+		ctx = context.Background()
 	}
-
-	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
-	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > allowedBlockChainDifference {
-		return fmt.Errorf("authentication failed as the signature passed has expired")
+	timeout := config.GetDuration(config.ServiceTimeout)
+	if timeout <= 0 {
+		timeout = 100 * time.Second
 	}
-	return
+	return context.WithTimeout(ctx, timeout)
 }
 
+// CompareWithLatestBlockNumber checks the caller-supplied inclusive window in
+// either direction. The allowance is protocol-specific, not fixed by MPE/Registry.
+func (processor *processor) CompareWithLatestBlockNumber(blockNumberPassed *big.Int, allowedBlockChainDifference uint64) (err error) {
+	return NewEthereumBlockValidator(processor.CurrentBlock).ValidateBlock(blockNumberPassed, allowedBlockChainDifference)
+}
+
+// HasIdentity reports whether the legacy address field is populated.
+// NewProcessor does not initialize a signing identity from daemon keys.
 func (processor *processor) HasIdentity() bool {
 	return processor.address != ""
 }
 
 func (processor *processor) Close() {
-	processor.ethHttpClient.Close()
-	processor.rawHttpClient.Close()
+	if processor.ethHttpClient != nil {
+		processor.ethHttpClient.Close()
+	}
+	if processor.rawHttpClient != nil {
+		processor.rawHttpClient.Close()
+	}
 	if processor.ethWSClient != nil {
 		processor.ethWSClient.Close()
 	}

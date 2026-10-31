@@ -55,6 +55,11 @@ func testPaymentChannel(id *big.Int) *escrow.PaymentChannelData {
 	}
 }
 
+func TestListChannelsHelpPointsToTreasurer(t *testing.T) {
+	assert.Contains(t, ListChannelsCmd.Long, "snet treasurer claim --endpoint <DAEMON_ENDPOINT> <CHANNEL_ID>")
+	assert.NotContains(t, ListChannelsCmd.Long, "snetd claim")
+}
+
 func TestNewListChannelsCommand(t *testing.T) {
 	channelService := &stubPaymentChannelService{}
 	components := &Components{paymentChannelService: channelService}

@@ -37,19 +37,34 @@ func determineNetworkSelected(data []byte) (err error) {
 	if err = json.Unmarshal(data, &dynamicBinding); err != nil {
 		return err
 	}
-	//Get the Network Name selected in config ( snetd.config.json) , Based on this retrieve the Registry address ,
-	//Ethereum End point and Network ID mapped to
+	selectedNetwork, ok := dynamicBinding[networkName].(map[string]any)
+	if !ok {
+		return fmt.Errorf("blockchain network %q is not defined", networkName)
+	}
+	networkID, ok := selectedNetwork[NetworkId]
+	if !ok {
+		return fmt.Errorf("blockchain network %q has no network_id", networkName)
+	}
+
 	networkSelected.NetworkName = networkName
-	networkSelected.RegistryAddressKey = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[RegistryAddressKey], RegistryAddressKey)
-	networkSelected.EthereumJSONRPCHTTPEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[EthereumJsonRpcHTTPEndpointKey], EthereumJsonRpcHTTPEndpointKey)
-	networkSelected.EthereumJSONRPCWSEndpoint = getDetailsFromJsonOrConfig(dynamicBinding[networkName].(map[string]any)[EthereumJsonRpcWSEndpointKey], EthereumJsonRpcWSEndpointKey)
-	networkSelected.NetworkId = fmt.Sprintf("%v", dynamicBinding[networkName].(map[string]any)[NetworkId])
+	networkSelected.RegistryAddressKey = getDetailsFromJsonOrConfig(selectedNetwork[RegistryAddressKey], RegistryAddressKey)
+	networkSelected.EthereumJSONRPCHTTPEndpoint = getDetailsFromJsonOrConfig(selectedNetwork[EthereumJsonRpcHTTPEndpointKey], EthereumJsonRpcHTTPEndpointKey)
+	networkSelected.EthereumJSONRPCWSEndpoint = getDetailsFromJsonOrConfig(selectedNetwork[EthereumJsonRpcWSEndpointKey], EthereumJsonRpcWSEndpointKey)
+	networkSelected.NetworkId = fmt.Sprintf("%v", networkID)
 
 	fetchTokenData := map[string]map[string]any{}
 	if err = json.Unmarshal(contracts.GetNetworksClean(contracts.FetchToken), &fetchTokenData); err != nil {
 		return err
 	}
-	networkSelected.TokenAddress = fetchTokenData[networkSelected.NetworkId]["address"].(string)
+	tokenNetwork, ok := fetchTokenData[networkSelected.NetworkId]
+	if !ok {
+		return fmt.Errorf("token configuration is missing for blockchain network %q", networkName)
+	}
+	tokenAddress, ok := tokenNetwork["address"].(string)
+	if !ok || tokenAddress == "" {
+		return fmt.Errorf("token address is missing for blockchain network %q", networkName)
+	}
+	networkSelected.TokenAddress = tokenAddress
 
 	return nil
 }

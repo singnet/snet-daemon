@@ -5,56 +5,62 @@ package escrow;
 option java_package = "io.singularitynet.daemon.escrow";
 option go_package = "github.com/singnet/snet-daemon/v6/escrow";
 
-//It is expected that the user would call the GetChannelState to Determine the Current state of the Channel
-//Based on the usage forecast, the user/client will have to sign for an amount L + U , where L is the last amount Signed
-//and U is the amount based on expected usage.
-//Please be aware that the Signing up an amount upfront (Pre Paid) does come with a risk and hence the
-//user must exercise caution on the amount signed specially with new service providers.
-//If there is no need of making concurrent calls then you may consider pay per mode.
-//Using a Token, the Client can now make concurrent calls, which was not supported previously with the pay per mode.
-//However the pay per mode is a lot secure than the pre-paid mode.
+// TokenService issues JWTs for prepaid calls, which share channel credit through
+// atomic usage accounting rather than signing a new payment for each call.
+// Query GetChannelState before choosing the current nonce and cumulative signed
+// amount. The claim signature authorizes the provider to claim that amount,
+// including credit intended for future calls.
 service TokenService {
-  // GetToken method checks the Signature sent and returns a Token
-  // 1) The Signature is valid and has to be signed in the below format
-  //"__MPE_claim_message"+MpeContractAddress+ChannelID+ChannelNonce+SignedAmount
-  //Signature is to let the Service Provider make a claim
-  // 2) Signed amount >= Last amount Signed.
-  //  if Signed amount == Last Signed amount , then check if planned_amount < used_amount
-  //  if Signed amount > Last Signed amount , then update the planned amount = Signed Amount
-  // GetToken method in a way behaves as a renew Token too!.
+  // GetToken verifies the fresh request signature and the separate claim signature.
+  // The nonce must match the latest channel state, and signed_amount must be
+  // between the latest accepted authorization and the channel balance, inclusive.
+  // A higher authorization is stored and its increase is added to planned usage.
+  // An unchanged authorization can renew a JWT if a planned counter exists.
+  // Remaining credit is checked when a prepaid call is charged, not on renewal.
   rpc GetToken(TokenRequest) returns (TokenReply) {}
 }
 
-// TokenRequest is a request for getting a valid token.
+// TokenRequest contains a claim authorization and a separately signed, recent
+// token request. Both signatures use the Ethereum signed-message hashing described
+// in the escrow package README.
 message TokenRequest {
-  // channel_id contains id of the channel which state is requested.
+  // ID of the channel whose prepaid credit the JWT will authorize.
   uint64 channel_id = 1;
-  // current_nonce is a latest nonce of the payment channel.
+  // Latest available channel nonce, including locally prepared claims.
   uint64 current_nonce = 2;
-  //signed_amount is the amount signed by client with current_nonce
+  // Cumulative claim authorization at current_nonce, in token base units.
+  // This is an absolute amount; only an increase adds new prepaid credit.
   uint64 signed_amount = 3;
-  // Signature is a client signature of the message which contains 2 parts
-  //Part 1 : MPE Signature "__MPE_claim_message"+MpeContractAddress+ChannelID+ChannelNonce+SignedAmount
-  //Part 2 : Current Block Number
+  // Signature over raw claim_signature bytes || current_block, with the block
+  // encoded as a 32-byte big-endian integer. This signer must be the channel
+  // signer, sender, or recipient; it need not be the claim-signature signer.
   bytes signature = 4;
-  //current block number (signature will be valid only for short time around this block number)
+  // Request block number; the absolute difference from the daemon's latest
+  // observed block must be at most five, including both boundaries.
   uint64 current_block = 5;
 
+  // Signature authorizing the concatenation "__MPE_claim_message" || MPE address
+  // || channel ID || current_nonce || signed_amount. The address uses 20 raw bytes;
+  // numeric fields use 32-byte big-endian encoding. This signature must recover
+  // to the channel signer or sender and is retained for a future provider claim.
   bytes claim_signature = 6;
 }
 
-// TokenReply message contains a latest channel state. current_nonce and
+// TokenReply contains the channel-bound JWT and stored prepaid accounting totals.
+// The counters are keyed by channel ID, independently of its current nonce.
 message TokenReply {
-  // current_nonce is a latest nonce of the payment channel.
+  // ID of the channel bound to the returned JWT.
   uint64 channel_id = 1;
 
-  //it could be absent if none message was signed with current_nonce
+  // JWT authorizing prepaid calls for this channel and the request signer.
+  // Its expiry is configured by token_expiry_in_minutes.
   string token = 2;
 
-  //If the client / user chooses to sign upfront, the planned amount in cogs will be indicative of this.
+  // Cumulative additional credit authorized for prepaid use, in token base units.
+  // This counter spans nonce changes and is not the current channel balance.
   uint64 planned_amount = 3;
 
-  //If the client / user chooses to sign upfront, the used amount in cogs will be indicative of how much of the
-  //planned amount has actually been used.
+  // Cumulative call charges, in token base units. Includes failed calls credited
+  // separately in the refund counter; this is not a net-spent amount.
   uint64 used_amount = 4;
 }

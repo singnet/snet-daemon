@@ -6,6 +6,7 @@
 package metrics
 
 import (
+	"context"
 	"errors"
 	"math/big"
 
@@ -30,6 +31,10 @@ type Notification struct {
 
 // function for sending an alert to a given endpoint
 func (alert *Notification) Send(currentBlock *big.Int) bool {
+	return alert.SendContext(context.Background(), currentBlock)
+}
+
+func (alert *Notification) SendContext(ctx context.Context, currentBlock *big.Int) bool {
 	if isNoAlertsConfig {
 		zap.L().Warn("notifications not configured")
 		return false
@@ -43,7 +48,7 @@ func (alert *Notification) Send(currentBlock *big.Int) bool {
 		return false
 	} else {
 		// based on the notification success/failure
-		status := Publish(jsonAlert, serviceURL, &CommonStats{}, currentBlock)
+		status := PublishContext(ctx, jsonAlert, serviceURL, &CommonStats{}, currentBlock)
 		if !status {
 			zap.L().Info("unable to send notifications")
 			return false

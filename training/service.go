@@ -21,6 +21,7 @@ import (
 	"github.com/bufbuild/protocompile/linker"
 	"github.com/singnet/snet-daemon/v6/ctxkeys"
 	"github.com/singnet/snet-daemon/v6/errs"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"google.golang.org/grpc/credentials/insecure"
@@ -138,11 +139,12 @@ func (ds *DaemonService) startUpdateModelStatusWorker(ctx context.Context, model
 		return
 	}
 
-	_, client, err := ds.getServiceClient()
+	conn, client, err := ds.getServiceClient()
 	if err != nil {
 		zap.L().Error("[startUpdateModelStatusWorker] error in getting service client", zap.Error(err))
 		return
 	}
+	defer closeConn(conn)
 
 	response, err := client.GetModelStatus(ctx, &ModelID{ModelId: modelId})
 	if response == nil || err != nil {
@@ -169,25 +171,11 @@ func (ds *DaemonService) startUpdateModelStatusWorker(ctx context.Context, model
 	}
 }
 
-func (ds *DaemonService) updateModelStatusWorker(ctx context.Context, tasks <-chan string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for {
-		select {
-		case modelID := <-tasks:
-			go ds.startUpdateModelStatusWorker(ctx, modelID)
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
 func (ds *DaemonService) ManageUpdateModelStatusWorkers(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
-	tasks := make(chan string)
 	var wg sync.WaitGroup
-
-	go ds.updateModelStatusWorker(ctx, tasks, &wg)
+	defer wg.Wait()
 
 	defer ticker.Stop()
 
@@ -204,12 +192,15 @@ func (ds *DaemonService) ManageUpdateModelStatusWorkers(ctx context.Context, int
 				return
 			}
 			for _, modelID := range data.ModelIDs {
+				if ctx.Err() != nil {
+					return
+				}
 				if modelID != "" {
-					tasks <- modelID
+					wg.Add(1)
+					go func() { defer wg.Done(); ds.startUpdateModelStatusWorker(ctx, modelID) }()
 				}
 			}
 		case <-ctx.Done():
-			wg.Wait()
 			return
 		}
 	}
@@ -276,7 +267,8 @@ func (ds *DaemonService) UploadAndValidate(clientStream Daemon_UploadAndValidate
 		zap.L().Debug(err.Error())
 		return err
 	}
-	providerStream, err := client.UploadAndValidate(context.Background())
+	defer closeConn(providerConn)
+	providerStream, err := client.UploadAndValidate(clientStream.Context())
 	if err != nil {
 		zap.L().Error("error in sending UploadAndValidate", zap.Error(err))
 		return err
@@ -342,7 +334,7 @@ func (ds *DaemonService) UploadAndValidate(clientStream Daemon_UploadAndValidate
 	zap.L().Debug("[UploadAndValidate] Received file for model %s with size %d bytes", zap.String("modelID", modelID), zap.Int("len", fullData.Len()))
 	closeConn(providerConn)
 
-	go func() {
+	func() {
 		err := ds.pendingStorage.AddPendingModelId(ds.pendingStorage.buildPendingModelKey(), modelID)
 		if err != nil {
 			zap.L().Error("[AddPendingModelId]", zap.Error(err))
@@ -414,7 +406,7 @@ func (ds *DaemonService) ValidateModel(ctx context.Context, req *AuthValidateReq
 		zap.L().Error("Error in putting data in storage", zap.Error(err))
 	}
 
-	go func() {
+	func() {
 		err := ds.pendingStorage.AddPendingModelId(ds.pendingStorage.buildPendingModelKey(), req.ModelId)
 		if err != nil {
 			zap.L().Error("[AddPendingModelId]", zap.Error(err))
@@ -507,7 +499,7 @@ func (ds *DaemonService) TrainModel(ctx context.Context, req *CommonRequest) (*S
 			Status: Status_ERRORED,
 		}, WrapError(ErrServiceIssue, err.Error())
 	}
-	go func() {
+	func() {
 		_, err = ds.updateModelStatus(req.ModelId, statusResp.Status)
 		if err != nil {
 			zap.L().Error("Error in updating model data in storage", zap.Error(err))
@@ -1066,7 +1058,7 @@ func (ds *DaemonService) DeleteModel(ctx context.Context, req *CommonRequest) (*
 			WrapError(ErrAccessToModel, err.Error())
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*60)
 	defer cancel()
 	conn, client, err := ds.getServiceClient()
 	if err != nil {
@@ -1109,7 +1101,7 @@ func (ds *DaemonService) GetModel(ctx context.Context, request *CommonRequest) (
 			WrapError(ErrAccessToModel, err.Error())
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*20)
 	defer cancel()
 
 	if conn, client, err := ds.getServiceClient(); err == nil {
@@ -1155,7 +1147,7 @@ func getFileDescriptorsWithTraining(protoFiles map[string]string) (linker.Files,
 // NewTrainingService daemon self server
 func NewTrainingService(b blockchain.Processor, serMetaData *blockchain.ServiceMetadata,
 	orgMetadata *blockchain.OrganizationMetaData, storage *ModelStorage, userStorage *ModelUserStorage,
-	pendingStorage *PendingModelStorage, publicStorage *PublicModelStorage, allowBlockDifference uint64) DaemonServer {
+	pendingStorage *PendingModelStorage, publicStorage *PublicModelStorage, allowBlockDifference uint64, background ...*lifecycle.Group) DaemonServer {
 
 	var err error
 	serMetaData.ProtoDescriptors, err = getFileDescriptorsWithTraining(serMetaData.ProtoFiles)
@@ -1209,7 +1201,11 @@ func NewTrainingService(b blockchain.Processor, serMetaData *blockchain.ServiceM
 			methodsMetadata:      methodsMD,
 			allowBlockDifference: allowBlockDifference,
 		}
-		go daemonService.ManageUpdateModelStatusWorkers(context.Background(), 3*time.Second)
+		var workers *lifecycle.Group
+		if len(background) > 0 {
+			workers = background[0]
+		}
+		workers.Go(func(ctx context.Context) { daemonService.ManageUpdateModelStatusWorkers(ctx, 3*time.Second) })
 		return daemonService
 	}
 

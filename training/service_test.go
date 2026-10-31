@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/singnet/snet-daemon/v6/ctxkeys"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -112,6 +113,8 @@ func (suite *DaemonServiceSuite) SetupTest() {
 
 	config.Vip().Set(config.ModelTrainingEnabled, true)
 
+	workers := lifecycle.New()
+	suite.T().Cleanup(func() { workers.Cancel(); workers.Wait() })
 	suite.daemonService = NewTrainingService(
 		suite.blockchain,
 		suite.serviceMetadata,
@@ -121,6 +124,7 @@ func (suite *DaemonServiceSuite) SetupTest() {
 		pendingModelStorage,
 		publicModelStorage,
 		100,
+		workers,
 	)
 	suite.Require().IsType(&DaemonService{}, suite.daemonService)
 }

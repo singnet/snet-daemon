@@ -1,7 +1,5 @@
 package utils
 
-// auth_utils.go provides functions for all authentication and signature validation related operations
-
 import (
 	"bytes"
 	"crypto/ecdsa"
@@ -15,12 +13,12 @@ import (
 )
 
 var (
-	// HashPrefix32Bytes is an Ethereum signature prefix: see https://github.com/ethereum/go-ethereum/blob/bf468a81ec261745b25206b2a596eb0ee0a24a74/internal/ethapi/api.go#L361
+	// HashPrefix32Bytes is the Ethereum signed-message prefix for a 32-byte digest.
 	HashPrefix32Bytes = []byte("\x19Ethereum Signed Message:\n32")
 )
 
-// VerifySigner Extracts the signer address from the signature given the signature
-// It returns signer address and error. nil error indicates the successful function execution
+// VerifySigner recovers the signer using the daemon's Ethereum signed-message
+// hashing convention and compares it with the supplied expected address.
 func VerifySigner(message []byte, signature []byte, signer common.Address) error {
 	derivedSigner, err := GetSignerAddressFromMessage(message, signature)
 	if err != nil {
@@ -33,6 +31,10 @@ func VerifySigner(message []byte, signature []byte, signer common.Address) error
 	return nil
 }
 
+// GetSignerAddressFromMessage recovers a signer from a 65-byte R || S || V
+// signature over Keccak256(HashPrefix32Bytes || Keccak256(message)). It normalizes
+// conventional recovery IDs 0/1 and 27/28 without modifying the supplied signature.
+// Callers must construct the protocol payload and enforce signer authorization.
 func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Address, err error) {
 	messageFieldLog := zap.String("message", BytesToBase64(message))
 	signatureFieldLog := zap.String("signature", BytesToBase64(signature))
@@ -61,21 +63,17 @@ func GetSignerAddressFromMessage(message, signature []byte) (signer *common.Addr
 			messageHashFieldLog)
 		return nil, errors.New("incorrect signature data")
 	}
-	//publicKeyFieldLog := zap.Any("publicKey", publicKey)
 
 	keyOwnerAddress := crypto.PubkeyToAddress(*publicKey)
 	keyOwnerAddressFieldLog := zap.Any("keyOwnerAddress", keyOwnerAddress)
 	zap.L().Debug("Message signature parsed",
-		//messageFieldLog,
-		//signatureFieldLog,
-		//messageHashFieldLog,
-		//publicKeyFieldLog,
 		keyOwnerAddressFieldLog)
 
 	return &keyOwnerAddress, nil
 }
 
-// VerifyAddress Check if the payment address/signer passed matches to what is present in the metadata
+// VerifyAddress compares two parsed Ethereum addresses. It does not consult
+// metadata, recover a signature, or read a contract.
 func VerifyAddress(address common.Address, otherAddress common.Address) error {
 	if otherAddress != address {
 		return fmt.Errorf("the address: %s does not match to what has been expected / registered", address.Hex())
@@ -83,6 +81,8 @@ func VerifyAddress(address common.Address, otherAddress common.Address) error {
 	return nil
 }
 
+// GetSignature signs Keccak256(HashPrefix32Bytes || Keccak256(message)) and returns
+// R || S || V with recovery ID 0/1. A nil private key returns nil.
 func GetSignature(message []byte, privateKey *ecdsa.PrivateKey) (signature []byte) {
 	hash := crypto.Keccak256(
 		HashPrefix32Bytes,

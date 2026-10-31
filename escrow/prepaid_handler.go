@@ -34,7 +34,8 @@ type PrePaidPaymentHandler struct {
 }
 
 func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (addr common.Address, err error) {
-	//Validate the token
+	// Verify the JWT signature, expiry, requested channel, and configured
+	// organization/group claims.
 	userAddress, err := validator.tokenManager.VerifyToken(payment.AuthToken, payment.ChannelID)
 	if err != nil {
 		return [20]byte{}, err
@@ -42,7 +43,8 @@ func (validator *PrePaidPaymentValidator) Validate(payment *PrePaidPayment) (add
 	return common.HexToAddress(userAddress), err
 }
 
-// NewPrePaidPaymentHandler returns a new MultiPartyEscrow contract payment handler.
+// NewPrePaidPaymentHandler authenticates prepaid calls with JWTs and records their
+// price against the channel's prepaid counters before forwarding the call.
 func NewPrePaidPaymentHandler(
 	PrePaidService PrePaidService, metadata *blockchain.OrganizationMetaData,
 	pServiceMetaData *blockchain.ServiceMetadata, pricing *pricing.PricingStrategy, manager token.Manager) handler.StreamPaymentHandler {
@@ -73,7 +75,8 @@ func (h *PrePaidPaymentHandler) Payment(context *handler.GrpcStreamContext) (tra
 	if validateErr != nil {
 		return nil, paymentErrorToGrpcError(validateErr)
 	}
-	// Increment the used amount
+	// Charge before forwarding the call so concurrent calls cannot spend the
+	// same prepaid balance. CompleteAfterError credits the charge on failure.
 	if err := h.service.UpdateUsage(prePaidPayment.ChannelID, price, USED_AMOUNT); err != nil {
 		return nil, paymentErrorToGrpcError(err)
 	}
@@ -103,8 +106,7 @@ func (h *PrePaidPaymentHandler) getPaymentFromContext(context *handler.GrpcStrea
 	}, nil
 }
 
-// Complete just logging as we increase the usage before calling the service
-// assuming the service call will be successful
+// Complete logs a successful call; Payment has already recorded its charge.
 func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.GrpcError) {
 	prePaidTransaction := payment.(PrePaidTransaction)
 	zap.L().Debug("usage successfully updated and state of channel is consistent",
@@ -113,9 +115,9 @@ func (h *PrePaidPaymentHandler) Complete(payment handler.Payment) (err *handler.
 	return nil
 }
 
+// CompleteAfterError records a refund credit for a failed call. The original used
+// amount remains in the accounting history; no blockchain refund is submitted.
 func (h *PrePaidPaymentHandler) CompleteAfterError(payment handler.Payment, result error) (err *handler.GrpcError) {
-	//we need to Keep track of the amount charged for service that errored
-	//and refund back!
 	prePaidTransaction := payment.(PrePaidTransaction)
 	if err = paymentErrorToGrpcError(h.service.UpdateUsage(prePaidTransaction.ChannelId(),
 		prePaidTransaction.Price(), REFUND_AMOUNT)); err != nil {

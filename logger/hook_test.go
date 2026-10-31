@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -43,6 +45,31 @@ func TestInitializeFiltersHookLevels(t *testing.T) {
 	require.Equal(t, "warning message", recorder.entries[0].Message)
 	require.Equal(t, zap.ErrorLevel, recorder.entries[1].Level)
 	require.Equal(t, "error message", recorder.entries[1].Message)
+}
+
+func TestInitializeReportsInvalidHookAndKeepsValidHooks(t *testing.T) {
+	setupConfig(t)
+	recorder := &recordingHook{}
+	const hookType = "valid-after-invalid-test"
+	RegisterHookType(hookType, func(*viper.Viper) (hook, error) { return recorder, nil })
+	t.Cleanup(func() { delete(hookFactoryMethodsByType, hookType) })
+	vip.Set(LogHooksKey, []string{"invalid", "capture"})
+	vip.Set("log.invalid", map[string]any{"type": "unknown-test-hook", "levels": []string{"error"}})
+	vip.Set("log.capture", map[string]any{"type": hookType, "levels": []string{"error"}})
+	outputPath := filepath.Join(t.TempDir(), "diagnostics.txt")
+	output, err := os.Create(outputPath)
+	require.NoError(t, err)
+	previousStdout := os.Stdout
+	os.Stdout = output
+	t.Cleanup(func() { os.Stdout = previousStdout; _ = output.Close() })
+	require.NotPanics(t, Initialize, "invalid optional hooks must not disable the logger")
+	zap.L().Error("logger still works")
+	require.Len(t, recorder.entries, 1)
+	require.Equal(t, "logger still works", recorder.entries[0].Message)
+	diagnostics, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	require.Contains(t, string(diagnostics), `unable to add log hook "invalid"`)
+	require.Contains(t, string(diagnostics), "unknown-test-hook")
 }
 
 func TestHookMissingConfiguration(t *testing.T) {

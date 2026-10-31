@@ -12,6 +12,8 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
+// jsonToProto decodes an HTTP JSON response into the method's output message,
+// discarding unknown fields and allowing missing required fields.
 func jsonToProto(protoFiles linker.Files, json []byte, methodName string) (proto proto.Message, err error) {
 
 	method := findMethodInProto(protoFiles, methodName)
@@ -32,6 +34,8 @@ func jsonToProto(protoFiles linker.Files, json []byte, methodName string) (proto
 	return proto, nil
 }
 
+// protoToJson decodes the method's input message and emits protobuf JSON using
+// the original proto field names rather than lowerCamelCase JSON names.
 func protoToJson(protoFiles linker.Files, in []byte, methodName string) (json []byte, err error) {
 
 	method := findMethodInProto(protoFiles, methodName)
@@ -58,6 +62,8 @@ func protoToJson(protoFiles linker.Files, in []byte, methodName string) (json []
 	return json, nil
 }
 
+// findMethodInProto returns the first matching short method name across the supplied
+// files and services. It does not resolve a fully qualified service/method path.
 func findMethodInProto(protoFiles linker.Files, methodName string) (method protoreflect.MethodDescriptor) {
 	for _, protoFile := range protoFiles {
 		if protoFile.Services().Len() == 0 {

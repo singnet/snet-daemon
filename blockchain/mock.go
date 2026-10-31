@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -54,16 +53,7 @@ func (m *MockProcessor) CurrentBlock() (*big.Int, error) {
 }
 
 func (m *MockProcessor) CompareWithLatestBlockNumber(blockNumberPassed *big.Int, allowedBlockChainDifference uint64) error {
-	latestBlockNumber, err := m.CurrentBlock()
-	if err != nil {
-		return err
-	}
-
-	differenceInBlockNumber := blockNumberPassed.Sub(blockNumberPassed, latestBlockNumber)
-	if differenceInBlockNumber.Abs(differenceInBlockNumber).Uint64() > allowedBlockChainDifference {
-		return fmt.Errorf("authentication failed as the signature passed has expired")
-	}
-	return nil
+	return NewEthereumBlockValidator(m.CurrentBlock).ValidateBlock(blockNumberPassed, allowedBlockChainDifference)
 }
 
 func (m *MockProcessor) HasIdentity() bool {
@@ -75,15 +65,7 @@ func (m *MockProcessor) Close() {
 
 func (m *MockProcessor) MultiPartyEscrowChannel(channelID *big.Int) (channel *MultiPartyEscrowChannel, ok bool, err error) {
 
-	//ch, err := processor.multiPartyEscrow.Channels(nil, channelID)
-	//if err != nil {
-	//	zap.L().Warn("Error while looking up for channel id in blockchain", zap.Error(err), channelIdField)
-	//	return nil, false, err
-	//}
-	//if ch.Sender == zeroAddress {
-	//	zap.L().Warn("Unable to find channel id in blockchain", channelIdField)
-	//	return nil, false, nil
-	//}
+	// Return a deterministic placeholder for every ID without consulting a contract.
 
 	channel = &MultiPartyEscrowChannel{
 		Sender:     common.HexToAddress("0x000"),

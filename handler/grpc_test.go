@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -146,7 +147,7 @@ type exampleServiceMock struct {
 }
 
 func (service *exampleServiceMock) mustEmbedUnimplementedExampleServiceServer() {
-	//TODO implement me
+	// This generated-interface marker is not invoked by RPC dispatch.
 	panic("implement me")
 }
 
@@ -154,28 +155,25 @@ func (service *exampleServiceMock) Ping(context context.Context, input *Input) (
 	return service.output, service.err
 }
 
-func startServiceAndClient(service ExampleServiceServer) (ExampleServiceClient, *grpc.ClientConn) {
-	ch := make(chan int)
+func startServiceAndClient(t *testing.T, service ExampleServiceServer) (ExampleServiceClient, *grpc.ClientConn) {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	server := grpc.NewServer()
+	RegisterExampleServiceServer(server, service)
+	done := make(chan error, 1)
 	go func() {
-		listener, err := net.Listen("tcp", ":12345")
-		if err != nil {
-			panic(err)
-		}
-
-		server := grpc.NewServer()
-		RegisterExampleServiceServer(server, service)
-
-		ch <- 0
-
-		server.Serve(listener)
+		done <- server.Serve(listener)
 	}()
+	t.Cleanup(func() {
+		server.Stop()
+		if err := <-done; !errors.Is(err, grpc.ErrServerStopped) {
+			assert.NoError(t, err)
+		}
+	})
 
-	_ = <-ch
-
-	connection, err := grpc.Dial("localhost:12345", grpc.WithInsecure())
-	if err != nil {
-		panic(err)
-	}
+	connection, err := grpc.NewClient(listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
 
 	client := NewExampleServiceClient(connection)
 
@@ -184,7 +182,7 @@ func startServiceAndClient(service ExampleServiceServer) (ExampleServiceClient, 
 
 func (suite *GrpcTestSuite) TestReturnCustomErrorCodeViaGrpc() {
 	expectedErr := status.Newf(1000, "error message").Err()
-	client, connection := startServiceAndClient(&exampleServiceMock{err: expectedErr})
+	client, connection := startServiceAndClient(suite.T(), &exampleServiceMock{err: expectedErr})
 	defer connection.Close()
 
 	_, err := client.Ping(context.Background(), &Input{Message: "ping"})

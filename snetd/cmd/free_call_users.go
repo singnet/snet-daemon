@@ -5,7 +5,7 @@ import (
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
 	"github.com/singnet/snet-daemon/v6/config"
-	"github.com/singnet/snet-daemon/v6/escrow"
+	"github.com/singnet/snet-daemon/v6/freecall"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -30,7 +30,7 @@ var FreeCallUserResetCmd = &cobra.Command{
 	},
 }
 
-// Free call user unlock command
+// freeCallUserUnLockCommand removes a user's shared-storage usage lock.
 type freeCallUserUnLockCommand struct {
 	lockStorage *storage.PrefixedAtomicStorage
 	userID      string
@@ -38,16 +38,16 @@ type freeCallUserUnLockCommand struct {
 	orgMetadata *blockchain.OrganizationMetaData
 }
 
-// Free call user unlock command
+// freeCallUserResetCountCommand resets a user's persisted free-call usage count.
 type freeCallUserResetCountCommand struct {
 	lockStorage *storage.PrefixedAtomicStorage
-	userStorage *escrow.FreeCallUserStorage
+	userStorage *freecall.UserStorage
 	userID      string
 	address     string
 	orgMetadata *blockchain.OrganizationMetaData
 }
 
-// initializes and returns the new unlock user of free calls command object
+// newFreeCallUserUnLockCommandCommand selects the usage lock store and user identity.
 func newFreeCallUserUnLockCommandCommand(cmd *cobra.Command, args []string, pComponents *Components) (command Command, err error) {
 	userID, address, err := getFreeCallIDs(cmd)
 	if err != nil {
@@ -63,7 +63,7 @@ func newFreeCallUserUnLockCommandCommand(cmd *cobra.Command, args []string, pCom
 	return
 }
 
-// initializes and returns the new reset count for free call user command object
+// newFreeCallResetCountCommand selects the usage record store and user identity.
 func newFreeCallResetCountCommand(cmd *cobra.Command, args []string, pComponents *Components) (command Command, err error) {
 	userID, address, err := getFreeCallIDs(cmd)
 	if err != nil {
@@ -92,7 +92,7 @@ func getFreeCallIDs(cmd *cobra.Command) (userId, address string, err error) {
 	return userId, address, nil
 }
 
-// Run command's run method
+// Run requires a wallet address; the user ID may be empty for wallet-only calls.
 func (command *freeCallUserUnLockCommand) Run() (err error) {
 	if command.address == "" {
 		return fmt.Errorf("--address must be set (can be combined with --user-id)")
@@ -100,7 +100,7 @@ func (command *freeCallUserUnLockCommand) Run() (err error) {
 	return command.unlockFreeCallUser()
 }
 
-// Run command's run method
+// Run requires a wallet address; the user ID may be empty for wallet-only calls.
 func (command *freeCallUserResetCountCommand) Run() (err error) {
 	if command.address == "" {
 		return fmt.Errorf("--address must be set (can be combined with --user-id)")
@@ -108,21 +108,22 @@ func (command *freeCallUserResetCountCommand) Run() (err error) {
 	return command.resetUserForFreeCalls()
 }
 
-// release the lock on the user with the given user id
+// unlockFreeCallUser deletes the lock for this address/user ID and configured
+// organization/service/group. It does not reset usage or change any contract state.
 func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
-	key := &escrow.FreeCallUserKey{}
+	key := &freecall.UserKey{}
 	key.UserId = command.userID
 	key.Address = command.address
 	key.OrganizationId = config.GetString(config.OrganizationId)
 	key.ServiceId = config.GetString(config.ServiceId)
 	key.GroupID = command.orgMetadata.GetGroupIdString()
-	// check whether the key exists or not
+	// Look up the lock, not the user's usage record.
 	_, ok, err := command.lockStorage.Get(key.String())
 	if !ok {
 		fmt.Printf("Error: Free Call lock for user %s is not found\n", key.String())
 		return
 	}
-	// try deleting the key
+	// Delete only the lock key.
 	err = command.lockStorage.Delete(key.String())
 	if err != nil {
 		fmt.Printf("Error: Unable to unlock the user -%s\n", key.String())
@@ -132,9 +133,10 @@ func (command *freeCallUserUnLockCommand) unlockFreeCallUser() (err error) {
 	return
 }
 
-// reset free locks counter for a given user id
+// resetUserForFreeCalls sets the persisted usage count to zero for this
+// address/user ID and organization/service/group. It does not acquire or remove a lock.
 func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error) {
-	key := &escrow.FreeCallUserKey{}
+	key := &freecall.UserKey{}
 	key.UserId = command.userID
 	key.Address = command.address
 	key.OrganizationId = config.GetString(config.OrganizationId)
@@ -146,7 +148,7 @@ func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error
 		fmt.Printf("Error: Free Call user %s is not found\n", key.String())
 		return
 	}
-	updatedData := &escrow.FreeCallUserData{Address: key.Address, UserID: key.UserId, FreeCallsMade: 0}
+	updatedData := &freecall.UserData{Address: key.Address, UserID: key.UserId, FreeCallsMade: 0}
 	updatedData.OrganizationId = key.OrganizationId
 	updatedData.ServiceId = key.ServiceId
 	updatedData.GroupID = key.GroupID
@@ -159,7 +161,8 @@ func (command *freeCallUserResetCountCommand) resetUserForFreeCalls() (err error
 	return
 }
 
-// ListFreeCallUserCmd displays all the users of free call for the given service and group
+// ListFreeCallUserCmd lists stored usage records in the selected network/organization/group
+// namespace. Listing does not filter out records belonging to other services in that group.
 var ListFreeCallUserCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List of all free call users",
@@ -170,7 +173,7 @@ var ListFreeCallUserCmd = &cobra.Command{
 }
 
 type listFreeCallUsersCommand struct {
-	freeCallService escrow.FreeCallUserService
+	freeCallService freecall.UserService
 }
 
 func newListFreeCallUserCommand(cmd *cobra.Command, args []string, components *Components) (command Command, err error) {
@@ -181,7 +184,7 @@ func newListFreeCallUserCommand(cmd *cobra.Command, args []string, components *C
 }
 
 func (command *listFreeCallUsersCommand) Run() (err error) {
-	users, err := command.freeCallService.ListFreeCallUsers()
+	users, err := command.freeCallService.ListUsers()
 	if err != nil {
 		return
 	}

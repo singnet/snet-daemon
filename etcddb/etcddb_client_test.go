@@ -86,7 +86,7 @@ func (suite *EtcdTestSuite) TestClientInitializationErrors() {
 		name, settings, errorText string
 	}{
 		{"invalid timeout", `{"request_timeout":"invalid"}`, "request_timeout"},
-		{"expired health probe", `{"request_timeout":"-1s"}`, "etcd not healthy"},
+		{"negative timeout", `{"request_timeout":"-1s"}`, "request_timeout must be positive"},
 	} {
 		suite.T().Run(tc.name, func(t *testing.T) {
 			vip := readConfig(t, `{"payment_channel_storage_client":`+tc.settings+`}`)
@@ -105,6 +105,7 @@ func (suite *EtcdTestSuite) TestClientHotReloadConfiguration() {
 			require.NoError(t, err)
 			t.Cleanup(client.Close)
 			require.Equal(t, setting == "true", client.IsHotReloadEnabled())
+			require.Nil(t, client.certificateMonitor, "HTTP-only etcd clients must not monitor TLS certificates")
 		})
 	}
 }

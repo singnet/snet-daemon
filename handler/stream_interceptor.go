@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"context"
 	"fmt"
+	"github.com/singnet/snet-daemon/v6/lifecycle"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,15 +25,14 @@ import (
 )
 
 const (
-	// PaymentTypeHeader is a type of payment used to pay for a RPC call.
-	// Supported types are: "escrow".
-	// Note: "job" Payment type is deprecated
+	// PaymentTypeHeader selects a registered payment handler. The daemon registers
+	// escrow, free-call, prepaid-call, and train-call; absence selects the default.
 	PaymentTypeHeader = "snet-payment-type"
-	// Client that calls the Daemon ( example can be "snet-cli","snet-dapp","snet-sdk")
+	// ClientTypeHeader identifies the client application for reporting, not authorization.
 	ClientTypeHeader = "snet-client-type"
-	// Value is a user address , example "0x94d04332C4f5273feF69c4a52D24f42a3aF1F207"
+	// UserInfoHeader carries caller-supplied user details for metering.
 	UserInfoHeader = "snet-user-info"
-	// User Agent details set in on the server stream info
+	// UserAgentHeader carries the client user agent used in metering records.
 	UserAgentHeader = "user-agent"
 	// PaymentChannelIDHeader is a MultiPartyEscrow contract payment channel
 	// id. Value is a string containing a decimal number.
@@ -38,38 +40,35 @@ const (
 	// PaymentChannelNonceHeader is a payment channel nonce value. Value is a
 	// string containing a decimal number.
 	PaymentChannelNonceHeader = "snet-payment-channel-nonce"
-	// PaymentChannelAmountHeader is an amount of payment channel value
-	// which server is authorized to withdraw after handling the RPC call.
-	// Value is a string containing a decimal number.
+	// PaymentChannelAmountHeader carries the cumulative signed amount for the
+	// channel nonce, in token base units as a decimal string, not the per-call price.
 	PaymentChannelAmountHeader = "snet-payment-channel-amount"
-	// PaymentChannelSignatureHeader is a signature of the client to confirm
-	// amount withdrawing authorization. Value is an array of bytes.
+	// PaymentChannelSignatureHeader carries raw signature bytes. Escrow/train calls
+	// use an MPE claim signature; free calls use their caller-request signature.
 	PaymentChannelSignatureHeader = "snet-payment-channel-signature-bin"
-	// This is useful information in the header sent by the client
-	// All clients will have this information and they need this to Sign anyways
-	// When Daemon is running in the block chain disabled mode, it would use this
-	// header to get the MPE address. The goal here is to keep the client oblivious to the
-	// Daemon block chain enabled or disabled mode and also standardize the signatures.
-	// id. Value is a string containing a decimal number.
+	// PaymentMultiPartyEscrowAddressHeader is the hex MPE address used by the
+	// signature-only escrow handler in blockchain-disabled curation mode. Normal
+	// channel validation takes the contract address from service metadata instead.
 	PaymentMultiPartyEscrowAddressHeader = "snet-payment-mpe-address"
 
-	//Added for free call support in Daemon
-
-	// FreeCallUserIdHeader userID of the person making the call
-	FreeCallUserIdHeader      = "snet-free-call-user-id"
+	// FreeCallUserIdHeader is the optional end-user identity bound to a free-call token.
+	FreeCallUserIdHeader = "snet-free-call-user-id"
+	// FreeCallUserAddressHeader identifies the wallet or trusted backend signing a free call.
 	FreeCallUserAddressHeader = "snet-free-call-user-address"
-	SnetUserAddressHeader     = "snet-user-address"
+	// SnetUserAddressHeader is populated downstream with the address reported by
+	// an authenticated payment handle implementing SenderProvider.
+	SnetUserAddressHeader = "snet-user-address"
 
-	//Will be used to check if the Signature is still valid
+	// CurrentBlockNumberHeader carries the decimal request block for freshness
+	// checks, notably free-call requests. It is separate from token expiration.
 	CurrentBlockNumberHeader = "snet-current-block-number"
 
-	//Place holder to set the free call Auth Token issued
+	// FreeCallAuthTokenHeader carries the complete provider-signed token bytes,
+	// including the underscore and decimal expiration-block suffix.
 	FreeCallAuthTokenHeader = "snet-free-call-auth-token-bin"
-	//Block number on when the Token was issued, to track the expiry of the token, which is ~ 1 Month
-	//FreeCallAuthTokenExpiryBlockNumberHeader = "snet-free-call-token-expiry-block"
 
-	//Users may decide to sign upfront and make calls .Daemon generates and Auth Token
-	//Users/Clients will need to use this token to make calls for the amount signed upfront.
+	// PrePaidAuthTokenHeader carries the prepaid JWT as raw bytes. Its wall-clock
+	// expiry and usage accounting are separate from free-call token block deadlines.
 	PrePaidAuthTokenHeader = "snet-prepaid-auth-token-bin"
 
 	DynamicPriceDerived = "snet-derived-dynamic-price-cost"
@@ -101,8 +100,8 @@ const (
 	IncorrectNonce codes.Code = 1000
 )
 
-// GrpcError is an error which will be returned by interceptor via gRPC
-// protocol. Part of information will be returned as header metadata.
+// GrpcError wraps a gRPC status for payment and metadata failures. Interceptors
+// return Err() to preserve its status code; this wrapper does not send headers.
 type GrpcError struct {
 	// Status is a gRPC call status
 	Status *status.Status
@@ -146,25 +145,26 @@ func NewGrpcErrorf(code codes.Code, format string, args ...any) *GrpcError {
 	}
 }
 
-// StreamPaymentHandler interface which is used by gRPC interceptor to get, validate
-// and complete payment. There are two payment handler implementations so far:
-// jobPaymentHandler and escrowPaymentHandler. jobPaymentHandler is deprecated.
+// StreamPaymentHandler separates payment policy from request forwarding. Escrow,
+// free-call, prepaid, and training handlers return their own opaque payment state.
+// The interceptor invokes a completion hook only after Payment succeeds.
 type StreamPaymentHandler interface {
 	// Type is a content of PaymentTypeHeader field which triggers usage of the
 	// payment handler.
 	Type() (typ string)
-	// Payment extracts payment data from gRPC request context and checks
-	// validity of payment data. It returns nil if data is valid or
-	// appropriate gRPC status otherwise.
+	// Payment validates credentials and returns payment-specific state with a
+	// nil error on success. On failure it must release any acquired resources,
+	// because neither completion hook will be called.
 	Payment(context *GrpcStreamContext) (payment Payment, err *GrpcError)
-	// Complete completes payment if gRPC call was successfully proceeded by
-	// service.
+	// Complete finalizes a payment after the service handler returns nil.
 	Complete(payment Payment) (err *GrpcError)
-	// CompleteAfterError completes payment if service returns error.
+	// CompleteAfterError handles a service error or panic. A non-nil returned
+	// status replaces the service error; panic cleanup is followed by a new panic.
 	CompleteAfterError(payment Payment, result error) (err *GrpcError)
 }
 
 type rateLimitInterceptor struct {
+	processingMu                  sync.Mutex
 	rateLimiter                   rate.Limiter
 	messageBroadcaster            *configuration_service.MessageBroadcaster
 	processRequest                int
@@ -178,29 +178,23 @@ func GrpcRateLimitInterceptor(broadcast *configuration_service.MessageBroadcaste
 		processRequest:                configuration_service.StartProcessingAnyRequest,
 		requestProcessingNotification: broadcast.NewSubscriber(),
 	}
-	go interceptor.startOrStopProcessingAnyRequests()
 	return interceptor.intercept
 }
 
-func (interceptor *rateLimitInterceptor) startOrStopProcessingAnyRequests() {
-	for {
-		interceptor.processRequest = <-interceptor.requestProcessingNotification
-	}
-}
-
-func GrpcMeteringInterceptor(currentBlock func() (*big.Int, error)) grpc.StreamServerInterceptor {
+func GrpcMeteringInterceptor(currentBlock func() (*big.Int, error), background ...*lifecycle.Group) grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		return interceptMetering(srv, ss, info, handler, currentBlock)
+		return interceptMetering(srv, ss, info, handler, currentBlock, background...)
 	}
 }
 
-// Monitor requests arrived, and responses sent and publish these stats for Reporting
+// interceptMetering records call duration and the final handler error, then
+// publishes response statistics asynchronously using the latest available block.
 func interceptMetering(
 	srv any,
 	ss grpc.ServerStream,
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,
-	currentBlock func() (*big.Int, error),
+	currentBlock func() (*big.Int, error), background ...*lifecycle.Group,
 ) error {
 	var (
 		err   error
@@ -216,11 +210,20 @@ func interceptMetering(
 	}
 
 	defer func() {
-		var block *big.Int
-		if currentBlock != nil {
-			block, _ = currentBlock()
+		var workers *lifecycle.Group
+		if len(background) > 0 {
+			workers = background[0]
 		}
-		go metrics.PublishResponseStats(commonStats, time.Since(start), err, block)
+		duration, result := time.Since(start), err
+		workers.Go(func(ctx context.Context) {
+			var block *big.Int
+			if currentBlock != nil {
+				block, _ = currentBlock()
+			}
+			if ctx.Err() == nil {
+				metrics.PublishResponseStatsContext(ctx, commonStats, duration, result, block)
+			}
+		})
 	}()
 
 	err = handler(srv, ss)
@@ -232,8 +235,17 @@ func interceptMetering(
 }
 
 func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-
-	if interceptor.processRequest == configuration_service.StopProcessingAnyRequest {
+	interceptor.processingMu.Lock()
+	select {
+	case state, ok := <-interceptor.requestProcessingNotification:
+		if ok {
+			interceptor.processRequest = state
+		}
+	default:
+	}
+	processing := interceptor.processRequest
+	interceptor.processingMu.Unlock()
+	if processing == configuration_service.StopProcessingAnyRequest {
 		return status.New(codes.Unavailable, "No requests are currently being processed, please try again later").Err()
 	}
 	if !interceptor.rateLimiter.Allow() {
@@ -248,8 +260,9 @@ func (interceptor *rateLimitInterceptor) intercept(srv any, ss grpc.ServerStream
 	return nil
 }
 
-// GrpcPaymentValidationInterceptor returns gRPC interceptor to validate payment.
-// If the blockchain is disabled, then noOpInterceptor is returned.
+// GrpcPaymentValidationInterceptor registers the supplied payment policies and
+// selects one from request metadata, falling back to the default when absent.
+// Blockchain-enabled/disabled policy is selected by snetd components, not here.
 func GrpcPaymentValidationInterceptor(serviceData *blockchain.ServiceMetadata, defaultPaymentHandler StreamPaymentHandler, paymentHandler ...StreamPaymentHandler) grpc.StreamServerInterceptor {
 	interceptor := &paymentValidationInterceptor{
 		defaultPaymentHandler: defaultPaymentHandler,
@@ -275,18 +288,15 @@ type paymentValidationInterceptor struct {
 func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (e error) {
 	var err *GrpcError
 
-	// 1) Gather context, metadata, etc.
+	// Work with copied metadata; the original incoming context may be shared.
 	grpcCtx, err := getGrpcContext(ss, info)
 	if err != nil {
 		return err.Err()
 	}
 
-	// 2) Create new context with mdCopy from grpcCtx
 	baseCtx := metadata.NewIncomingContext(ss.Context(), grpcCtx.MD)
 
-	// 3) Wrap stream to:
-	//    - read and store first frame
-	//    - return baseCtx from Context()
+	// Buffer the first frame for price estimation, then replay it to the backend.
 	wrapperStream, streamErr := NewWrapperServerStream(ss, baseCtx)
 	if streamErr != nil {
 		return streamErr
@@ -294,7 +304,6 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 
 	grpcCtx.InStream = wrapperStream
 
-	// Now we are working with grpcCtx and wrapperStream further
 	paymentHandler, err := interceptor.getPaymentHandler(grpcCtx)
 	if err != nil {
 		return err.Err()
@@ -308,16 +317,15 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 	}
 
 	if sp, ok := payment.(SenderProvider); ok {
-		// copy the original incoming MD
+		// Propagate the payment handle's sender rather than trusting a caller's
+		// existing snet-user-address header.
 		outMD := grpcCtx.MD.Copy()
-		// retrieve the address
 		ethAddr := sp.GetSender().Hex()
 		outMD.Set(SnetUserAddressHeader, ethAddr)
 		outMD.Set("snet-daemon-debug", "streamIntercept")
-		// update the stored metadata in grpcCtx
 		grpcCtx.MD = outMD
 
-		// and update the context inside our WrapperServerStream
+		// Keep the payment context and forwarded stream metadata consistent.
 		if ws, ok := wrapperStream.(*WrapperServerStream); ok {
 			ws.Ctx = metadata.NewIncomingContext(ws.Ctx, outMD)
 		}
@@ -331,13 +339,11 @@ func (interceptor *paymentValidationInterceptor) streamIntercept(srv any, ss grp
 		} else if e == nil {
 			err = paymentHandler.Complete(payment)
 			if err != nil {
-				// return err.Err()
 				e = err.Err()
 			}
 		} else {
 			err = paymentHandler.CompleteAfterError(payment, e)
 			if err != nil {
-				// return err.Err()
 				e = err.Err()
 			}
 		}
@@ -364,18 +370,13 @@ func getGrpcContext(
 		return nil, NewGrpcError(codes.InvalidArgument, "missing metadata")
 	}
 
-	// 1) Copy metadata to allow safe mutation
+	// Copy metadata before adding pricing or authenticated-sender fields.
 	mdCopy := md.Copy()
 
-	//newCtx := metadata.NewIncomingContext(serverStream.Context(), mdCopy)
-
-	// 3) Populate GrpcStreamContext structure
-	// InStream can be the original serverStream at this stage
 	return &GrpcStreamContext{
 		MD:       mdCopy,
 		Info:     info,
-		InStream: serverStream, // using original stream for now
-		// optionally add separate Ctx field if needed
+		InStream: serverStream,
 	}, nil
 }
 
@@ -399,7 +400,8 @@ func (interceptor *paymentValidationInterceptor) getPaymentHandler(context *Grpc
 	return paymentHandler, nil
 }
 
-// GetBigInt gets big.Int value from gRPC metadata
+// GetBigInt parses exactly one metadata value with big.Int.UnmarshalText.
+// Protocol-specific sign and uint256-width checks are left to callers.
 func GetBigInt(md metadata.MD, key string) (value *big.Int, err *GrpcError) {
 	str, err := GetSingleValue(md, key)
 	if err != nil {
@@ -415,8 +417,9 @@ func GetBigInt(md metadata.MD, key string) (value *big.Int, err *GrpcError) {
 	return
 }
 
-// GetBytes gets bytes array value from gRPC metadata for key with '-bin'
-// suffix, internally this data is encoded as base64
+// GetBytes returns exactly one raw binary metadata value for a key ending in
+// -bin. The gRPC transport handles base64 on the wire; this helper does not decode
+// application-level base64 or hexadecimal text.
 func GetBytes(md metadata.MD, key string) (result []byte, err *GrpcError) {
 	if !strings.HasSuffix(key, "-bin") {
 		return nil, NewGrpcErrorf(codes.InvalidArgument, "incorrect binary key name \"%v\"", key)
@@ -430,8 +433,8 @@ func GetBytes(md metadata.MD, key string) (result []byte, err *GrpcError) {
 	return []byte(str), nil
 }
 
-// GetBytesFromHex gets bytes array value from gRPC metadata, bytes array is
-// encoded as hex string
+// GetBytesFromHex requires one metadata value and applies go-ethereum's
+// permissive hex decoder; malformed hex is not returned as a decoding error.
 func GetBytesFromHex(md metadata.MD, key string) (value []byte, err *GrpcError) {
 	str, err := GetSingleValue(md, key)
 	if err != nil {
@@ -440,7 +443,8 @@ func GetBytesFromHex(md metadata.MD, key string) (value []byte, err *GrpcError) 
 	return common.FromHex(str), nil
 }
 
-// GetSingleValue gets string value from gRPC metadata
+// GetSingleValue requires exactly one metadata entry. An empty string is allowed;
+// missing or repeated entries produce InvalidArgument.
 func GetSingleValue(md metadata.MD, key string) (value string, err *GrpcError) {
 	array := md.Get(key)
 
@@ -461,7 +465,8 @@ func NoOpInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	return handler(srv, ss)
 }
 
-// set Additional details on the metrics persisted; this is to keep track of how many calls were made per channel
+// setAdditionalDetails copies optional client, user, channel, and payment-mode
+// reporting fields. These metering hints are not themselves payment authorization.
 func setAdditionalDetails(context *GrpcStreamContext, stats *metrics.CommonStats) {
 	md := context.MD
 	if str, err := GetSingleValue(md, ClientTypeHeader); err == nil {

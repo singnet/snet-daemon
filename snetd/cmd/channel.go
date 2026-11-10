@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ChannelCmd manage operations on payment channels
+// ChannelCmd exposes manual removal of a payment channel's shared-storage lock.
 var ChannelCmd = &cobra.Command{
 	Use:   "channel",
 	Short: "Manage operations on payment channels",
@@ -20,13 +20,13 @@ var ChannelCmd = &cobra.Command{
 	},
 }
 
-// Channel command type
+// channelCommand operates on lock records, not on the MPE contract's channels.
 type channelCommand struct {
 	storage          storage.PrefixedAtomicStorage
 	paymentChannelId *big.Int
 }
 
-// initializes and returns the new channel command object
+// newChannelCommand selects the MPE-scoped lock store and parses the channel ID.
 func newChannelCommand(cmd *cobra.Command, args []string, components *Components) (command Command, err error) {
 	channelId, err := getPaymentChannelId(cmd)
 	if err != nil {
@@ -58,17 +58,18 @@ func (command *channelCommand) Run() (err error) {
 	return command.unlockChannel()
 }
 
-// unlocks the channel with a given channel ID
+// unlockChannel deletes the channel's lock record. It does not close the MPE
+// channel, transfer funds, or delete the stored channel/payment state.
 func (command *channelCommand) unlockChannel() (err error) {
 	key := &escrow.PaymentChannelKey{}
 	key.ID = command.paymentChannelId
-	// check whether the key exists or not
+	// Check for the lock record, not for an on-chain channel.
 	_, ok, err := command.storage.Get(key.String())
 	if !ok {
 		fmt.Printf("Error: Channel %s not found\n", key.String())
 		return
 	}
-	// try deleting the key
+	// Remove only the lock key from the prefixed lock store.
 	err = command.storage.Delete(key.String())
 	if err != nil {
 		fmt.Printf("Error: Unable to unlock the channel -%s\n", key.String())

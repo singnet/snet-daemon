@@ -85,7 +85,9 @@ func (service ConfigurationService) StopProcessingRequests(ctx context.Context, 
 	if err = service.authenticate("_StopProcessingRequests", request.Auth); err != nil {
 		return nil, err
 	}
-	service.broadcast.trigger <- StopProcessingAnyRequest
+	if !service.broadcast.Send(ctx, StopProcessingAnyRequest) {
+		return nil, fmt.Errorf("configuration broadcaster is stopped")
+	}
 	return &StatusResponse{CurrentProcessingStatus: StatusResponse_HAS_STOPPED_PROCESSING_REQUESTS}, nil
 }
 
@@ -94,7 +96,9 @@ func (service ConfigurationService) StartProcessingRequests(ctx context.Context,
 	if err = service.authenticate("_StartProcessingRequests", request.Auth); err != nil {
 		return nil, err
 	}
-	service.broadcast.trigger <- StartProcessingAnyRequest
+	if !service.broadcast.Send(ctx, StartProcessingAnyRequest) {
+		return nil, fmt.Errorf("configuration broadcaster is stopped")
+	}
 	return &StatusResponse{CurrentProcessingStatus: StatusResponse_REQUEST_IN_PROGRESS}, nil
 }
 

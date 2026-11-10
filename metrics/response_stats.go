@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"math/big"
 	"strconv"
 	"time"
@@ -91,8 +92,12 @@ type ResponseStats struct {
 // Publish response received as a payload for reporting /metrics analysis
 // If there is an error in the response received from the service, then send out a notification as well.
 func PublishResponseStats(commonStats *CommonStats, duration time.Duration, err error, block *big.Int) bool {
+	return PublishResponseStatsContext(context.Background(), commonStats, duration, err, block)
+}
+
+func PublishResponseStatsContext(ctx context.Context, commonStats *CommonStats, duration time.Duration, err error, block *big.Int) bool {
 	response := createResponseStats(commonStats, duration, err)
-	return Publish(response, config.GetString(config.MeteringEndpoint)+"/metering/usage", commonStats, block)
+	return PublishContext(ctx, response, config.GetString(config.MeteringEndpoint)+"/metering/usage", commonStats, block)
 }
 
 func createResponseStats(commonStat *CommonStats, duration time.Duration, err error) *ResponseStats {

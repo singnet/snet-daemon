@@ -149,9 +149,19 @@ func startCoverageProvider(t *testing.T, ds *DaemonService, fail bool) *coverage
 	RegisterModelServer(server, provider)
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(listener) }()
-	t.Cleanup(func() { server.Stop(); require.NoError(t, <-done) })
+	t.Cleanup(func() { require.NoError(t, stopCoverageProvider(server, done)) })
 	ds.serviceUrl = "http://" + listener.Addr().String()
 	return provider
+}
+
+func stopCoverageProvider(server *grpc.Server, done <-chan error) error {
+	server.Stop()
+	err := <-done
+	// Cleanup can stop the server before the Serve goroutine starts.
+	if errors.Is(err, grpc.ErrServerStopped) {
+		return nil
+	}
+	return err
 }
 
 func TestTrainingRPCRejectsInvalidRequests(t *testing.T) {
@@ -285,7 +295,6 @@ func TestTrainingStartsPendingModel(t *testing.T) {
 
 func TestTrainingUpdateModelDetailsAndAccess(t *testing.T) {
 	ds := trainingFixture(t)
-	startCoverageProvider(t, ds, false)
 	name, description := "renamed", "updated description"
 	newUser := "0x0000000000000000000000000000000000000001"
 	response, err := ds.UpdateModel(trainingContext(t, "update_model"), &UpdateModelRequest{
@@ -376,6 +385,8 @@ type coverageUploadStream struct {
 	response *StatusResponse
 	sendErr  error
 }
+
+func (s *coverageUploadStream) Context() context.Context { return context.Background() }
 
 func (s *coverageUploadStream) Recv() (*UploadAndValidateRequest, error) {
 	if len(s.requests) == 0 {

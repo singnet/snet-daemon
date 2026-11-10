@@ -25,10 +25,7 @@ type GRPCMux interface {
 	Serve() error
 }
 
-// ---------------------------
-// forkMux: cmux implementation using the forked version
-// ---------------------------
-
+// forkMux uses the forked cmux implementation to share a listener among protocols.
 type forkMux struct {
 	mux      cmux.CMux
 	splitWeb bool
@@ -57,7 +54,8 @@ func (m *forkMux) Endpoints() []Endpoint {
 		eps = append(eps, Endpoint{Type: L_GRPC_WEB, L: grpcWebL})
 	}
 
-	// Match generic HTTP/1.1 (REST, heartbeat, encoding, OPTIONS, etc.)
+	// Match remaining HTTP/1.1 traffic, including utility endpoints, preflight,
+	// and gRPC-Web when it does not have a separate listener.
 	httpL := m.mux.Match(cmux.HTTP1Fast())
 	eps = append(eps, Endpoint{Type: L_HTTP, L: httpL})
 
@@ -66,10 +64,7 @@ func (m *forkMux) Endpoints() []Endpoint {
 
 func (m *forkMux) Serve() error { return m.mux.Serve() }
 
-// ---------------------------
-// origMux: cmux implementation using upstream cmux
-// ---------------------------
-
+// origMux provides the same routing using the upstream cmux implementation.
 type origMux struct {
 	mux      originalCmux.CMux
 	splitWeb bool

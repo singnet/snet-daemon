@@ -28,9 +28,10 @@ to learn more about labels.
 > Before creating a pull request, make sure there is an issue corresponding to your changes. If there isn't one, 
 > [create one first](#issues).
 
-If you want to implement a feature or fix a bug, fork this repository from the `master` and after all the changes 
-[create a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork) 
-to the `master` branch. Don't forget to run automated tests locally before creating a PR.
+Fork this repository and create a branch from `dev` for your changes. When your changes are ready,
+[create a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork)
+with `dev` selected as the base branch. All pull requests, including features, bug fixes, and documentation updates,
+must target `dev`. Don't forget to run automated tests locally before creating a PR.
 
 ### Pull request must include the following information:
 

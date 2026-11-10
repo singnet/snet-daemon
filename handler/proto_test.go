@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// compileProtoFiles
+// getDescriptors compiles in-memory proto sources with well-known imports available.
 func getDescriptors(t *testing.T, protoFiles map[string]string) linker.Files {
 	accessor := protocompile.SourceAccessorFromMap(protoFiles)
 	r := protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: accessor})

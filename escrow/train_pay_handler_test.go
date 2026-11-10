@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/singnet/snet-daemon/v6/blockchain"
-	"github.com/singnet/snet-daemon/v6/config"
 	"github.com/singnet/snet-daemon/v6/handler"
 	"github.com/singnet/snet-daemon/v6/storage"
 	"github.com/singnet/snet-daemon/v6/utils"
@@ -265,13 +264,13 @@ func newTestPaymentTransaction() *paymentTransaction {
 		service: &lockingPaymentChannelService{
 			storage: NewPaymentChannelStorage(memStorage),
 		},
-		lock: &lockType{name: "test", locker: &etcdLocker{storage: memStorage}},
+		lock: &lockMock{},
 	}
 }
 
 func TestTrainStreamPaymentHandlerComplete(t *testing.T) {
-	config.Vip().Set(config.MeteringEnabled, false)
 	h := newTrainStreamHandler(nil, &incomeValidatorMockType{})
+	h.currentBlock = currentBlockForStatsTest(t)
 
 	err := h.Complete(newTestPaymentTransaction())
 
@@ -287,8 +286,8 @@ func TestTrainStreamPaymentHandlerCompleteAfterError(t *testing.T) {
 }
 
 func TestTrainUnaryPaymentHandlerComplete(t *testing.T) {
-	config.Vip().Set(config.MeteringEnabled, false)
 	h := newTrainUnaryHandler(nil, &incomeUnaryValidatorMockType{})
+	h.currentBlock = currentBlockForStatsTest(t)
 
 	err := h.Complete(newTestPaymentTransaction())
 

@@ -39,3 +39,10 @@ jobs:
         env:
           SNET_ETHEREUM_JSON_RPC_HTTP_ENDPOINT: ${{secrets.ETH_JSON_HTTP_ENDPOINT}}
         run: go test -v ./...
+
+      - name: Shutdown lifecycle race tests
+        run: >-
+          go test -race ./snetd/cmd ./lifecycle ./blockchain
+          ./contract_event_listener ./metrics ./configuration_service ./handler
+          ./handler/httphandler ./storage ./training ./escrow
+          -count=2 -timeout=3m

@@ -5,57 +5,72 @@ package escrow;
 option java_package = "io.singularitynet.daemon.escrow";
 option go_package = "github.com/singnet/snet-daemon/v6/escrow";
 
+// ProviderControlService lists payment authorizations and prepares claims in
+// local storage. Clients are responsible for submitting blockchain transactions.
+// Requests must be signed by the organization's configured payment address.
+// Signed payloads concatenate literal UTF-8 prefixes, raw 20-byte MPE addresses,
+// and 32-byte big-endian numeric fields; see the escrow README for signature hashing.
 service ProviderControlService {
 
-    //Get the list of all unclaimed "payments".
-    //in PaymentsSignatureReply signatures MUST be omitted
-
-    //if signature field is present then response should be considered as invalid
+    // List current nonzero authorizations from channel storage. Reply signatures
+    // are omitted; StartClaim must prepare an authorization before it is claimed.
     rpc GetListUnclaimed(GetPaymentsListRequest)  returns (PaymentsListReply) {}
 
-    //get list of all payments in progress
+    // List signed pending claims after removing records superseded on chain.
     rpc GetListInProgress(GetPaymentsListRequest) returns (PaymentsListReply) {}
 
-    //initialize claim for specific channel
+    // Prepare one claim and advance local channel state. The reply authorizes
+    // settlement at the previous nonce; no blockchain transaction is submitted.
     rpc StartClaim(StartClaimRequest) returns (PaymentReply) {}
 
-    //initiate multiple claims at a time
+    // Authenticate one batch and prepare claims in request order. On error,
+    // earlier prepared claims remain stored but no partial payment list is
+    // returned. Use GetListInProgress to recover pending claims after a failure.
     rpc StartClaimForMultipleChannels(StartMultipleClaimRequest) returns (PaymentsListReply) {}
 
 }
 
 
 message GetPaymentsListRequest {
-    //address of MultiPartyEscrow contract
+    // MultiPartyEscrow contract address as a hex string; must match service metadata.
     string mpe_address = 1;
-    //current block number (signature will be valid only for short time around this block number)
+    // Request block number, at most five blocks from the daemon's latest block
+    // in either direction, including both boundaries.
     uint64 current_block = 2;
-    //signature of the following message:
-    //for GetListUnclaimed ("__list_unclaimed", mpe_address, current_block_number)
-    //for GetListInProgress ("__list_in_progress", mpe_address, current_block_number)
+    // Provider signature over prefix || MPE address || current_block, using
+    // "__list_unclaimed" for GetListUnclaimed or "__list_in_progress" for
+    // GetListInProgress. The address is encoded as raw bytes, not hex text.
     bytes signature = 3;
 }
 
 message StartClaimRequest {
-    //address of MultiPartyEscrow contract
+    // MultiPartyEscrow contract address as a hex string; must match service metadata.
     string mpe_address = 1;
-    //channel_id contains id of the channel which state is requested.
+    // Channel ID to claim, encoded as unsigned big-endian bytes.
     bytes channel_id = 2;
-    //signature of the following message ("__start_claim", mpe_address, channel_id, channel_nonce)
+    // Provider signature over "__start_claim" || MPE address || channel ID ||
+    // latest local channel nonce. Obtain that nonce from current channel state;
+    // it is read by the server and is not a separate field in this request.
     bytes signature = 3;
 }
 
 message PaymentReply {
+    // Channel ID, encoded as a 32-byte big-endian integer.
     bytes channel_id    = 1;
 
+    // Nonce covered by signed_amount and signature. A prepared claim retains
+    // the previous nonce even after local channel state has advanced.
     bytes channel_nonce = 2;
 
+    // Cumulative amount authorized for channel_nonce, in token base units.
     bytes signed_amount = 3;
 
-    //this field must be OMITTED in GetListUnclaimed request
+    // Claim signature; omitted in GetListUnclaimed replies and included in
+    // replies for prepared claims.
     bytes signature = 4;
 
-    //indicative of the Channel Expiry in block number
+    // Latest available channel expiration block, encoded as 32-byte big-endian
+    // bytes. Populated by list methods; omitted by StartClaim and batch preparation.
     bytes channel_expiry = 5;
 }
 
@@ -64,11 +79,16 @@ message PaymentsListReply {
 }
 
 message StartMultipleClaimRequest {
-    //address of MultiPartyEscrow contract
+    // MultiPartyEscrow contract address as a hex string; must match service metadata.
     string mpe_address = 1;
+    // Channels to prepare, processed in request order. Only the signed payload
+    // sorts the IDs; duplicate IDs are not removed.
     repeated uint64 channel_ids    = 2;
+    // Request block number, at most five blocks from the daemon's latest block
+    // in either direction, including both boundaries.
     uint64 current_block = 3;
-    //signature will be as follows ( sequence is an ascending order of channel_ids)
-    //("__StartClaimForMultipleChannels_, mpe_address,channel_id1,channel_id2,...,current_block_number)
+    // Provider signature over "__StartClaimForMultipleChannels_" || MPE address
+    // || ascending channel IDs || current_block. Each ID is encoded separately
+    // as 32-byte big-endian bytes; no list length or separators are included.
     bytes signature = 4;
 }

@@ -154,41 +154,11 @@ func (storage *MemoryStorage) CompleteTransaction(transaction Transaction, updat
 
 // ExecuteTransaction executes a transaction on the storage
 func (storage *MemoryStorage) ExecuteTransaction(request CASRequest) (ok bool, err error) {
-	maxRetries := 100
-	for range maxRetries {
-		// Every attempt needs a fresh snapshot; Update runs without holding the lock.
-		transaction, err := storage.StartTransaction(request.ConditionKeys)
-		if err != nil {
-			return false, err
-		}
-		oldValues, err := transaction.GetConditionValues()
-		if err != nil {
-			return false, err
-		}
-		newValues, ok, err := request.Update(oldValues)
-		if err != nil {
-			return false, err
-		}
-		if !ok {
-			// If the transaction was not successful and retrying is true - continue
-			if request.RetryTillSuccessOrError {
-				continue
-			}
-			return false, nil
-		}
-		ok, err = storage.CompleteTransaction(transaction, newValues)
-		if err != nil {
-			return false, err
-		}
-		if ok {
-			return true, nil
-		}
-		if !request.RetryTillSuccessOrError {
-			return false, nil
-		}
-	}
-	// After exhausting retries, indicate failure without error to match expected semantics
-	return false, nil
+	return ExecuteTransaction(storage, request, TransactionPolicy{
+		MaxAttempts:               100,
+		RetryOnUpdateDeclined:     true,
+		RestartTransactionOnRetry: true,
+	})
 }
 
 type memoryStorageTransaction struct {

@@ -1,12 +1,18 @@
 package main
 
 import (
+	"errors"
+	"fmt"
+	"os"
+
 	"github.com/singnet/snet-daemon/v6/snetd/cmd"
-	"go.uber.org/zap"
 )
 
 func main() {
 	if err := cmd.RootCmd.Execute(); err != nil {
-		zap.L().Fatal("Unable to run application", zap.Error(err))
+		if !errors.Is(err, cmd.ErrInvalidConfiguration) {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+		}
+		os.Exit(1)
 	}
 }

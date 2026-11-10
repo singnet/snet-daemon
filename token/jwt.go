@@ -14,7 +14,9 @@ type customJWTokenServiceImpl struct {
 	getGroupId func() string
 }
 
-// NewJWTTokenService service to Create and Validate JWT tokens
+// NewJWTTokenService manages prepaid JWTs scoped to the configured organization
+// and the selected organization metadata group ID. These HMAC tokens are separate
+// from provider-signed free-call tokens and MPE claim authorizations.
 func NewJWTTokenService(data blockchain.OrganizationMetaData) Manager {
 	return &customJWTokenServiceImpl{
 		getGroupId: func() string {
@@ -23,19 +25,26 @@ func NewJWTTokenService(data blockchain.OrganizationMetaData) Manager {
 	}
 }
 
+// CreateToken issues an HS256 JWT using token_secret_key, recording the payload,
+// user address, organization ID, group ID, and wall-clock expiration. Service ID,
+// MPE address, and channel nonce are not separate claims.
 func (service customJWTokenServiceImpl) CreateToken(payLoad PayLoad, userAddress string) (CustomToken, error) {
 	atClaims := jwt.MapClaims{}
 	atClaims["payload"] = fmt.Sprintf("%v", payLoad)
 	atClaims["userAddress"] = userAddress
 	atClaims["orgId"] = config.GetString(config.OrganizationId)
 	atClaims["groupId"] = service.getGroupId()
-	//set the Expiry of the Token generated
+	// Prepaid JWT lifetime is measured in minutes, unlike free-call block deadlines.
 	atClaims["exp"] = time.Now().UTC().
 		Add(time.Minute * time.Duration(config.GetInt(config.TokenExpiryInMinutes))).Unix()
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
 	return jwtToken.SignedString([]byte(config.GetString(config.TokenSecretKey)))
 }
 
+// VerifyToken accepts HMAC signing methods, checks exp and nbf when present,
+// and requires the expected payload, organization, and group. Issuance
+// uses HS256, but verification does not restrict the HMAC family to that algorithm.
+// A missing or empty userAddress claim returns "unknown" after other checks pass.
 func (service customJWTokenServiceImpl) VerifyToken(receivedToken CustomToken, payLoad PayLoad) (userAddress string, err error) {
 	tokenString := fmt.Sprintf("%v", receivedToken)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {

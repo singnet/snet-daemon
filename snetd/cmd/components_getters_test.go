@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"testing"
 
 	"github.com/singnet/snet-daemon/v6/blockchain"
@@ -43,7 +44,7 @@ func TestComponentsCachedGetters(t *testing.T) {
 	assert.Same(t, processor, components.Blockchain())
 }
 
-func TestComponentsEtcdClientFailsToConnect(t *testing.T) {
+func TestComponentsEtcdClientStartsWithoutCluster(t *testing.T) {
 	originalGroupName := config.GetString(config.DaemonGroupName)
 	config.Vip().Set(config.DaemonGroupName, "default_group")
 	t.Cleanup(func() {
@@ -70,7 +71,13 @@ func TestComponentsEtcdClientFailsToConnect(t *testing.T) {
 
 	components := &Components{organizationMetaData: metaData}
 
-	require.Panics(t, func() {
+	t.Cleanup(components.Close)
+	require.NotPanics(t, func() {
 		_ = components.EtcdClient()
 	})
+	client := components.EtcdClient()
+	require.Same(t, client, components.EtcdClient())
+	_, present, err := client.Get("unavailable-cluster")
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.False(t, present)
 }

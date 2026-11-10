@@ -14,6 +14,10 @@ import (
 )
 
 func GetIpfsFile(hash string) (content []byte, err error) {
+	return GetIpfsFileContext(context.Background(), hash)
+}
+
+func GetIpfsFileContext(ctx context.Context, hash string) (content []byte, err error) {
 
 	zap.L().Debug("getting file from IPFS", zap.String("hash", hash))
 
@@ -26,7 +30,7 @@ func GetIpfsFile(hash string) (content []byte, err error) {
 	}
 
 	req := ipfsClient.Request("cat", cID.String())
-	resp, err := req.Send(context.Background())
+	resp, err := req.Send(ctx)
 	if err != nil {
 		zap.L().Error("error executing the cat command in ipfs", zap.String("hashFromMetaData", hash), zap.Error(err))
 		return nil, err

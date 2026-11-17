@@ -283,6 +283,7 @@ func (ds *DaemonService) UploadAndValidate(clientStream Daemon_UploadAndValidate
 			stResp, err = providerStream.CloseAndRecv()
 			if err != nil {
 				zap.L().Error("[UploadAndValidate] providerStream.CloseAndRecv() error", zap.Error(err))
+				return err
 			}
 			break
 		}
@@ -865,6 +866,9 @@ func (ds *DaemonService) updateModelStatus(modelID string, newStatus Status) (da
 	data, ok, err = ds.storage.Get(key)
 	if err != nil || !ok || data == nil {
 		zap.L().Error("[updateModelStatus] can't get model data from etcd", zap.Error(err))
+		if err == nil {
+			err = fmt.Errorf("model data doesn't exist for modelID: %s", modelID)
+		}
 		return data, WrapError(ErrGetModelStorage, err.Error())
 	}
 	data.Status = newStatus

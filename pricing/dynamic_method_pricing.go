@@ -51,7 +51,6 @@ func (priceType *DynamicMethodPrice) checkForDynamicPricing(
 		grpc.MaxCallRecvMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024),
 		grpc.MaxCallSendMsgSize(config.GetInt(config.MaxMessageSizeInMB)*1024*1024))
 
-	conn, _ := grpc.NewClient(passThroughURL.Host, grpc.WithTransportCredentials(insecure.NewCredentials()), options)
 	md, ok := metadata.FromIncomingContext(derivedContext.InStream.Context())
 
 	if !ok {
@@ -64,11 +63,17 @@ func (priceType *DynamicMethodPrice) checkForDynamicPricing(
 	if !ok {
 		return nil, fmt.Errorf("Umable to determine the pricing method")
 	}
+	conn, err := grpc.NewClient(passThroughURL.Host, grpc.WithTransportCredentials(insecure.NewCredentials()), options)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
 	clientStream, err := conn.NewStream(outCtx,
 		&grpc.StreamDesc{ServerStreams: true, ClientStreams: true}, pricingMethod,
 		grpc.CallContentSubtype("proto"))
 	if err != nil {
 		zap.L().Error(err.Error())
+		return nil, err
 	}
 	return priceType.getPriceFromPricingMethod(derivedContext.InStream, clientStream)
 

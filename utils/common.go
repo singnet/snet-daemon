@@ -27,7 +27,8 @@ func Deserialize(slice string, value any) (err error) {
 
 func CheckIfHttps(endpoints []string) bool {
 	for _, endpoint := range endpoints {
-		if strings.Contains(endpoint, "https") {
+		u, err := url.Parse(endpoint)
+		if err == nil && u.Scheme == "https" && u.Host != "" {
 			return true
 		}
 	}
